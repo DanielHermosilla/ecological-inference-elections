@@ -306,7 +306,32 @@ def EM_mvn_cdf(
     save_dict=False,
     dict_file=None,
 ):
-    """ """
+    """
+
+    Implements the whole EM algorithm within the Multivariate CDF method.
+
+    Parameters:
+        X (numpy.ndarray): Matrix of dimension (cxb) that stores the results of candidate "c" on ballot box "b".
+        b (numpy.ndarray): Matrix of dimension (bxg) that stores the amount of votes from demographic group "g".
+        p_est (numpy.ndarray): Matrix of initial probabilities.
+        q_method (string): Method for estimating the probability that a voter of group "g" in ballot box "b" voted for candidate "c" conditional on the observed result. Currently, it supports
+        the "", "", "" and "" methods.
+        convergence_value (float, optional): The epsilon value of convergence.
+            default value: 0.001
+        max_iterations (int, optional): The maximum amount of iterations.
+            default value: 100
+        load_bar (bool, optional): Print a progress bar of the process.
+            default value: True
+        verbose (bool, optional): Print indicating messages.
+            default value: True
+        dict_results (dict, optional): Dictionary that stores the progress of the algorithm, including the initial parameters, ending criteria, run time and amount of iterations.
+            default value: {}
+        save_dict (bool, optional): Save the dictionary that stores the progress of the algorithm.
+            default value: False
+        dict_file (str, optional): The file extension of the resulting file.
+            default value: None.
+    """
+
     if p_est is None:
         p_est = get_p_est(X, b, p_method)
     return EM_algorithm(
@@ -355,4 +380,3 @@ if __name__ == "__main__":
     # print(EM_full(X,b, verbose=False, load_bar=False, p_method='group_proportional'))
     # print(EM_mvn_pdf(X,b, verbose=False, load_bar=False, p_method='group_proportional'))
     # print(EM_mult(X,b, verbose=False, load_bar=False, p_method='group_proportional'))
-
