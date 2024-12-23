@@ -1,7 +1,7 @@
 # Compilador y flags
 CC = clang
-CFLAGS = -Wall -Wextra -g -I$(shell R RHOME)/include
-LDFLAGS = -L$(shell R RHOME)/lib -shared -fPIC -lR
+CFLAGS = -Wall -Wextra -g -I$(shell R RHOME)/include -I/usr/local/Cellar/gsl/2.8/include
+LDFLAGS = -L$(shell R RHOME)/lib -L/usr/local/Cellar/gsl/2.8/lib -shared -fPIC -lR -lgsl -lgslcblas
 
 # Biblioteca compartida
 TARGET = util.so
