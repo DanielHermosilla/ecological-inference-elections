@@ -353,7 +353,7 @@ def compute_qm_simulate(b_m, Z_m, I_size, G_size, alfa_Z_m, log_p):
         Z_m (numpy.ndarray): Matrix with the H&R sampling.
         I_size (int): The amount of candidates.
         G_size (int): The amount of demographic groups.
-        alfa_Z_m
+        alfa_Z_m (numpy.ndarray): Parameter of normalization
 
     Returns:
        numpy.ndarray: Array with the probability values per given ballot box
