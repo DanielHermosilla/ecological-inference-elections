@@ -221,6 +221,24 @@ def MonteCarlo_cdf(Chol, a, b, mvn_dim, epsilon, Nmax):
 
 
 def MonteCarlo_cdf_matrix(Chol, a, b, mvn_dim, epsilon, min_order=2, max_order=5):
+    """
+    Computes the CDF integral with Monte Carlo simulation for all the demographic groups (¿ check if it's for groups or ballot boxes). It approximates to the conditional distribution of the votation outcomes given a certain group preference.
+
+    Parameters:
+        Chol (numpy.ndarray): Cholesky decomposition of the variance.
+        a (numpy.ndarray): First components of the unitary hypercube.
+        b (numpy.ndarray): Second components of the unitary hipercube.
+        mvn_dim (int): Dimension of the Multivariate Normal.
+        epsilon (float): Error threshold.
+        min_order (int, optional): Minimum amount of samples for the simulation, expressed as exponents of base 10.
+            default value: 2
+        max_order (int, optional): Minimum amount of samples for the simulation, expressed as exponents of base 10.
+            default value: 5
+
+    Returns:
+        float: Approximation of the probability of the candidate votation outcome given the preferrence of an arbitrary group.
+
+    """
     intsum = 0
     varsum = 0
     total_sim = 0
@@ -288,6 +306,7 @@ def EM_mvn_cdf(
     save_dict=False,
     dict_file=None,
 ):
+    """ """
     if p_est is None:
         p_est = get_p_est(X, b, p_method)
     return EM_algorithm(
