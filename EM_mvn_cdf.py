@@ -85,11 +85,13 @@ def compute_qm_mvn_cdf(
     mu = b_m @ p_trunc  # (1,G_size) @ (G_size, I_size-1) = I_size - 1
     cov = np.diag(mu) - p_trunc.T @ np.diag(b_m) @ p_trunc  # (I_size-1, I_size-1)
 
-    covs_U = cov - diag_p + p_g_squared  # (G_size, I_size-1, I_size-1)
+    covs_U = (
+        cov - diag_p + p_g_squared
+    )  # (G_size, I_size-1, I_size-1) # For each G, matrix (i-1, i-1).
     mus_U = mu - p_trunc  # (G_size, I_size-1)
 
     if I_size > 2:
-        Chols_U = np.linalg.cholesky(covs_U)
+        Chols_U = np.linalg.cholesky(covs_U)  # Tensor grado 3.
 
     qm = np.zeros(shape=(G_size, I_size))
     for i in range(I_size):
@@ -103,8 +105,14 @@ def compute_qm_mvn_cdf(
                 )
             else:
                 n_i_center = n_i - mus_U[g]
-                qm[g, i] = MonteCarlo_cdf_matrix(
-                    Chols_U[g], n_i_center - 0.5, n_i_center + 0.5, I_size - 1, 0.0001
+                qm[g, i] = (
+                    MonteCarlo_cdf_matrix(  # Cada combinación G,I tiene su propio \sigma, cov cambia => propio hipercubo => se debe calcular GxI
+                        Chols_U[g],
+                        n_i_center - 0.5,
+                        n_i_center + 0.5,
+                        I_size - 1,
+                        0.0001,
+                    )
                 )
     if np.all(qm == 0):
         qm = np.ones(shape=(G_size, I_size))
@@ -206,7 +214,7 @@ def MonteCarlo_cdf(Chol, a, b, mvn_dim, epsilon, Nmax):
     error = 1
     while error > epsilon and N < Nmax:
         w = np.random.uniform(0, 1, mvn_dim - 1)
-        for i in range(1, mvn_dim):
+        for i in range(1, mvn_dim):  #
             y[i - 1] = norm.ppf(d[i - 1] + w[i - 1] * (e[i - 1] - d[i - 1]))
             Chol_cum = np.dot(Chol[i, :i], y[:i])
             d[i] = norm.cdf((a[i] - Chol_cum) / Chol[i, i])
@@ -222,7 +230,7 @@ def MonteCarlo_cdf(Chol, a, b, mvn_dim, epsilon, Nmax):
 
 def MonteCarlo_cdf_matrix(Chol, a, b, mvn_dim, epsilon, min_order=2, max_order=5):
     """
-    Computes the CDF integral with Monte Carlo simulation for all the demographic groups (¿ check if it's for groups or ballot boxes). It approximates to the conditional distribution of the votation outcomes given a certain group preference.
+    Computes the CDF integral with Monte Carlo simulation over one demographic group within a ballot box. It approximates to the conditional distribution of the votation outcomes given a certain group preference.
 
     Parameters:
         Chol (numpy.ndarray): Cholesky decomposition of the variance.
@@ -255,7 +263,7 @@ def MonteCarlo_cdf_matrix(Chol, a, b, mvn_dim, epsilon, min_order=2, max_order=5
         e[0, :] = e_0
         f[0, :] = f_0
         w = np.random.uniform(0, 1, (mvn_dim - 1, n))
-        for i in range(1, mvn_dim):
+        for i in range(1, mvn_dim):  #
             y[i - 1, :] = norm.ppf(
                 d[i - 1, :] + w[i - 1, :] * (e[i - 1, :] - d[i - 1, :])
             )
