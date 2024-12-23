@@ -59,8 +59,8 @@ def random_direction(var_size, l, u):
 
 def generate_z_m(n_m, p, b_m, G_size, I_size):
     z_m = np.zeros(shape=(G_size, I_size), dtype=int)
-    b_sim_m_n = b_m.copy()
-    votes_left_n = n_m.copy()
+    b_sim_m_n = b_m.copy()  # Usar punteros al implementar en C
+    votes_left_n = n_m.copy()  # Usar punteros al implementar en C
     total_votes = np.sum(n_m)
     # let's fill Z
     for i in range(total_votes):
@@ -75,9 +75,22 @@ def generate_z_m(n_m, p, b_m, G_size, I_size):
 
 
 def generate_z_m_v2(n_m, b_m, G_size, I_size):
+    """
+    Generate the matrix of all possible outcomes.
+
+    Parameters:
+        n_m (numpy.ndarray): Total amount of votes from each ballot box.
+        b_m (numpy.ndarray): Total amount of votes per demographic group for each ballot box.
+        G_size (int): The amount of demographic groups.
+        I_size (int): The amount of candidates.
+
+    Returns:
+        numpy.ndarray: Matrix with all the posible outcomes.
+    """
     z_m = np.zeros(shape=(G_size, I_size), dtype=int)
-    b_m_copy = b_m.copy()
-    n_m_copy = n_m.copy()
+    b_m_copy = b_m.copy()  # Usar punteros al implementar en C
+    n_m_copy = n_m.copy()  # Usar punteros al implementar en C
+
     # generate a fast initial permutation
     for g in range(G_size):
         for i in range(I_size):
@@ -105,6 +118,17 @@ def z_to_polytope_var(z_m):
 
 # transform a reduced vector of variables to z_m
 def polytope_var_to_z(x_m, n_m, b_m, G_size, I_size):
+    """
+    Given a sample (polytope), it computes the matrix of all possible outcomes.
+
+    Parameters:
+        x_m (numpy.ndarray): Matrix of votes towards a candidate for each ballot box.
+        n_m (numpy.ndarray): Total amount of votes from each ballot box. (Might be redundant with x_m).
+        b_m (numpy.ndarray): Total amount of votes per demographic group for each ballot box.
+        G_size (int): The amount of demographic groups.
+        I_size (int): The amount of candidates.
+
+    """
     Z_m = np.zeros((G_size, I_size), dtype=int)
     Z_m[:-1, :-1] = x_m.reshape((G_size - 1, I_size - 1))
     for g in range(G_size - 1):
