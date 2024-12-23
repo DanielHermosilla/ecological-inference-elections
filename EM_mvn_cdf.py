@@ -178,6 +178,21 @@ def MonteCarlo_cdf(Chol, a, b, mvn_dim, epsilon, alpha, Nmax):
 
 
 def MonteCarlo_cdf(Chol, a, b, mvn_dim, epsilon, Nmax):
+    """
+    Calculates the CDF integral with Monte Carlo simulation.
+
+    Parameters:
+        Chol (numpy.ndarray): Cholesky decomposition of the variance.
+        a (numpy.ndarray): First component of the unitary hypercube.
+        b (numpy.ndarray): Second component of the unitary hipercube.
+        mvn_dim (int): Dimension of the Multivariate Normal.
+        epsilon (float): Error threshold.
+        Nmax (int): Maximum amount of iterations in the Monte Carlo method.
+
+    Returns:
+        float: An approximation of the CDF integral
+
+    """
     intsum = 0
     N = 1
     varsum = 0
