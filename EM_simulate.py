@@ -147,7 +147,7 @@ def compute_beta_z(z, log_p, lgac_n, G_size, I_size):
 
     Parameters:
         z (numpy.ndarray): Matrix with all the posible outcomes.
-        log_p (numpy.ndarray): (Log of probabilities of Z ¿)
+        log_p (numpy.ndarray): (Log of probabilities of p ¿)
         lgac_n (numpy.ndarray): (Array with normalization values ¿)
         G_size (int): The amount of demographic groups.
         I_size (int): The amount of candidates.
@@ -346,6 +346,22 @@ def simulate_Z(
 def compute_q_simulate(
     n, p, b, Z, alfa_Z, parallel=False, parallel_2=False, parallel_3=False
 ):
+    """
+    Compute the probability that a voter of group "g" in ballot box "b" voted for candidate "c" conditional on the observed result for each ballot box (referred as "q" on the paper).
+
+    Parameters:
+        n (numpy.ndarray): Total amount of votes per ballot box.
+        p (numpy.ndarray): RxC matrix with the probabilities of each candidate per demographic group.
+        b (numpy.ndarray): Matrix of votes towards a candidate for each ballot box.
+        Z (numpy.ndarray): Matrix with the H&R sampling.
+        parallel (bool, optional): Run the process with parallelization.
+            default value: False
+
+    Returns:
+       numpy.ndarray: Array with the probability values per ballot box
+
+
+    """
 
     M_size, G_size, I_size = b.shape[0], b.shape[1], n.shape[1]
     log_p = np.log(p)
@@ -366,6 +382,21 @@ def compute_q_simulate(
 
 # CAMBIAR ALFA_Z
 def compute_qm_simulate(b_m, Z_m, I_size, G_size, alfa_Z_m, log_p):
+    """
+    Compute the probability that a voter of group "g" in ballot box "b" voted for candidate "c" conditional on the observed result for a given ballot box (referred as "q" on the paper).
+
+    Parameters:
+        b_m (numpy.ndarray): Matrix of votes towards a candidate for the given ballot box.
+        Z_m (numpy.ndarray): Matrix with the H&R sampling.
+        I_size (int): The amount of candidates.
+        G_size (int): The amount of demographic groups.
+        alfa_Z_m
+
+    Returns:
+       numpy.ndarray: Array with the probability values per given ballot box
+
+
+    """
     probs_zm = np.array(
         [
             compute_qzm(Z_m[s], I_size, G_size, alfa_Z_m[s], log_p)
@@ -410,6 +441,18 @@ def compute_alfa_Z(Z, b, G_size, I_size):
 
 
 def compute_p(q, b):
+    """
+    Compute the optimal probability "p" of the M-step given the probability that a voter of group "g" in ballot box "b" voted for candidate "c" conditional on the observed result for each ballot box (referred as "q" on the paper) and amount of votes per demographic group.
+
+    Parameters:
+        q (numpy.ndarray): Matrix with the probabilities of the probabilities that a voter of group "g" in ballot box "b" voted for candidate "c".
+        b (numpy.ndarray): The amount of votes per demographic group.
+
+    Returns:
+        float: Optimal probability for the M-step.
+
+
+    """
     num = np.sum(np.multiply(q, b[..., None]), axis=0)
     dem = np.sum(b, axis=0)[..., None]
     return num / dem
