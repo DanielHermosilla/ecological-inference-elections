@@ -253,6 +253,33 @@ def simulate_Z(
     unique=True,
     seed=123,
 ):
+    """
+    Simulate the samples for estimating the probability that a voter of group "g" in ballot box "b" voted for candidate "c" conditional on the observed result (referred as "q" on the paper).
+
+    Parameters:
+        n (numpy.ndarray): Total amount of votes per ballot box.
+        b (numpy.ndarray): Matrix of votes towards a candidate for each ballot box.
+        samples (int, optional): Amount of samples (equivalent of "S" in the pseudo-code).
+            default value: 1000
+        step_size (int, optional): The size of the step (equivalent of "M" in the pseudo-code).
+            default value: 100
+        save (bool, optional): Save the output to a binary/pickle file.
+            default value: False
+        name (str, optional): Name of the output file.
+            default value: False
+        parallel (bool, optional): Run the process with parallelization.
+            default value: True
+        verbose (bool, optional): Prints useful messages.
+            default value: False
+        unique (bool, optional): Consider only unique combinations in the sampling matrix.
+            default value: True
+        seed (int, optional): Seed for randomization
+            default value: 123
+
+    Returns:
+        numpy.ndarray: A sampling matrix
+
+    """
     np.random.seed(seed)  # set seed
     M_size, G_size, I_size = b.shape[0], b.shape[1], n.shape[1]
     # Parallelize the process
