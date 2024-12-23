@@ -53,7 +53,7 @@ def compute_q_mvn_cdf(n, p, b, parallel=False, R=False):
     #     with Pool() as pool:
     #         q = pool.starmap(compute_qm_mvn, q_args)
     #     return np.array(q)
-    for m in range(M_size):
+    for m in range(M_size):  # Note that M_size is b.shape[0], use pointer in C.
         q_m = compute_qm_mvn_cdf(
             n[m], n_trunc[m], p, p_trunc, b[m], I_size, G_size, diag_p, p_g_squared
         )
@@ -64,6 +64,23 @@ def compute_q_mvn_cdf(n, p, b, parallel=False, R=False):
 def compute_qm_mvn_cdf(
     n_m, n_m_trunc, p, p_trunc, b_m, I_size, G_size, diag_p, p_g_squared
 ):
+    """
+    Computes the matrix with the probabilities that a voter of group "g" in ballot box "b" voted for candidate "c" per ballot box (referred as "q" on the paper) using the MVN CDF approximation.
+
+    Parameters:
+        n_m (numpy.ndarray): Matrix with the amount of votes for each candidate per ballot box.
+        n_m_trunc (numpy.ndarray): Matrix with the amount of votes for each candidate per ballot box except the last one (might be redundant).
+        p (numpy.ndarray): Matrix with the prior M-step probabilities.
+        p_trunc (numpy.ndarray): Matrix with the prior M-step probabilities except the last one (might be redundant).
+        I_size (int): Amount of candidates.
+        G_size (int): Amount of demographic groups.
+        diag_p (numpy.ndarray): A diagonal matrix with the values of "p".
+        p_g_squared (numpy.ndarray): A matrix with the output of matrix multiplication between "p"
+
+    Returns:
+        float: The probability that a voter from group "g" in ballot box "b" voted for candidate "c" using the MVN CDF approximation.
+
+    """
 
     mu = b_m @ p_trunc  # (1,G_size) @ (G_size, I_size-1) = I_size - 1
     cov = np.diag(mu) - p_trunc.T @ np.diag(b_m) @ p_trunc  # (I_size-1, I_size-1)
