@@ -128,6 +128,9 @@ def polytope_var_to_z(x_m, n_m, b_m, G_size, I_size):
         G_size (int): The amount of demographic groups.
         I_size (int): The amount of candidates.
 
+    Returns:
+        numpy.ndarray: Matrix with all the posible outcomes.
+
     """
     Z_m = np.zeros((G_size, I_size), dtype=int)
     Z_m[:-1, :-1] = x_m.reshape((G_size - 1, I_size - 1))
@@ -139,6 +142,19 @@ def polytope_var_to_z(x_m, n_m, b_m, G_size, I_size):
 
 
 def compute_beta_z(z, log_p, lgac_n, G_size, I_size):
+    """
+    Compute a starting point within the matrix of possible outcomes.
+
+    Parameters:
+        z (numpy.ndarray): Matrix with all the posible outcomes.
+        log_p (numpy.ndarray): (Log of probabilities of Z ¿)
+        lgac_n (numpy.ndarray): (Array with normalization values ¿)
+        G_size (int): The amount of demographic groups.
+        I_size (int): The amount of candidates.
+
+    Returns:
+        numpy.ndarray: Array with a convenient starting point for the initialization of the H&R algorithm.
+    """
     # beta_z = 0.0
     # for g in range(G_size):
     #    beta_z += np.sum([hlg_p_gin[g][i][z[g,i]] - lgac_n[z[g,i]] for i in range(I_size)])
@@ -163,6 +179,30 @@ def hit_and_run_matrix(
     unique=True,
     seed=123,
 ):
+    """
+    Matrix with the outcomes of the Hit and Run algorithm.
+
+    Parameters:
+        n_m (numpy.ndarray): Total amount of votes per ballot box.
+        b_m (numpy.ndarray): Matrix of votes towards a candidate for each ballot box.
+        G_size (int): The amount of demographic groups.
+        I_size (int): The amount of candidates.
+        samples (int, optional): Amount of samples (equivalent of "S" in the pseudo-code).
+            default value: 1000
+        step_size (int, optional): The size of the step (equivalent of "M" in the pseudo-code).
+            default value: 100
+        load_bar (bool, optional): Print a loading bar showing the progress.
+            default value: False
+        unique (bool, optional): Consider only unique appearances.
+            default value: True
+        seed (int, optional): The randomizing seed.
+            default value: 123
+
+        Returns:
+            Returns a list of outcomes.
+
+
+    """
     # z_0 = generate_z_m(n_m, p, b_m, G_size, I_size)
     # print('getting_first_point...')
     if seed is not None:
