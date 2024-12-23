@@ -445,7 +445,7 @@ def compute_p(q, b):
     Compute the optimal probability "p" of the M-step given the probability that a voter of group "g" in ballot box "b" voted for candidate "c" conditional on the observed result for each ballot box (referred as "q" on the paper) and amount of votes per demographic group.
 
     Parameters:
-        q (numpy.ndarray): Matrix with the probabilities of the probabilities that a voter of group "g" in ballot box "b" voted for candidate "c".
+        q (numpy.ndarray): Matrix with the probabilities that a voter of group "g" in ballot box "b" voted for candidate "c".
         b (numpy.ndarray): The amount of votes per demographic group.
 
     Returns:
