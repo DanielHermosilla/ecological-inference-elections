@@ -8,6 +8,18 @@ import pickle
 
 
 def compute_p(q, b):
+    """
+    Computes the optimal solution of the M-step.
+
+    Parameters:
+        q (numpy.ndarray): Matrix of dimension (bxgxc) that represents the probability that a voter of group "g" in ballot box "b" voted for candidate "c" conditional on the observed result.
+        b (numpy.ndarray): Matrix of dimension (bxg) that stores the amount of votes from demographic group "g".
+
+    Returns:
+        float: The optimal probability from the M-step.
+
+
+    """
     num = np.sum(np.multiply(q, b[..., None]), axis=0)
     dem = np.sum(b, axis=0)[..., None]
     return num / dem
