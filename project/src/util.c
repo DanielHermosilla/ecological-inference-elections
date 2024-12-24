@@ -1,3 +1,4 @@
+#include "matrixUtils.h"
 #include <R.h>
 #include <R_ext/Rdynload.h>
 #include <Rinternals.h>
@@ -11,7 +12,7 @@
 // 2, 6, 5
 // };
 
-double getInitialP()
+double getInitialP(double X, double w, double p)
 {
 
     /**
@@ -30,17 +31,14 @@ double getInitialP()
      * @warning Warnings about misuse or side effects.
      * @see Reference to other relevant functions or documentation.
      */
-    return R_NilValue;
+
+    double a = 4;
+    return a;
 }
 
 SEXP hello_gsl()
 {
-    printf("Hello, World from GSL!\n");
+    printf("Hello, World from C!\n");
 
-    // Ejemplo: calcular la función de Bessel de primer tipo J0(5.0)
-    double x = 5.0;
-    double result = gsl_sf_bessel_J0(x);
-
-    printf("El valor de la función de Bessel J0(%.1f) es: %.5f\n", x, result);
     return R_NilValue;
 }
