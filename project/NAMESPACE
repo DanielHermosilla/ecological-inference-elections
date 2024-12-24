@@ -1,0 +1,2 @@
+useDynLib(util, .registration = TRUE, path="R/util.so")
+export(hello_gsl)
