@@ -1,20 +1,20 @@
-# Compilador y flags
+# Compiler and Flags
 CC = clang
-CFLAGS = -Wall -Wextra -g -I$(shell R RHOME)/include -I/usr/local/Cellar/gsl/2.8/include
-LDFLAGS = -L$(shell R RHOME)/lib -L/usr/local/Cellar/gsl/2.8/lib -shared -fPIC -lR -lgsl -lgslcblas
+CFLAGS = -Wall -Wextra -g -I$(shell R RHOME)/include -I/usr/local/opt/openblas/include
+LDFLAGS = -L$(shell R RHOME)/lib -L/usr/local/opt/openblas/lib -shared -dynamiclib -fPIC -lR -lopenblas -lgsl -lgslcblas
 
-# Biblioteca compartida
+# Shared Library
 TARGET = util.so
 SRCS = util.c
 
-# Regla principal
+# Default Rule
 all: $(TARGET)
 
-# Compilar la biblioteca compartida
+# Build Shared Library
 $(TARGET): $(SRCS)
 	$(CC) $(CFLAGS) -o $(TARGET) $(SRCS) $(LDFLAGS)
 
-# Limpieza
+# Clean Build Artifacts
 clean:
 	rm -f $(TARGET)
 
