@@ -1,7 +1,7 @@
 # Compiler and Flags
 CC = clang
-CFLAGS = -Wall -Wextra -g -I$(shell R RHOME)/include -I/usr/local/opt/openblas/include
-LDFLAGS = -L$(shell R RHOME)/lib -L/usr/local/opt/openblas/lib -shared -dynamiclib -fPIC -lR -lopenblas -lgsl -lgslcblas
+CFLAGS = -Wall -Wextra -g -I$(shell R RHOME)/include -I/usr/local/opt/openblas/include -Xpreprocessor -fopenmp
+LDFLAGS = -L$(shell R RHOME)/lib -L/usr/local/opt/openblas/lib -shared -dynamiclib -fPIC -lR -lopenblas -lgsl -lgslcblas -lomp
 
 # Shared Library
 TARGET = util.so
