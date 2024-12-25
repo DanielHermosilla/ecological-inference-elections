@@ -80,7 +80,7 @@ void colSum(double *matrix, double *result, int rows, int cols)
 // For parallelization, note that the array has its own identifier on the loop, hence,
 // there shouldn't be a critical/coliding problem. The thread must be only made on "j"
 // though, otherwise, there would be colissions with "i".
-#pragma omp for
+#pragma omp parallel for
     for (int j = 0; j < cols; j++)
     {
         result[j] = 0.0;
@@ -121,7 +121,7 @@ void colSum(double *matrix, double *result, int rows, int cols)
  */
 void fillMatrix(double *matrix, int rows, int cols, double value)
 {
-#pragma omp for
+#pragma omp parallel for
     for (int i = 0; i < rows * cols; i++)
     {
         matrix[i] = value;
