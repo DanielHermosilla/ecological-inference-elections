@@ -1,4 +1,5 @@
 #include "matrixUtils.h"
+#include <cstdlib>
 #include <omp.h> // Parallelization
 #include <stdio.h>
 
@@ -118,7 +119,7 @@ void rowSum(Matrix *matrix, double *result)
     if (!matrix || !matrix->data || !result)
     {
         fprintf(stderr, "A NULL pointer was handed to rowSum.\n");
-        return;
+        exit(EXIT_FAILURE);
     }
     // For parallelization, note that the array has its own identifier on the loop, hence,
     // there shouldn't be a critical/coliding problem. The thread must be only made on "j"
@@ -179,7 +180,7 @@ void colSum(Matrix *matrix, double *result)
     if (!matrix || !matrix->data || !result)
     {
         fprintf(stderr, "A NULL pointer was handed to colSum.\n");
-        return;
+        exit(EXIT_FAILURE);
     }
 
     // For parallelization, note that the array has its own identifier on the loop, hence,
