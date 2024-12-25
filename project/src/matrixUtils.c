@@ -29,6 +29,51 @@ Matrix createMatrix(int rows, int cols)
     }
     return m;
 }
+
+/**
+ * @brief Liberates the allocated matrix data.
+ *
+ * @param[in] Matrix The matrix to free the data.
+ *
+ * @return void Changes to be made on the input matrix.
+ *
+ */
+
+void freeMatrix(Matrix *m)
+{
+    // TODO: Implement a validation warning.
+    if (m->data)
+    {
+        free(m->data);
+        m->data = NULL;
+    }
+}
+
+/**
+ * @brief Prints the matrix data.
+ *
+ * @param[in] Matrix The matrix to print the data.
+ *
+ * @return void No return, prints a message on the console.
+ *
+ * @note
+ * - Use the function mainly for debugging.
+ */
+
+void printMatrix(Matrix *m)
+{
+
+    // Don't use parallelization, otherwise, the prints would be messed up.
+    for (int i = 0; i < m->rows; i++)
+    {
+        for (int j = 0; j < m->cols; j++)
+        {
+            printf("%.2f ", m->data[i * m->cols + j]);
+        }
+        printf("\n");
+    }
+}
+
 /**
  * @brief Computes a row-wise sum.
  *
@@ -57,6 +102,7 @@ Matrix createMatrix(int rows, int cols)
  * // row_sums now contains [6.0, 15.0]
  * @endcode
  */
+
 void rowSum(double *matrix, double *result, int rows, int cols)
 {
 // For parallelization, note that the array has its own identifier on the loop, hence,
