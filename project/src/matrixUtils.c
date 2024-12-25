@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 /**
- * @brief Creates an empty matrix of given dimensions.
+ * @brief Creates an empty dynamically allocated memory matrix of given dimensions.
  *
  * Given certain dimensions of rows and colums, creates an empty Matrix with allocated memory towards the data.
  *
@@ -11,6 +11,9 @@
  * @param[in] cols The number of columns of the new matrix.
  *
  * @return Matrix Empty matrix of dimensions (rows x cols) with allocated memory for its data.
+ *
+ * @note
+ * - Remember to free the memory! It can be made with freeMatrix() call
  *
  * @warning
  * - The memory may be full.
@@ -33,9 +36,9 @@ Matrix createMatrix(int rows, int cols)
 /**
  * @brief Liberates the allocated matrix data.
  *
- * @param[in] Matrix The matrix to free the data.
+ * @param[in] m The matrix to free the data.
  *
- * @return void Changes to be made on the input matrix.
+ * @return void Changes to be made on the input matrix and memory.
  *
  */
 
@@ -52,7 +55,7 @@ void freeMatrix(Matrix *m)
 /**
  * @brief Prints the matrix data.
  *
- * @param[in] Matrix The matrix to print the data.
+ * @param[in] m The matrix to print the data.
  *
  * @return void No return, prints a message on the console.
  *
@@ -79,42 +82,55 @@ void printMatrix(Matrix *m)
  *
  * Given a matrix, it computes the sum over all the rows and stores them in an array.
  *
- * @param[in] matrix Pointer to an array that represents a (rows x col) matrix.
+ * @param[in] matrix Pointer to the input matrix.
  * @param[out] result Pointer of the resulting array of length `rows`.
- * @param[in] rows The number of rows of the matrix.
- * @param[in] cols The number of columns of the matrix.
  *
  * @return void Written on *result
  *
  * @note
  * - Matrix should be in row-major order
- * - The size of the array **cannot** be checked. Be careful with this.
  *
  * @example
  * Example usage:
  * @code
- * double matrix[6] = {
+ *
+ * double data[6] = {
  *     1.0, 2.0, 3.0,
  *     4.0, 5.0, 6.0
  * };
- * double row_sums[2];
- * rowSum(matrix, row_sums, 2, 3);
- * // row_sums now contains [6.0, 15.0]
+ *
+ * Matrix matrix = {
+ * .data = values,
+ * .rows = 2,
+ * .cols = 3
+ * }
+ *
+ * double result[matrix->rows]
+ *
+ * rowSum(matrix, result);
+ * // result now contains [6.0, 15.0]
  * @endcode
  */
 
-void rowSum(double *matrix, double *result, int rows, int cols)
+void rowSum(Matrix *matrix, double *result)
 {
-// For parallelization, note that the array has its own identifier on the loop, hence,
-// there shouldn't be a critical/coliding problem. The thread must be only made on "j"
-// though, otherwise, there would be colissions with "i".
+    // Validation, checks NULL pointer
+    if (!matrix || !matrix->data || !result)
+    {
+        fprintf(stderr, "A NULL pointer was handed to rowSum.\n");
+        return;
+    }
+    // For parallelization, note that the array has its own identifier on the loop, hence,
+    // there shouldn't be a critical/coliding problem. The thread must be only made on "j"
+    // though, otherwise, there would be colissions with "i".
+    //
 #pragma omp parallel for
-    for (int i = 0; i < rows; i++)
+    for (int i = 0; i < matrix->rows; i++)
     {
         result[i] = 0.0;
-        for (int j = 0; j < cols; j++)
+        for (int j = 0; j < matrix->cols; j++)
         {
-            result[i] += matrix[i * cols + j];
+            result[i] += matrix->data[i * matrix->cols + j];
         }
     }
 }
@@ -124,41 +140,45 @@ void rowSum(double *matrix, double *result, int rows, int cols)
  *
  * Given a matrix, it computes the sum over all the columns and stores them in an array.
  *
- * @param[in] Matrix Pointer to a Matrix structure.
- * @param[out] Matrix Pointer of the resulting Matrix. It must have only 1 row.
+ * @param[in] matrix Pointer to a Matrix structure.
+ * @param[out] result Array for the resulting Matrix. It must have the dimensions of the matrix columns.
  *
  * @return void Written on *result
  *
  * @note
- * - Matrix should be in row-major order.
- * - The resulting matrix must be of dimension 1 x `cols`
+ * - Matrix should be in row-major order
+ *
+ * @warning
+ * - The matrix or array pointer may be NULL.
  *
  * @example
  * Example usage:
  * @code
- * double matrix[6] = {
+ *
+ * double data[6] = {
  *     1.0, 2.0, 3.0,
  *     4.0, 5.0, 6.0
  * };
- * double col_sum[3];
- * colSum(matrix, col_sum, 2, 3);
- * // col_sum now contains [5.0, 7.0, 9.0]
+ *
+ * Matrix matrix = {
+ * .data = values,
+ * .rows = 2,
+ * .cols = 3
+ * }
+ *
+ * double result[matrix->cols]
+ *
+ * colSum(matrix, result);
+ * // result now contains [5.0, 7.0, 9.0]
  * @endcode
  */
 
-void colSum(Matrix *matrix, Matrix *result)
+void colSum(Matrix *matrix, double *result)
 {
     // Validation, checks NULL pointer
-    if (!matrix || !matrix->data || !result || !result->data)
+    if (!matrix || !matrix->data || !result)
     {
         fprintf(stderr, "A NULL pointer was handed to colSum.\n");
-        return;
-    }
-
-    // Checks dimensions; result matrix must be of one row.
-    if (result->rows != 1 || result->cols != matrix->cols)
-    {
-        fprintf(stderr, "The resulting matrix must have dimensions (1 x %d) for computing colSum.\n", matrix->cols);
         return;
     }
 
@@ -172,7 +192,7 @@ void colSum(Matrix *matrix, Matrix *result)
         result[j] = 0.0;
         for (int i = 0; i < matrix->rows; i++)
         {
-            result->data[j] += matrix->data[i * matrix->cols + j];
+            result[j] += matrix->data[i * matrix->cols + j];
         }
     }
 }
@@ -181,17 +201,14 @@ void colSum(Matrix *matrix, Matrix *result)
  * @brief Fills matrix with a constant value.
  *
  * Given a matrix, it fills a whole matrix with a constant value.
- * *
- * @param[in, out] matrix Pointer to an array that represents a (rows x col) matrix.
- * @param[in] rows The number of rows of the matrix.
- * @param[in] cols The number of columns of the matrix.
+ *
+ * @param[in, out] matrix Pointer to matrix to be filled.
  * @param[in] value The constant value to fill
  *
  * @return void Written on the input matrix
  *
  * @note
  * - Matrix should be in row-major order.
- * - The size of the array **cannot** be checked. Be careful with this.
  *
  * @example
  * Example usage:
@@ -200,16 +217,21 @@ void colSum(Matrix *matrix, Matrix *result)
  *     1.0, 2.0, 3.0,
  *     4.0, 5.0, 6.0
  * };
+ * Matrix matrix = {
+ * .data = values,
+ * .rows = 2,
+ * .cols = 3
+ * }
  *
- * fillMatrix(matrix, 2, 3, 9);
- * // matrix now contains [9.0, 9.0, 9.0, ..., 9.0]
+ * fillMatrix(matrix, 9);
+ * // matrix->data now contains [9.0, 9.0, 9.0, ..., 9.0]
  * @endcode
  */
-void fillMatrix(double *matrix, int rows, int cols, double value)
+void fillMatrix(Matrix *matrix, double value)
 {
 #pragma omp parallel for
-    for (int i = 0; i < rows * cols; i++)
+    for (int i = 0; i < matrix->rows * matrix->cols; i++)
     {
-        matrix[i] = value;
+        matrix->data[i] = value;
     }
 }
