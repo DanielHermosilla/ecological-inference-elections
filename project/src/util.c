@@ -3,8 +3,8 @@
 #include <R_ext/Rdynload.h>
 #include <Rinternals.h>
 #include <cblas.h>
-#include <cstdlib>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 // note: Refer to https://www.seehuhn.de/pages/linear.html#blas
@@ -84,9 +84,8 @@ double getInitialP(Matrix x, Matrix w, const char *p_method)
 #pragma omp parallel for
         for (int b = 0; b < ballots; b++)
         {
-            // It will fill every .data element with a pointer to baseArray. On
-            // this case it won't matter since every element is dependent of each
-            // other.
+            // It will fill every .data element with a pointer to baseArray. On this case it won't matter since every
+            // element is dependent of each other.
             probabilities[b].rows = candidates;
             probabilities[b].cols = groups;
             probabilities[b].data = baseArray;

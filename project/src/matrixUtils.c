@@ -1,7 +1,7 @@
 #include "matrixUtils.h"
-#include <cstdlib>
 #include <omp.h> // Parallelization
 #include <stdio.h>
+#include <stdlib.h>
 
 /**
  * @brief Creates an empty dynamically allocated memory matrix of given dimensions.
@@ -18,14 +18,22 @@
  *
  * @warning
  * - The memory may be full.
+ * - If dimensions are negative.
  */
 
 Matrix createMatrix(int rows, int cols)
 {
+    if (rows <= 0 || cols <= 0)
+    {
+        fprintf(stderr, "Invalid matrix dimensions: rows=%d, cols=%d\n", rows, cols);
+        exit(EXIT_FAILURE);
+    }
+
     Matrix m;
     m.rows = rows;
     m.cols = cols;
     m.data = (double *)malloc(rows * cols * sizeof(double));
+
     if (!m.data)
     {
         perror("Failed to allocate matrix data");
