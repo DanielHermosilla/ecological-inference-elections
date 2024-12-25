@@ -4,6 +4,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+typedef struct
+{
+    double *data; // Pointer to matrix data array (row-major order)
+    int rows;     // Number of rows
+    int cols;     // Number of columns
+} Matrix;
+
 /**
  * @brief Computes a row-wise sum.
  *

@@ -3,6 +3,33 @@
 #include <stdio.h>
 
 /**
+ * @brief Creates an empty matrix of given dimensions.
+ *
+ * Given certain dimensions of rows and colums, creates an empty Matrix with allocated memory towards the data.
+ *
+ * @param[in] rows The number of rows of the new matrix.
+ * @param[in] cols The number of columns of the new matrix.
+ *
+ * @return Matrix Empty matrix of dimensions (rows x cols) with allocated memory for its data.
+ *
+ * @warning
+ * - The memory may be full.
+ */
+
+Matrix createMatrix(int rows, int cols)
+{
+    Matrix m;
+    m.rows = rows;
+    m.cols = cols;
+    m.data = (double *)malloc(rows * cols * sizeof(double));
+    if (!m.data)
+    {
+        perror("Failed to allocate matrix data");
+        exit(EXIT_FAILURE);
+    }
+    return m;
+}
+/**
  * @brief Computes a row-wise sum.
  *
  * Given a matrix, it computes the sum over all the rows and stores them in an array.
@@ -51,16 +78,14 @@ void rowSum(double *matrix, double *result, int rows, int cols)
  *
  * Given a matrix, it computes the sum over all the columns and stores them in an array.
  *
- * @param[in] matrix Pointer to an array that represents a (rows x col) matrix.
- * @param[out] result Pointer of the resulting array of length `col`.
- * @param[in] rows The number of rows of the matrix.
- * @param[in] cols The number of columns of the matrix.
+ * @param[in] Matrix Pointer to a Matrix structure.
+ * @param[out] Matrix Pointer of the resulting Matrix. It must have only 1 row.
  *
  * @return void Written on *result
  *
  * @note
  * - Matrix should be in row-major order.
- * - The size of the array **cannot** be checked. Be careful with this.
+ * - The resulting matrix must be of dimension 1 x `cols`
  *
  * @example
  * Example usage:
@@ -75,18 +100,33 @@ void rowSum(double *matrix, double *result, int rows, int cols)
  * @endcode
  */
 
-void colSum(double *matrix, double *result, int rows, int cols)
+void colSum(Matrix *matrix, Matrix *result)
 {
-// For parallelization, note that the array has its own identifier on the loop, hence,
-// there shouldn't be a critical/coliding problem. The thread must be only made on "j"
-// though, otherwise, there would be colissions with "i".
+    // Validation, checks NULL pointer
+    if (!matrix || !matrix->data || !result || !result->data)
+    {
+        fprintf(stderr, "A NULL pointer was handed to colSum.\n");
+        return;
+    }
+
+    // Checks dimensions; result matrix must be of one row.
+    if (result->rows != 1 || result->cols != matrix->cols)
+    {
+        fprintf(stderr, "The resulting matrix must have dimensions (1 x %d) for computing colSum.\n", matrix->cols);
+        return;
+    }
+
+    // For parallelization, note that the array has its own identifier on the loop, hence,
+    // there shouldn't be a critical/coliding problem. The thread must be only made on "j"
+    // though, otherwise, there would be colissions with "i".
+
 #pragma omp parallel for
-    for (int j = 0; j < cols; j++)
+    for (int j = 0; j < matrix->cols; j++)
     {
         result[j] = 0.0;
-        for (int i = 0; i < rows; i++)
+        for (int i = 0; i < matrix->rows; i++)
         {
-            result[j] += matrix[i * cols + j];
+            result->data[j] += matrix->data[i * matrix->cols + j];
         }
     }
 }
