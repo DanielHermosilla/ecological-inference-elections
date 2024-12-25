@@ -36,7 +36,7 @@ Matrix createMatrix(int rows, int cols)
 
     if (!m.data)
     {
-        perror("Failed to allocate matrix data");
+        perror("Failed to allocate matrix data\n");
         exit(EXIT_FAILURE);
     }
     return m;

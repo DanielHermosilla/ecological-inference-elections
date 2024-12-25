@@ -53,7 +53,7 @@ double getInitialP(Matrix x, Matrix w, const char *p_method)
     }
 
     // Validation, checks dimentional coherence
-    if (x.cols != w.rows & x.cols > 0)
+    if (x.cols != w.rows && x.cols > 0)
     {
         fprintf(stderr,
                 "The dimensions of the matrices handed to getInitialP are incorrect; `x` columns and `w` rows length "
@@ -67,8 +67,7 @@ double getInitialP(Matrix x, Matrix w, const char *p_method)
     const int ballots = x.cols;
 
     Matrix *probabilities = (Matrix *)malloc(ballots * sizeof(Matrix)); // Create an allocated array of size ballots.
-    free(probabilities);
-    // Matrix probability = createMatrix(candidates, groups);
+    free(probabilities); // TODO: When finished, remove this. It's here to remember to free memory.
 
     // Asumes a Uniform distribution among candidates
     if (strcmp(p_method, "uniform") == 0)
@@ -84,7 +83,7 @@ double getInitialP(Matrix x, Matrix w, const char *p_method)
 #pragma omp parallel for
         for (int b = 0; b < ballots; b++)
         {
-            // It will fill every .data element with a pointer to baseArray. On this case it won't matter since every
+            // It will fill every .data element with a pointer to baseArray. In this case it won't matter since every
             // element is dependent of each other.
             probabilities[b].rows = candidates;
             probabilities[b].cols = groups;
