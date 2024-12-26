@@ -76,45 +76,40 @@ double getInitialP(Matrix x, Matrix w, const char *p_method)
     const int groups = w.cols;
     const int ballots = x.cols;
 
-    Matrix *probabilities =
-        (Matrix *)calloc(ballots, sizeof(Matrix)); // Create an allocated array of size ballots with ceros
-    free(probabilities); // TODO: When finished, remove this. It's here to remember to free memory.
+    // TODO: Erase this, the probability is the same per each B.B.
+    Matrix probabilities;
+    createMatrix(candidates, groups);
+    freeMatrix(&probabilities); // TODO: When finished, remove this. It's here to remember to free memory.
 
     // Asumes a Uniform distribution among candidates
     if (strcmp(p_method, "uniform") == 0)
     {
-#pragma omp parallel for
-        for (int b = 0; b < ballots; b++)
-        {
-            probabilities[b] = createMatrix(candidates, groups);
-            fillMatrix(&probabilities[b], 1.0 / candidates);
-        }
+        fillMatrix(&probabilities, 1.0 / candidates);
     }
-
-    // The proportional method calculates the sum of all the votes per ballot box, and assigns that probability to every
-    // demographic group according to ballot box;
+    // The proportional method calculates the proportion of votes of each candidate, and assigns that probability to
+    // every demographic group;
 
     else if (strcmp(p_method, "proportional") == 0)
     {
-        double sumBox[ballots];
-        double total = 0.0;
+        double canVotes[candidates];
+        int total = 0;
 
-        // Step 1: Calculate the total amount of votes per ballot box (n1)
-        colSum(&x, sumBox);
+        // Step 1: Calculate the total amount of votes per candidates.
+        rowSum(&x, canVotes);
 
-        // Step 2: Calculate the total sum (n2)
-#pragma omp parallel for // Note that for this case, there shouldn't be a problem of collisions since it's a sum.
-        for (int b = 0; b < ballots; b++)
+        // Step 2: Calculate the total amount of votes
+        for (int c = 0; c < candidates; c++)
         {
-            total += sumBox[b];
+            total += canVotes[c];
         }
 
-        // Step 3: The probabilities for the whole groups and candidates per ballot box is (n1/n2)
-#pragma omp parallel for
-        for (int b = 0; b < ballots; b++)
+        // Step 3: Fill the matrix
+        for (int c = 0; c < candidates; c++)
         {
-            probabilities[b] = createMatrix(candidates, groups);
-            fillMatrix(&probabilities[b], sumBox[b] / total);
+            for (int g = 0; g < groups; g++)
+            {
+                MATRIX_AT(probabilities, c, g) = canVotes[c] / total;
+            }
         }
     }
     else // group proportional
@@ -134,30 +129,66 @@ double getInitialP(Matrix x, Matrix w, const char *p_method)
             {
                 if (totalCandidate[i] != 0)
                 {
-                    MATRIX_AT(totalCandidate, i, j) = MATRIX_AT(totalCandidate, i, j) / totalCandidate[i];
+                    MATRIX_AT(candidateContribution, i, j) = MATRIX_AT(candidateContribution, i, j) / totalCandidate[i];
                 }
-                else
+                else // Border case, a candidate didn't receive any vote
                 {
-                    MATRIX_AT(totalCandidate, i, j) = 0.0;
+                    MATRIX_AT(candidateContribution, i, j) = 0.0;
                 }
             }
         }
 
-        // Step 2: Calculate the total sum (n2)
-#pragma omp parallel for // Note that for this case, there shouldn't be a problem of collisions since it's a sum.
+        // Step 2: Calculate each group contribution per ballot box
+
+        double groupContribution[groups];
+        colSum(&w, groupContribution); // This is the total amount of votes of each group across all boxes (each element
+                                       // is a group)
+
+// Now I need to get the amount of votes per ballot box of each group, but that's in w[b,g]
+#pragma omp parallel for
         for (int b = 0; b < ballots; b++)
         {
-            total += sumBox[b];
+            weightedSum += MATRIX_AT(candidateContribution, c, b) * MATRIX_AT(w, b, g); // Multiply
+                                                                                        // }
+
+#pragma omp parallel for collapse(2)
+            for (int g = 0; g < groups; g++)
+            {
+                for (int c = 0; c < candidates; c++)
+                {
+                    double weightedSum = 0.0;
+                    for (int b = 0; b < ballots; b++)
+                    {
+                        Matrix insertMatrix = createMatrix(candidates, groups);
+                        weightedSum += MATRIX_AT(candidateContribution, c, b) * MATRIX_AT(w, b, g); // Multiply
+
+                        //	candidateContribution.data[i * ballots + b_idx] * b.data[b_idx * b.cols + g];
+                    }
+                    if (groupContribution[g] != 0)
+                    { // Border case; an entire group doesn't vote
+                        Matrix insertMatrix = createMatrix(candidates, groups);
+                        probabilities[b]
+                    }
+                    else
+                        P.data[g * candidates + i] = 0.0;
+                }
+            }
+
+            // Step 2: Calculate the total sum (n2)
+#pragma omp parallel for // Note that for this case, there shouldn't be a problem of collisions since it's a sum.
+            for (int b = 0; b < ballots; b++)
+            {
+                total += sumBox[b];
+            }
         }
+
+        double a = 4.0;
+        return a;
     }
 
-    double a = 4.0;
-    return a;
-}
+    SEXP hello_gsl()
+    {
+        printf("Hello, World from C!\n");
 
-SEXP hello_gsl()
-{
-    printf("Hello, World from C!\n");
-
-    return R_NilValue;
-}
+        return R_NilValue;
+    }
