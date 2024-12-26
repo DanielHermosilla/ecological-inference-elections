@@ -3,6 +3,7 @@
 #include <R_ext/Rdynload.h>
 #include <Rinternals.h>
 #include <cblas.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,7 +26,7 @@
 // Macro for making an easier indexation
 #define MATRIX_AT(matrix, i, j) (matrix.data[(i) * (matrix.cols) + (j)])
 
-double getInitialP(Matrix x, Matrix w, const char *p_method)
+Matrix getInitialP(Matrix x, Matrix w, const char *p_method)
 {
 
     /**
@@ -76,10 +77,8 @@ double getInitialP(Matrix x, Matrix w, const char *p_method)
     const int groups = w.cols;
     const int ballots = x.cols;
 
-    // TODO: Erase this, the probability is the same per each B.B.
     Matrix probabilities;
     createMatrix(candidates, groups);
-    freeMatrix(&probabilities); // TODO: When finished, remove this. It's here to remember to free memory.
 
     // Asumes a Uniform distribution among candidates
     if (strcmp(p_method, "uniform") == 0)
@@ -146,14 +145,54 @@ double getInitialP(Matrix x, Matrix w, const char *p_method)
                     (votePerCandidate[c] * votePerGroup[g]) / (double)(totalCandidate * totalGroup);
             }
         }
-
-        double a = 4.0;
-        return a;
     }
+    return probabilities;
+}
 
-    SEXP hello_gsl()
+void EMAlgoritm(Matrix x, Matrix w, Matrix initialP, const char *q_method, double convergence, int maxIter,
+                bool verbose)
+{
+
+    /**
+     * @brief Implements the whole EM algorithm.
+     *
+     * Given a method for estimating "q", it calculates the EM until it converges to arbitrary parameters. As of in the
+     * paper, it currently supports Hit and Run, Multinomial, MVN CDF and MVN PDF methods.
+     *
+     * @param[in] x Matrix of dimension (cxb) that stores the results of candidate "c" on ballot box "b".
+     * @param[in] w Matrix of dimension (bxg) that stores the amount of votes from the demographic group "g".
+     * @param[in] initialP Matrix of dimension (cxg) with the initial probabilities for the first iteration.
+     * @param[in] q_method Pointer to a string that indicates the method or calculating "q". Currently it supports "Hit
+     * and Run", "Multinomial", "MVN CDF" and "MVN PDF" methods.
+     * @param[in] convergence Threshold value for convergence. Usually it's set to 0.001.
+     * @param[in] maxIter Integer with a threshold of maximum iterations. Usually it's set to 100.
+     * @param[in] verbose Wether to verbose useful outputs.
+     *
+     * @return TODO: On Python it's a dict, maybe a file with results written.
+     *
+     * @note This is the main function that calls every other function for "q"
+     *
+     * @see getInitialP() for getting initial probabilities. Group proportional method is recommended.
+     *
+     * @warning
+     * - Pointers shouldn't be NULL.
+     * - `x` and `w` dimensions must be coherent.
+     *
+     */
+
+    if (strcmp(q_method, "Hit and Run") != 0 && strcmp(q_method, "Multinomial") != 0 &&
+        strcmp(q_method, "MVN CDF") != 0 && strcmp(q_method, "MVN PDF") != 0)
     {
-        printf("Hello, World from C!\n");
-
-        return R_NilValue;
+        fprintf(stderr, "The method `%s` passed to EMAlgorithm doesn't exist.\n", q_method);
+        exit(EXIT_FAILURE);
     }
+    if (verbose == true)
+    {
+    };
+}
+// SEXP hello_gsl()
+//{
+//     printf("Hello, World from C!\n");
+
+//   return R_NilValue;
+//}

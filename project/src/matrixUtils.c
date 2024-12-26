@@ -5,7 +5,7 @@
 #include <stdlib.h>
 
 // Macro for easier matrix indexation
-#define MATRIX_AT(matrix, i, j) (matrix.data[(i) * (matrix.cols) + (j)]);
+#define MATRIX_AT(matrix, i, j) (matrix.data[(i) * (matrix.cols) + (j)])
 
 /**
  * @brief Make an array of a constant value.
@@ -66,7 +66,7 @@ void makeArray(double *array, int N, double value)
  * - If dimensions are negative.
  */
 
-Matrix createMatrix(int rows, int cols, MatrixType type)
+Matrix createMatrix(int rows, int cols)
 {
     if (rows <= 0 || cols <= 0)
     {
@@ -77,21 +77,8 @@ Matrix createMatrix(int rows, int cols, MatrixType type)
     Matrix m;
     m.rows = rows;
     m.cols = cols;
-    m.type = type;
 
-    switch (type)
-    {
-    case MATRIX_INT:
-        m.data = malloc(rows * cols * sizeof(int));
-        break;
-    case MATRIX_FLOAT:
-        m.data = malloc(rows * cols * sizeof(float));
-    case MATRIX_DOUBLE:
-        m.data = malloc(rows * cols * sizeof(double));
-    default:
-        fprintf(stderr, "The matrix type is unssuported\n");
-        exit(EXIT_FAILURE);
-    }
+    m.data = malloc(rows * cols * sizeof(double));
 
     if (!m.data)
     {
@@ -135,43 +122,14 @@ void freeMatrix(Matrix *m)
 void printMatrix(Matrix *matrix)
 {
     printf("Matrix (%dx%d) of type ", matrix->rows, matrix->cols);
-    switch (matrix->type)
+
+    for (int i = 0; i < matrix->rows; i++)
     {
-    case MATRIX_INT:
-        printf("INT:\n");
-        for (int i = 0; i < matrix->rows; i++)
+        for (int j = 0; j < matrix->cols; j++)
         {
-            for (int j = 0; j < matrix->cols; j++)
-            {
-                printf("%d ", MATRIX_AT(*matrix, i, j, int));
-            }
-            printf("\n");
+            printf("%.2f ", matrix->data[(i) * (matrix->cols) + (j)]);
         }
-        break;
-    case MATRIX_FLOAT:
-        printf("FLOAT:\n");
-        for (int i = 0; i < matrix->rows; i++)
-        {
-            for (int j = 0; j < matrix->cols; j++)
-            {
-                printf("%.2f ", MATRIX_AT(*matrix, i, j, float));
-            }
-            printf("\n");
-        }
-        break;
-    case MATRIX_DOUBLE:
-        printf("DOUBLE:\n");
-        for (int i = 0; i < matrix->rows; i++)
-        {
-            for (int j = 0; j < matrix->cols; j++)
-            {
-                printf("%.2f ", MATRIX_AT(*matrix, i, j, double));
-            }
-            printf("\n");
-        }
-        break;
-    default:
-        printf("Unknown type.\n");
+        printf("\n");
     }
 }
 
@@ -188,6 +146,7 @@ void printMatrix(Matrix *matrix)
  * - Matrix should be in row-major order
  * - This function uses cBLAS library, where the operation can be written as a matrix product
  *   of X * 1.
+ * - Just support double type
  *
  * @example
  * Example usage:
@@ -211,7 +170,7 @@ void printMatrix(Matrix *matrix)
  * @endcode
  */
 
-void rowSum(Matrix *matrix, void *result)
+void rowSum(Matrix *matrix, double *result)
 {
     // Validation, checks NULL pointer
     if (!matrix || !matrix->data || !result)
@@ -294,44 +253,24 @@ void colSum(Matrix *matrix, double *result)
         exit(EXIT_FAILURE);
     }
 
-    switch (matrix->type)
-    {
-    case MATRIX_FLOAT:
-        double *ones = (double *)malloc(matrix->cols * sizeof(double));
-        makeArray(ones, matrix->cols, 1.0);
+    double *ones = (double *)malloc(matrix->cols * sizeof(double));
+    makeArray(ones, matrix->cols, 1.0);
 
-        // Perform Matrix-Vector Multiplication (Matrix * Ones = Row Sums)
-        cblas_dgemv(CblasRowMajor, // Row-major storage
-                    CblasTrans,    // Don't transpose the matrix
-                    matrix->rows,  // Number of rows
-                    matrix->cols,  // Number of columns
-                    1.0,           // Scalar multiplier => y = 1.0 *  (A * x) + beta * y
-                    matrix->data,  // Matrix pointer
-                    matrix->cols,  // Leading dimension (number of columns in case of row-major)
-                    ones,          // Vector of ones
-                    1,             // Increment for vector (1 = contiguous)
-                    0.0,           // Beta multiplier => y = alpha * (A*x) + 0.0 * y
-                    result,        // Output row sums
-                    1              // Step size for writing the results
-        );
-        free(ones);
-        break;
-    case MATRIX_DOUBLE:
-        break;
-    case MATRIX_INT:
-        for (int i = 0; i < matrix->rows; i++)
-        {
-            result[i] = 0;
-            for (int j = 0; j < matrix->cols; j++)
-            {
-                result[i] += matrix->data[i * matrix->cols + j];
-            }
-        }
-        break;
-    default:
-        fprintf(stderr, "Unsupported result type.\n");
-        return;
-    }
+    // Perform Matrix-Vector Multiplication (Matrix * Ones = Row Sums)
+    cblas_dgemv(CblasRowMajor, // Row-major storage
+                CblasTrans,    // Don't transpose the matrix
+                matrix->rows,  // Number of rows
+                matrix->cols,  // Number of columns
+                1.0,           // Scalar multiplier => y = 1.0 *  (A * x) + beta * y
+                matrix->data,  // Matrix pointer
+                matrix->cols,  // Leading dimension (number of columns in case of row-major)
+                ones,          // Vector of ones
+                1,             // Increment for vector (1 = contiguous)
+                0.0,           // Beta multiplier => y = alpha * (A*x) + 0.0 * y
+                result,        // Output row sums
+                1              // Step size for writing the results
+    );
+    free(ones);
 }
 
 /**
@@ -364,9 +303,12 @@ void colSum(Matrix *matrix, double *result)
  * // matrix->data now contains [9.0, 9.0, 9.0, ..., 9.0]
  * @endcode
  */
+
 void fillMatrix(Matrix *matrix, double value)
 {
+
     int size = matrix->rows * matrix->cols;
+
     double arr[size];
     makeArray(arr, size, value);
     matrix->data = arr;
