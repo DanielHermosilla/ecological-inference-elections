@@ -6,9 +6,9 @@
 
 typedef struct
 {
-    void *data; // Pointer to matrix data array (row-major order)
-    int rows;   // Number of rows
-    int cols;   // Number of columns
+    double *data; // Pointer to matrix data array (row-major order)
+    int rows;     // Number of rows
+    int cols;     // Number of columns
 } Matrix;
 
 /**

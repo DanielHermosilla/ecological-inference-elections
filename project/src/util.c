@@ -108,77 +108,42 @@ double getInitialP(Matrix x, Matrix w, const char *p_method)
         {
             for (int g = 0; g < groups; g++)
             {
-                MATRIX_AT(probabilities, c, g) = canVotes[c] / total;
+                MATRIX_AT(probabilities, c, g) = (double)canVotes[c] / (double)total;
             }
         }
     }
+
     else // group proportional
+         // Now it considers the proportion of candidates votes AND demographic group, it's an extension of the
+         // past method
     {
-        // Step 1: Calculate each candidate contribution per ballot box
+        double votePerCandidate[candidates];
+        int totalCandidate = 0;
+        rowSum(&x, votePerCandidate);
 
-        // Matrix cxb with the contribution of each candidate per ballot
-        Matrix candidateContribution = createMatrix(candidates, ballots);
-        // Total amount of votes per candidate
-        double totalCandidate[ballots];
-        rowSum(&x, totalCandidate);
+        double votePerGroup[groups];
+        int totalGroup = 0;
+        colSum(&w, votePerGroup);
 
-#pragma omp parallel for
-        for (int i = 0; i < candidates; i++)
+        // Step 1: Calculate the total amount of votes for candidate
+        for (int c = 0; c < candidates; c++)
         {
-            for (int j = 0; j < ballots; j++)
-            {
-                if (totalCandidate[i] != 0)
-                {
-                    MATRIX_AT(candidateContribution, i, j) = MATRIX_AT(candidateContribution, i, j) / totalCandidate[i];
-                }
-                else // Border case, a candidate didn't receive any vote
-                {
-                    MATRIX_AT(candidateContribution, i, j) = 0.0;
-                }
-            }
+            totalCandidate += votePerCandidate[c];
         }
 
-        // Step 2: Calculate each group contribution per ballot box
-
-        double groupContribution[groups];
-        colSum(&w, groupContribution); // This is the total amount of votes of each group across all boxes (each element
-                                       // is a group)
-
-// Now I need to get the amount of votes per ballot box of each group, but that's in w[b,g]
-#pragma omp parallel for
-        for (int b = 0; b < ballots; b++)
+        // Step 2: Calculate the total amount of votes per group
+        for (int g = 0; g < groups; g++)
         {
-            weightedSum += MATRIX_AT(candidateContribution, c, b) * MATRIX_AT(w, b, g); // Multiply
-                                                                                        // }
+            totalGroup += votePerGroup[g];
+        }
 
-#pragma omp parallel for collapse(2)
+        // Step 3: Fill the matrix
+        for (int c = 0; c < candidates; c++)
+        {
             for (int g = 0; g < groups; g++)
             {
-                for (int c = 0; c < candidates; c++)
-                {
-                    double weightedSum = 0.0;
-                    for (int b = 0; b < ballots; b++)
-                    {
-                        Matrix insertMatrix = createMatrix(candidates, groups);
-                        weightedSum += MATRIX_AT(candidateContribution, c, b) * MATRIX_AT(w, b, g); // Multiply
-
-                        //	candidateContribution.data[i * ballots + b_idx] * b.data[b_idx * b.cols + g];
-                    }
-                    if (groupContribution[g] != 0)
-                    { // Border case; an entire group doesn't vote
-                        Matrix insertMatrix = createMatrix(candidates, groups);
-                        probabilities[b]
-                    }
-                    else
-                        P.data[g * candidates + i] = 0.0;
-                }
-            }
-
-            // Step 2: Calculate the total sum (n2)
-#pragma omp parallel for // Note that for this case, there shouldn't be a problem of collisions since it's a sum.
-            for (int b = 0; b < ballots; b++)
-            {
-                total += sumBox[b];
+                MATRIX_AT(probabilities, c, g) =
+                    (votePerCandidate[c] * votePerGroup[g]) / (double)(totalCandidate * totalGroup);
             }
         }
 
