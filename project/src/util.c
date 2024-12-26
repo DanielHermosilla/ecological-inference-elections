@@ -22,6 +22,9 @@
 //  int cols;     // Number of columns
 //} Matrix;
 
+// Macro for making an easier indexation
+#define MATRIX_AT(matrix, i, j) (matrix.data[(i) * (matrix.cols) + (j)])
+
 double getInitialP(Matrix x, Matrix w, const char *p_method)
 {
 
@@ -116,12 +119,29 @@ double getInitialP(Matrix x, Matrix w, const char *p_method)
     }
     else // group proportional
     {
-        // Step 1: For each ballot box (row in X) divide the votes of each candidate by the total votes
-        double sumBox[ballots];
-        double total = 0.0;
+        // Step 1: Calculate each candidate contribution per ballot box
 
-        // Step 1: Calculate the total amount of votes per ballot box (n1)
-        colSum(&x, sumBox);
+        // Matrix cxb with the contribution of each candidate per ballot
+        Matrix candidateContribution = createMatrix(candidates, ballots);
+        // Total amount of votes per candidate
+        double totalCandidate[ballots];
+        rowSum(&x, totalCandidate);
+
+#pragma omp parallel for
+        for (int i = 0; i < candidates; i++)
+        {
+            for (int j = 0; j < ballots; j++)
+            {
+                if (totalCandidate[i] != 0)
+                {
+                    MATRIX_AT(totalCandidate, i, j) = MATRIX_AT(totalCandidate, i, j) / totalCandidate[i];
+                }
+                else
+                {
+                    MATRIX_AT(totalCandidate, i, j) = 0.0;
+                }
+            }
+        }
 
         // Step 2: Calculate the total sum (n2)
 #pragma omp parallel for // Note that for this case, there shouldn't be a problem of collisions since it's a sum.

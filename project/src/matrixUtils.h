@@ -132,6 +132,31 @@ void rowSum(Matrix *matrix, double *result);
 void colSum(Matrix *matrix, double *result);
 
 /**
+ * @brief Make an array of a constant value.
+ *
+ * Given a value, it fills a whole array with a constant value.
+ *
+ * @param[in, out] array Pointer to matrix to be filled.
+ * @param[in] N The size of the array.
+ * @param[in] value The constant value to fill
+ *
+ * @return void Written on the input array
+ *
+ * @note
+ * - It uses cBLAS for optimization
+ *
+ * @example
+ * Example usage:
+ * @code
+ * double array[5];
+ * makeArray(array, 5, 3.14);
+ * // array -> now constains [3.14, 3.14, ..., 3.14]
+ * @endcode
+ */
+
+void makeArray(double *array, int N, double value);
+
+/**
  * @brief Fills matrix with a constant value.
  *
  * Given a matrix, it fills a whole matrix with a constant value.

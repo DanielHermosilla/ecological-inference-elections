@@ -90,10 +90,7 @@ void printMatrix(Matrix *m)
 /**
  * @brief Computes a row-wise sum.
  *
- * Given a matrix, it computes the sum over all the rows and stores them in an array. It
- * will use cBLAS for this operation, whereas the row sums can be expressed as the product
- * of a matrix times a column vector filled with ones.
- *
+ * Given a matrix, it computes the sum over all the rows and stores them in an array.
  * @param[in] matrix Pointer to the input matrix.
  * @param[out] result Pointer of the resulting array of length `rows`.
  *
@@ -101,6 +98,8 @@ void printMatrix(Matrix *m)
  *
  * @note
  * - Matrix should be in row-major order
+ * - This function uses cBLAS library, where the operation can be written as a matrix product
+ *   of X * 1.
  *
  * @example
  * Example usage:
@@ -174,6 +173,8 @@ void rowSum(Matrix *matrix, double *result)
  *
  * @note
  * - Matrix should be in row-major order
+ * - It will use cBLAS for operations, where it will do a matrix product of X * 1^T. It'll use the
+ *   already algorithm implemented in rowSum
  *
  * @warning
  * - The matrix or array pointer may be NULL.
@@ -209,19 +210,70 @@ void colSum(Matrix *matrix, double *result)
         exit(EXIT_FAILURE);
     }
 
-    // For parallelization, note that the array has its own identifier on the loop, hence,
-    // there shouldn't be a critical/coliding problem. The thread must be only made on "j"
-    // though, otherwise, there would be colissions with "i".
+    double *ones = (double *)malloc(matrix->rows * sizeof(double));
 
 #pragma omp parallel for
-    for (int j = 0; j < matrix->cols; j++)
+    for (int i = 0; i < matrix->rows; i++)
     {
-        result[j] = 0.0;
-        for (int i = 0; i < matrix->rows; i++)
-        {
-            result[j] += matrix->data[i * matrix->cols + j];
-        }
+        ones[i] = 1.0;
     }
+
+    // Perform Matrix-Vector Multiplication (Matrix * Ones = Row Sums)
+    cblas_dgemv(CblasRowMajor, // Row-major storage
+                CblasTrans,    // Don't transpose the matrix
+                matrix->rows,  // Number of rows
+                matrix->cols,  // Number of columns
+                1.0,           // Scalar multiplier => y = 1.0 *  (A * x) + beta * y
+                matrix->data,  // Matrix pointer
+                matrix->cols,  // Leading dimension (number of columns in case of row-major)
+                ones,          // Vector of ones
+                1,             // Increment for vector (1 = contiguous)
+                0.0,           // Beta multiplier => y = alpha * (A*x) + 0.0 * y
+                result,        // Output row sums
+                1              // Step size for writing the results
+    );
+    free(ones);
+}
+
+/**
+ * @brief Make an array of a constant value.
+ *
+ * Given a value, it fills a whole array with a constant value.
+ *
+ * @param[in, out] array Pointer to matrix to be filled.
+ * @param[in] N The size of the array.
+ * @param[in] value The constant value to fill
+ *
+ * @return void Written on the input array
+ *
+ * @note
+ * - It uses cBLAS for optimization
+ *
+ * @example
+ * Example usage:
+ * @code
+ * double array[5];
+ * makeArray(array, 5, 3.14);
+ * // array -> now constains [3.14, 3.14, ..., 3.14]
+ * @endcode
+ */
+
+void makeArray(double *array, int N, double value)
+{
+    if (!array)
+    {
+        fprintf(stderr, "A NULL pointer was handed as an array.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (N < 0)
+    {
+        fprintf(stderr, "A incoherent dimension was handen for making the array.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Fill the array with the specified constant value
+    cblas_dscal(N, value, array, 1);
 }
 
 /**
@@ -256,9 +308,8 @@ void colSum(Matrix *matrix, double *result)
  */
 void fillMatrix(Matrix *matrix, double value)
 {
-#pragma omp parallel for
-    for (int i = 0; i < matrix->rows * matrix->cols; i++)
-    {
-        matrix->data[i] = value;
-    }
+    int size = matrix->rows * matrix->cols;
+    double arr[size];
+    makeArray(arr, size, value);
+    matrix->data = arr;
 }
