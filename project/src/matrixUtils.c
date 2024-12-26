@@ -1,4 +1,5 @@
 #include "matrixUtils.h"
+#include <cblas.h>
 #include <omp.h> // Parallelization
 #include <stdio.h>
 #include <stdlib.h>
@@ -89,7 +90,9 @@ void printMatrix(Matrix *m)
 /**
  * @brief Computes a row-wise sum.
  *
- * Given a matrix, it computes the sum over all the rows and stores them in an array.
+ * Given a matrix, it computes the sum over all the rows and stores them in an array. It
+ * will use cBLAS for this operation, whereas the row sums can be expressed as the product
+ * of a matrix times a column vector filled with ones.
  *
  * @param[in] matrix Pointer to the input matrix.
  * @param[out] result Pointer of the resulting array of length `rows`.
@@ -129,19 +132,34 @@ void rowSum(Matrix *matrix, double *result)
         fprintf(stderr, "A NULL pointer was handed to rowSum.\n");
         exit(EXIT_FAILURE);
     }
-    // For parallelization, note that the array has its own identifier on the loop, hence,
-    // there shouldn't be a critical/coliding problem. The thread must be only made on "j"
-    // though, otherwise, there would be colissions with "i".
-    //
+
+    // We will use malloc to avoid stack overflows. Usually, we don't know
+    // what's the size that will be given to the matrix, but if it exceeds
+    // 1.000.000 columns (8MB for a `double` type matrix) it will overflow
+    double *ones = (double *)malloc(matrix->cols * sizeof(double));
+
 #pragma omp parallel for
-    for (int i = 0; i < matrix->rows; i++)
+    for (int i = 0; i < matrix->cols; i++)
     {
-        result[i] = 0.0;
-        for (int j = 0; j < matrix->cols; j++)
-        {
-            result[i] += matrix->data[i * matrix->cols + j];
-        }
+        ones[i] = 1.0;
     }
+
+    // Perform Matrix-Vector Multiplication (Matrix * Ones = Row Sums)
+    cblas_dgemv(CblasRowMajor, // Row-major storage
+                CblasNoTrans,  // Don't transpose the matrix
+                matrix->rows,  // Number of rows
+                matrix->cols,  // Number of columns
+                1.0,           // Scalar multiplier => y = 1.0 *  (A * x) + beta * y
+                matrix->data,  // Matrix pointer
+                matrix->cols,  // Leading dimension (number of columns in case of row-major)
+                ones,          // Vector of ones
+                1,             // Increment for vector (1 = contiguous)
+                0.0,           // Beta multiplier => y = alpha * (A*x) + 0.0 * y
+                result,        // Output row sums
+                1              // Step size for writing the results
+    );
+
+    free(ones);
 }
 
 /**
