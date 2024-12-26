@@ -66,33 +66,46 @@ double getInitialP(Matrix x, Matrix w, const char *p_method)
     const int groups = w.cols;
     const int ballots = x.cols;
 
-    Matrix *probabilities = (Matrix *)malloc(ballots * sizeof(Matrix)); // Create an allocated array of size ballots.
+    Matrix *probabilities =
+        (Matrix *)calloc(ballots, sizeof(Matrix)); // Create an allocated array of size ballots with ceros
     free(probabilities); // TODO: When finished, remove this. It's here to remember to free memory.
 
     // Asumes a Uniform distribution among candidates
     if (strcmp(p_method, "uniform") == 0)
     {
-        double baseArray[candidates * groups];
-
-        // Don't parallelize small loops
-        for (int i = 0; i < candidates * groups; i++)
-        {
-            baseArray[i] = 1.0 / candidates;
-        }
-
 #pragma omp parallel for
         for (int b = 0; b < ballots; b++)
         {
-            // It will fill every .data element with a pointer to baseArray. In this case it won't matter since every
-            // element is dependent of each other.
-            probabilities[b].rows = candidates;
-            probabilities[b].cols = groups;
-            probabilities[b].data = baseArray;
+            probabilities[b] = createMatrix(candidates, groups);
+            fillMatrix(&probabilities[b], 1.0 / candidates);
         }
     }
 
-    else if (strcmp(p_method, "uniform") == 0)
+    // The proportional method calculates the sum of all the votes per ballot box, and assigns that probability to every
+    // demographic group according to ballot box;
+
+    else if (strcmp(p_method, "proportional") == 0)
     {
+        double sumBox[ballots];
+        double total = 0.0;
+
+        // Step 1: Calculate the total amount of votes per ballot box (n1)
+        colSum(&x, sumBox);
+
+        // Step 2: Calculate the total sum (n2)
+#pragma omp parallel for // Note that for this case, there shouldn't be a problem of collisions since is a sum.
+        for (int b = 0; b < ballots; b++)
+        {
+            total += sumBox[b];
+        }
+
+        // Step 3: The probabilities for the whole groups and candidates per ballot box is (n1/n2)
+#pragma omp parallel for
+        for (int b = 0; b < ballots; b++)
+        {
+            probabilities[b] = createMatrix(candidates, groups);
+            fillMatrix(&probabilities[b], sumBox[b] / total);
+        }
     }
 
     double a = 4.0;
