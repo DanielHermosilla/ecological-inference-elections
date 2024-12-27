@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 // note: Refer to https://www.seehuhn.de/pages/linear.html#blas
 // double m[] = {
@@ -78,7 +79,7 @@ Matrix getInitialP(Matrix x, Matrix w, const char *p_method)
     const int ballots = x.cols;
 
     Matrix probabilities;
-    createMatrix(candidates, groups);
+    probabilities = createMatrix(groups, candidates);
 
     // Asumes a Uniform distribution among candidates
     if (strcmp(p_method, "uniform") == 0)
@@ -107,7 +108,7 @@ Matrix getInitialP(Matrix x, Matrix w, const char *p_method)
         {
             for (int g = 0; g < groups; g++)
             {
-                MATRIX_AT(probabilities, c, g) = (double)canVotes[c] / (double)total;
+                MATRIX_AT(probabilities, g, c) = (double)canVotes[c] / (double)total;
             }
         }
     }
@@ -141,7 +142,7 @@ Matrix getInitialP(Matrix x, Matrix w, const char *p_method)
         {
             for (int g = 0; g < groups; g++)
             {
-                MATRIX_AT(probabilities, c, g) =
+                MATRIX_AT(probabilities, g, c) =
                     (votePerCandidate[c] * votePerGroup[g]) / (double)(totalCandidate * totalGroup);
             }
         }
@@ -195,4 +196,48 @@ void EMAlgoritm(Matrix x, Matrix w, Matrix initialP, const char *q_method, doubl
 //     printf("Hello, World from C!\n");
 
 //   return R_NilValue;
-//}
+//
+void testProb(Matrix X, Matrix G)
+{
+
+    printf("Running test for the initial probability matrix\n The `X` matrix with the candidates votes is:\n");
+    printMatrix(&X);
+    printf("\nThe `w` matrix with the groups votes is:\n");
+    printMatrix(&G);
+
+    Matrix prob = getInitialP(X, G, "uniform");
+    printf("\nThe probability matrix for `uniform` method is:\n");
+    printMatrix(&prob);
+    freeMatrix(&prob);
+
+    Matrix prob2 = getInitialP(X, G, "proportional");
+    printf("\nThe probability matrix for `proportional` method is:\n");
+    printMatrix(&prob2);
+    freeMatrix(&prob2);
+
+    Matrix prob3 = getInitialP(X, G, "group proportional");
+    printf("\nThe probability matrix for `group proportional` method is:\n");
+    printMatrix(&prob3);
+    freeMatrix(&prob3);
+}
+int main()
+{
+    printf("The program is running\n");
+    time_t start, end;
+    start = clock();
+    Matrix X = createMatrix(3, 3);
+    Matrix G = createMatrix(3, 2);
+    double xVal[9] = {0, 0, 2, 4, 5, 8, 1, 2, 3};
+    double gVal[6] = {2, 5, 3, 1, 0, 9};
+
+    memcpy(X.data, xVal, sizeof(xVal));
+    memcpy(G.data, gVal, sizeof(gVal));
+
+    testProb(X, G);
+    freeMatrix(&X);
+    freeMatrix(&G);
+    end = clock();
+    int t = (end - start) / CLOCKS_PER_SEC;
+    printf("The program took %d seconds!", t);
+    return 0;
+}

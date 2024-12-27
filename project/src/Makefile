@@ -10,8 +10,8 @@ CFLAGS = -Wall -Wextra -g \
     -Xpreprocessor -fopenmp \
     -I/usr/local/opt/llvm/include
 
-# Linker Flags
-LDFLAGS = -L$(shell R RHOME)/lib \
+# Linker Flags for Shared Library
+LDFLAGS_LIB = -L$(shell R RHOME)/lib \
     -L/usr/local/opt/openblas/lib \
     -L/usr/local/Cellar/gsl/2.8/lib \
     -L/usr/local/opt/libomp/lib \
@@ -19,18 +19,31 @@ LDFLAGS = -L$(shell R RHOME)/lib \
     -lR -lopenblas -lgsl -lgslcblas -lomp \
     -Wl,-rpath,/usr/local/opt/libomp/lib
 
+# Linker Flags for Executable
+LDFLAGS_EXEC = -L$(shell R RHOME)/lib \
+    -L/usr/local/opt/openblas/lib \
+    -L/usr/local/Cellar/gsl/2.8/lib \
+    -L/usr/local/opt/libomp/lib \
+    -lR -lopenblas -lgsl -lgslcblas -lomp \
+    -Wl,-rpath,/usr/local/opt/libomp/lib
+
 # Files and Targets
-TARGET = util.so
+LIB_TARGET = libutil.dylib  # Use libutil.so for Linux
+EXEC_TARGET = util_exec     # Name for the executable
 SRCS = util.c matrixUtils.c
 OBJS = $(SRCS:.c=.o)
 HEADERS = matrixUtils.h
 
 # Default Rule
-all: $(TARGET)
+all: $(LIB_TARGET) $(EXEC_TARGET)
 
 # Build Shared Library
-$(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
+$(LIB_TARGET): $(OBJS)
+	$(CC) $(CFLAGS) -o $(LIB_TARGET) $(OBJS) $(LDFLAGS_LIB)
+
+# Build Executable
+$(EXEC_TARGET): util.o matrixUtils.o
+	$(CC) $(CFLAGS) -o $(EXEC_TARGET) util.o matrixUtils.o $(LDFLAGS_EXEC)
 
 # Build Object Files
 %.o: %.c $(HEADERS)
@@ -38,5 +51,5 @@ $(TARGET): $(OBJS)
 
 # Clean Build Artifacts
 clean:
-	rm -f $(TARGET) $(OBJS)
+	rm -f $(LIB_TARGET) $(EXEC_TARGET) $(OBJS)
 

@@ -44,8 +44,12 @@ void makeArray(double *array, int N, double value)
         exit(EXIT_FAILURE);
     }
 
-    // Fill the array with the specified constant value
-    cblas_dscal(N, value, array, 1);
+// Fill the array with the specified constant value
+#pragma omp parallel for
+    for (int i = 0; i < N; i++)
+    {
+        array[i] = value;
+    }
 }
 
 /**
@@ -82,7 +86,7 @@ Matrix createMatrix(int rows, int cols)
 
     if (!m.data)
     {
-        perror("Failed to allocate matrix data\n");
+        fprintf(stderr, "Failed to allocate matrix data\n");
         exit(EXIT_FAILURE);
     }
 
@@ -121,13 +125,13 @@ void freeMatrix(Matrix *m)
 
 void printMatrix(Matrix *matrix)
 {
-    printf("Matrix (%dx%d) of type ", matrix->rows, matrix->cols);
+    printf("Matrix (%dx%d) of type double\n", matrix->rows, matrix->cols);
 
     for (int i = 0; i < matrix->rows; i++)
     {
         for (int j = 0; j < matrix->cols; j++)
         {
-            printf("%.2f ", matrix->data[(i) * (matrix->cols) + (j)]);
+            printf("%.3f ", matrix->data[(i) * (matrix->cols) + (j)]);
         }
         printf("\n");
     }
@@ -184,6 +188,12 @@ void rowSum(Matrix *matrix, double *result)
     // 1.000.000 columns (8MB for a `double` type matrix) it will overflow
 
     double *ones = (double *)malloc(matrix->cols * sizeof(double));
+    if (!ones)
+    {
+        fprintf(stderr, "Failed to allocate memory to the rowSum function. \n");
+        exit(EXIT_FAILURE);
+    }
+
     makeArray(ones, matrix->cols, 1.0);
     // Perform Matrix-Vector Multiplication (Matrix * Ones = Row Sums)
     cblas_dgemv(CblasRowMajor, // Row-major storage
@@ -253,8 +263,8 @@ void colSum(Matrix *matrix, double *result)
         exit(EXIT_FAILURE);
     }
 
-    double *ones = (double *)malloc(matrix->cols * sizeof(double));
-    makeArray(ones, matrix->cols, 1.0);
+    double *ones = (double *)malloc(matrix->rows * sizeof(double));
+    makeArray(ones, matrix->rows, 1.0);
 
     // Perform Matrix-Vector Multiplication (Matrix * Ones = Row Sums)
     cblas_dgemv(CblasRowMajor, // Row-major storage
@@ -309,7 +319,5 @@ void fillMatrix(Matrix *matrix, double value)
 
     int size = matrix->rows * matrix->cols;
 
-    double arr[size];
-    makeArray(arr, size, value);
-    matrix->data = arr;
+    makeArray(matrix->data, size, value);
 }
