@@ -1,6 +1,7 @@
 #include "matrixUtils.h"
 #include <cblas.h>
 #include <omp.h> // Parallelization
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -242,7 +243,7 @@ void rowSum(Matrix *matrix, double *result)
  * };
  *
  * Matrix matrix = {
- * .data = values,
+ * .data = data,
  * .rows = 2,
  * .cols = 3
  * }
@@ -299,7 +300,7 @@ void colSum(Matrix *matrix, double *result)
  * @example
  * Example usage:
  * @code
- * double matrix[6] = {
+ * double values[6] = {
  *     1.0, 2.0, 3.0,
  *     4.0, 5.0, 6.0
  * };
@@ -320,4 +321,76 @@ void fillMatrix(Matrix *matrix, double value)
     int size = matrix->rows * matrix->cols;
 
     makeArray(matrix->data, size, value);
+}
+
+/**
+ * @brief Checks if the difference of two matrices converge to a value
+ *
+ * Given two matrices, it performs de absolute difference and evaluate the convergence towards a given
+ * arbitrary values: |x1 - x2| < epsilon.
+ *
+ * @param[in] matrix Matrix to perform the substraction.
+ * @param[in] matrix Matrix to perform the substraction.
+ * @param[in] double Arbitrary value to evaluate the convergence
+ *
+ * @return bool Boolean value to see if it converges.
+ *
+ * @warning:
+ * - Both matrices should be from the same dimention.
+ * @note
+ * - Matrix should be in row-major order.
+ *
+ * @example
+ * Example usage:
+ * @code
+ * double values[6] = {
+ *     1.0, 2.0, 3.0,
+ *     4.0, 5.0, 6.0
+ * };
+ * double values2[6] = {
+ * 		1.1, 2.1, 2.9,
+ * 		3.9, 5.1, 6.1
+ * }
+ * Matrix matrix = {
+ * .data = values,
+ * .rows = 2,
+ * .cols = 3
+ * }
+ *
+ * Matrix matrix2 = {
+ * .data = values2,
+ * .rows = 2,
+ * .cols = 3
+ * }
+ *
+ * bool converges = convergeMatrix(matrix, matrix2,  0.02);
+ * // bool->true
+ * @endcode
+ */
+bool convergeMatrix(Matrix *matrixA, Matrix *matrixB, double convergence)
+{
+
+    if (convergence <= 0)
+    {
+        fprintf(stderr, "An invalid value was handed to convergence, it must be greater than cero.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (!matrixA || !matrixB || !matrixA->data || !matrixB->data)
+    {
+        fprintf(stderr, "The points towards the matrices are invalid.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (matrixA->cols != matrixB->cols || matrixA->rows != matrixB->rows)
+    {
+        fprintf(stderr, "The dimensions of both matrices are incorrect.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int size = matrixA->rows * matrixB->cols;
+
+    Matrix diff = createMatrix(matrixA->rows, matrixB->cols);
+
+    cblas_dcopy(size, matrixA->data, 1, diff, 1);
 }

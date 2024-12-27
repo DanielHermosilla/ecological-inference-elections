@@ -150,6 +150,11 @@ Matrix getInitialP(Matrix x, Matrix w, const char *p_method)
     return probabilities;
 }
 
+Matrix getP(Matrix a, double q)
+{
+    return a;
+}
+
 void EMAlgoritm(Matrix x, Matrix w, Matrix initialP, const char *q_method, double convergence, int maxIter,
                 bool verbose)
 {
@@ -187,9 +192,50 @@ void EMAlgoritm(Matrix x, Matrix w, Matrix initialP, const char *q_method, doubl
         fprintf(stderr, "The method `%s` passed to EMAlgorithm doesn't exist.\n", q_method);
         exit(EXIT_FAILURE);
     }
+
     if (verbose == true)
     {
-    };
+        printf("Starting the EM algorithm.\n The candidates matrix is:\n");
+        printMatrix(&x);
+        printf("\nThe matrix with the demographic groups votation is:\n");
+        printMatrix(&w);
+        printf("\nThe method to calculate the conditional probability will be %s method with the following "
+               "parameters:\nConvergence threshold:\t%.6f\nMaximum iterations:\t%d\n",
+               q_method, convergence, maxIter);
+    }
+
+    Matrix *probabilityPtr = &initialP;
+    double q = 2.0;
+
+    for (int i; i < maxIter; i++)
+    {
+        // Hit and Run
+        if (strcmp(q_method, "Hit and Run") == 0)
+        {
+            printf("Executing 'Hit and Run' method.\n");
+            break;
+        }
+        // Multinomial
+        else if (strcmp(q_method, "Multinomial") == 0)
+        {
+            printf("Executing 'Multinomial' method.\n");
+            break;
+        }
+        // MVN CDF
+        else if (strcmp(q_method, "MVN CDF") == 0)
+        {
+            printf("Executing 'MVN CDF' method.\n");
+            break;
+        }
+        // MVN PDF
+        else
+        {
+            printf("Executing 'MVN PDF' method.\n");
+            break;
+        }
+
+        newProbability = getP(probabilityPtr, q);
+    }
 }
 // SEXP hello_gsl()
 //{
@@ -220,6 +266,7 @@ void testProb(Matrix X, Matrix G)
     printMatrix(&prob3);
     freeMatrix(&prob3);
 }
+
 int main()
 {
     printf("The program is running\n");
