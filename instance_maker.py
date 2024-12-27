@@ -297,6 +297,15 @@ if __name__ == "__main__":
                 "Por favor coloca el valor de p_gi (probabilidades voto grupo-candidato) \n p_gi:"
             )
             p_gi[g][i] = prob
+    # I = int(input("Por favor coloca el valor de I (candidatos) \n I:"))
+    # G = int(input("Por favor coloca el valor de G (grupos) \n G:"))
+    # M = int(input("Por favor coloca el valor de M (mesas) \n M:"))
+    # J = int(input("Por favor coloca el valor de J (personas) \n J:"))
+    I = 2
+    G = 2
+    M = 10
+    J = 100
+    p_gi = np.array([[0.4, 0.6], [0.7, 0.3]])
 
     # p_gi = input("Por favor coloca el valor de p_gi (probabilidades voto grupo-candidato) \n p_gi:")
     # lambda_ = float(input("Por favor coloca el valor de lambda_ (distribucion votantes) \n lambda_:"))

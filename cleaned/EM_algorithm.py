@@ -45,12 +45,14 @@ def get_p_est(X, b, p_method):
         p_est = np.array([np.sum(X, axis=0) / np.sum(X) for g in range(G_size)])
 
     if p_method == "group_proportional":
-        p_mesas = X / np.sum(X, axis=1)[..., None]
-        p_est = np.zeros((G_size, I_size))
+        p_mesas = X / np.sum(X, axis=1)[..., None]  # Sum over the ballot axis
+        p_est = np.zeros((G_size, I_size))  # GxI
 
         for g in range(G_size):
             for i in range(I_size):
-                p_est[g, i] = np.sum(p_mesas[:, i] * b[:, g]) / np.sum(b[:, g])
+                p_est[g, i] = np.sum(p_mesas[:, i] * b[:, g]) / np.sum(
+                    b[:, g]
+                )  # Maybe an improvement would be to have the sum over the ballot instead of universe
 
         p_est[np.isnan(p_est)] = (
             0  # This is to avoid border cases where there's division by cero.

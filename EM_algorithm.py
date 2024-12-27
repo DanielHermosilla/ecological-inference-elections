@@ -338,4 +338,3 @@ def EM_algorithm(
 
 
 # (g,i) compute estimate of p using EM algorithm with parameters X and b
-

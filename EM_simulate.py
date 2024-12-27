@@ -12,43 +12,6 @@ import json
 """ Creation of samples for the Hit and Run method """
 
 
-def polytope_elections(n, b):
-    """ """
-    I_size, G_size = len(n), len(b)
-
-    # Ax <= c representes the inequalities of the polytope
-    A = np.zeros(
-        (
-            G_size + I_size - 1 + (G_size - 1) * (I_size - 1),
-            (G_size - 1) * (I_size - 1),
-        ),
-        dtype=int,
-    )
-    c = np.zeros(G_size + I_size - 1 + (G_size - 1) * (I_size - 1), dtype=int)
-
-    for g in range(G_size - 1):
-        # first G-1 inequalities
-        ineq_index = [g * (I_size - 1) + i for i in range(I_size - 1)]
-        A[g][ineq_index] = 1.0
-        c[g] = b[g]
-    for i in range(I_size - 1):
-        # next I-1 inequalities
-        ineq_index = [g * (I_size - 1) + i for g in range(G_size - 1)]
-        A[G_size - 1 + i][ineq_index] = 1.0
-        c[G_size - 1 + i] = n[i]
-    # last inequality
-    A[G_size + I_size - 2][:] = -1.0
-    c[G_size + I_size - 2] = -(np.sum(n[:-1]) - b[G_size - 1])  # revisar
-
-    for g in range(G_size - 1):
-        for i in range(I_size - 1):
-            A[G_size + I_size - 2 + 1 + g * (I_size - 1) + i][
-                g * (I_size - 1) + i
-            ] = -1.0
-
-    return A, c
-
-
 def random_direction(var_size, l, u):
     permut = np.random.permutation(var_size)
     v = np.random.randint(l, u)
@@ -390,7 +353,7 @@ def compute_qm_simulate(b_m, Z_m, I_size, G_size, alfa_Z_m, log_p):
         Z_m (numpy.ndarray): Matrix with the H&R sampling.
         I_size (int): The amount of candidates.
         G_size (int): The amount of demographic groups.
-        alfa_Z_m
+        alfa_Z_m (numpy.ndarray): Parameter of normalization
 
     Returns:
        numpy.ndarray: Array with the probability values per given ballot box
@@ -664,4 +627,3 @@ if __name__ == "__main__":
     # print(f"Time elapsed: {time.time() - time_start} seconds")
 
     pass
-
