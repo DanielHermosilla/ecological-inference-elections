@@ -77,6 +77,7 @@ int32_t countVotes(Matrix x, Matrix w)
 
     int smallerDimension = MIN(size1, size2);
     int32_t total = 0;
+    printf("The smaller dimension is %d", smallerDimension);
 
     if (smallerDimension == size1)
     { // Candidates have a lesser dimension
@@ -387,11 +388,12 @@ int main()
     Matrix X = createMatrix(3, 3);
     Matrix G = createMatrix(3, 2);
     double xVal[9] = {0, 0, 2, 4, 5, 8, 1, 2, 3};
-    double gVal[6] = {2, 5, 3, 1, 0, 9};
-    const int32_t TOTAL_VOTES = countVotes(X, G);
-
+    double gVal[6] = {2, 5, 3, 1, 0, 14};
     memcpy(X.data, xVal, sizeof(xVal));
     memcpy(G.data, gVal, sizeof(gVal));
+
+    const int32_t TOTAL_VOTES = countVotes(X, G);
+    printf("\nTotal votes are %d\n\n", TOTAL_VOTES);
 
     testProb(X, G, TOTAL_VOTES);
     freeMatrix(&X);
