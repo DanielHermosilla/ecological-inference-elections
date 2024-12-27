@@ -1,6 +1,7 @@
 #ifndef MATRIX_UTILS_H
 #define MATRIX_UTILS_H
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -187,5 +188,52 @@ void makeArray(double *array, int N, double value);
  * @endcode
  */
 void fillMatrix(Matrix *matrix, double value);
+
+/**
+ * @brief Checks if the difference of two matrices converge to a value
+ *
+ * Given two matrices, it performs de absolute difference and evaluate the convergence towards a given
+ * arbitrary values: |x1 - x2| < epsilon. If there's a value whom convergence is greater than epsilon, the convergence
+ * is not achieved.
+ *
+ * @param[in] matrix Matrix to perform the substraction.
+ * @param[in] matrix Matrix to perform the substraction.
+ * @param[in] double Arbitrary value to evaluate the convergence
+ *
+ * @return bool Boolean value to see if it converges.
+ *
+ * @warning:
+ * - Both matrices should be from the same dimention.
+ * @note
+ * - Matrix should be in row-major order.
+ *
+ * @example
+ * Example usage:
+ * @code
+ * double values[6] = {
+ *     1.0, 2.0, 3.0,
+ *     4.0, 5.0, 6.0
+ * };
+ * double values2[6] = {
+ * 		1.1, 2.1, 2.9,
+ * 		3.9, 5.1, 6.1
+ * }
+ * Matrix matrix = {
+ * .data = values,
+ * .rows = 2,
+ * .cols = 3
+ * }
+ *
+ * Matrix matrix2 = {
+ * .data = values2,
+ * .rows = 2,
+ * .cols = 3
+ * }
+ *
+ * bool converges = convergeMatrix(matrix, matrix2,  0.02);
+ * // bool->true
+ * @endcode
+ */
+bool convergeMatrix(Matrix *matrixA, Matrix *matrixB, double convergence);
 
 #endif // MATRIX_UTILS_H

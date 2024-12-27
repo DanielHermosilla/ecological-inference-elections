@@ -155,8 +155,9 @@ Matrix getP(Matrix a, double q)
     return a;
 }
 
-void EMAlgoritm(Matrix x, Matrix w, Matrix initialP, const char *q_method, double convergence, int maxIter,
-                bool verbose)
+Matrix EMAlgoritm(Matrix *x, Matrix *w, Matrix *currentP, const char *q_method, const double convergence,
+                  const int maxIter, const bool verbose)
+// NOTE: Use pointer on matrices to avoid copying huge matrices on stack memory.
 {
 
     /**
@@ -167,7 +168,7 @@ void EMAlgoritm(Matrix x, Matrix w, Matrix initialP, const char *q_method, doubl
      *
      * @param[in] x Matrix of dimension (cxb) that stores the results of candidate "c" on ballot box "b".
      * @param[in] w Matrix of dimension (bxg) that stores the amount of votes from the demographic group "g".
-     * @param[in] initialP Matrix of dimension (cxg) with the initial probabilities for the first iteration.
+     * @param[in] currentP Matrix of dimension (cxg) with the initial probabilities for the first iteration.
      * @param[in] q_method Pointer to a string that indicates the method or calculating "q". Currently it supports "Hit
      * and Run", "Multinomial", "MVN CDF" and "MVN PDF" methods.
      * @param[in] convergence Threshold value for convergence. Usually it's set to 0.001.
@@ -193,21 +194,21 @@ void EMAlgoritm(Matrix x, Matrix w, Matrix initialP, const char *q_method, doubl
         exit(EXIT_FAILURE);
     }
 
-    if (verbose == true)
+    if (verbose)
     {
         printf("Starting the EM algorithm.\n The candidates matrix is:\n");
-        printMatrix(&x);
+        printMatrix(x);
         printf("\nThe matrix with the demographic groups votation is:\n");
-        printMatrix(&w);
+        printMatrix(w);
         printf("\nThe method to calculate the conditional probability will be %s method with the following "
                "parameters:\nConvergence threshold:\t%.6f\nMaximum iterations:\t%d\n",
                q_method, convergence, maxIter);
     }
 
-    Matrix *probabilityPtr = &initialP;
+    // Matrix *probabilityPtr = initialP;
     double q = 2.0;
 
-    for (int i; i < maxIter; i++)
+    for (int i = 0; i < maxIter; i++)
     {
         // Hit and Run
         if (strcmp(q_method, "Hit and Run") == 0)
@@ -234,8 +235,27 @@ void EMAlgoritm(Matrix x, Matrix w, Matrix initialP, const char *q_method, doubl
             break;
         }
 
-        newProbability = getP(probabilityPtr, q);
+        Matrix newProbability = getP(*currentP, q);
+
+        if (convergeMatrix(&newProbability, currentP, convergence))
+        {
+            if (verbose)
+            {
+                printf("The convergence was found on iteration %d\n", i);
+            }
+            freeMatrix(currentP);
+            freeMatrix(x);
+            freeMatrix(w);
+            return newProbability;
+
+            freeMatrix(currentP);
+            *currentP = newProbability;
+        }
+        // TODO: Compute de Log-likelihood and all the other stuff
     }
+    printf("Maximum iterations reached without convergence.\n"); // Print even if there's not verbose, might change
+    // later.
+    return *currentP;
 }
 // SEXP hello_gsl()
 //{

@@ -1,5 +1,6 @@
 #include "matrixUtils.h"
 #include <cblas.h>
+#include <math.h>
 #include <omp.h> // Parallelization
 #include <stdbool.h>
 #include <stdio.h>
@@ -327,7 +328,8 @@ void fillMatrix(Matrix *matrix, double value)
  * @brief Checks if the difference of two matrices converge to a value
  *
  * Given two matrices, it performs de absolute difference and evaluate the convergence towards a given
- * arbitrary values: |x1 - x2| < epsilon.
+ * arbitrary values: |x1 - x2| < epsilon. If there's a value whom convergence is greater than epsilon, the convergence
+ * is not achieved.
  *
  * @param[in] matrix Matrix to perform the substraction.
  * @param[in] matrix Matrix to perform the substraction.
@@ -390,7 +392,22 @@ bool convergeMatrix(Matrix *matrixA, Matrix *matrixB, double convergence)
 
     int size = matrixA->rows * matrixB->cols;
 
-    Matrix diff = createMatrix(matrixA->rows, matrixB->cols);
+    double *diff = (double *)malloc(size * sizeof(double));
 
     cblas_dcopy(size, matrixA->data, 1, diff, 1);
+    cblas_daxpy(size, -1.0, matrixA->data, 1, diff, 1);
+
+    for (int i = 0; i < size; i++)
+    {
+        // If there's a value whom convergence is greater than epsilon, the convergence
+        // isn't achieved.
+        if (fabs(diff[i]) >= convergence)
+        {
+            free(diff);
+            return false;
+        }
+    }
+
+    free(diff);
+    return true;
 }
