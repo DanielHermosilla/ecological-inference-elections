@@ -31,11 +31,20 @@
 // Macro for evaluating minimum numbers, be aware of possible issues, try to use it on ints only.
 #define MIN(a, b) ((a) < (b) ? a : b)
 
-int32_t countVotes(Matrix x, Matrix w)
+static uint32_t TOTAL_VOTES = 0;
+static uint32_t TOTAL_BALLOTS = 0;
+static uint16_t TOTAL_CANDIDATES = 0;
+static uint16_t TOTAL_GROUPS = 0;
+static uint32_t *CANDIDATES_VOTES = NULL;
+static uint32_t *GROUP_VOTES = NULL;
+static Matrix *X = NULL;
+static Matrix *W = NULL;
+
+void setParameters(Matrix x, Matrix w)
 {
     /**
-     * @brief Yields the total amount of votes in the process. Usually this should be done once for avoiding
-     * computing a loop over ballots.
+     * @brief Yields the global parameters of the process. Usually this should be done once for avoiding
+     * computing a loop over ballots. It also changes the parameters in case it's called with other `x` and `w` matrix.
      *
      * Gets the total amount of votes in the process. This should only be donce once for avoiding computing loops
      * over ballots.
@@ -43,9 +52,9 @@ int32_t countVotes(Matrix x, Matrix w)
      * @param[in] x Matrix of dimension (cxb) that stores the results of candidate "c" on ballot box "b".
      * @param[in] w Matrix of dimension (bxg) that stores the amount of votes from the demographic group "g".
      *
-     * @return An integer with the total amount of votes of the process.
+     * @return void. Will edit the static values in the file
      *
-     * @note This should only be used once, later to be declared as a constant value in the program.
+     * @note This should only be used once, later to be declared as a static value in the program.
      *
      * @warning
      * - Pointers shouldn't be NULL.
@@ -64,7 +73,7 @@ int32_t countVotes(Matrix x, Matrix w)
     if (x.cols != w.rows && x.cols > 0)
     {
         fprintf(stderr,
-                "The dimensions of the matrices handed to getInitialP are incorrect; `x` columns and `w` rows length "
+                "The dimensions of the matrices handed to countVotes are incorrect; `x` columns and `w` rows length "
                 "must be the same, but they're %d and %d respectivately.\n",
                 x.cols, w.rows);
         exit(EXIT_FAILURE);
@@ -72,34 +81,33 @@ int32_t countVotes(Matrix x, Matrix w)
 
     // Since they're integers it will be better to operate with integers rather than a cBLAS operations (since it
     // receives doubles).
-    const int size1 = x.rows * x.cols;
-    const int size2 = w.rows * w.cols;
+    TOTAL_CANDIDATES = x.rows;
+    TOTAL_GROUPS = w.cols;
+    TOTAL_BALLOTS = w.rows;
+    uint32_t *CANDIDATES_VOTES = (uint32_t *)malloc(TOTAL_CANDIDATES * sizeof(uint32_t));
+    uint32_t *GROUP_VOTES = (uint32_t *)malloc(TOTAL_GROUPS * sizeof(uint32_t));
+    *X = x;
+    *W = w;
 
-    int smallerDimension = MIN(size1, size2);
-    int32_t total = 0;
-    printf("The smaller dimension is %d", smallerDimension);
-
-    if (smallerDimension == size1)
-    { // Candidates have a lesser dimension
-#pragma omp parallel for reduction(+ : total)
-        for (int i = 0; i < size1; i++)
+#pragma omp parallel for reduction(+ : CANDIDATES_VOTES[ : TOTAL_CANDIDATES])                                          \
+    reduction(+ : GROUP_VOTES[ : TOTAL_GROUPS]) reduction(+ : TOTAL_VOTES)
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
         {
-            total += (int32_t)(x.data[i]);
+            CANDIDATES_VOTES[c] += (uint32_t)MATRIX_AT(x, c, b);
+            TOTAL_VOTES += (uint32_t)MATRIX_AT(
+                x, c, b); // Usually it's always the candidate with lesser dimension, preferible to not
+                          // compromise legibility over a really small and unprobable gain in efficiency
+        }
+        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+        {
+            GROUP_VOTES[g] += (uint32_t)MATRIX_AT(w, b, g);
         }
     }
-
-    else
-    { // Groups have a lesser dimension
-#pragma omp parallel for reduction(+ : total)
-        for (int i = 0; i < size2; i++)
-        {
-            total += (int32_t)(w.data[i]);
-        }
-    }
-    return total;
 }
 
-Matrix getInitialP(Matrix x, Matrix w, const char *p_method, const int32_t totalVotes)
+Matrix getInitialP(Matrix x, Matrix w, const char *p_method)
 {
 
     /**
@@ -378,6 +386,21 @@ void testProb(Matrix X, Matrix G, int32_t votes)
     printf("\nThe probability matrix for `group proportional` method is:\n");
     printMatrix(&prob3);
     freeMatrix(&prob3);
+}
+
+__attribute__((destructor)) // Executes when the library is ready
+void cleanup()
+{
+    if (CANDIDATES_VOTES != NULL)
+    {
+        free(CANDIDATES_VOTES);
+        CANDIDATES_VOTES = NULL;
+    }
+    if (GROUP_VOTES != NULL)
+    {
+        free(GROUP_VOTES);
+        CANDIDATES_VOTES = NULL;
+    }
 }
 
 int main()
