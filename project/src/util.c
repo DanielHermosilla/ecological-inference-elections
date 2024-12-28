@@ -107,7 +107,7 @@ void setParameters(Matrix x, Matrix w)
     }
 }
 
-Matrix getInitialP(Matrix x, Matrix w, const char *p_method)
+Matrix getInitialP(const char *p_method)
 {
 
     /**
@@ -116,12 +116,9 @@ Matrix getInitialP(Matrix x, Matrix w, const char *p_method)
      * Given the observables results, it computes a convenient initial "p" value for initiating the
      * algorithm. Currently it supports the "uniform", "group_proportional" and "proportional" methods.
      *
-     * @param[in] x Matrix of dimension (cxb) that stores the results of candidate "c" on ballot box "b".
-     * @param[in] w Matrix of dimension (bxg) that stores the amount of votes from the demographic group "g".
      * @param[in] p_method The method for calculating the initial parameter. Currently it supports "uniform",
      * "group_proportional" and "proportional" methods.
-     * @param[in] totalVotes An 32-bit integer (assuming the votes doesn't exceed 2.1billions...) with the total amount
-     * of votes. This parameter is used for computing only once the total amount of votes and being more efficient.
+     *
      * @return Matrix of dimension (gxc) with the initial probability for each demographic group "g" voting for a given
      * candidate "c".
      * @note This should be used only that the first iteration of the EM-algorithm.
@@ -131,23 +128,6 @@ Matrix getInitialP(Matrix x, Matrix w, const char *p_method)
      *
      */
 
-    // Validation, checks NULL pointer
-    if (!x.data || !w.data)
-    {
-        fprintf(stderr, "A NULL pointer was handed to getInitialP.\n");
-        exit(EXIT_FAILURE); // Frees used memory
-    }
-
-    // Validation, checks dimentional coherence
-    if (x.cols != w.rows && x.cols > 0)
-    {
-        fprintf(stderr,
-                "The dimensions of the matrices handed to getInitialP are incorrect; `x` columns and `w` rows length "
-                "must be the same, but they're %d and %d respectivately.\n",
-                x.cols, w.rows);
-        exit(EXIT_FAILURE);
-    }
-
     // Validation, checks the method string
     if (strcmp(p_method, "uniform") != 0 && strcmp(p_method, "proportional") != 0 &&
         strcmp(p_method, "group proportional") != 0)
@@ -156,32 +136,24 @@ Matrix getInitialP(Matrix x, Matrix w, const char *p_method)
         exit(EXIT_FAILURE);
     }
 
-    const int candidates = x.rows;
-    const int groups = w.cols;
-    const int ballots = x.cols;
-
     Matrix probabilities;
-    probabilities = createMatrix(groups, candidates);
+    probabilities = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES);
 
     // Asumes a Uniform distribution among candidates
     if (strcmp(p_method, "uniform") == 0)
     {
-        fillMatrix(&probabilities, 1.0 / candidates);
+        fillMatrix(&probabilities, 1.0 / (double)TOTAL_CANDIDATES);
     }
     // The proportional method calculates the proportion of votes of each candidate, and assigns that probability to
     // every demographic group;
 
     else if (strcmp(p_method, "proportional") == 0)
     {
-        double canVotes[candidates];
-        // Step 1: Calculate the total amount of votes per candidates.
-        rowSum(&x, canVotes);
-
-        // Step 2: Fill the matrix
-        for (int c = 0; c < candidates; c++)
+        for (int c = 0; c < TOTAL_CANDIDATES; c++)
         {
-            double ratio = (double)canVotes[c] / (double)totalVotes;
-            for (int g = 0; g < groups; g++)
+            double ratio =
+                (double)CANDIDATES_VOTES[c] / (double)TOTAL_VOTES; // Proportion of candidates votes per total votes.
+            for (int g = 0; g < TOTAL_GROUPS; g++)
             {
                 MATRIX_AT(probabilities, g, c) = ratio;
             }
@@ -192,33 +164,13 @@ Matrix getInitialP(Matrix x, Matrix w, const char *p_method)
          // Now it considers the proportion of candidates votes AND demographic group, it's an extension of the
          // past method
     {
-        double votePerCandidate[candidates];
-        int totalCandidate = 0;
-        rowSum(&x, votePerCandidate);
-
-        double votePerGroup[groups];
-        int totalGroup = 0;
-        colSum(&w, votePerGroup);
-
-        // Step 1: Calculate the total amount of votes for candidate
-        for (int c = 0; c < candidates; c++)
+        for (int c = 0; c < TOTAL_CANDIDATES; c++)
         {
-            totalCandidate += votePerCandidate[c];
-        }
-
-        // Step 2: Calculate the total amount of votes per group
-        for (int g = 0; g < groups; g++)
-        {
-            totalGroup += votePerGroup[g];
-        }
-
-        // Step 3: Fill the matrix
-        for (int c = 0; c < candidates; c++)
-        {
-            for (int g = 0; g < groups; g++)
+            for (int g = 0; g < TOTAL_GROUPS; g++)
             {
-                MATRIX_AT(probabilities, g, c) =
-                    (votePerCandidate[c] * votePerGroup[g]) / (double)(totalCandidate * totalGroup);
+                MATRIX_AT(probabilities, g,
+                          c) = // This considers a joint proportion; TODO: correct considering the paper equation.
+                    (double)(CANDIDATES_VOTES[c] * GROUP_VOTES[g]) / (double)(TOTAL_CANDIDATES * TOTAL_GROUPS);
             }
         }
     }
