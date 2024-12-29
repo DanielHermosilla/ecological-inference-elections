@@ -187,14 +187,29 @@ Matrix getInitialP(const char *p_method)
             for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
             {
                 if (MATRIX_AT_PTR(W, b, g) == 0.0)
-                    continue; // Division by zero
+                    continue; // Division by zero, case where a group doesn't vote in a ballot.
                 for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
                 {
                     temp = (uint16_t)MATRIX_AT_PTR(X, c, b) * (uint16_t)MATRIX_AT_PTR(W, b, g); // w_bg * x_bg = a
                     numerator = (double)temp * inv_BALLOTS_VOTES[b];                            // (a/I_b)
-                    prob_data[g * TOTAL_CANDIDATES + c] +=
-                        numerator / GROUP_VOTES[g]; // Equivalent to MATRIX_AT(probabilities, g, c)
+                    prob_data[g * TOTAL_CANDIDATES + c] += numerator; // Equivalent to MATRIX_AT(probabilities, g, c)
                 }
+            }
+        }
+
+        // Now do the division once per (g,c), this reduces roughly 2 millions divisions to 50
+        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+        {
+            if (GROUP_VOTES[g] == 0)
+            {
+                fprintf(stderr, "The %dth group does not have any vote assigned.", g);
+                exit(EXIT_FAILURE);
+            }
+
+            double inv_gvotes = 1.0 / (double)GROUP_VOTES[g];
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            {
+                prob_data[g * TOTAL_CANDIDATES + c] *= inv_gvotes;
             }
         }
     }
@@ -238,6 +253,17 @@ Matrix getP(const Matrix *q)
                 double total = (MATRIX_AT_PTR(W, b, g) * MATRIX_AT(q[b], g, c)) * toDivide;
                 ptrReturn[g * TOTAL_CANDIDATES + c] += total; // Equivalent to MATRIX_AT(probabilities, g, c)
             }
+        }
+    }
+
+    // Now divide by GROUP_VOTES[g] just once per (g,c) instead of doing it `b` times (note that the division is usually
+    // expensive). Approximately reduces 400.000 double divisions to 50.
+    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+    {
+        double denom = (double)GROUP_VOTES[g];
+        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+        {
+            ptrReturn[g * TOTAL_CANDIDATES + c] /= denom;
         }
     }
     return toReturn;
