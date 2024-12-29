@@ -4,6 +4,7 @@
 #include <Rinternals.h>
 #include <cblas.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,8 +38,9 @@ static uint32_t TOTAL_VOTES = 0;
 static uint32_t TOTAL_BALLOTS = 0;
 static uint16_t TOTAL_CANDIDATES = 0;
 static uint16_t TOTAL_GROUPS = 0;
-static uint32_t *CANDIDATES_VOTES = NULL;
-static uint32_t *GROUP_VOTES = NULL;
+static uint16_t *BALLOTS_VOTES = NULL;    // Total votes per ballot
+static uint32_t *CANDIDATES_VOTES = NULL; // Total votes per candidate
+static uint32_t *GROUP_VOTES = NULL;      // Total votes per group
 static Matrix *X = NULL;
 static Matrix *W = NULL;
 
@@ -88,11 +90,14 @@ void setParameters(Matrix *x, Matrix *w)
     TOTAL_BALLOTS = w->rows;
     CANDIDATES_VOTES = (uint32_t *)malloc(TOTAL_CANDIDATES * sizeof(uint32_t));
     GROUP_VOTES = (uint32_t *)malloc(TOTAL_GROUPS * sizeof(uint32_t));
+    BALLOTS_VOTES = (uint16_t *)malloc(TOTAL_GROUPS * sizeof(uint16_t));
+
     X = x;
     W = w;
 
 #pragma omp parallel for reduction(+ : CANDIDATES_VOTES[ : TOTAL_CANDIDATES])                                          \
-    reduction(+ : GROUP_VOTES[ : TOTAL_GROUPS]) reduction(+ : TOTAL_VOTES)
+    reduction(+ : GROUP_VOTES[ : TOTAL_GROUPS]) reduction(+ : TOTAL_VOTES)                                             \
+    reduction(+ : BALLOTS_VOTES[ : TOTAL_BALLOTS])
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
         for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
@@ -101,6 +106,7 @@ void setParameters(Matrix *x, Matrix *w)
             TOTAL_VOTES += (uint32_t)MATRIX_AT_PTR(
                 X, c, b); // Usually it's always the candidate with lesser dimension, preferible to not
                           // compromise legibility over a really small and unprobable gain in efficiency
+            BALLOTS_VOTES[b] += (uint16_t)MATRIX_AT_PTR(X, c, b);
         }
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         {
@@ -163,16 +169,32 @@ Matrix getInitialP(const char *p_method)
     }
 
     else // group proportional
-         // Now it considers the proportion of candidates votes AND demographic group, it's an extension of the
+         // Now it considers the proportion of candidates votes AND demographic groups, it's an extension of the
          // past method
     {
-        for (int c = 0; c < TOTAL_CANDIDATES; c++)
+        double numerator = 0.0;                  // Note that the denominator is already known
+        double inv_BALLOTS_VOTES[TOTAL_BALLOTS]; // To avoid computing reused numbers.
+        uint16_t temp = 0;                       // Will be used to cast multiplications on integers and add efficiency.
+        double *prob_data = probabilities.data;  // For OpenMP because they don't accept structs for reduction clauses
+                                                 // even though it's dereferenced
+#pragma omp parallel for reduction(+ : prob_data[ : TOTAL_GROUPS * TOTAL_CANDIDATES])
+        for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
         {
-            for (int g = 0; g < TOTAL_GROUPS; g++)
+            if (BALLOTS_VOTES[b] == 0)
+                continue; // Division by zero, even though it's technically impossible.
+
+            inv_BALLOTS_VOTES[b] = 1.0 / (double)BALLOTS_VOTES[b];
+            for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
             {
-                MATRIX_AT(probabilities, g,
-                          c) = // This considers a joint proportion; TODO: correct considering the paper equation.
-                    (double)(CANDIDATES_VOTES[c] * GROUP_VOTES[g]) / (double)(TOTAL_CANDIDATES * TOTAL_GROUPS);
+                if (MATRIX_AT_PTR(W, b, g) == 0.0)
+                    continue; // Division by zero
+                for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+                {
+                    temp = (uint16_t)MATRIX_AT_PTR(X, c, b) * (uint16_t)MATRIX_AT_PTR(W, b, g); // w_bg * x_bg = a
+                    numerator = (double)temp * inv_BALLOTS_VOTES[b];                            // (a/I_b)
+                    prob_data[g * TOTAL_CANDIDATES + c] +=
+                        numerator / GROUP_VOTES[g]; // Equivalent to MATRIX_AT(probabilities, g, c)
+                }
             }
         }
     }
@@ -359,8 +381,8 @@ int main()
     start = clock();
     Matrix X = createMatrix(3, 3);
     Matrix G = createMatrix(3, 2);
-    double xVal[9] = {0, 0, 2, 4, 5, 8, 1, 2, 3};
-    double gVal[6] = {2, 5, 3, 1, 0, 14};
+    double xVal[9] = {4, 5, 6, 3, 4, 5, 2, 3, 4};
+    double gVal[6] = {8, 1, 10, 2, 12, 3};
     memcpy(X.data, xVal, sizeof(xVal));
     memcpy(G.data, gVal, sizeof(gVal));
 
