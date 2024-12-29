@@ -421,8 +421,12 @@ void cleanup()
 int main()
 {
     printf("The program is running\n");
-    time_t start, end;
-    start = clock();
+
+    struct timespec start, end; // High-resolution time structures
+
+    // Start timer
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
     Matrix X = createMatrix(3, 3);
     Matrix G = createMatrix(3, 2);
     double xVal[9] = {4, 5, 6, 3, 4, 5, 2, 3, 4};
@@ -438,8 +442,21 @@ int main()
     freeMatrix(&G);
     // free(GROUP_VOTES);
     // free(CANDIDATES_VOTES);
-    end = clock();
-    int t = (end - start) / CLOCKS_PER_SEC;
-    printf("The program took %d seconds!", t);
+    //
+    // End timer
+    clock_gettime(CLOCK_MONOTONIC, &end);
+
+    // Calculate elapsed time
+    double elapsed_sec = (end.tv_sec - start.tv_sec);        // Whole seconds
+    double elapsed_ms = (end.tv_nsec - start.tv_nsec) / 1e6; // Milliseconds
+
+    if (elapsed_ms < 0)
+    {
+        // Handle edge case where nanoseconds roll over
+        elapsed_sec -= 1;
+        elapsed_ms += 1000;
+    }
+
+    printf("The program took %.0f seconds and %.3f milliseconds!\n", elapsed_sec, elapsed_ms);
     return 0;
 }
