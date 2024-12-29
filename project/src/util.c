@@ -201,7 +201,7 @@ Matrix getInitialP(const char *p_method)
     return probabilities;
 }
 
-Matrix getP(double q)
+Matrix getP(const Matrix *q)
 
 /*
  * @brief Computes the optimal solution for the `M` step
@@ -220,9 +220,27 @@ Matrix getP(double q)
  */
 
 {
-    // Matrix returnMatrix = createMatrix(w.cols, q[0].cols);
-    Matrix a = createMatrix(1, 1);
-    return a;
+    Matrix toReturn = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES);
+    double *ptrReturn = toReturn.data; // For OpenMP because they don't accept structs for reduction clauses
+    // even though it's dereferenced
+
+    // Loop over "b" can't be avoided since q[b].data is not in contiguos memory. It could potentially be avoided if the
+    // implementation of q was a contiguos array - hence a manual multiplication will be
+
+#pragma omp parallel for reduction(+ : ptrReturn[ : TOTAL_GROUPS * TOTAL_CANDIDATES])
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+        {
+            double toDivide = 1.0 / (double)GROUP_VOTES[g];
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            {
+                double total = (MATRIX_AT_PTR(W, b, g) * MATRIX_AT(q[b], g, c)) * toDivide;
+                ptrReturn[g * TOTAL_CANDIDATES + c] += total; // Equivalent to MATRIX_AT(probabilities, g, c)
+            }
+        }
+    }
+    return toReturn;
 }
 
 Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
@@ -279,8 +297,8 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     // the candidates vector or group vector. TODO: Reuse this value also for initial probability
 
     // Matrix *probabilityPtr = initialP;
-    double q = 2.0;
-
+    Matrix *q = malloc(sizeof(Matrix) * TOTAL_BALLOTS);
+    free(q);
     for (int i = 0; i < maxIter; i++)
     {
         // Hit and Run
