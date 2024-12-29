@@ -55,6 +55,42 @@ void makeArray(double *array, int N, double value)
 }
 
 /**
+ * @brief Checks if the matrix is well define
+ *
+ * Given a pointer to a matrix, it verifies if the matrix is well alocated and defined and throws an error if there's
+ * something wrong.
+ *
+ * @param[in] m A pointer to the matrix
+ *
+ * @return void
+ *
+ * @note
+ * - This will just throw errors, note that EXIT_FAILURE will dealocate memory
+ *
+ * @warning
+ * - The pointer may be NULL.
+ * - The dimensions may be negative.
+ */
+
+void checkMatrix(Matrix *m)
+{
+
+    // Validation, checks NULL pointer
+    if (!m || !m->data)
+    {
+        fprintf(stderr, "A NULL pointer was handed as a matrix argument.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Checks dimensions
+    if (m->rows <= 0 || m->cols <= 0)
+    {
+        fprintf(stderr, "Invalid matrix dimensions: rows=%d, cols=%d\n", m->rows, m->cols);
+        exit(EXIT_FAILURE);
+    }
+}
+
+/**
  * @brief Creates an empty dynamically allocated memory matrix of given dimensions.
  *
  * Given certain dimensions of rows and colums, creates an empty Matrix with allocated memory towards the data.
@@ -127,6 +163,8 @@ void freeMatrix(Matrix *m)
 
 void printMatrix(Matrix *matrix)
 {
+    checkMatrix(matrix); // Assertion
+
     printf("Matrix (%dx%d) of type double\n", matrix->rows, matrix->cols);
 
     for (int i = 0; i < matrix->rows; i++)
@@ -178,12 +216,7 @@ void printMatrix(Matrix *matrix)
 
 void rowSum(Matrix *matrix, double *result)
 {
-    // Validation, checks NULL pointer
-    if (!matrix || !matrix->data || !result)
-    {
-        fprintf(stderr, "A NULL pointer was handed to rowSum.\n");
-        exit(EXIT_FAILURE);
-    }
+    checkMatrix(matrix); // Assertion
 
     // We will use malloc to avoid stack overflows. Usually, we don't know
     // what's the size that will be given to the matrix, but if it exceeds
@@ -258,12 +291,7 @@ void rowSum(Matrix *matrix, double *result)
 
 void colSum(Matrix *matrix, double *result)
 {
-    // Validation, checks NULL pointer
-    if (!matrix || !matrix->data || !result)
-    {
-        fprintf(stderr, "A NULL pointer was handed to colSum.\n");
-        exit(EXIT_FAILURE);
-    }
+    checkMatrix(matrix); // Assertion
 
     double *ones = (double *)malloc(matrix->rows * sizeof(double));
     makeArray(ones, matrix->rows, 1.0);
@@ -318,7 +346,7 @@ void colSum(Matrix *matrix, double *result)
 
 void fillMatrix(Matrix *matrix, double value)
 {
-
+    checkMatrix(matrix); // Assertion
     int size = matrix->rows * matrix->cols;
 
     makeArray(matrix->data, size, value);
@@ -372,21 +400,18 @@ void fillMatrix(Matrix *matrix, double value)
 bool convergeMatrix(Matrix *matrixA, Matrix *matrixB, double convergence)
 {
 
+    checkMatrix(matrixA);
+    checkMatrix(matrixB);
+
     if (convergence <= 0)
     {
         fprintf(stderr, "An invalid value was handed to convergence, it must be greater than cero.\n");
         exit(EXIT_FAILURE);
     }
 
-    if (!matrixA || !matrixB || !matrixA->data || !matrixB->data)
-    {
-        fprintf(stderr, "The points towards the matrices are invalid.\n");
-        exit(EXIT_FAILURE);
-    }
-
     if (matrixA->cols != matrixB->cols || matrixA->rows != matrixB->rows)
     {
-        fprintf(stderr, "The dimensions of both matrices are incorrect.\n");
+        fprintf(stderr, "The dimensions of both matrices doesn't match.\n");
         exit(EXIT_FAILURE);
     }
 
