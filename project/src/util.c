@@ -45,6 +45,20 @@ static uint32_t *GROUP_VOTES = NULL;      // Total votes per group
 static Matrix *X = NULL;
 static Matrix *W = NULL;
 
+void printIntArray(const int *array, int size)
+{ // This will be removed
+    printf("[");
+    for (int i = 0; i < size; i++)
+    {
+        printf("%d", array[i]);
+        if (i < size - 1)
+        {
+            printf(", "); // Add a comma between elements, but not after the last one
+        }
+    }
+    printf("]\n");
+}
+
 void setParameters(Matrix *x, Matrix *w)
 {
     /**
@@ -89,9 +103,9 @@ void setParameters(Matrix *x, Matrix *w)
     TOTAL_CANDIDATES = x->rows;
     TOTAL_GROUPS = w->cols;
     TOTAL_BALLOTS = w->rows;
-    CANDIDATES_VOTES = (uint32_t *)malloc(TOTAL_CANDIDATES * sizeof(uint32_t));
-    GROUP_VOTES = (uint32_t *)malloc(TOTAL_GROUPS * sizeof(uint32_t));
-    BALLOTS_VOTES = (uint16_t *)malloc(TOTAL_GROUPS * sizeof(uint16_t));
+    CANDIDATES_VOTES = (uint32_t *)calloc(TOTAL_CANDIDATES, sizeof(uint32_t));
+    GROUP_VOTES = (uint32_t *)calloc(TOTAL_GROUPS, sizeof(uint32_t));
+    BALLOTS_VOTES = (uint16_t *)calloc(TOTAL_GROUPS, sizeof(uint16_t));
 
     X = x;
     W = w;
@@ -103,7 +117,9 @@ void setParameters(Matrix *x, Matrix *w)
     {
         for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
         {
+            printf("The value at %d,%d for X is %2.f\n", c, b, MATRIX_AT_PTR(X, c, b));
             CANDIDATES_VOTES[c] += (uint32_t)MATRIX_AT_PTR(X, c, b);
+            printf("The array of candidate votes at %d has the value of:\t%u\n", c, CANDIDATES_VOTES[c]);
             TOTAL_VOTES += (uint32_t)MATRIX_AT_PTR(
                 X, c, b); // Usually it's always the candidate with lesser dimension, preferible to not
                           // compromise legibility over a really small and unprobable gain in efficiency
@@ -158,8 +174,10 @@ Matrix getInitialP(const char *p_method)
 
     else if (strcmp(p_method, "proportional") == 0)
     {
+        printf("\nThe total candidates vote array is:");
         for (int c = 0; c < TOTAL_CANDIDATES; c++)
         {
+            printf("\t%.1f", (double)CANDIDATES_VOTES[c]);
             double ratio =
                 (double)CANDIDATES_VOTES[c] / (double)TOTAL_VOTES; // Proportion of candidates votes per total votes.
             for (int g = 0; g < TOTAL_GROUPS; g++)

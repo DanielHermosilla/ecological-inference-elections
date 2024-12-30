@@ -104,13 +104,13 @@ void generateVotes(Matrix *x, Matrix *w, const int *totalvotes, const int *total
         for (int c = 0; c < *totalcandidates; c++)
         {
             MATRIX_AT_PTR(x, c, b) = candidateVotes[c];
-            printf("%.1f\t", candidateVotes[c]);
+            // printf("%.1f\t", candidateVotes[c]);
         }
         // printf("\nAnd the group distribution will be:\n");
         for (int g = 0; g < *totalgroups; g++)
         {
             MATRIX_AT_PTR(w, b, g) = groupVotes[g];
-            printf("%.1f\t", groupVotes[g]);
+            // printf("%.1f\t", groupVotes[g]);
         }
         // printf("\nIn theory, both should sum to %.1f\n\n", votesPerBallot[b]);
     }
