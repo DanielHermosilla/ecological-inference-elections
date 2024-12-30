@@ -120,7 +120,7 @@ Matrix createMatrix(int rows, int cols)
     m.rows = rows;
     m.cols = cols;
 
-    m.data = malloc(rows * cols * sizeof(double));
+    m.data = calloc(rows * cols, sizeof(double));
 
     if (!m.data)
     {

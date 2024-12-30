@@ -45,20 +45,6 @@ static uint32_t *GROUP_VOTES = NULL;      // Total votes per group
 static Matrix *X = NULL;
 static Matrix *W = NULL;
 
-void printIntArray(const int *array, int size)
-{ // This will be removed
-    printf("[");
-    for (int i = 0; i < size; i++)
-    {
-        printf("%d", array[i]);
-        if (i < size - 1)
-        {
-            printf(", "); // Add a comma between elements, but not after the last one
-        }
-    }
-    printf("]\n");
-}
-
 void setParameters(Matrix *x, Matrix *w)
 {
     /**
@@ -105,21 +91,19 @@ void setParameters(Matrix *x, Matrix *w)
     TOTAL_BALLOTS = w->rows;
     CANDIDATES_VOTES = (uint32_t *)calloc(TOTAL_CANDIDATES, sizeof(uint32_t));
     GROUP_VOTES = (uint32_t *)calloc(TOTAL_GROUPS, sizeof(uint32_t));
-    BALLOTS_VOTES = (uint16_t *)calloc(TOTAL_GROUPS, sizeof(uint16_t));
+    BALLOTS_VOTES = (uint16_t *)calloc(TOTAL_BALLOTS, sizeof(uint16_t));
 
     X = x;
     W = w;
 
-#pragma omp parallel for reduction(+ : CANDIDATES_VOTES[ : TOTAL_CANDIDATES])                                          \
+    //#pragma omp parallel for reduction(+ : CANDIDATES_VOTES[ : TOTAL_CANDIDATES])                                          \
     reduction(+ : GROUP_VOTES[ : TOTAL_GROUPS]) reduction(+ : TOTAL_VOTES)                                             \
     reduction(+ : BALLOTS_VOTES[ : TOTAL_BALLOTS])
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
         for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
         {
-            printf("The value at %d,%d for X is %2.f\n", c, b, MATRIX_AT_PTR(X, c, b));
             CANDIDATES_VOTES[c] += (uint32_t)MATRIX_AT_PTR(X, c, b);
-            printf("The array of candidate votes at %d has the value of:\t%u\n", c, CANDIDATES_VOTES[c]);
             TOTAL_VOTES += (uint32_t)MATRIX_AT_PTR(
                 X, c, b); // Usually it's always the candidate with lesser dimension, preferible to not
                           // compromise legibility over a really small and unprobable gain in efficiency
@@ -174,10 +158,8 @@ Matrix getInitialP(const char *p_method)
 
     else if (strcmp(p_method, "proportional") == 0)
     {
-        printf("\nThe total candidates vote array is:");
         for (int c = 0; c < TOTAL_CANDIDATES; c++)
         {
-            printf("\t%.1f", (double)CANDIDATES_VOTES[c]);
             double ratio =
                 (double)CANDIDATES_VOTES[c] / (double)TOTAL_VOTES; // Proportion of candidates votes per total votes.
             for (int g = 0; g < TOTAL_GROUPS; g++)
@@ -193,7 +175,7 @@ Matrix getInitialP(const char *p_method)
     {
         double numerator = 0.0;                  // Note that the denominator is already known
         double inv_BALLOTS_VOTES[TOTAL_BALLOTS]; // To avoid computing reused numbers.
-        uint16_t temp = 0;                       // Will be used to cast multiplications on integers and add efficiency.
+        uint32_t temp = 0;                       // Will be used to cast multiplications on integers and add efficiency.
         double *prob_data = probabilities.data;  // For OpenMP because they don't accept structs for reduction clauses
                                                  // even though it's dereferenced
 #pragma omp parallel for reduction(+ : prob_data[ : TOTAL_GROUPS * TOTAL_CANDIDATES])
@@ -209,7 +191,7 @@ Matrix getInitialP(const char *p_method)
                     continue; // Division by zero, case where a group doesn't vote in a ballot.
                 for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
                 {
-                    temp = (uint16_t)MATRIX_AT_PTR(X, c, b) * (uint16_t)MATRIX_AT_PTR(W, b, g); // w_bg * x_bg = a
+                    temp = (uint32_t)MATRIX_AT_PTR(X, c, b) * (uint32_t)MATRIX_AT_PTR(W, b, g); // w_bg * x_bg = a
                     numerator = (double)temp * inv_BALLOTS_VOTES[b];                            // (a/I_b)
                     prob_data[g * TOTAL_CANDIDATES + c] += numerator; // Equivalent to MATRIX_AT(probabilities, g, c)
                 }
