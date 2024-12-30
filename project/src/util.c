@@ -1,5 +1,6 @@
 #include "instanceGenerator.h"
 #include "matrixUtils.h"
+#include "multinomial.h"
 #include <R.h>
 #include <R_ext/Rdynload.h>
 #include <Rinternals.h>
@@ -33,15 +34,16 @@
 #define MATRIX_AT(matrix, i, j) (matrix.data[(i) * (matrix.cols) + (j)])
 #define MATRIX_AT_PTR(matrix, i, j) (matrix->data[(i) * (matrix->cols) + (j)])
 
-static uint32_t TOTAL_VOTES = 0;
-static uint32_t TOTAL_BALLOTS = 0;
-static uint16_t TOTAL_CANDIDATES = 0;
-static uint16_t TOTAL_GROUPS = 0;
-static uint16_t *BALLOTS_VOTES = NULL;    // Total votes per ballot
-static uint32_t *CANDIDATES_VOTES = NULL; // Total votes per candidate
-static uint32_t *GROUP_VOTES = NULL;      // Total votes per group
-static Matrix *X = NULL;
-static Matrix *W = NULL;
+uint32_t TOTAL_VOTES = 0;
+uint32_t TOTAL_BALLOTS = 0;
+uint16_t TOTAL_CANDIDATES = 0;
+uint16_t TOTAL_GROUPS = 0;
+uint16_t *BALLOTS_VOTES = NULL;    // Total votes per ballot
+uint32_t *CANDIDATES_VOTES = NULL; // Total votes per candidate
+uint32_t *GROUP_VOTES = NULL;      // Total votes per group
+double *inv_BALLOTS_VOTES = NULL;  // BALLOTS_VOTES^{-1}
+Matrix *X = NULL;
+Matrix *W = NULL;
 
 void setParameters(Matrix *x, Matrix *w)
 {
@@ -90,6 +92,7 @@ void setParameters(Matrix *x, Matrix *w)
     CANDIDATES_VOTES = (uint32_t *)calloc(TOTAL_CANDIDATES, sizeof(uint32_t));
     GROUP_VOTES = (uint32_t *)calloc(TOTAL_GROUPS, sizeof(uint32_t));
     BALLOTS_VOTES = (uint16_t *)calloc(TOTAL_BALLOTS, sizeof(uint16_t));
+    inv_BALLOTS_VOTES = (double *)calloc(TOTAL_BALLOTS, sizeof(double));
 
     X = x;
     W = w;
@@ -215,7 +218,7 @@ Matrix getInitialP(const char *p_method)
     return probabilities;
 }
 
-Matrix getP(const Matrix *q)
+Matrix getP(const void *q, bool continuous)
 
 /*
  * @brief Computes the optimal solution for the `M` step
@@ -240,23 +243,45 @@ Matrix getP(const Matrix *q)
 
     // Loop over "b" can't be avoided since q[b].data is not in contiguos memory. It could potentially be avoided if the
     // implementation of q was a contiguos array - hence a manual multiplication will be used
-
-#pragma omp parallel for reduction(+ : ptrReturn[ : TOTAL_GROUPS * TOTAL_CANDIDATES])
-    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    if (!continuous)
     {
-        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+#pragma omp parallel for reduction(+ : ptrReturn[ : TOTAL_GROUPS * TOTAL_CANDIDATES])
+        for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
         {
-            double toDivide = 1.0 / (double)GROUP_VOTES[g];
-            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
             {
-                double total = (MATRIX_AT_PTR(W, b, g) * MATRIX_AT(q[b], g, c)) * toDivide;
-                ptrReturn[g * TOTAL_CANDIDATES + c] += total; // Equivalent to MATRIX_AT(probabilities, g, c)
+                double toDivide = 1.0 / (double)GROUP_VOTES[g];
+                for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+                {
+                    double total = (MATRIX_AT_PTR(W, b, g) * MATRIX_AT(q[b], g, c)) * toDivide;
+                    ptrReturn[g * TOTAL_CANDIDATES + c] += total; // Equivalent to MATRIX_AT(probabilities, g, c)
+                }
             }
         }
     }
+    else
+    {
+        for (int g = 0; g < TOTAL_GROUPS; g++)
+        {
+            for (int c = 0; c < TOTAL_CANDIDATES; c++)
+            {
 
-    // Now divide by GROUP_VOTES[g] just once per (g,c) instead of doing it `b` times (note that the division is usually
-    // expensive). Approximately reduces 400.000 double divisions to 50.
+                // Dot product over b=0..B-1 of W_{b,g} * Q_{b,g,c}
+
+                double val =
+                    cblas_ddot(TOTAL_BALLOTS,
+                               &W->data[g],                    // points to W_{0,g}
+                               TOTAL_GROUPS,                   // stride: each next W_{b+1,g} is +G in memory
+                               &q[g * TOTAL_CANDIDATES + c],   // points to Q_{0,g,c}
+                               TOTAL_GROUPS * TOTAL_CANDIDATES // stride: each next Q_{b+1,g,c} is +(G*C) in memory
+                    );
+                ptrReturn[g * TOTAL_CANDIDATES + c] = val; // Equivalent to MATRIX_AT(probabilities, g, c)
+            }
+        }
+        // Create result matrix (G x (G * C))
+    }
+    // Now divide by GROUP_VOTES[g] just once per (g,c) instead of doing it `b` times (note that the division is
+    // usually expensive). Approximately reduces 400.000 double divisions to 50.
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     {
         double denom = (double)GROUP_VOTES[g];
@@ -318,8 +343,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     }
 
     // There are some things that can be calculated ONCE and reused on the E-step:
-    Matrix *q = malloc(sizeof(Matrix) * TOTAL_BALLOTS);
-    free(q);
+    double *q;
     for (int i = 0; i < maxIter; i++)
     {
         if (i % 10 == 0 && verbose)
@@ -336,6 +360,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         else if (strcmp(q_method, "Multinomial") == 0)
         {
             printf("Executing 'Multinomial' method.\n");
+            q = computeQMultinomial(currentP);
             break;
         }
         // MVN CDF
@@ -351,7 +376,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             break;
         }
 
-        Matrix newProbability = getP(q);
+        Matrix newProbability = getP(q, true);
 
         if (convergeMatrix(&newProbability, currentP, convergence))
         {
@@ -362,6 +387,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             freeMatrix(currentP);
             freeMatrix(X);
             freeMatrix(W);
+            free(q);
             return newProbability;
         }
 
