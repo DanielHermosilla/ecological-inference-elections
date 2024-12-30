@@ -2,7 +2,7 @@
 CC = clang
 
 # Compiler Flags
-CFLAGS = -Wall -Wextra -g -O3 \
+CFLAGS = -Wall -Wextra -g -fsanitize=address -O3 \
     -I$(shell R RHOME)/include \
     -I/usr/local/opt/openblas/include \
     -I/usr/local/Cellar/gsl/2.8/include \

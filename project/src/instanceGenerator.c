@@ -86,26 +86,35 @@ void generateVotes(Matrix *x, Matrix *w, const int *totalvotes, const int *total
 
     // Now, votesPerBallot generated a random total amount of votes per ballot.
     // Filling matrix x:
-#pragma omp parallel for
+    // #pragma omp parallel for
     for (int b = 0; b < *totalballots; b++)
     {
         double candidateVotes[*totalcandidates];
         double groupVotes[*totalgroups];
+        makeArray(candidateVotes, *totalcandidates, 0.0);
+        makeArray(groupVotes, *totalgroups, 0.0);
         distributeTotalRandomly(
             votesPerBallot[b], *totalcandidates,
             candidateVotes); // Distributes the total amount of votes of a candidate randomly per ballot box.
-        distributeTotalRandomly(
-            votesPerBallot[b], *totalgroups,
-            groupVotes); // Distributes the total amount of votes of a group randomly perr ballot box.
+        distributeTotalRandomly(votesPerBallot[b], *totalgroups,
+                                groupVotes); // Distributes the total amount of votes of a group randomly perr ballot
+                                             // box. #pragma omp critical
+        //        {
+        // printf("\nFor the ballot %d, the candidate distribution will be:\n", b);
         for (int c = 0; c < *totalcandidates; c++)
         {
             MATRIX_AT_PTR(x, c, b) = candidateVotes[c];
+            printf("%.1f\t", candidateVotes[c]);
         }
+        // printf("\nAnd the group distribution will be:\n");
         for (int g = 0; g < *totalgroups; g++)
         {
             MATRIX_AT_PTR(w, b, g) = groupVotes[g];
+            printf("%.1f\t", groupVotes[g]);
         }
+        // printf("\nIn theory, both should sum to %.1f\n\n", votesPerBallot[b]);
     }
+    //    }
 }
 
 /**
@@ -140,11 +149,29 @@ void createInstance(Matrix *x, Matrix *w, const int seed)
         exit(EXIT_FAILURE);
     }
 
+    // Validate initial state
+    if (x->data != NULL || w->data != NULL)
+    {
+        fprintf(stderr, "Matrices were not empty before initialization.\n");
+        exit(EXIT_FAILURE);
+    }
+
     x->data = (double *)malloc(totalcandidates * totalballots * sizeof(double));
+    if (!x->data)
+    {
+        fprintf(stderr, "Failed to allocate matrix X.\n");
+        exit(EXIT_FAILURE);
+    }
     x->rows = totalcandidates;
     x->cols = totalballots;
 
     w->data = (double *)malloc(totalgroups * totalballots * sizeof(double));
+    if (!w->data)
+    {
+        fprintf(stderr, "Failed to allocate matrix W.\n");
+        free(x->data); // Avoid memory leak
+        exit(EXIT_FAILURE);
+    }
     w->rows = totalballots;
     w->cols = totalgroups;
 

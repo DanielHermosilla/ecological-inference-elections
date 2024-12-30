@@ -383,10 +383,10 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
 void testProb()
 {
 
-    printf("Running test for the initial probability matrix\n The `X` matrix with the candidates votes is:\n");
-    printMatrix(X);
-    printf("\nThe `w` matrix with the groups votes is:\n");
-    printMatrix(W);
+    // printf("Running test for the initial probability matrix\n The `X` matrix with the candidates votes is:\n");
+    // printMatrix(X);
+    // printf("\nThe `w` matrix with the groups votes is:\n");
+    // printMatrix(W);
 
     Matrix prob = getInitialP("uniform");
     printf("\nThe probability matrix for `uniform` method is:\n");
@@ -425,8 +425,8 @@ int main()
 
     struct timespec start, end; // High-resolution time structures
 
-    Matrix X;
-    Matrix G;
+    Matrix X = {.data = NULL, .rows = 0, .cols = 0};
+    Matrix G = {.data = NULL, .rows = 0, .cols = 0};
     createInstance(&X, &G, 42);
 
     // Start timer

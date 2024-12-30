@@ -143,11 +143,13 @@ Matrix createMatrix(int rows, int cols)
 void freeMatrix(Matrix *m)
 {
     // TODO: Implement a validation warning.
-    if (m->data)
+    if (m != NULL && m->data != NULL)
     {
         free(m->data);
         m->data = NULL;
     }
+    m->rows = 0;
+    m->cols = 0;
 }
 
 /**
