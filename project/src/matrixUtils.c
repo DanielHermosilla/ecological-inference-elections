@@ -14,7 +14,7 @@
  *
  * Given a value, it fills a whole array with a constant value.
  *
- * @param[in, out] array Pointer to matrix to be filled.
+ * @param[in, out] array Pointer to the array to be filled.
  * @param[in] N The size of the array.
  * @param[in] value The constant value to fill
  *
@@ -55,7 +55,7 @@ void makeArray(double *array, int N, double value)
 }
 
 /**
- * @brief Checks if the matrix is well define
+ * @brief Checks if the matrix is well defined
  *
  * Given a pointer to a matrix, it verifies if the matrix is well alocated and defined and throws an error if there's
  * something wrong.

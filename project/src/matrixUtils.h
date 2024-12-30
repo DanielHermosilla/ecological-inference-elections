@@ -5,6 +5,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// Macro for making an easier indexation.
+#define MATRIX_AT(matrix, i, j) (matrix.data[(i) * (matrix.cols) + (j)])
+#define MATRIX_AT_PTR(matrix, i, j) (matrix->data[(i) * (matrix->cols) + (j)])
+
 typedef struct
 {
     double *data; // Pointer to matrix data array (row-major order)

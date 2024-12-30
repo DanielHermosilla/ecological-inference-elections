@@ -181,7 +181,7 @@ Matrix getInitialP(const char *p_method)
         for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
         {
             if (BALLOTS_VOTES[b] == 0)
-                continue; // Division by zero, even though it's technically impossible.
+                continue; // Division by zero, even though it's very unlikely (a ballot doesn't have any vote).
 
             inv_BALLOTS_VOTES[b] = 1.0 / (double)BALLOTS_VOTES[b];
             for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
