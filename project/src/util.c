@@ -240,7 +240,7 @@ Matrix getP(const Matrix *q)
     // even though it's dereferenced
 
     // Loop over "b" can't be avoided since q[b].data is not in contiguos memory. It could potentially be avoided if the
-    // implementation of q was a contiguos array - hence a manual multiplication will be
+    // implementation of q was a contiguos array - hence a manual multiplication will be used
 
 #pragma omp parallel for reduction(+ : ptrReturn[ : TOTAL_GROUPS * TOTAL_CANDIDATES])
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
@@ -319,14 +319,14 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     }
 
     // There are some things that can be calculated ONCE and reused on the E-step:
-    // Total amount of votes (i.e \sum_{b\in B, g\in G}w_{bg}). It can either be done with
-    // the candidates vector or group vector. TODO: Reuse this value also for initial probability
-
-    // Matrix *probabilityPtr = initialP;
     Matrix *q = malloc(sizeof(Matrix) * TOTAL_BALLOTS);
     free(q);
     for (int i = 0; i < maxIter; i++)
     {
+        if (i % 10 == 0 && verbose)
+        {
+            printf("%.0f%% of iterations have been done.\n", (i / (double)maxIter) * 100);
+        }
         // Hit and Run
         if (strcmp(q_method, "Hit and Run") == 0)
         {
@@ -365,7 +365,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             freeMatrix(W);
             return newProbability;
         }
-        // TODO: Compute de Log-likelihood and all the other stuff
+
         freeMatrix(currentP);
         *currentP = newProbability;
     }
