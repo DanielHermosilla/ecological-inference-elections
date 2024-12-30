@@ -1,4 +1,5 @@
 #include "matrixUtils.h"
+#include <ctype.h> // For tolower()
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -27,40 +28,6 @@ int getInput(const char *prompt)
 }
 
 /**
- * @brief Generates an instance according some parameters
- *
- * Given some input parameters, it generates random matrices that represent a votation
- *
- * @return TODO; maybe an array that points to the matrices.
- *
- * @note This would be for debugging,
- *
- * @see getInitialP() for getting initial probabilities. Group proportional method is recommended.
- *
- * @warning
- * - Pointers shouldn't be NULL.
- * - `x` and `w` dimensions must be coherent.
- *
- */
-
-void createInstance()
-{
-
-    printf("Welcome to the instance maker!\n");
-
-    int totalvotes = getInput("Please enter the total amount of votes: \n");
-    int totalcandidates = getInput("Please enter the total amount of candidates: \n");
-    int totalgroups = getInput("Please enter the total amount of demographic groups: \n");
-    int totalballots = getInput("Please enter the total amount of ballot boxes: \n");
-
-    printf("\nInstance Summary:\n");
-    printf("Total Votes: %d\n", totalvotes);
-    printf("Total Candidates: %d\n", totalcandidates);
-    printf("Total Groups: %d\n", totalgroups);
-    printf("Total Ballots: %d\n", totalballots);
-}
-
-/**
  * @brief Distributes, randomly, amount of votes into an array.
  *
  * Given a total amount of votes, it fills an array with those votes randomly.
@@ -82,12 +49,24 @@ void distributeTotalRandomly(int total, int size, double *array)
     }
 }
 
-void generateVotes(const int *totalvotes, const int *totalcandidates, const int *totalgroups, const int *totalballots)
+/**
+ * @brief Helper function for generating the random instances of voting.
+ *
+ * The function will be in charge of filling each ballot randomly while making sure that the sums of `x` columns
+ * must be the same as the sum of `w` rows.
+ *
+ * @param[in, out] x A pointer to the matrix `x`
+ * @param[in, out] w A pointer to the matrix `w`
+ * @param[in] totalvotes The total amount of votes
+ * @param[in] totalcandidates The total amount of candidates
+ * @param[in] totalgroups The total amount of groups
+ * @param[in] totalballots The total amount of ballots
+ *
+ * @return void
+ */
+void generateVotes(Matrix *x, Matrix *w, const int *totalvotes, const int *totalcandidates, const int *totalgroups,
+                   const int *totalballots)
 {
-
-    Matrix x = createMatrix(*totalcandidates, *totalballots); // The dimensions are (cxb)
-    Matrix w = createMatrix(*totalballots, *totalgroups);     // The dimensions are (bxg)
-
     // The sum of columns in x MUST be the same as the sum of rows in w.
 
     // Firstly, the total amount of votes per each ballot should be random.
@@ -110,15 +89,96 @@ void generateVotes(const int *totalvotes, const int *totalcandidates, const int 
             groupVotes); // Distributes the total amount of votes of a group randomly perr ballot box.
         for (int c = 0; c < *totalcandidates; c++)
         {
-            MATRIX_AT(x, c, b) = candidateVotes[c];
+            MATRIX_AT_PTR(x, c, b) = candidateVotes[c];
         }
         for (int g = 0; g < *totalgroups; g++)
         {
-            MATRIX_AT(w, b, g) = groupVotes[g];
+            MATRIX_AT_PTR(w, b, g) = groupVotes[g];
         }
     }
 }
 
+/**
+ * @brief Generates an instance according some parameters
+ *
+ * Given some input parameters, it generates random matrices that represent a votation
+ *
+ * @param[in, out] x A pointer to the matrix `x` to be generated. I would sugguest to just pass an empty matrix pointer.
+
+ *
+ * @return TODO; maybe an array that points to the matrices.
+ *
+ * @note This would be for debugging,
+ *
+ * @see getInitialP() for getting initial probabilities. Group proportional method is recommended.
+ *
+ * @warning
+ * - Pointers shouldn't be NULL.
+ * - `x` and `w` dimensions must be coherent.
+ *
+ */
+
+void createInstance(Matrix *x, Matrix *w)
+{
+
+    printf("Welcome to the instance maker!\n");
+
+    int totalvotes = getInput("Please enter the total amount of votes: \n");
+    int totalcandidates = getInput("Please enter the total amount of candidates: \n");
+    int totalgroups = getInput("Please enter the total amount of demographic groups: \n");
+    int totalballots = getInput("Please enter the total amount of ballot boxes: \n");
+
+    x->data = (double *)malloc(totalcandidates * totalballots * sizeof(double));
+    x->rows = totalcandidates;
+    x->cols = totalballots;
+
+    w->data = (double *)malloc(totalgroups * totalballots * sizeof(double));
+    w->rows = totalballots;
+    w->cols = totalgroups;
+
+    printf("\nInstance Summary:\n");
+    printf("Total Votes: %d\n", totalvotes);
+    printf("Total Candidates: %d\n", totalcandidates);
+    printf("Total Groups: %d\n", totalgroups);
+    printf("Total Ballots: %d\n", totalballots);
+
+    printf("\nStarting the randomized instance...\n");
+    generateVotes(x, w, &totalvotes, &totalcandidates, &totalgroups, &totalballots);
+    printf("The randomized instance is finished!\nWould you like a glimpse of the matrices? (y/n)");
+
+    char choice;
+    while (1)
+    { // Infinite loop for input validation
+        if (scanf(" %c", &choice) == 1)
+        {                             // Note the space before %c to skip whitespace
+            choice = tolower(choice); // Normalize input to lowercase
+
+            if (choice == 'y')
+            {
+                printf("\nThe matrix of candidates of dimension (cxb) is:\n");
+                printMatrix(x);
+                printf("\nThe matrix of demographic groups of dimension (bxg) is:\n");
+                printMatrix(x);
+                break;
+            }
+            else if (choice == 'n')
+            {
+                printf("Alright, proceeding without displaying the matrices.\n");
+                break;
+            }
+            else
+            {
+                printf("Invalid input. Please enter 'y' or 'n': ");
+            }
+        }
+        else
+        {
+            printf("Invalid input. Please enter 'y' or 'n': ");
+            while (getchar() != '\n')
+                ; // This would clear word by word the input buffer until it's empty.
+        }
+    }
+}
 int main()
 {
     return 1;
