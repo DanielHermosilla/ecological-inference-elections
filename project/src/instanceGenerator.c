@@ -3,7 +3,16 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-// Helper function to get a valid integer from the user
+/**
+ * @brief Helper function to get a valid integer from the user
+ *
+ * Ensures that the user only gives an integer.
+ *
+ * @param[in] *prompt The prompt for the input
+ *
+ * @return the value that was written by the user.
+ */
+
 int getInput(const char *prompt)
 {
     int value;
@@ -64,6 +73,7 @@ void distributeTotalRandomly(int total, int size, double *array)
  *
  * @return void
  */
+
 void generateVotes(Matrix *x, Matrix *w, const int *totalvotes, const int *totalcandidates, const int *totalgroups,
                    const int *totalballots)
 {
@@ -104,22 +114,17 @@ void generateVotes(Matrix *x, Matrix *w, const int *totalvotes, const int *total
  * Given some input parameters, it generates random matrices that represent a votation
  *
  * @param[in, out] x A pointer to the matrix `x` to be generated. I would sugguest to just pass an empty matrix pointer.
-
+ * @param[in, out] w A pointer to the matrix `w` to be generated. I would sugguest to just pass an empty matrix pointer.
+ * @param[in] seed The seed for making reproducible results.
  *
- * @return TODO; maybe an array that points to the matrices.
+ * @return void. Results written at the matrix pointers
  *
- * @note This would be for debugging,
- *
- * @see getInitialP() for getting initial probabilities. Group proportional method is recommended.
- *
- * @warning
- * - Pointers shouldn't be NULL.
- * - `x` and `w` dimensions must be coherent.
- *
+ * @note This would be mainly for debugging,
  */
 
-void createInstance(Matrix *x, Matrix *w)
+void createInstance(Matrix *x, Matrix *w, const int seed)
 {
+    srand(seed);
 
     printf("Welcome to the instance maker!\n");
 
@@ -127,6 +132,13 @@ void createInstance(Matrix *x, Matrix *w)
     int totalcandidates = getInput("Please enter the total amount of candidates: \n");
     int totalgroups = getInput("Please enter the total amount of demographic groups: \n");
     int totalballots = getInput("Please enter the total amount of ballot boxes: \n");
+
+    if (totalgroups >= totalvotes || totalcandidates >= totalvotes)
+    {
+        fprintf(stderr,
+                "There are more groups (or candidates) than the total amount of votes, please eliminate redundancy");
+        exit(EXIT_FAILURE);
+    }
 
     x->data = (double *)malloc(totalcandidates * totalballots * sizeof(double));
     x->rows = totalcandidates;
@@ -158,7 +170,11 @@ void createInstance(Matrix *x, Matrix *w)
                 printf("\nThe matrix of candidates of dimension (cxb) is:\n");
                 printMatrix(x);
                 printf("\nThe matrix of demographic groups of dimension (bxg) is:\n");
-                printMatrix(x);
+                printMatrix(w);
+                printf("\nPress Enter to continue...\n");
+                while (getchar() != '\n')
+                    ;      // This would clear word by word the input buffer until it's empty.
+                getchar(); // Wait for the user to press a key
                 break;
             }
             else if (choice == 'n')
@@ -179,11 +195,3 @@ void createInstance(Matrix *x, Matrix *w)
         }
     }
 }
-int main()
-{
-    return 1;
-}
-
-// Generate a random number in the range [min, max]
-// int rd_num = rand_r(&seed) % (max - min + 1) + min;
-// printf("%d ", rd_num);

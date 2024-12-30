@@ -1,3 +1,4 @@
+#include "instanceGenerator.h"
 #include "matrixUtils.h"
 #include <R.h>
 #include <R_ext/Rdynload.h>
@@ -424,18 +425,13 @@ int main()
 
     struct timespec start, end; // High-resolution time structures
 
+    Matrix X;
+    Matrix G;
+    createInstance(&X, &G, 42);
+
     // Start timer
     clock_gettime(CLOCK_MONOTONIC, &start);
-
-    Matrix X = createMatrix(3, 3);
-    Matrix G = createMatrix(3, 2);
-    double xVal[9] = {4, 5, 6, 3, 4, 5, 2, 3, 4};
-    double gVal[6] = {8, 1, 10, 2, 12, 3};
-    memcpy(X.data, xVal, sizeof(xVal));
-    memcpy(G.data, gVal, sizeof(gVal));
-
     setParameters(&X, &G);
-    printf("\nTotal votes are %d\n\n", TOTAL_VOTES);
 
     testProb();
     freeMatrix(&X);
