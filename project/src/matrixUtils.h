@@ -5,12 +5,61 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// Macro for making an easier indexation.
+#define MATRIX_AT(matrix, i, j) (matrix.data[(i) * (matrix.cols) + (j)])
+#define MATRIX_AT_PTR(matrix, i, j) (matrix->data[(i) * (matrix->cols) + (j)])
+
 typedef struct
 {
     double *data; // Pointer to matrix data array (row-major order)
     int rows;     // Number of rows
     int cols;     // Number of columns
 } Matrix;
+
+/**
+ * @brief Make an array of a constant value.
+ *
+ * Given a value, it fills a whole array with a constant value.
+ *
+ * @param[in, out] array Pointer to matrix to be filled.
+ * @param[in] N The size of the array.
+ * @param[in] value The constant value to fill
+ *
+ * @return void Written on the input array
+ *
+ * @note
+ * - It uses cBLAS for optimization
+ *
+ * @example
+ * Example usage:
+ * @code
+ * double array[5];
+ * makeArray(array, 5, 3.14);
+ * // array -> now constains [3.14, 3.14, ..., 3.14]
+ * @endcode
+ */
+
+void makeArray(double *array, int N, double value);
+
+/**
+ * @brief Checks if the matrix is well defined
+ *
+ * Given a pointer to a matrix, it verifies if the matrix is well alocated and defined and throws an error if there's
+ * something wrong.
+ *
+ * @param[in] m A pointer to the matrix
+ *
+ * @return void
+ *
+ * @note
+ * - This will just throw errors, note that EXIT_FAILURE will dealocate memory
+ *
+ * @warning
+ * - The pointer may be NULL.
+ * - The dimensions may be negative.
+ */
+
+void checkMatrix(Matrix *m);
 
 /**
  * @brief Creates an empty dynamically allocated memory matrix of given dimensions.
@@ -133,31 +182,6 @@ void rowSum(Matrix *matrix, double *result);
 void colSum(Matrix *matrix, double *result);
 
 /**
- * @brief Make an array of a constant value.
- *
- * Given a value, it fills a whole array with a constant value.
- *
- * @param[in, out] array Pointer to matrix to be filled.
- * @param[in] N The size of the array.
- * @param[in] value The constant value to fill
- *
- * @return void Written on the input array
- *
- * @note
- * - It uses cBLAS for optimization
- *
- * @example
- * Example usage:
- * @code
- * double array[5];
- * makeArray(array, 5, 3.14);
- * // array -> now constains [3.14, 3.14, ..., 3.14]
- * @endcode
- */
-
-void makeArray(double *array, int N, double value);
-
-/**
  * @brief Fills matrix with a constant value.
  *
  * Given a matrix, it fills a whole matrix with a constant value.
@@ -187,6 +211,7 @@ void makeArray(double *array, int N, double value);
  * // matrix->data now contains [9.0, 9.0, 9.0, ..., 9.0]
  * @endcode
  */
+
 void fillMatrix(Matrix *matrix, double value);
 
 /**

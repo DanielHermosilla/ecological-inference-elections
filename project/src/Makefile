@@ -2,7 +2,7 @@
 CC = clang
 
 # Compiler Flags
-CFLAGS = -Wall -Wextra -g \
+CFLAGS = -Wall -Wextra -g -fsanitize=address -O3 \
     -I$(shell R RHOME)/include \
     -I/usr/local/opt/openblas/include \
     -I/usr/local/Cellar/gsl/2.8/include \
@@ -30,9 +30,9 @@ LDFLAGS_EXEC = -L$(shell R RHOME)/lib \
 # Files and Targets
 LIB_TARGET = libutil.dylib  # Use libutil.so for Linux
 EXEC_TARGET = util_exec     # Name for the executable
-SRCS = util.c matrixUtils.c
+SRCS = util.c matrixUtils.c instanceGenerator.c
 OBJS = $(SRCS:.c=.o)
-HEADERS = matrixUtils.h
+HEADERS = matrixUtils.h instanceGenerator.h
 
 # Default Rule
 all: $(LIB_TARGET) $(EXEC_TARGET)
@@ -42,8 +42,8 @@ $(LIB_TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $(LIB_TARGET) $(OBJS) $(LDFLAGS_LIB)
 
 # Build Executable
-$(EXEC_TARGET): util.o matrixUtils.o
-	$(CC) $(CFLAGS) -o $(EXEC_TARGET) util.o matrixUtils.o $(LDFLAGS_EXEC)
+$(EXEC_TARGET): util.o matrixUtils.o instanceGenerator.o
+	$(CC) $(CFLAGS) -o $(EXEC_TARGET) util.o matrixUtils.o instanceGenerator.o $(LDFLAGS_EXEC)
 
 # Build Object Files
 %.o: %.c $(HEADERS)
