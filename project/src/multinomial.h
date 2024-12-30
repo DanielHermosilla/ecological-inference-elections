@@ -31,8 +31,6 @@ extern Matrix *W;
  *
  * @return A pointer to a flattened 3D array (b x g x c) representing the probabilities.
  */
-double *computeQMultinomial(Matrix const *candidates, Matrix const *groups, Matrix const *probabilities,
-                            uint32_t const *candidatesVotes, uint16_t const *candidatesTotal,
-                            uint32_t const *ballotsTotal, uint16_t const *groupsTotal);
+double *computeQMultinomial(Matrix const *probabilities);
 
 #endif

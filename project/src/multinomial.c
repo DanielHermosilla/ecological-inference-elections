@@ -23,14 +23,7 @@
  * Given the observables parameters and the probability matrix, it computes an approximation of `q` with the Multinomial
  * approach.
  *
- * @param[in] *candidates Matrix of dimension (cxb) that stores the results of candidate "c" on ballot box "b".
- * @param[in] *groups Matrix of dimension (bxg) that stores the amount of votes from the demographic group "g".
  * @param[in] *probabilities Matrix of dimension (gxc) with the probabilities of each group and candidate.
- * @param[in] *candidatesVotes Array of size (c) that contains the total votes of each candidate.
- * @param[in] *ballotsVotes Array of size (b) that contains the total amount of votes per ballot.
- * @param[in] *candidatesTotal Integer that contains the total amount of candidates.
- * @param[in] *ballotsTotal Integer that contains the total amount of ballots.
- * @param[in] *groupTotal Integer that contains the total amount of groups.
  *
  * @return A (bxgxc) continuos array with the values of each probability. Understand it as a tensor with matrices, but
  * it's fundamental to be a continuos array in memory for simplificating the posteriors calculations.
@@ -71,6 +64,7 @@ double *computeQMultinomial(Matrix const *probabilities)
     if (inv_BALLOTS_VOTES == NULL || *inv_BALLOTS_VOTES == 0.0)
     {
         inv_BALLOTS_VOTES = (double *)calloc(TOTAL_BALLOTS, sizeof(double));
+#pragma omp parallel for
         for (int b = 0; b < TOTAL_BALLOTS; b++)
         {
             inv_BALLOTS_VOTES[b] = 1.0 / (double)BALLOTS_VOTES[b];
@@ -91,5 +85,7 @@ double *computeQMultinomial(Matrix const *probabilities)
             }
         }
     }
+    freeMatrix(&WP);
+    freeMatrix(&XP);
     return array;
 }
