@@ -1,3 +1,4 @@
+#include "multinomial.h"
 #include "matrixUtils.h"
 #include <cblas.h>
 
@@ -26,6 +27,7 @@
  * @param[in] *groups Matrix of dimension (bxg) that stores the amount of votes from the demographic group "g".
  * @param[in] *probabilities Matrix of dimension (gxc) with the probabilities of each group and candidate.
  * @param[in] *candidatesVotes Array of size (c) that contains the total votes of each candidate.
+ * @param[in] *ballotsVotes Array of size (b) that contains the total amount of votes per ballot.
  * @param[in] *candidatesTotal Integer that contains the total amount of candidates.
  * @param[in] *ballotsTotal Integer that contains the total amount of ballots.
  * @param[in] *groupTotal Integer that contains the total amount of groups.
@@ -35,73 +37,59 @@
  *
  */
 
-double *computeQMultinomial(Matrix const *candidates, Matrix const *groups, Matrix const *probabilities,
-                            uint32_t const *candidatesVotes, uint16_t const *candidatesTotal,
-                            uint16_t const *ballotsTotal, uint16_t const *groupsTotal)
+double *computeQMultinomial(Matrix const *probabilities)
 {
+    double *array =
+        (double *)calloc((size_t)TOTAL_BALLOTS, (size_t)TOTAL_CANDIDATES * (size_t)TOTAL_GROUPS); // Array to return
 
-    // -- Summatory calculation for g calculation --
+    // We have to calculate the following: $$\frac{x_{bc}\cdot p_{gc}}{WP_{bc}}\cdot\left(\sum_{\forall
+    // c}\frac{WP_{bc}}{x_{bc}\cdot p_{gc}}-\sum_{\forall c}\underbrace{\frac{1}{x_{bc}}}_\text{Suma sobre
+    // enteros}\right)$$.
+
+    // -- Summatory calculation for g --
     // This is a simple matrix calculation, to be computed once.
-    Matrix WP = createMatrix((int)*ballotsTotal, (int)*groupsTotal);
+    Matrix WP = createMatrix((int)TOTAL_BALLOTS, (int)TOTAL_GROUPS);
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, (int)*ballotsTotal, // Rows in W
-                (int)*candidatesTotal,                                         // Columns in P
-                (int)*groupsTotal,                                             // Shared dimension
-                1.0, candidates->data, (int)*groupsTotal, probabilities->data, (int)*candidatesTotal, 0.0, WP.data,
-                (int)*candidatesTotal);
+                (int)TOTAL_CANDIDATES,                                         // Columns in P
+                (int)TOTAL_GROUPS,                                             // Shared dimension
+                1.0, W->data, (int)TOTAL_GROUPS, probabilities->data, (int)TOTAL_CANDIDATES, 0.0, WP.data,
+                (int)TOTAL_CANDIDATES);
 
-    // -- Summatory calculations for c--
-    // I would like to calculate by the following approach: $\sum_{\forall c}\frac{WP_{bc}}{p_{gc}}=WP\times (\text{inv}
-    // P^T)$
-    Matrix invPT = createMatrix((int)*candidatesTotal, (int)*groupsTotal); // The inverse of P and transposed.
-    for (int g = 0; g < *groupsTotal; g++)
+    // --Summatory calculation for c --
+    // First term NUMERATOR
+    double numSum[TOTAL_BALLOTS];
+    colSum(&WP, numSum);
+
+    // First term DENOMINATOR; is x_{cb}^T*p_{gc}^T
+    Matrix XP = createMatrix((int)TOTAL_BALLOTS, (int)TOTAL_GROUPS);
+    cblas_dgemm(CblasRowMajor, CblasTrans, CblasTrans, X->rows, // Rows in X
+                probabilities->rows,                            // Columns in P
+                X->cols,                                        // Shared dimension
+                1.0, X->data, X->cols, probabilities->data, probabilities->cols, 0.0, XP.data, probabilities->rows);
+
+    // Second term
+    if (inv_BALLOTS_VOTES == NULL || *inv_BALLOTS_VOTES == 0.0)
     {
-        for (int c = 0; c < *candidatesTotal; c++)
+        inv_BALLOTS_VOTES = (double *)calloc(TOTAL_BALLOTS, sizeof(double));
+        for (int b = 0; b < TOTAL_BALLOTS; b++)
         {
-            MATRIX_AT(invPT, c, g) = 1.0 / MATRIX_AT_PTR(probabilities, g, c);
+            inv_BALLOTS_VOTES[b] = 1.0 / (double)BALLOTS_VOTES[b];
         }
     }
-    Matrix S = createMatrix((int)*ballotsTotal, (int)*groupsTotal); // Let S be the summatory for all c'
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                (int)*ballotsTotal,    // M = b
-                (int)*groupsTotal,     // N = g
-                (int)*candidatesTotal, // K = c
-                1.0,
-                WP.data,               // (b x c)
-                (int)*candidatesTotal, // leading dimension = c
-                invPT.data,            // (c x g)
-                (int)*groupsTotal,     // leading dimension = g
-                0.0,
-                S.data, // (b x g)
-                (int)*groupsTotal);
-    // -- End summatory calculations --
-
-    double *array = (double *)calloc((size_t)ballotsTotal * (size_t)candidatesTotal * (size_t)groupsTotal,
-                                     sizeof(double)); // Array to return
-
-    // Let:
-    // -alpha = $\frac{x_{bc}\cdot p_{gc}}{\hat{x_b}}$
-    // -beta = $S_{bg}-\lvert C\rvert$
-    // -gamma = $\frac{1}{(W\cdot P)_{bc}-p_{gc}}\right$
 
 #pragma omp parallel for
-    for (int b = 0; b < *ballotsTotal; b++)
+    for (int b = 0; b < TOTAL_BALLOTS; b++)
     {
-        for (int g = 0; g < *groupsTotal; g++)
+        for (int g = 0; g < TOTAL_GROUPS; g++)
         {
-            double beta = MATRIX_AT(S, b, g) - *candidatesTotal;
-            for (int c = 0; c < *candidatesTotal; c++)
+            for (int c = 0; c < TOTAL_CANDIDATES; c++)
             {
-                double alpha =
-                    MATRIX_AT_PTR(candidates, b, c) * MATRIX_AT_PTR(probabilities, g, c) / candidatesVotes[b];
-                double gamma = 1.0 / (MATRIX_AT(WP, b, c) - MATRIX_AT_PTR(probabilities, g, c));
-                Q_3D(array, b, g, c, *groupsTotal, *candidatesTotal) = beta * alpha * gamma;
+                double alpha = (MATRIX_AT_PTR(X, c, b) * MATRIX_AT_PTR(probabilities, g, c)) /
+                               (MATRIX_AT(WP, b, c)); // First parenthesis
+                double beta = (numSum[b] / MATRIX_AT(XP, b, c)) - inv_BALLOTS_VOTES[b];
+                Q_3D(array, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES);
             }
         }
     }
     return array;
-}
-
-int main()
-{
-    return 1;
 }

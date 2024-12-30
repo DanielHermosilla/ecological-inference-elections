@@ -25,15 +25,13 @@
 //  int rows;     // Number of rows
 //  int cols;     // Number of columns
 //} Matrix;
+//
+// Macro for accessing a 3D flattened array (b x g x c)
+#define Q_3D(q, bIdx, gIdx, cIdx, G, C) ((q)[((bIdx) * (G) * (C)) + ((gIdx) * (C)) + (cIdx)])
 
 // Macro for making an easier indexation.
 #define MATRIX_AT(matrix, i, j) (matrix.data[(i) * (matrix.cols) + (j)])
 #define MATRIX_AT_PTR(matrix, i, j) (matrix->data[(i) * (matrix->cols) + (j)])
-
-// Macro for evaluating maximum numbers, be aware of possible issues, try to use it on ints only.
-#define MAX(a, b) ((a) > (b) ? a : b)
-// Macro for evaluating minimum numbers, be aware of possible issues, try to use it on ints only.
-#define MIN(a, b) ((a) < (b) ? a : b)
 
 static uint32_t TOTAL_VOTES = 0;
 static uint32_t TOTAL_BALLOTS = 0;
