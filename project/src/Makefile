@@ -3,7 +3,7 @@ CC = clang
 
 # Change -O1 to -O3 for efficiency
 # Compiler Flags
-CFLAGS = -Wall -Wextra -g -fsanitize=address -fsanitize=leak -O1 \
+CFLAGS = -Wall -Wextra -g -fsanitize=address -fsanitize=leak -O3 \
     -I$(shell R RHOME)/include \
     -I/usr/local/opt/openblas/include \
     -I/usr/local/Cellar/gsl/2.8/include \
