@@ -1,5 +1,6 @@
 #include "instanceGenerator.h"
 #include "matrixUtils.h"
+#include "multinomial.h"
 #include <R.h>
 #include <R_ext/Rdynload.h>
 #include <Rinternals.h>
@@ -11,13 +12,6 @@
 #include <string.h>
 #include <time.h>
 
-// note: Refer to https://www.seehuhn.de/pages/linear.html#blas
-// double m[] = {
-// 3, 1, 3,
-// 1, 5, 9,
-// 2, 6, 5
-// };
-
 // note: THIS IS THE STRUCT DEFINED IN THE matrixUtils.h file, this comment is just for clarity
 // typedef struct
 //{
@@ -25,25 +19,28 @@
 //  int rows;     // Number of rows
 //  int cols;     // Number of columns
 //} Matrix;
+//
+
+// Macro for accessing a 3D flattened array (b x g x c)
+#define Q_3D(q, bIdx, gIdx, cIdx, G, C) ((q)[((bIdx) * (G) * (C)) + ((gIdx) * (C)) + (cIdx)])
 
 // Macro for making an easier indexation.
 #define MATRIX_AT(matrix, i, j) (matrix.data[(i) * (matrix.cols) + (j)])
 #define MATRIX_AT_PTR(matrix, i, j) (matrix->data[(i) * (matrix->cols) + (j)])
 
-// Macro for evaluating maximum numbers, be aware of possible issues, try to use it on ints only.
-#define MAX(a, b) ((a) > (b) ? a : b)
-// Macro for evaluating minimum numbers, be aware of possible issues, try to use it on ints only.
-#define MIN(a, b) ((a) < (b) ? a : b)
+// For the crono
+struct timespec start, end; // High-resolution time structures
 
-static uint32_t TOTAL_VOTES = 0;
-static uint32_t TOTAL_BALLOTS = 0;
-static uint16_t TOTAL_CANDIDATES = 0;
-static uint16_t TOTAL_GROUPS = 0;
-static uint16_t *BALLOTS_VOTES = NULL;    // Total votes per ballot
-static uint32_t *CANDIDATES_VOTES = NULL; // Total votes per candidate
-static uint32_t *GROUP_VOTES = NULL;      // Total votes per group
-static Matrix *X = NULL;
-static Matrix *W = NULL;
+uint32_t TOTAL_VOTES = 0;
+uint32_t TOTAL_BALLOTS = 0;
+uint16_t TOTAL_CANDIDATES = 0;
+uint16_t TOTAL_GROUPS = 0;
+uint16_t *BALLOTS_VOTES = NULL;    // Total votes per ballot
+uint32_t *CANDIDATES_VOTES = NULL; // Total votes per candidate
+uint32_t *GROUP_VOTES = NULL;      // Total votes per group
+double *inv_BALLOTS_VOTES = NULL;  // BALLOTS_VOTES^{-1}
+Matrix *X = NULL;
+Matrix *W = NULL;
 
 void setParameters(Matrix *x, Matrix *w)
 {
@@ -92,6 +89,7 @@ void setParameters(Matrix *x, Matrix *w)
     CANDIDATES_VOTES = (uint32_t *)calloc(TOTAL_CANDIDATES, sizeof(uint32_t));
     GROUP_VOTES = (uint32_t *)calloc(TOTAL_GROUPS, sizeof(uint32_t));
     BALLOTS_VOTES = (uint16_t *)calloc(TOTAL_BALLOTS, sizeof(uint16_t));
+    inv_BALLOTS_VOTES = (double *)calloc(TOTAL_BALLOTS, sizeof(double));
 
     X = x;
     W = w;
@@ -113,6 +111,11 @@ void setParameters(Matrix *x, Matrix *w)
         {
             GROUP_VOTES[g] += (uint32_t)MATRIX_AT_PTR(W, b, g);
         }
+    }
+
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        inv_BALLOTS_VOTES[b] = 1.0 / (double)BALLOTS_VOTES[b];
     }
 }
 
@@ -173,18 +176,16 @@ Matrix getInitialP(const char *p_method)
          // Now it considers the proportion of candidates votes AND demographic groups, it's an extension of the
          // past method
     {
-        double numerator = 0.0;                  // Note that the denominator is already known
-        double inv_BALLOTS_VOTES[TOTAL_BALLOTS]; // To avoid computing reused numbers.
-        uint32_t temp = 0;                       // Will be used to cast multiplications on integers and add efficiency.
-        double *prob_data = probabilities.data;  // For OpenMP because they don't accept structs for reduction clauses
-                                                 // even though it's dereferenced
+        double numerator = 0.0;                 // Note that the denominator is already known
+        uint32_t temp = 0;                      // Will be used to cast multiplications on integers and add efficiency.
+        double *prob_data = probabilities.data; // For OpenMP because they don't accept structs for reduction clauses
+                                                // even though it's dereferenced
 #pragma omp parallel for reduction(+ : prob_data[ : TOTAL_GROUPS * TOTAL_CANDIDATES])
         for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
         {
             if (BALLOTS_VOTES[b] == 0)
                 continue; // Division by zero, even though it's very unlikely (a ballot doesn't have any vote).
 
-            inv_BALLOTS_VOTES[b] = 1.0 / (double)BALLOTS_VOTES[b];
             for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
             {
                 if (MATRIX_AT_PTR(W, b, g) == 0.0)
@@ -217,7 +218,7 @@ Matrix getInitialP(const char *p_method)
     return probabilities;
 }
 
-Matrix getP(const Matrix *q)
+Matrix getP(const double *q, const bool continuous)
 
 /*
  * @brief Computes the optimal solution for the `M` step
@@ -238,27 +239,27 @@ Matrix getP(const Matrix *q)
 {
     Matrix toReturn = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES);
     double *ptrReturn = toReturn.data; // For OpenMP because they don't accept structs for reduction clauses
-    // even though it's dereferenced
+                                       // even though it's dereferenced
 
-    // Loop over "b" can't be avoided since q[b].data is not in contiguos memory. It could potentially be avoided if the
-    // implementation of q was a contiguos array - hence a manual multiplication will be used
-
-#pragma omp parallel for reduction(+ : ptrReturn[ : TOTAL_GROUPS * TOTAL_CANDIDATES])
-    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+#pragma omp parallel for collapse(2)
+    for (int g = 0; g < TOTAL_GROUPS; g++)
     {
-        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+        for (int c = 0; c < TOTAL_CANDIDATES; c++)
         {
-            double toDivide = 1.0 / (double)GROUP_VOTES[g];
-            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-            {
-                double total = (MATRIX_AT_PTR(W, b, g) * MATRIX_AT(q[b], g, c)) * toDivide;
-                ptrReturn[g * TOTAL_CANDIDATES + c] += total; // Equivalent to MATRIX_AT(probabilities, g, c)
-            }
+
+            // Dot product over b=0..B-1 of W_{b,g} * Q_{b,g,c}
+            double val = cblas_ddot(TOTAL_BALLOTS,
+                                    &W->data[g],                    // points to W_{0,g}
+                                    TOTAL_GROUPS,                   // stride: each next W_{b+1,g} is +G in memory
+                                    &q[g * TOTAL_CANDIDATES + c],   // points to Q_{0,g,c}
+                                    TOTAL_GROUPS * TOTAL_CANDIDATES // stride: each next Q_{b+1,g,c} is +(G*C) in memory
+            );
+            ptrReturn[g * TOTAL_CANDIDATES + c] = val; // Equivalent to MATRIX_AT(probabilities, g, c)
         }
     }
 
-    // Now divide by GROUP_VOTES[g] just once per (g,c) instead of doing it `b` times (note that the division is usually
-    // expensive). Approximately reduces 400.000 double divisions to 50.
+    // Now divide by GROUP_VOTES[g] just once per (g,c) instead of doing it `b` times (note that the division is
+    // usually expensive). Approximately reduces 400.000 double divisions to 50.
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     {
         double denom = (double)GROUP_VOTES[g];
@@ -320,8 +321,10 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     }
 
     // There are some things that can be calculated ONCE and reused on the E-step:
-    Matrix *q = malloc(sizeof(Matrix) * TOTAL_BALLOTS);
-    free(q);
+    double *q;
+
+    struct timespec start, end; // Start time
+
     for (int i = 0; i < maxIter; i++)
     {
         if (i % 10 == 0 && verbose)
@@ -338,7 +341,14 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         else if (strcmp(q_method, "Multinomial") == 0)
         {
             printf("Executing 'Multinomial' method.\n");
-            break;
+            printf("The probability matrix handed is:\n");
+            printMatrix(currentP);
+            q = computeQMultinomial(currentP);
+            printf("The `q` returned is:\n");
+            for (int a = 0; a < (int)TOTAL_BALLOTS * (int)TOTAL_CANDIDATES * (int)TOTAL_GROUPS; a++)
+            {
+                printf("\t%.5f, ", q[a]);
+            }
         }
         // MVN CDF
         else if (strcmp(q_method, "MVN CDF") == 0)
@@ -353,22 +363,31 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             break;
         }
 
-        Matrix newProbability = getP(q);
+        Matrix newProbability = getP(q, true);
+        printf("\nThe new probability calculated with getP is:\n\n");
+        printMatrix(&newProbability);
 
         if (convergeMatrix(&newProbability, currentP, convergence))
         {
+
+            // End timer
+            clock_gettime(CLOCK_MONOTONIC, &end);
+            double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+
             if (verbose)
             {
-                printf("The convergence was found on iteration %d\n", i);
+                printf("The convergence was found on iteration %d and took %.5f seconds!\n", i, elapsed);
             }
             freeMatrix(currentP);
             freeMatrix(X);
             freeMatrix(W);
+            free(q);
             return newProbability;
         }
 
         freeMatrix(currentP);
-        *currentP = newProbability;
+        *currentP = createMatrix(newProbability.rows, newProbability.cols);
+        memcpy(currentP->data, newProbability.data, sizeof(double) * newProbability.rows * newProbability.cols);
     }
     printf("Maximum iterations reached without convergence.\n"); // Print even if there's not verbose, might change
     // later.
@@ -417,6 +436,26 @@ void cleanup()
         free(GROUP_VOTES);
         GROUP_VOTES = NULL;
     }
+    if (BALLOTS_VOTES != NULL)
+    {
+        free(BALLOTS_VOTES);
+        BALLOTS_VOTES = NULL;
+    }
+    if (inv_BALLOTS_VOTES != NULL)
+    {
+        free(inv_BALLOTS_VOTES);
+        inv_BALLOTS_VOTES = NULL;
+    }
+    if (X != NULL)
+    {
+        free(X);
+        X = NULL;
+    }
+    if (W != NULL)
+    {
+        free(W);
+        W = NULL;
+    }
 }
 
 int main()
@@ -429,16 +468,15 @@ int main()
     Matrix G = {.data = NULL, .rows = 0, .cols = 0};
     createInstance(&X, &G, 42);
 
-    // Start timer
-    clock_gettime(CLOCK_MONOTONIC, &start);
-    setParameters(&X, &G);
+    // testProb();
+    Matrix P = getInitialP("group proportional");
 
-    testProb();
+    Matrix Pnew = EMAlgoritm(&P, "Multinomial", 0.001, 100, true);
+    printMatrix(&Pnew);
+    freeMatrix(&Pnew);
     freeMatrix(&X);
     freeMatrix(&G);
-    // free(GROUP_VOTES);
-    // free(CANDIDATES_VOTES);
-    //
+
     // End timer
     clock_gettime(CLOCK_MONOTONIC, &end);
 
@@ -454,5 +492,5 @@ int main()
     }
 
     printf("The program took %.0f seconds and %.3f milliseconds!\n", elapsed_sec, elapsed_ms);
-    return 0;
+    return 1;
 }
