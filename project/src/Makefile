@@ -1,8 +1,9 @@
 # Compiler and Flags
 CC = clang
 
+# Change -O1 to -O3 for efficiency
 # Compiler Flags
-CFLAGS = -Wall -Wextra -g -fsanitize=address -O3 \
+CFLAGS = -Wall -Wextra -g -fsanitize=address -fsanitize=leak -O1 \
     -I$(shell R RHOME)/include \
     -I/usr/local/opt/openblas/include \
     -I/usr/local/Cellar/gsl/2.8/include \
@@ -30,9 +31,9 @@ LDFLAGS_EXEC = -L$(shell R RHOME)/lib \
 # Files and Targets
 LIB_TARGET = libutil.dylib  # Use libutil.so for Linux
 EXEC_TARGET = util_exec     # Name for the executable
-SRCS = util.c matrixUtils.c instanceGenerator.c
+SRCS = util.c matrixUtils.c instanceGenerator.c multinomial.c
 OBJS = $(SRCS:.c=.o)
-HEADERS = matrixUtils.h instanceGenerator.h
+HEADERS = matrixUtils.h instanceGenerator.h multinomial.h
 
 # Default Rule
 all: $(LIB_TARGET) $(EXEC_TARGET)
@@ -42,8 +43,8 @@ $(LIB_TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $(LIB_TARGET) $(OBJS) $(LDFLAGS_LIB)
 
 # Build Executable
-$(EXEC_TARGET): util.o matrixUtils.o instanceGenerator.o
-	$(CC) $(CFLAGS) -o $(EXEC_TARGET) util.o matrixUtils.o instanceGenerator.o $(LDFLAGS_EXEC)
+$(EXEC_TARGET): util.o matrixUtils.o instanceGenerator.o multinomial.o
+	$(CC) $(CFLAGS) -o $(EXEC_TARGET) util.o matrixUtils.o instanceGenerator.o multinomial.o $(LDFLAGS_EXEC)
 
 # Build Object Files
 %.o: %.c $(HEADERS)

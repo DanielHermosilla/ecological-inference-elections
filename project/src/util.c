@@ -115,6 +115,11 @@ void setParameters(Matrix *x, Matrix *w)
             GROUP_VOTES[g] += (uint32_t)MATRIX_AT_PTR(W, b, g);
         }
     }
+
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        inv_BALLOTS_VOTES[b] = 1.0 / (double)BALLOTS_VOTES[b];
+    }
 }
 
 Matrix getInitialP(const char *p_method)
@@ -174,18 +179,17 @@ Matrix getInitialP(const char *p_method)
          // Now it considers the proportion of candidates votes AND demographic groups, it's an extension of the
          // past method
     {
-        double numerator = 0.0;                  // Note that the denominator is already known
-        double inv_BALLOTS_VOTES[TOTAL_BALLOTS]; // To avoid computing reused numbers.
-        uint32_t temp = 0;                       // Will be used to cast multiplications on integers and add efficiency.
-        double *prob_data = probabilities.data;  // For OpenMP because they don't accept structs for reduction clauses
-                                                 // even though it's dereferenced
+        double numerator = 0.0; // Note that the denominator is already known
+        // double inv_BALLOTS_VOTES[TOTAL_BALLOTS]; // To avoid computing reused numbers.
+        uint32_t temp = 0;                      // Will be used to cast multiplications on integers and add efficiency.
+        double *prob_data = probabilities.data; // For OpenMP because they don't accept structs for reduction clauses
+                                                // even though it's dereferenced
 #pragma omp parallel for reduction(+ : prob_data[ : TOTAL_GROUPS * TOTAL_CANDIDATES])
         for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
         {
             if (BALLOTS_VOTES[b] == 0)
                 continue; // Division by zero, even though it's very unlikely (a ballot doesn't have any vote).
 
-            inv_BALLOTS_VOTES[b] = 1.0 / (double)BALLOTS_VOTES[b];
             for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
             {
                 if (MATRIX_AT_PTR(W, b, g) == 0.0)
@@ -218,7 +222,7 @@ Matrix getInitialP(const char *p_method)
     return probabilities;
 }
 
-Matrix getP(const void *q, bool continuous)
+Matrix getP(const double *q, const bool continuous)
 
 /*
  * @brief Computes the optimal solution for the `M` step
@@ -243,6 +247,8 @@ Matrix getP(const void *q, bool continuous)
 
     // Loop over "b" can't be avoided since q[b].data is not in contiguos memory. It could potentially be avoided if the
     // implementation of q was a contiguos array - hence a manual multiplication will be used
+    //
+    /*
     if (!continuous)
     {
 #pragma omp parallel for reduction(+ : ptrReturn[ : TOTAL_GROUPS * TOTAL_CANDIDATES])
@@ -259,7 +265,8 @@ Matrix getP(const void *q, bool continuous)
             }
         }
     }
-    else
+    */
+    if (true)
     {
         for (int g = 0; g < TOTAL_GROUPS; g++)
         {
@@ -360,8 +367,14 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         else if (strcmp(q_method, "Multinomial") == 0)
         {
             printf("Executing 'Multinomial' method.\n");
+            printf("The probability matrix handed is:\n");
+            printMatrix(currentP);
             q = computeQMultinomial(currentP);
-            break;
+            printf("The `q` returned is:\n");
+            for (int a = 0; a < (int)TOTAL_BALLOTS * (int)TOTAL_CANDIDATES * (int)TOTAL_GROUPS; a++)
+            {
+                printf("\t%.5f, ", q[a]);
+            }
         }
         // MVN CDF
         else if (strcmp(q_method, "MVN CDF") == 0)
@@ -377,6 +390,8 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         }
 
         Matrix newProbability = getP(q, true);
+        printf("\nThe new probability calculated with getP is:\n\n");
+        printMatrix(&newProbability);
 
         if (convergeMatrix(&newProbability, currentP, convergence))
         {
@@ -392,7 +407,8 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         }
 
         freeMatrix(currentP);
-        *currentP = newProbability;
+        *currentP = createMatrix(newProbability.rows, newProbability.cols);
+        memcpy(currentP->data, newProbability.data, sizeof(double) * newProbability.rows * newProbability.cols);
     }
     printf("Maximum iterations reached without convergence.\n"); // Print even if there's not verbose, might change
     // later.
@@ -457,7 +473,12 @@ int main()
     clock_gettime(CLOCK_MONOTONIC, &start);
     setParameters(&X, &G);
 
-    testProb();
+    // testProb();
+    Matrix P = getInitialP("group proportional");
+
+    Matrix Pnew = EMAlgoritm(&P, "Multinomial", 0.001, 100, true);
+    printMatrix(&Pnew);
+    freeMatrix(&Pnew);
     freeMatrix(&X);
     freeMatrix(&G);
     // free(GROUP_VOTES);

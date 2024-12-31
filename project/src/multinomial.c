@@ -18,6 +18,26 @@
 #define Q_3D(q, bIdx, gIdx, cIdx, G, C) ((q)[((bIdx) * (G) * (C)) + ((gIdx) * (C)) + (cIdx)])
 
 /**
+ * @brief Computes the value of `r` without the denominator.
+ *
+ * Given that the probabilities cancel the denominator, it just computes the numerator of the `r` definition.
+ *
+ * @param[in] *probabilities Matrix of dimension (gxc) with the probabilities of each group and candidate.
+ * @param[in] *mult Matrix of dimension (bxc) with the matricial multiplication of w * p.
+ * @param[in] b The index `b`
+ * @param[in] c The index `c`
+ * @param[in] g The index `g`
+ *
+ * @return: The value for `r` at the position given.
+ */
+
+double computeR(Matrix const *probabilities, Matrix const *mult, int const b, int const c, int const g)
+{
+
+    return MATRIX_AT_PTR(mult, b, c) - MATRIX_AT_PTR(probabilities, g, c);
+}
+
+/**
  * @brief Computes an approximate of the conditional probability by using a Multinomial approach.
  *
  * Given the observables parameters and the probability matrix, it computes an approximation of `q` with the Multinomial
@@ -32,60 +52,43 @@
 
 double *computeQMultinomial(Matrix const *probabilities)
 {
-    double *array =
-        (double *)calloc((size_t)TOTAL_BALLOTS, (size_t)TOTAL_CANDIDATES * (size_t)TOTAL_GROUPS); // Array to return
-
-    // We have to calculate the following: $$\frac{x_{bc}\cdot p_{gc}}{WP_{bc}}\cdot\left(\sum_{\forall
-    // c}\frac{WP_{bc}}{x_{bc}\cdot p_{gc}}-\sum_{\forall c}\underbrace{\frac{1}{x_{bc}}}_\text{Suma sobre
-    // enteros}\right)$$.
+    double *array2 =
+        (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double)); // Array to return
 
     // -- Summatory calculation for g --
     // This is a simple matrix calculation, to be computed once.
-    Matrix WP = createMatrix((int)TOTAL_BALLOTS, (int)TOTAL_GROUPS);
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, (int)*ballotsTotal, // Rows in W
+    Matrix WP = createMatrix((int)TOTAL_BALLOTS, (int)TOTAL_CANDIDATES);
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, (int)TOTAL_BALLOTS, // Rows in W
                 (int)TOTAL_CANDIDATES,                                         // Columns in P
                 (int)TOTAL_GROUPS,                                             // Shared dimension
                 1.0, W->data, (int)TOTAL_GROUPS, probabilities->data, (int)TOTAL_CANDIDATES, 0.0, WP.data,
                 (int)TOTAL_CANDIDATES);
 
-    // --Summatory calculation for c --
-    // First term NUMERATOR
-    double numSum[TOTAL_BALLOTS];
-    colSum(&WP, numSum);
-
-    // First term DENOMINATOR; is x_{cb}^T*p_{gc}^T
-    Matrix XP = createMatrix((int)TOTAL_BALLOTS, (int)TOTAL_GROUPS);
-    cblas_dgemm(CblasRowMajor, CblasTrans, CblasTrans, X->rows, // Rows in X
-                probabilities->rows,                            // Columns in P
-                X->cols,                                        // Shared dimension
-                1.0, X->data, X->cols, probabilities->data, probabilities->cols, 0.0, XP.data, probabilities->rows);
-
-    // Second term
-    if (inv_BALLOTS_VOTES == NULL || *inv_BALLOTS_VOTES == 0.0)
-    {
-        inv_BALLOTS_VOTES = (double *)calloc(TOTAL_BALLOTS, sizeof(double));
+    Matrix temp = createMatrix((int)TOTAL_BALLOTS, (int)TOTAL_GROUPS);
 #pragma omp parallel for
-        for (int b = 0; b < TOTAL_BALLOTS; b++)
-        {
-            inv_BALLOTS_VOTES[b] = 1.0 / (double)BALLOTS_VOTES[b];
-        }
-    }
-
-#pragma omp parallel for
-    for (int b = 0; b < TOTAL_BALLOTS; b++)
+    for (int b = 0; b < (int)TOTAL_BALLOTS; b++)
     {
-        for (int g = 0; g < TOTAL_GROUPS; g++)
+        for (int g = 0; g < (int)TOTAL_GROUPS; g++)
         {
-            for (int c = 0; c < TOTAL_CANDIDATES; c++)
+            for (int c = 0; c < (int)TOTAL_CANDIDATES; c++)
             {
-                double alpha = (MATRIX_AT_PTR(X, c, b) * MATRIX_AT_PTR(probabilities, g, c)) /
-                               (MATRIX_AT(WP, b, c)); // First parenthesis
-                double beta = (numSum[b] / MATRIX_AT(XP, b, c)) - inv_BALLOTS_VOTES[b];
-                Q_3D(array, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES);
+
+                double result =
+                    computeR(probabilities, &WP, b, c, g) * MATRIX_AT_PTR(probabilities, g, c) * MATRIX_AT_PTR(X, c, b);
+                // printf("The alpha term is:\t%.4f\nThe beta term is:\t%.4f\n", alpha, beta);
+                MATRIX_AT(temp, b, g) += result;
+            }
+            for (int c = 0; c < (int)TOTAL_CANDIDATES; c++)
+            {
+                double result2 =
+                    computeR(probabilities, &WP, b, c, g) * MATRIX_AT_PTR(probabilities, g, c) * MATRIX_AT_PTR(X, c, b);
+                // printf("The alpha term is:\t%.4f\nThe beta term is:\t%.4f\n", alpha, beta);
+                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = result2 / MATRIX_AT(temp, b, g);
             }
         }
     }
+
     freeMatrix(&WP);
-    freeMatrix(&XP);
-    return array;
+    freeMatrix(&temp);
+    return array2;
 }
