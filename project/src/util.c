@@ -28,9 +28,6 @@
 #define MATRIX_AT(matrix, i, j) (matrix.data[(i) * (matrix.cols) + (j)])
 #define MATRIX_AT_PTR(matrix, i, j) (matrix->data[(i) * (matrix->cols) + (j)])
 
-// For the crono
-struct timespec start, end; // High-resolution time structures
-
 uint32_t TOTAL_VOTES = 0;
 uint32_t TOTAL_BALLOTS = 0;
 uint16_t TOTAL_CANDIDATES = 0;
