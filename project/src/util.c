@@ -458,15 +458,24 @@ int main()
 {
     printf("The program is running\n");
 
-    Matrix XX = {.data = NULL, .rows = 0, .cols = 0};
-    Matrix G = {.data = NULL, .rows = 0, .cols = 0};
+    // Matrix XX = {.data = NULL, .rows = 0, .cols = 0};
+    // Matrix G = {.data = NULL, .rows = 0, .cols = 0};
     char *method = "multinomial";
-    createInstance(&XX, &G, 42, *method); // TODO: Arreglar esto para poder crear una instancia...
+    // createInstance(&XX, &G, 42, *method); // TODO: Arreglar esto para poder crear una instancia...
 
-    Matrix matrices[2] = {XX, G};
+    // Matrix matrices[2] = {XX, G};
 
-    writeMatrices("matricesTest.bin", matrices, 2);
+    // writeMatrices("matricesTest.bin", matrices, 2);
+    Matrix matrixArray[2];
 
+    readMatrices("matricesTest.bin", matrixArray, 2);
+    Matrix XX = matrixArray[0];
+    Matrix G = matrixArray[1];
+    printf("The matrix `X` that was read is:\n");
+    printMatrix(&XX);
+    printf("The matrix `G` that was read is:\n");
+    printMatrix(&G);
+    /*
     setParameters(&XX, &G);
     testProb();
     Matrix P = getInitialP("uniform");
@@ -474,6 +483,7 @@ int main()
     Matrix Pnew = EMAlgoritm(&P, "Multinomial", 0.0001, 10000, true);
     printMatrix(&Pnew);
     freeMatrix(&Pnew);
+    */
     freeMatrix(&XX);
     freeMatrix(&G);
 

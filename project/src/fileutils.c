@@ -63,7 +63,7 @@ void writeMatrices(const char *filename, Matrix *matrices, int count)
  * @param count Pointer to store the number of matrices read.
  */
 
-Matrix *readMatrices(const char *filename, int *count)
+void readMatrices(const char *filename, Matrix *matrices, int count)
 {
     FILE *file = fopen(filename, "rb");
     if (!file)
@@ -73,53 +73,36 @@ Matrix *readMatrices(const char *filename, int *count)
     }
 
     // Read the number of matrices
-    if (fread(count, sizeof(int), 1, file) != 1)
+    if (fread(&count, sizeof(int), 1, file) != 1)
     {
         perror("Failed to read matrix count");
         fclose(file);
         exit(EXIT_FAILURE);
     }
 
-    // Allocate memory for the matrices
-    Matrix *matrices = (Matrix *)malloc(*count * sizeof(Matrix));
-    if (!matrices)
-    {
-        perror("Failed to allocate memory for matrices");
-        fclose(file);
-        exit(EXIT_FAILURE);
-    }
-
     // Read each matrix
-    for (int i = 0; i < *count; i++)
+    for (int i = 0; i < count; i++)
     {
         if (fread(&matrices[i].rows, sizeof(int), 1, file) != 1 || fread(&matrices[i].cols, sizeof(int), 1, file) != 1)
         {
             perror("Failed to read matrix metadata");
             fclose(file);
-            free(matrices);
+            free(&matrices[i]);
             exit(EXIT_FAILURE);
         }
+        // Create matrix with dynamic data allocation
+        matrices[i] = createMatrix(matrices[i].rows, matrices[i].cols);
 
+        // Read matrix data
         size_t size = matrices[i].rows * matrices[i].cols;
-        matrices[i].data = (double *)malloc(size * sizeof(double));
-        if (!matrices[i].data)
-        {
-            perror("Failed to allocate memory for matrix data");
-            fclose(file);
-            free(matrices);
-            exit(EXIT_FAILURE);
-        }
-
         if (fread(matrices[i].data, sizeof(double), size, file) != size)
         {
             perror("Failed to read matrix data");
             fclose(file);
-            free(matrices[i].data);
-            free(matrices);
+            free(matrices[i].data); // Free allocated data
             exit(EXIT_FAILURE);
         }
     }
 
     fclose(file);
-    return matrices;
 }

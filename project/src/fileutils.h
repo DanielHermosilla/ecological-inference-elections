@@ -23,7 +23,6 @@ void writeMatrices(const char *filename, Matrix *matrices, int count);
  * @param matrices Pointer to an array of matrices.
  * @param count Pointer to store the number of matrices read.
  */
-
-Matrix *readMatrices(const char *filename, int *count);
+void readMatrices(const char *filename, Matrix *matrices, int count);
 
 #endif
