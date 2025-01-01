@@ -59,12 +59,13 @@ void generateVotes(Matrix *x, Matrix *w, const int *totalvotes, const int *total
  * @param[in, out] x A pointer to the matrix `x` to be generated. I would sugguest to just pass an empty matrix pointer.
  * @param[in, out] w A pointer to the matrix `w` to be generated. I would sugguest to just pass an empty matrix pointer.
  * @param[in] seed The seed for making reproducible results.
+ * @param[in] method The method for generating votes, it could either be "uniform" or "multinomial".
  *
  * @return void. Results written at the matrix pointers
  *
  * @note This would be mainly for debugging,
  */
 
-void createInstance(Matrix *x, Matrix *w, const int seed);
+void createInstance(Matrix *x, Matrix *w, const int seed, const char method);
 
 #endif // INSTANCE_H

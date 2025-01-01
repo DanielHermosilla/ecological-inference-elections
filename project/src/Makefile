@@ -31,9 +31,9 @@ LDFLAGS_EXEC = -L$(shell R RHOME)/lib \
 # Files and Targets
 LIB_TARGET = libutil.dylib  # Use libutil.so for Linux
 EXEC_TARGET = util_exec     # Name for the executable
-SRCS = util.c matrixUtils.c instanceGenerator.c multinomial.c
+SRCS = util.c matrixUtils.c instanceGenerator.c multinomial.c fileutils.c
 OBJS = $(SRCS:.c=.o)
-HEADERS = matrixUtils.h instanceGenerator.h multinomial.h
+HEADERS = matrixUtils.h instanceGenerator.h multinomial.h fileutils.h
 
 # Default Rule
 all: $(LIB_TARGET) $(EXEC_TARGET)
@@ -43,8 +43,8 @@ $(LIB_TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $(LIB_TARGET) $(OBJS) $(LDFLAGS_LIB)
 
 # Build Executable
-$(EXEC_TARGET): util.o matrixUtils.o instanceGenerator.o multinomial.o
-	$(CC) $(CFLAGS) -o $(EXEC_TARGET) util.o matrixUtils.o instanceGenerator.o multinomial.o $(LDFLAGS_EXEC)
+$(EXEC_TARGET): util.o matrixUtils.o instanceGenerator.o multinomial.o fileutils.o
+	$(CC) $(CFLAGS) -o $(EXEC_TARGET) util.o matrixUtils.o instanceGenerator.o multinomial.o fileutils.o $(LDFLAGS_EXEC)
 
 # Build Object Files
 %.o: %.c $(HEADERS)
