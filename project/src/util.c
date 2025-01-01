@@ -1,3 +1,4 @@
+#include "fileutils.h"
 #include "instanceGenerator.h"
 #include "matrixUtils.h"
 #include "multinomial.h"
@@ -461,6 +462,10 @@ int main()
     Matrix G = {.data = NULL, .rows = 0, .cols = 0};
     char *method = "multinomial";
     createInstance(&XX, &G, 42, *method); // TODO: Arreglar esto para poder crear una instancia...
+
+    Matrix matrices[2] = {XX, G};
+
+    writeMatrices("matricesTest.bin", matrices, 2);
 
     setParameters(&XX, &G);
     testProb();
