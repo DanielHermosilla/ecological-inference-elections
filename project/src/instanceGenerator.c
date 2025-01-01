@@ -1,7 +1,10 @@
 #include "matrixUtils.h"
 #include <ctype.h> // For tolower()
+#include <gsl/gsl_randist.h>
+#include <gsl/gsl_rng.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 /**
  * @brief Helper function to get a valid integer from the user
@@ -50,6 +53,33 @@ int getInput(const char *prompt)
 
 void distributeTotalRandomly(int total, int size, double *array)
 {
+    int votesDistributed = 0;
+
+    while (votesDistributed < total)
+    {
+        int index = rand() % size; // Random category
+                                   // Only increment if the index is even
+        if (index % 2 == 0 && votesDistributed <= total - 4)
+        {
+            array[index] += 4; // Increment vote for even category
+            votesDistributed += 4;
+        }
+        // Random stopping criterion
+        if ((rand() % 100) < 1) // 10% chance to stop early
+        {
+            printf("Stopping early after distributing %d votes (Random criterion triggered).\n", votesDistributed);
+            break;
+        }
+    }
+
+    // Distribute remaining votes evenly if stopped early
+    while (votesDistributed < total)
+    {
+        int index = rand() % size;
+        array[index]++;
+        votesDistributed++;
+    }
+
     for (int i = 0; i < total; i++)
     { // The loop will assign a vote to a random index
 
@@ -58,6 +88,52 @@ void distributeTotalRandomly(int total, int size, double *array)
     }
 }
 
+void getRandomProbability(const int categories, double *array)
+{
+    distributeTotalRandomly(1000, categories, array);
+
+    for (int b = 0; b < categories; b++)
+    {
+        array[b] /= 1000;
+    }
+}
+void multinomialDistribution(Matrix *x, Matrix *w, const int *totalvotes, const int *totalcandidates,
+                             const int *totalgroups, const int *totalballots, const gsl_rng *r)
+{
+
+    // Firstly, the total amount of votes per each ballot should be random.
+    unsigned int votesPerBallot[*totalballots];
+
+    double probabilities[*totalballots];
+    makeArray(probabilities, *totalballots, 0.0);
+    getRandomProbability(*totalballots, probabilities);
+
+    gsl_ran_multinomial(r, *totalballots, *totalvotes, probabilities, votesPerBallot);
+
+    for (int b = 0; b < *totalballots; b++)
+    {
+        unsigned int candidateVotes[*totalcandidates];
+        unsigned int groupVotes[*totalgroups];
+        double probabilitiesCandidates[*totalcandidates];
+        double probabilitiesGroups[*totalgroups];
+        makeArray(probabilitiesCandidates, *totalcandidates, 0.0);
+        getRandomProbability(*totalcandidates, probabilitiesCandidates);
+        makeArray(probabilitiesGroups, *totalgroups, 0.0);
+        getRandomProbability(*totalgroups, probabilitiesGroups);
+
+        gsl_ran_multinomial(r, *totalcandidates, votesPerBallot[b], probabilitiesCandidates, candidateVotes);
+        gsl_ran_multinomial(r, *totalgroups, votesPerBallot[b], probabilitiesGroups, groupVotes);
+
+        for (int c = 0; c < *totalcandidates; c++)
+        {
+            MATRIX_AT_PTR(x, c, b) = (double)candidateVotes[c];
+        }
+        for (int g = 0; g < *totalgroups; g++)
+        {
+            MATRIX_AT_PTR(w, b, g) = (double)groupVotes[g];
+        }
+    }
+}
 /**
  * @brief Helper function for generating the random instances of voting.
  *
@@ -131,7 +207,7 @@ void generateVotes(Matrix *x, Matrix *w, const int *totalvotes, const int *total
  * @note This would be mainly for debugging,
  */
 
-void createInstance(Matrix *x, Matrix *w, const int seed)
+void createInstance(Matrix *x, Matrix *w, const int seed, const char method)
 {
     srand(seed);
 
@@ -150,9 +226,9 @@ void createInstance(Matrix *x, Matrix *w, const int seed)
     }
 
     // Validate initial state
-    if (x->data != NULL || w->data != NULL)
+    if (x->data != NULL && w->data != NULL)
     {
-        fprintf(stderr, "Matrices were not empty before initialization.\n");
+        fprintf(stderr, "Matrices were full before initialization.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -182,7 +258,17 @@ void createInstance(Matrix *x, Matrix *w, const int seed)
     printf("Total Ballots: %d\n", totalballots);
 
     printf("\nStarting the randomized instance...\n");
-    generateVotes(x, w, &totalvotes, &totalcandidates, &totalgroups, &totalballots);
+    if (strcmp(&method, "uniform") == 0)
+    {
+        generateVotes(x, w, &totalvotes, &totalcandidates, &totalgroups, &totalballots);
+    }
+    else
+    {
+        printf("Using a multinomial simulation.\n");
+        gsl_rng *r = gsl_rng_alloc(gsl_rng_default);
+        gsl_rng_set(r, seed); // Seed the RNG
+        multinomialDistribution(x, w, &totalvotes, &totalcandidates, &totalgroups, &totalballots, r);
+    }
     printf("The randomized instance is finished!\nWould you like a glimpse of the matrices? (y/n)");
 
     char choice;

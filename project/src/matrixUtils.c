@@ -422,7 +422,7 @@ bool convergeMatrix(Matrix *matrixA, Matrix *matrixB, double convergence)
     double *diff = (double *)malloc(size * sizeof(double));
 
     cblas_dcopy(size, matrixA->data, 1, diff, 1);
-    cblas_daxpy(size, -1.0, matrixA->data, 1, diff, 1);
+    cblas_daxpy(size, -1.0, matrixB->data, 1, diff, 1);
 
     for (int i = 0; i < size; i++)
     {

@@ -259,10 +259,9 @@ Matrix getP(const double *q, const bool continuous)
     // usually expensive). Approximately reduces 400.000 double divisions to 50.
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     {
-        double denom = (double)GROUP_VOTES[g];
         for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
         {
-            ptrReturn[g * TOTAL_CANDIDATES + c] /= denom;
+            ptrReturn[g * TOTAL_CANDIDATES + c] /= GROUP_VOTES[g];
         }
     }
     return toReturn;
@@ -322,6 +321,8 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
 
     struct timespec start, end; // Start time
 
+    // Start timer
+    clock_gettime(CLOCK_MONOTONIC, &start);
     for (int i = 0; i < maxIter; i++)
     {
         if (i % 10 == 0 && verbose)
@@ -341,11 +342,6 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             printf("The probability matrix handed is:\n");
             printMatrix(currentP);
             q = computeQMultinomial(currentP);
-            printf("The `q` returned is:\n");
-            for (int a = 0; a < (int)TOTAL_BALLOTS * (int)TOTAL_CANDIDATES * (int)TOTAL_GROUPS; a++)
-            {
-                printf("\t%.5f, ", q[a]);
-            }
         }
         // MVN CDF
         else if (strcmp(q_method, "MVN CDF") == 0)
@@ -363,6 +359,8 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         Matrix newProbability = getP(q, true);
         printf("\nThe new probability calculated with getP is:\n\n");
         printMatrix(&newProbability);
+        printf("\nThe current probability is:");
+        printMatrix(currentP);
 
         if (convergeMatrix(&newProbability, currentP, convergence))
         {
@@ -445,12 +443,12 @@ void cleanup()
     }
     if (X != NULL)
     {
-        free(X);
+        freeMatrix(X);
         X = NULL;
     }
     if (W != NULL)
     {
-        free(W);
+        freeMatrix(W);
         W = NULL;
     }
 }
@@ -459,35 +457,20 @@ int main()
 {
     printf("The program is running\n");
 
-    struct timespec start, end; // High-resolution time structures
-
-    Matrix X = {.data = NULL, .rows = 0, .cols = 0};
+    Matrix XX = {.data = NULL, .rows = 0, .cols = 0};
     Matrix G = {.data = NULL, .rows = 0, .cols = 0};
-    createInstance(&X, &G, 42);
+    char *method = "multinomial";
+    createInstance(&XX, &G, 42, *method); // TODO: Arreglar esto para poder crear una instancia...
 
-    // testProb();
-    Matrix P = getInitialP("group proportional");
+    setParameters(&XX, &G);
+    testProb();
+    Matrix P = getInitialP("uniform");
 
-    Matrix Pnew = EMAlgoritm(&P, "Multinomial", 0.001, 100, true);
+    Matrix Pnew = EMAlgoritm(&P, "Multinomial", 0.0001, 10000, true);
     printMatrix(&Pnew);
     freeMatrix(&Pnew);
-    freeMatrix(&X);
+    freeMatrix(&XX);
     freeMatrix(&G);
 
-    // End timer
-    clock_gettime(CLOCK_MONOTONIC, &end);
-
-    // Calculate elapsed time
-    double elapsed_sec = (end.tv_sec - start.tv_sec);        // Whole seconds
-    double elapsed_ms = (end.tv_nsec - start.tv_nsec) / 1e6; // Milliseconds
-
-    if (elapsed_ms < 0)
-    {
-        // Handle edge case where nanoseconds roll over
-        elapsed_sec -= 1;
-        elapsed_ms += 1000;
-    }
-
-    printf("The program took %.0f seconds and %.3f milliseconds!\n", elapsed_sec, elapsed_ms);
     return 1;
 }

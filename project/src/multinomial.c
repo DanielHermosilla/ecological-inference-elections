@@ -73,15 +73,15 @@ double *computeQMultinomial(Matrix const *probabilities)
             for (int c = 0; c < (int)TOTAL_CANDIDATES; c++)
             {
 
-                double result =
-                    computeR(probabilities, &WP, b, c, g) * MATRIX_AT_PTR(probabilities, g, c) * MATRIX_AT_PTR(X, c, b);
+                double result = (1.0 / computeR(probabilities, &WP, b, c, g)) * MATRIX_AT_PTR(probabilities, g, c) *
+                                MATRIX_AT_PTR(X, c, b);
                 // printf("The alpha term is:\t%.4f\nThe beta term is:\t%.4f\n", alpha, beta);
                 MATRIX_AT(temp, b, g) += result;
             }
             for (int c = 0; c < (int)TOTAL_CANDIDATES; c++)
             {
-                double result2 =
-                    computeR(probabilities, &WP, b, c, g) * MATRIX_AT_PTR(probabilities, g, c) * MATRIX_AT_PTR(X, c, b);
+                double result2 = (1.0 / computeR(probabilities, &WP, b, c, g)) * MATRIX_AT_PTR(probabilities, g, c) *
+                                 MATRIX_AT_PTR(X, c, b);
                 // printf("The alpha term is:\t%.4f\nThe beta term is:\t%.4f\n", alpha, beta);
                 Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = result2 / MATRIX_AT(temp, b, g);
             }
