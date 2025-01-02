@@ -221,7 +221,7 @@ Matrix getInitialP(const char *p_method)
     return probabilities;
 }
 
-Matrix getP(const double *q, const bool continuous)
+Matrix getP(const double *q)
 
 /*
  * @brief Computes the optimal solution for the `M` step
@@ -275,7 +275,6 @@ Matrix getP(const double *q, const bool continuous)
 
 Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
                   const bool verbose)
-// NOTE: Use pointer on matrices to avoid copying huge matrices on stack memory.
 {
 
     /**
@@ -322,13 +321,12 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
                q_method, convergence, maxIter);
     }
 
-    // There are some things that can be calculated ONCE and reused on the E-step:
     double *q;
 
-    // struct timespec start, end; // Start time
+    struct timespec start, end; // Start time
 
     // Start timer
-    // clock_gettime(CLOCK_MONOTONIC, &start);
+    clock_gettime(CLOCK_MONOTONIC, &start);
     for (int i = 0; i < maxIter; i++)
     {
         if (i % 200 == 0 && verbose)
@@ -336,6 +334,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             printf("%.0f%% of iterations have been done.\n", (i / (double)maxIter) * 100);
         }
 
+        // Exact method
         if (strcmp(q_method, "Exact") == 0)
         {
             printf("Executing 'Exact' method.\n");
@@ -350,7 +349,6 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         // Multinomial
         else if (strcmp(q_method, "Multinomial") == 0)
         {
-            // printf("Executing 'Multinomial' method.\n");
             q = computeQMultinomial(currentP);
         }
         // MVN CDF
@@ -365,25 +363,24 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             printf("Executing 'MVN PDF' method.\n");
             break;
         }
-        Matrix newProbability = getP(q, true);
+
+        Matrix newProbability = getP(q);
         free(q);
         if (convergeMatrix(&newProbability, currentP, convergence))
         {
 
             // End timer
-            // clock_gettime(CLOCK_MONOTONIC, &end);
-            // double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+            clock_gettime(CLOCK_MONOTONIC, &end);
+            double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
 
-            // if (verbose)
-            if (true)
+            if (verbose)
             {
-                // printf("The convergence was found on iteration %d and took %.5f seconds!\n", i, elapsed);
+                printf("The convergence was found on iteration %d and took %.5f seconds!\n", i, elapsed);
             }
             freeMatrix(currentP);
-            // freeMatrix(X);
-            // freeMatrix(W);
             return newProbability;
         }
+
         freeMatrix(currentP);
         *currentP = createMatrix(newProbability.rows, newProbability.cols);
         memcpy(currentP->data, newProbability.data, sizeof(double) * newProbability.rows * newProbability.cols);
@@ -393,19 +390,9 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     // later.
     return *currentP;
 }
-// SEXP hello_gsl()
-//{
-//     printf("Hello, World from C!\n");
 
-//   return R_NilValue;
-//
 void testProb()
 {
-
-    // printf("Running test for the initial probability matrix\n The `X` matrix with the candidates votes is:\n");
-    // printMatrix(X);
-    // printf("\nThe `w` matrix with the groups votes is:\n");
-    // printMatrix(W);
 
     Matrix prob = getInitialP("uniform");
     printf("\nThe probability matrix for `uniform` method is:\n");
@@ -478,19 +465,12 @@ int main()
     readMatrices("matricesTest3.bin", matrixArray, 2);
     Matrix XX = matrixArray[0];
     Matrix G = matrixArray[1];
-    printf("Matrix Metadata: rows=%d, cols=%d\n", XX.rows, XX.cols);
-    printf("Matrix Data Address: %p\n", (void *)XX.data);
-    // printf("The matrix `X` that was read is:\n");
-    // printMatrix(&XX);
-    // printf("The matrix `G` that was read is:\n");
-    // printMatrix(&G);
     setParameters(&XX, &G);
     struct timespec start, end; // Start time
 
     // Start timer
     clock_gettime(CLOCK_MONOTONIC, &start);
     Matrix P = getInitialP("group proportional");
-    //  printMatrix(&P);
     Matrix Pnew = EMAlgoritm(&P, "Multinomial", 0.0001, 10000, false);
 
     clock_gettime(CLOCK_MONOTONIC, &end);
