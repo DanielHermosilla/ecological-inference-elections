@@ -2,6 +2,8 @@
 #include <cblas.h>
 #include <cstdlib>
 #include <gsl/gsl_combination.h>
+#include <math.h>
+#include <stdint.h>
 
 extern uint32_t TOTAL_VOTES;
 extern uint32_t TOTAL_BALLOTS;
@@ -46,7 +48,55 @@ void gsl_combination_free(gsl_combination *c)
 
     This function frees all the memory used by the combination c.
 */
-bool ifAllElements(size_t *hElement, size_t *kElement)
+
+/**
+ * @brief Calculate the chained product between probabilities as defined in `a`:
+ *
+ * Given an `H` element and the `f` index it computes the chained product.
+ *
+ * @param[in] *hElement A pointer towards the element of `H`. This element is an array with the possible combinations
+ * @param[in] *probabilities A pointer toward the probabilities Matrix.
+ * @param[in] f The index of `f`
+ *
+ * @return double: The result of the product
+ *
+ */
+double prod(const size_t *hElement, const Matrix *probabilities, const int f)
+{
+    double result = 1;
+    for (int c = 0; c < TOTAL_CANDIDATES; c++)
+    {
+        result *= pow(MATRIX_AT_PTR(probabilities, f, c), hElement[c]);
+    }
+    return result;
+}
+
+/**
+ * @brief Calculate a given the multinomial coefficient, subject to the `H` set:
+ *
+ * Given an `H` element, it computes its multinomial coefficient subject to the total amount of votes a group received.
+ * It yields the following calculation:
+ * $$\binom{w_{bf}}{h_1,\dots,h_C}=\frac{w_{bf}!}{h_1!\cdots h_{C}!}$$
+ *
+ * @param [in] b The index of the ballot.
+ * @param [in] f The index of the group
+ * @param[in] *hElement A pointer towards the element of `H`. This element is an array with the possible combinations
+ *
+ * @return double: The result of the multinomial coefficient
+ *
+ */
+double multinomialCoeff(const int b, const int f, const size_t *hElement)
+{
+    double result = gsl_sf_fact(MATRIX_AT_PTR(W, b, f)); // Calculate w_bf!
+    for (uint16_t i = 0; i < TOTAL_CANDIDATES; i++)
+    {
+        result /= gsl_sf_fact(hElement[i]); // Divide by each h_i!
+    }
+
+    return result;
+}
+
+bool ifAllElements(const size_t *hElement, const size_t *kElement)
 {
     for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
     {
@@ -56,6 +106,11 @@ bool ifAllElements(size_t *hElement, size_t *kElement)
         }
     }
     return true;
+}
+
+double computeA(const int b, const int f, const size_t *hElement, const Matrix *probabilities)
+{
+    return multinomialCoeff(b, f, hElement) * prod(hElement, probabilities, f);
 }
 
 /**
@@ -140,36 +195,65 @@ size_t **getK(const int b, const int f, size_t *size) // combination[i][j]; i th
     return restriction;
 }
 
-double prod(const int i, const int n, const double *array)
+// x_b = x_bc s.a c\in C i.e total amount of votes that a candidate got on ballot b.
+// B void recursionG(const size_t *hElement)
+double getU(const int b, const int f, const int g, const int c, const Matrix *probabilities, const int k,
+            Matrix *Umatrix)
 {
-    double result = 1;
-    for (int k = i; k < n; k++)
+
+    // Matrix dim2Mat = createMatrix(TOTAL_GROUPS, TOTAL_VOTES);
+
+    if (f == 0)
     {
-        result *= array[k];
+        if (k == 0)
+        {
+            MATRIX_AT_PTR(Umatrix, 0, 0) = 1;
+        }
+        else
+        {
+            return MATRIX_AT_PTR(Umatrix, 0, k) = 0;
+        }
     }
-    return result;
-}
 
-bool checkCondition(const int b, const int f)
-{
-    gsl_combination *currentH = getH(b, f);
-}
-
-void computeExact()
-{
-
-    int sizeK = W->rows * W->cols;
     for (int b = 0; b < TOTAL_BALLOTS; b++)
     {
         for (int f = 0; f < TOTAL_GROUPS; f++)
         {
+            size_t sizeK;
+            size_t **K = getK(b, f, &sizeK);
+
             for (int k = 0; k < sizeK; k++)
-            { // That's the size of K, this should be a set loop
-                for (int h = 0; h < sizeK; h++)
+            { // Loop over K
+                size_t *kElement = K[k];
+                gsl_combination *H = getH(b, f);
+
+                // The gsl_combination library offers a way to iterate over the elements of a set, hence, the iteration
+                // with H will be made with that method in mind on a do-while loop.
+                do
                 {
-                    if (MATRIX_AT(H, b, g))
-                }
+                    const size_t *hElement = gsl_combination_data(H);
+                    if (ifAllElements(hElement, kElement))
+                    {
+                        double a = computeA(b, f, hElement, probabilities);
+                        for (int c = 0; c < TOTAL_CANDIDATES; c++)
+                        {
+                            for (int g = 0; g < TOTAL_GROUPS; g++)
+                            {
+                                if (g == f)
+                                {
+                                    return getU(b, f, g, c, probabilities, k) + getU(b, f - 1, g, c, k)
+                                }
+                            }
+                        }
+                    }
+
+                } while (gsl_combination_next(H) == GSL_SUCCESS); // Loop over each H element
             }
         }
     }
+}
+
+void computeQExact()
+{
+    double ****uMatrix = create4DMatrix(TOTAL_BALLOTS, TOTAL_GROUPS, TOTAL_GROUPS, TOTAL_CANDIDATES);
 }

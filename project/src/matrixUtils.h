@@ -102,6 +102,20 @@ void freeMatrix(Matrix *m);
  * - Use the function mainly for debugging.
  */
 
+/**
+ * @brief Creates a 4-dimensional matrix.
+ *
+ * @param[in] dim1 The size of the first dimension.
+ * @param[in] dim2 The size of the second dimension.
+ * @param[in] dim3 The size of the third dimension.
+ * @param[in] dim4 Th size of the fourth dimension.
+ *
+ * @return int Set of pointers to each dimensional array. This matrix is not from the Matrix struct.
+ *
+ */
+
+double ****create4DMatrix(int dim1, int dim2, int dim3, int dim4);
+
 void printMatrix(Matrix *m);
 
 /**
