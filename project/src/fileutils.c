@@ -71,14 +71,24 @@ void readMatrices(const char *filename, Matrix *matrices, int count)
         perror("Failed to open file for reading");
         exit(EXIT_FAILURE);
     }
-
     // Read the number of matrices
-    if (fread(&count, sizeof(int), 1, file) != 1)
+    int matrix_count;
+    if (fread(&matrix_count, sizeof(int), 1, file) != 1)
     {
         perror("Failed to read matrix count");
         fclose(file);
         exit(EXIT_FAILURE);
     }
+
+    // Check if the caller-provided array can hold the matrices
+    if (count < matrix_count)
+    {
+        fprintf(stderr, "Provided array can only hold %d matrices, but file contains %d\n", count, matrix_count);
+        fclose(file);
+        exit(EXIT_FAILURE);
+    }
+    count = matrix_count; // Update the count with the actual number
+    // Read the number of
 
     // Read each matrix
     for (int i = 0; i < count; i++)
@@ -87,7 +97,7 @@ void readMatrices(const char *filename, Matrix *matrices, int count)
         {
             perror("Failed to read matrix metadata");
             fclose(file);
-            free(&matrices[i]);
+            freeMatrix(&matrices[i]);
             exit(EXIT_FAILURE);
         }
         // Create matrix with dynamic data allocation
@@ -99,7 +109,7 @@ void readMatrices(const char *filename, Matrix *matrices, int count)
         {
             perror("Failed to read matrix data");
             fclose(file);
-            free(matrices[i].data); // Free allocated data
+            freeMatrix(&matrices[i]); // Free allocated data
             exit(EXIT_FAILURE);
         }
     }

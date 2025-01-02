@@ -89,8 +89,13 @@ void setParameters(Matrix *x, Matrix *w)
     BALLOTS_VOTES = (uint16_t *)calloc(TOTAL_BALLOTS, sizeof(uint16_t));
     inv_BALLOTS_VOTES = (double *)calloc(TOTAL_BALLOTS, sizeof(double));
 
-    X = x;
-    W = w;
+    X = malloc(sizeof(Matrix));
+    *X = createMatrix(x->rows, x->cols);
+    memcpy(X->data, x->data, sizeof(double) * x->rows * x->cols);
+
+    W = malloc(sizeof(Matrix));
+    *W = createMatrix(w->rows, w->cols);
+    memcpy(W->data, w->data, sizeof(double) * w->rows * w->cols);
 
     //#pragma omp parallel for reduction(+ : CANDIDATES_VOTES[ : TOTAL_CANDIDATES])                                          \
     reduction(+ : GROUP_VOTES[ : TOTAL_GROUPS]) reduction(+ : TOTAL_VOTES)                                             \
@@ -281,7 +286,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
      *
      * @param[in] currentP Matrix of dimension (cxg) with the initial probabilities for the first iteration.
      * @param[in] q_method Pointer to a string that indicates the method or calculating "q". Currently it supports "Hit
-     * and Run", "Multinomial", "MVN CDF" and "MVN PDF" methods.
+     * and Run", "Multinomial", "MVN CDF", "MVN PDF" and "Exact" methods.
      * @param[in] convergence Threshold value for convergence. Usually it's set to 0.001.
      * @param[in] maxIter Integer with a threshold of maximum iterations. Usually it's set to 100.
      * @param[in] verbose Wether to verbose useful outputs.
@@ -300,7 +305,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
      */
 
     if (strcmp(q_method, "Hit and Run") != 0 && strcmp(q_method, "Multinomial") != 0 &&
-        strcmp(q_method, "MVN CDF") != 0 && strcmp(q_method, "MVN PDF") != 0)
+        strcmp(q_method, "MVN CDF") != 0 && strcmp(q_method, "MVN PDF") != 0 && strcmp(q_method, "Exact") != 0)
     {
         fprintf(stderr, "The method `%s` passed to EMAlgorithm doesn't exist.\n", q_method);
         exit(EXIT_FAILURE);
@@ -330,8 +335,14 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         {
             printf("%.0f%% of iterations have been done.\n", (i / (double)maxIter) * 100);
         }
-        // Hit and Run
-        if (strcmp(q_method, "Hit and Run") == 0)
+
+        if (strcmp(q_method, "Exact") == 0)
+        {
+            printf("Executing 'Exact' method.\n");
+            break;
+        }
+
+        else if (strcmp(q_method, "Hit and Run") == 0)
         {
             printf("Executing 'Hit and Run' method.\n");
             break;
@@ -354,9 +365,8 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             printf("Executing 'MVN PDF' method.\n");
             break;
         }
-
         Matrix newProbability = getP(q, true);
-
+        free(q);
         if (convergeMatrix(&newProbability, currentP, convergence))
         {
 
@@ -370,15 +380,14 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
                 // printf("The convergence was found on iteration %d and took %.5f seconds!\n", i, elapsed);
             }
             freeMatrix(currentP);
-            freeMatrix(X);
-            freeMatrix(W);
-            free(q);
+            // freeMatrix(X);
+            // freeMatrix(W);
             return newProbability;
         }
-
         freeMatrix(currentP);
         *currentP = createMatrix(newProbability.rows, newProbability.cols);
         memcpy(currentP->data, newProbability.data, sizeof(double) * newProbability.rows * newProbability.cols);
+        freeMatrix(&newProbability);
     }
     printf("Maximum iterations reached without convergence.\n"); // Print even if there's not verbose, might change
     // later.
@@ -437,14 +446,17 @@ void cleanup()
         free(inv_BALLOTS_VOTES);
         inv_BALLOTS_VOTES = NULL;
     }
-    if (X != NULL)
+
+    if (X->data != NULL) // Note that the columns and rows are usually stack.
     {
         freeMatrix(X);
+        free(X);
         X = NULL;
     }
-    if (W != NULL)
+    if (W->data != NULL)
     {
         freeMatrix(W);
+        free(W);
         W = NULL;
     }
 }
@@ -466,6 +478,8 @@ int main()
     readMatrices("matricesTest3.bin", matrixArray, 2);
     Matrix XX = matrixArray[0];
     Matrix G = matrixArray[1];
+    printf("Matrix Metadata: rows=%d, cols=%d\n", XX.rows, XX.cols);
+    printf("Matrix Data Address: %p\n", (void *)XX.data);
     // printf("The matrix `X` that was read is:\n");
     // printMatrix(&XX);
     // printf("The matrix `G` that was read is:\n");
@@ -482,7 +496,7 @@ int main()
     clock_gettime(CLOCK_MONOTONIC, &end);
     double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
 
-    printf("The algorithm took %.5f seconds!\n", elapsed);
+    printf("The algorithm took %.16f seconds!\n", elapsed);
     printMatrix(&Pnew);
     freeMatrix(&Pnew);
     freeMatrix(&XX);
