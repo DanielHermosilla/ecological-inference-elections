@@ -320,10 +320,10 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     // There are some things that can be calculated ONCE and reused on the E-step:
     double *q;
 
-    struct timespec start, end; // Start time
+    // struct timespec start, end; // Start time
 
     // Start timer
-    clock_gettime(CLOCK_MONOTONIC, &start);
+    // clock_gettime(CLOCK_MONOTONIC, &start);
     for (int i = 0; i < maxIter; i++)
     {
         if (i % 200 == 0 && verbose)
@@ -361,12 +361,13 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         {
 
             // End timer
-            clock_gettime(CLOCK_MONOTONIC, &end);
-            double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+            // clock_gettime(CLOCK_MONOTONIC, &end);
+            // double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
 
-            if (verbose)
+            // if (verbose)
+            if (true)
             {
-                printf("The convergence was found on iteration %d and took %.5f seconds!\n", i, elapsed);
+                // printf("The convergence was found on iteration %d and took %.5f seconds!\n", i, elapsed);
             }
             freeMatrix(currentP);
             freeMatrix(X);
@@ -451,29 +452,37 @@ void cleanup()
 int main()
 {
     printf("The program is running\n");
+    /*
+        Matrix XX = {.data = NULL, .rows = 0, .cols = 0};
+        Matrix G = {.data = NULL, .rows = 0, .cols = 0};
+        char *method = "multinomial";
+        createInstance(&XX, &G, 42, *method); // TODO: Arreglar esto para poder crear una instancia...
 
-    // Matrix XX = {.data = NULL, .rows = 0, .cols = 0};
-    // Matrix G = {.data = NULL, .rows = 0, .cols = 0};
-    char *method = "multinomial";
-    // createInstance(&XX, &G, 42, *method); // TODO: Arreglar esto para poder crear una instancia...
+        Matrix matrices[2] = {XX, G};
 
-    // Matrix matrices[2] = {XX, G};
-
-    // writeMatrices("matricesTest.bin", matrices, 2);
+        writeMatrices("matricesTest3.bin", matrices, 2);
+    */
     Matrix matrixArray[2];
-
-    readMatrices("matricesTest.bin", matrixArray, 2);
+    readMatrices("matricesTest3.bin", matrixArray, 2);
     Matrix XX = matrixArray[0];
     Matrix G = matrixArray[1];
-    printf("The matrix `X` that was read is:\n");
-    printMatrix(&XX);
-    printf("The matrix `G` that was read is:\n");
-
-    printMatrix(&G);
+    // printf("The matrix `X` that was read is:\n");
+    // printMatrix(&XX);
+    // printf("The matrix `G` that was read is:\n");
+    // printMatrix(&G);
     setParameters(&XX, &G);
-    Matrix P = getInitialP("group proportional");
+    struct timespec start, end; // Start time
 
-    Matrix Pnew = EMAlgoritm(&P, "Multinomial", 0.0001, 10000, true);
+    // Start timer
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    Matrix P = getInitialP("group proportional");
+    //  printMatrix(&P);
+    Matrix Pnew = EMAlgoritm(&P, "Multinomial", 0.0001, 10000, false);
+
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+
+    printf("The algorithm took %.5f seconds!\n", elapsed);
     printMatrix(&Pnew);
     freeMatrix(&Pnew);
     freeMatrix(&XX);
