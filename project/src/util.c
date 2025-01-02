@@ -326,7 +326,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     clock_gettime(CLOCK_MONOTONIC, &start);
     for (int i = 0; i < maxIter; i++)
     {
-        if (i % 10 == 0 && verbose)
+        if (i % 200 == 0 && verbose)
         {
             printf("%.0f%% of iterations have been done.\n", (i / (double)maxIter) * 100);
         }
@@ -339,9 +339,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         // Multinomial
         else if (strcmp(q_method, "Multinomial") == 0)
         {
-            printf("Executing 'Multinomial' method.\n");
-            printf("The probability matrix handed is:\n");
-            printMatrix(currentP);
+            // printf("Executing 'Multinomial' method.\n");
             q = computeQMultinomial(currentP);
         }
         // MVN CDF
@@ -358,10 +356,6 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         }
 
         Matrix newProbability = getP(q, true);
-        printf("\nThe new probability calculated with getP is:\n\n");
-        printMatrix(&newProbability);
-        printf("\nThe current probability is:");
-        printMatrix(currentP);
 
         if (convergeMatrix(&newProbability, currentP, convergence))
         {
@@ -474,16 +468,14 @@ int main()
     printf("The matrix `X` that was read is:\n");
     printMatrix(&XX);
     printf("The matrix `G` that was read is:\n");
+
     printMatrix(&G);
-    /*
     setParameters(&XX, &G);
-    testProb();
-    Matrix P = getInitialP("uniform");
+    Matrix P = getInitialP("group proportional");
 
     Matrix Pnew = EMAlgoritm(&P, "Multinomial", 0.0001, 10000, true);
     printMatrix(&Pnew);
     freeMatrix(&Pnew);
-    */
     freeMatrix(&XX);
     freeMatrix(&G);
 
