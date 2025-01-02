@@ -46,69 +46,98 @@ void gsl_combination_free(gsl_combination *c)
 
     This function frees all the memory used by the combination c.
 */
-bool filterCombinations(const size_t *element, const uint32_t b)
+bool ifAllElements(size_t *hElement, size_t *kElement)
 {
-
     for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
     {
-        if (element[c] < MATRIX_AT_PTR(X, c, b))
+        if (hElement[c] > kElement[c])
         {
             return false;
         }
     }
     return true;
 }
-void defineK()
-{
-    Matrix K = createMatrix(W->rows, W->cols);
-    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    {
-        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-        {
-            if (g == 0)
-            {
-                MATRIX_AT(K, b, g) = MATRIX_AT_PTR(W, b, g);
-            }
-            MATRIX_AT(K, b, g) += MATRIX_AT(K, b, g - 1);
-        }
-    }
-}
 
+/**
+ * @brief Calculate a given `H` set.
+ *
+ * Given the index of the set, it returns the `H` set as a gsl_combination struct. Note that it could be used with the
+ * gsl_combination functions since it doesn't have restrictions.
+ *
+ * @param[in] b Index that represents the corresponding ballot.
+ * @param[in] f Index that represents the f group (starting at 0).
+ *
+ * @return gsl_combination *: A pointer towards the struct of a gsl_combination.
+ *
+ * @warning
+ * - The `f` index cannot be bigger than the total amount of groups.
+ * - The `b` index cannot be bigger than the total ballots.
+ *
+ */
 gsl_combination *getH(int b, int f)
 {
     gsl_combination *result = gsl_combination_calloc(MATRIX_AT_PTR(W, b, f), TOTAL_CANDIDATES);
-    return &result;
+    return result;
 }
 
-gsl_combination *getK(int b, int f, size_t *size)
-{
+/**
+ * @brief Calculate a given `K` set.
+ *
+ * Given the index of the set, it returns the `K` set and its size. Note that it will be an array of arrays. Both arrays
+ * are size_t.
+ *
+ * @param[in] b Index that represents the corresponding ballot.
+ * @param[in] f Index that represents the first `f` groups (starting at 0).
+ * @param[in, out] size The size of the new array.
+ *
+ * @return size_t **: A pointer towards the elements of the array of arrays.
+ *
+ * @note TODO: The while loop could be optimized.
+ *
+ * @warning
+ * - The `f` index cannot be bigger than the total amount of groups.
+ * - The `b` index cannot be bigger than the total ballots.
+ *
+ */
 
-    if (f > TOTAL_GROUPS)
+size_t **getK(const int b, const int f, size_t *size) // combination[i][j]; i the combination, j the element
+{
+    if (f >= TOTAL_GROUPS || b >= TOTAL_BALLOTS)
     {
-        printf("An incorrect amount of groups was passed to the `K` set");
+        printf("An incorrect index was passed to the `K` set");
         exit(EXIT_FAILURE);
     }
 
     size_t **restriction = NULL;
     *size = 0;
 
-    int totalVotes = 0;
+    int totalVotes = 0; // The total votes accumulated for the first `f` groups
     for (int i = 0; i < f; i++)
     {
         totalVotes += MATRIX_AT_PTR(W, b, i);
     }
     gsl_combination *noRestriction = getH(totalVotes, TOTAL_CANDIDATES);
 
-    do
+    do // It could be optimized by stepping on a big amount of elements.
     {
         const size_t *elementArray = gsl_combination_data(noRestriction);
 
-        for (int c = 0; c < TOTAL_CANDIDATES; c++)
+        if (filterCombinations(elementArray, b))
         {
+            restriction = realloc(restriction, (*size + 1) * sizeof(size_t *)); // The size of the whole array
+            restriction[*size] = malloc(TOTAL_CANDIDATES * sizeof(size_t)); // The size of a single element (constant)
+        }
+
+        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+        {
+            restriction[*size][c] = elementArray[c]; // Copy the element into the array
         }
 
     } while (gsl_combination_next(noRestriction) == GSL_SUCCESS);
-    return &result;
+
+    gsl_combination_free(noRestriction);
+
+    return restriction;
 }
 
 double prod(const int i, const int n, const double *array)
