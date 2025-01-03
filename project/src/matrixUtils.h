@@ -59,7 +59,7 @@ void makeArray(double *array, int N, double value);
  * - The dimensions may be negative.
  */
 
-void checkMatrix(Matrix *m);
+void checkMatrix(const Matrix *m);
 
 /**
  * @brief Creates an empty dynamically allocated memory matrix of given dimensions.
@@ -114,9 +114,7 @@ void freeMatrix(Matrix *m);
  *
  */
 
-double ****create4DMatrix(int dim1, int dim2, int dim3, int dim4);
-
-void printMatrix(Matrix *m);
+void printMatrix(const Matrix *m);
 
 /**
  * @brief Computes a row-wise sum.
@@ -153,7 +151,7 @@ void printMatrix(Matrix *m);
  * @endcode
  */
 
-void rowSum(Matrix *matrix, double *result);
+void rowSum(const Matrix *matrix, double *result);
 
 /**
  * @brief Computes a column-wise sum.
@@ -193,7 +191,7 @@ void rowSum(Matrix *matrix, double *result);
  * @endcode
  */
 
-void colSum(Matrix *matrix, double *result);
+void colSum(const Matrix *matrix, double *result);
 
 /**
  * @brief Fills matrix with a constant value.
@@ -226,7 +224,7 @@ void colSum(Matrix *matrix, double *result);
  * @endcode
  */
 
-void fillMatrix(Matrix *matrix, double value);
+void fillMatrix(Matrix *matrix, const double value);
 
 /**
  * @brief Checks if the difference of two matrices converge to a value
@@ -273,6 +271,38 @@ void fillMatrix(Matrix *matrix, double value);
  * // bool->true
  * @endcode
  */
-bool convergeMatrix(Matrix *matrixA, Matrix *matrixB, double convergence);
+bool convergeMatrix(const Matrix *matrixA, const Matrix *matrixB, const double convergence);
+
+/**
+ * @brief Retrieves the maximum element of the matrix.
+ *
+ * @param[in] matrix Matrix to find the maximum element.
+ *
+ * @return double The maximum element
+ *
+ * @note
+ * - Matrix should be in row-major order.
+ *
+ * @example
+ * Example usage:
+ * @code
+ * double values[6] = {
+ *     1.0, 2.0, 3.0,
+ *     4.0, 5.0, 6.0
+ * };
+
+ * Matrix matrix = {
+ * .data = values,
+ * .rows = 2,
+ * .cols = 3
+ * }
+ *
+ * double maximum = maxElement(&matrix);
+ *
+ * // maximum=6.0
+ * @endcode
+ */
+
+double maxElement(const Matrix *m);
 
 #endif // MATRIX_UTILS_H

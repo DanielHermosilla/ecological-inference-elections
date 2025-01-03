@@ -1,7 +1,9 @@
 #include "matrixUtils.h"
+#include "memoizationUtil.h"
 #include <cblas.h>
 #include <cstdlib>
 #include <gsl/gsl_combination.h>
+#include <gsl/gsl_sf_comb.h>
 #include <math.h>
 #include <stdint.h>
 
@@ -253,7 +255,48 @@ double getU(const int b, const int f, const int g, const int c, const Matrix *pr
     }
 }
 
+double getUrecursive(MemoizationTable *memo, int b, int f, int g, int c, double *vector, int vectorSize)
+{
+    double havePassed = getMemoValue(memo, b, f, g, c, vector, vectorSize);
+    if (havePassed != INVALID)
+    { // If it had already passed, then return the value.
+        return havePassed;
+    }
+}
 void computeQExact()
 {
-    double ****uMatrix = create4DMatrix(TOTAL_BALLOTS, TOTAL_GROUPS, TOTAL_GROUPS, TOTAL_CANDIDATES);
+    /*
+The capacity should be the maximum amount of range of elements from `K`. We know it's a combinatory with restrictions.
+The naive way would be a O(BF*O(getK())) loop that gets the maximum size. The maximum amount of combinations on this
+case increased according \frac{k^{n-1}}{(n-1)!}. Since `n`=TOTAL_CANDIDATES, the  set (without restrictions) with the
+most amount of elements would be C(max(BALLOTS_VOTES)+TOTAL_CANDIDATES-1, TOTAL_CANDIDATES-1) . The amount of
+maximum combinations with restrictions would follow an Inclusion-Exclusion Principle with Slot-Specific Bounds
+F(n,k,g(m),i), where:
+
+- `n`: TOTAL_CANDIDATES (dimension or slots of the vector)
+- `k`: BALLOTS_VOTES[b] (total amount of votes of the ballot)
+- `g(m)`: Maximum value per slot.
+- `i`: Amount of points that violate the restrictions.
+
+F(n,k, g(m),i)=\sum_{\forall i}(-1)^{i}\binom{k-\sum_{\forall i}(m_i+1)+n-1}{n-1}
+
+Obviously this formula is too complicated for maximizing, knowing that g(m) changes per each ballot. It would be better
+to do the naive approach, but then, it would still be complex. Then, we'll assume the cost for assignating more space
+than necessary, assuming the maximum amount of elements for the set without restriction (also known as `H`).
+    */
+
+    uint16_t maxB = BALLOTS_VOTES[0];
+    for (int b = 1; b < TOTAL_BALLOTS; b++)
+    {
+        if (maxB < BALLOTS_VOTES[b])
+        {
+            maxB = BALLOTS_VOTES[b];
+        }
+    }
+
+    // GSL doesn't have a binomial coefficient calculator, but we can compute the pdf of one, assuming p=1.
+    unsigned int n = maxB + TOTAL_CANDIDATES - 1;
+    unsigned int k = TOTAL_CANDIDATES - 1;
+    double maxCombinations = gsl_ran_binomial_pdf(k, n, 1);
+    MemoizationTable *table = initMemo((int)maxCombinations);
 }

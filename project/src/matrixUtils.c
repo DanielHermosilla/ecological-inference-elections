@@ -72,7 +72,7 @@ void makeArray(double *array, int N, double value)
  * - The dimensions may be negative.
  */
 
-void checkMatrix(Matrix *m)
+void checkMatrix(const Matrix *m)
 {
 
     // Validation, checks NULL pointer
@@ -153,79 +153,6 @@ void freeMatrix(Matrix *m)
 }
 
 /**
- * @brief Creates a 4-dimensional matrix.
- *
- * @param[in] dim1 The size of the first dimension.
- * @param[in] dim2 The size of the second dimension.
- * @param[in] dim3 The size of the third dimension.
- * @param[in] dim4 Th size of the fourth dimension.
- *
- * @return int Set of pointers to each dimensional array. This matrix is not from the Matrix struct.
- *
- */
-
-double ****create4DMatrix(int dim1, int dim2, int dim3, int dim4)
-{
-    double ****matrix = calloc(dim1, sizeof(double ***));
-    for (int i = 0; i < dim1; i++)
-    {
-        matrix[i] = calloc(dim2, sizeof(double **));
-        for (int j = 0; j < dim2; j++)
-        {
-            matrix[i][j] = calloc(dim3, sizeof(double *));
-            for (int k = 0; k < dim3; k++)
-            {
-                matrix[i][j][k] = calloc(dim4, sizeof(double));
-            }
-        }
-    }
-    return matrix;
-}
-
-/**
- * @brief Liberates the allocated 4D-matrix data.
- *
- * @param[in] ****m The matrix pointer to free the data.
- * @param[in] dim1 The size of the first dimension.
- * @param[in] dim2 The size of the second dimension.
- * @param[in] dim3 The size of the third dimension.
- *
- * @return void Changes to be made on the input matrix and memory.
- *
- */
-
-void free4DMatrix(int ****matrix, int dim1, int dim2, int dim3)
-{
-    for (int i = 0; i < dim1; i++)
-    {
-        for (int j = 0; j < dim2; j++)
-        {
-            for (int k = 0; k < dim3; k++)
-            {
-                free(matrix[i][j][k]);
-            }
-            free(matrix[i][j]);
-        }
-        free(matrix[i]);
-    }
-    free(matrix);
-}
-
-/**
- * @brief Liberates the allocated 4D-matrix data.
- *
- * @param[in] ****m The matrix pointer to free the data.
- * @param[in] dim1 The size of the first dimension.
- * @param[in] dim2 The size of the second dimension.
- * @param[in] dim3 The size of the third dimension.
- *
- * @return void Changes to be made on the input matrix and memory.
- *
- */
-
-void free4DMatrix(int ****matrix, int dim1, int dim2, int dim3);
-
-/**
  * @brief Prints the matrix data.
  *
  * @param[in] m The matrix to print the data.
@@ -236,7 +163,7 @@ void free4DMatrix(int ****matrix, int dim1, int dim2, int dim3);
  * - Use the function mainly for debugging.
  */
 
-void printMatrix(Matrix *matrix)
+void printMatrix(const Matrix *matrix)
 {
     checkMatrix(matrix); // Assertion
 
@@ -289,7 +216,7 @@ void printMatrix(Matrix *matrix)
  * @endcode
  */
 
-void rowSum(Matrix *matrix, double *result)
+void rowSum(const Matrix *matrix, double *result)
 {
     checkMatrix(matrix); // Assertion
 
@@ -364,7 +291,7 @@ void rowSum(Matrix *matrix, double *result)
  * @endcode
  */
 
-void colSum(Matrix *matrix, double *result)
+void colSum(const Matrix *matrix, double *result)
 {
     checkMatrix(matrix); // Assertion
 
@@ -419,7 +346,7 @@ void colSum(Matrix *matrix, double *result)
  * @endcode
  */
 
-void fillMatrix(Matrix *matrix, double value)
+void fillMatrix(Matrix *matrix, const double value)
 {
     checkMatrix(matrix); // Assertion
     int size = matrix->rows * matrix->cols;
@@ -472,7 +399,7 @@ void fillMatrix(Matrix *matrix, double value)
  * // bool->true
  * @endcode
  */
-bool convergeMatrix(Matrix *matrixA, Matrix *matrixB, double convergence)
+bool convergeMatrix(const Matrix *matrixA, const Matrix *matrixB, const double convergence)
 {
 
     checkMatrix(matrixA);
@@ -510,4 +437,51 @@ bool convergeMatrix(Matrix *matrixA, Matrix *matrixB, double convergence)
 
     free(diff);
     return true;
+}
+
+/**
+ * @brief Retrieves the maximum element of the matrix.
+ *
+ * @param[in] matrix Matrix to find the maximum element.
+ *
+ * @return double The maximum element
+ *
+ * @note
+ * - Matrix should be in row-major order.
+ *
+ * @example
+ * Example usage:
+ * @code
+ * double values[6] = {
+ *     1.0, 2.0, 3.0,
+ *     4.0, 5.0, 6.0
+ * };
+
+ * Matrix matrix = {
+ * .data = values,
+ * .rows = 2,
+ * .cols = 3
+ * }
+ *
+ * double maximum = maxElement(&matrix);
+ *
+ * // maximum=6.0
+ * @endcode
+ */
+
+double maxElement(const Matrix *m)
+{
+
+    checkMatrix(m);
+    int size = m->cols * m->rows;
+
+    double max = m->data[0];
+    for (int i = 0; i < size; i++)
+    {
+        if (max < m->data[i])
+        {
+            max = m->data[i];
+        }
+    }
+    return max;
 }

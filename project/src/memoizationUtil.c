@@ -1,79 +1,92 @@
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
-#define INVALID -1 // Invalid value when the element is empty.
-
+// Define a structure for vector keys
 typedef struct
 {
-    double ****data;
-    int dim1; // The dimensions
-    int dim2;
-    int dim3;
-    int dim4;
+    int indices[4];  // The 4 existing indices
+    double *vector;  // Pointer to the vector `K`
+    int vector_size; // Size of the vector
+} MemoizationKey;
+
+// Define the memoization table entry
+typedef struct
+{
+    MemoizationKey key;
+    double value;
+} MemoizationEntry;
+
+// Memoization table (simple dynamic array for demo purposes)
+typedef struct
+{
+    MemoizationEntry *entries;
+    int capacity;
+    int size;
 } MemoizationTable;
 
-MemoizationTable *initMemo(int dim1, int dim2, int dim3, int dim4)
+MemoizationTable *initMemo(int capacity)
 {
     MemoizationTable *table = (MemoizationTable *)malloc(sizeof(MemoizationTable));
-    table->dim1 = dim1;
-    table->dim2 = dim2;
-    table->dim3 = dim3;
-    table->dim4 = dim4;
-
-    table->data = (double ****)malloc(dim1 * sizeof(double ***));
-    for (int i = 0; i < dim1; i++)
-    {
-        table->data[i] = (double ***)malloc(dim2 * sizeof(double **));
-        for (int j = 0; j < dim2; j++)
-        {
-            table->data[i][j] = (double **)malloc(dim3 * sizeof(double *));
-            for (int k = 0; k < dim3; k++)
-            {
-                table->data[i][j][k] = (double *)malloc(dim4 * sizeof(double));
-                for (int l = 0; l < dim4; l++)
-                {
-                    table->data[i][j][k][l] = INVALID; // Start as an invalid data.
-                }
-            }
-        }
-    }
+    table->entries = (MemoizationEntry *)malloc(capacity * sizeof(MemoizationEntry));
+    table->capacity = capacity;
+    table->size = 0;
     return table;
 }
 
-// Frees all the data from the table.
+// Function to compare two memoization keys
+bool compareKeys(MemoizationKey *key1, MemoizationKey *key2)
+{
+    if (memcmp(key1->indices, key2->indices, 4 * sizeof(int)) != 0)
+        return false;
+    if (key1->vector_size != key2->vector_size)
+        return false;
+    return memcmp(key1->vector, key2->vector, key1->vector_size * sizeof(double)) == 0;
+}
+
+// Retrieve a value from the table
+double getMemoValue(MemoizationTable *table, int a, int b, int c, int d, double *vector, int vector_size)
+{
+    for (int i = 0; i < table->size; i++)
+    {
+        if (memcmp(table->entries[i].key.indices, (int[]){a, b, c, d}, 4 * sizeof(int)) == 0 &&
+            table->entries[i].key.vector_size == vector_size &&
+            memcmp(table->entries[i].key.vector, vector, vector_size * sizeof(double)) == 0)
+        {
+            return table->entries[i].value;
+        }
+    }
+    return -1.0; // INVALID
+}
+
+// Store a value in the table
+void setMemoValue(MemoizationTable *table, int a, int b, int c, int d, double *vector, int vector_size, double value)
+{
+    if (table->size >= table->capacity)
+    {
+        table->capacity *= 2;
+        table->entries = (MemoizationEntry *)realloc(table->entries, table->capacity * sizeof(MemoizationEntry));
+    }
+    table->entries[table->size].key.indices[0] = a;
+    table->entries[table->size].key.indices[1] = b;
+    table->entries[table->size].key.indices[2] = c;
+    table->entries[table->size].key.indices[3] = d;
+    table->entries[table->size].key.vector_size = vector_size;
+    table->entries[table->size].key.vector = (double *)malloc(vector_size * sizeof(double));
+    memcpy(table->entries[table->size].key.vector, vector, vector_size * sizeof(double));
+    table->entries[table->size].value = value;
+    table->size++;
+}
+
+// Free the memoization table
 void freeMemo(MemoizationTable *table)
 {
-    for (int i = 0; i < table->dim1; i++)
+    for (int i = 0; i < table->size; i++)
     {
-        for (int j = 0; j < table->dim2; j++)
-        {
-            for (int k = 0; k < table->dim3; k++)
-            {
-                free(table->data[i][j][k]);
-            }
-            free(table->data[i][j]);
-        }
-        free(table->data[i]);
+        free(table->entries[i].key.vector);
     }
-    free(table->data);
+    free(table->entries);
     free(table);
-}
-
-// Get the values of the table
-double getMemoValue(MemoizationTable *table, int a, int b, int c, int d)
-{
-    if (a < table->dim1 && b < table->dim2 && c < table->dim3 && d < table->dim4)
-    {
-        return table->data[a][b][c][d];
-    }
-    return INVALID;
-}
-
-// Set the values of the table
-void setMemoValue(MemoizationTable *table, int a, int b, int c, int d, int value)
-{
-    if (a < table->dim1 && b < table->dim2 && c < table->dim3 && d < table->dim4)
-    {
-        table->data[a][b][c][d] = value;
-    }
 }
