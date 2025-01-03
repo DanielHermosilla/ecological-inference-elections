@@ -255,23 +255,92 @@ double getU(const int b, const int f, const int g, const int c, const Matrix *pr
     }
 }
 
-double getUrecursive(MemoizationTable *memo, int b, int f, int g, int c, double *vector, int vectorSize)
+void vectorDiff(const size_t *K, const size_t *H, double *arr)
+{
+    for (int c = 0; c < TOTAL_CANDIDATES; c++)
+    {
+        arr[c] = K[c] - H[c];
+    }
+}
+
+double getUrecursive(MemoizationTable *memo, int b, int f, int g, int c, double *vector, int vectorSize,
+                     const Matrix *probabilities)
 {
     double havePassed = getMemoValue(memo, b, f, g, c, vector, vectorSize);
     if (havePassed != INVALID)
     { // If it had already passed, then return the value.
         return havePassed;
     }
+
+    // Base case
+    if (f == 0)
+    {
+        // If `k` is a null vector, then return "1", else, "0"
+        for (int k = 0; k < vectorSize; k++)
+        {
+            if (vector[k] != 0)
+            {
+                setMemoValue(memo, b, f, g, c, vector, vectorSize, 0);
+                return 0.0;
+            }
+        }
+        setMemoValue(memo, b, f, g, c, vector, vectorSize, 1);
+        return 1.0;
+    }
+
+    /* Here is where the loop starts and the values are defined */
+    double result = 0.0;
+    for (int b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        for (int f = 0; f < TOTAL_GROUPS; g++)
+        {
+            size_t sizeK;
+            size_t **K = getK(b, f, &sizeK); // K_{bf}
+
+            for (int k = 0; k < sizeK; k++) // For each element of K_{bf}
+            {                               // Loop over K
+                size_t *kElement = K[k];
+                gsl_combination *H = getH(b, f);
+
+                // The gsl_combination library offers a way to iterate over the elements of a set, hence, the iteration
+                // with H will be made with that method in mind on a do-while loop.
+                do
+                {
+                    const size_t *hElement = gsl_combination_data(H);
+                    double a = computeA(b, f, hElement, probabilities);
+                    double *substractionVector = (double *)malloc(vectorSize * sizeof(double));
+                    vectorDiff(kElement, hElement, substractionVector);
+
+                    if (ifAllElements(hElement, kElement))
+                    {
+                        result +=
+                            (getUrecursive(memo, b, f - 1, g, c, substractionVector, vectorSize, probabilities) * a) /
+                            (MATRIX_AT_PTR(probabilities, f, c) * MATRIX_AT_PTR(W, b, f));
+                    }
+                    else
+                    {
+                        result +=
+                            (getUrecursive(memo, b, f - 1, g, c, substractionVector, vectorSize, probabilities) * a);
+                    }
+                    free(substractionVector);
+                    setMemoValue(memo, b, f, g, c, vector, vectorSize, result);
+                    return result;
+
+                } while (gsl_combination_next(H) == GSL_SUCCESS); // Loop over each H element
+            }
+        }
+    }
 }
+
 void computeQExact()
 {
     /*
-The capacity should be the maximum amount of range of elements from `K`. We know it's a combinatory with restrictions.
-The naive way would be a O(BF*O(getK())) loop that gets the maximum size. The maximum amount of combinations on this
-case increased according \frac{k^{n-1}}{(n-1)!}. Since `n`=TOTAL_CANDIDATES, the  set (without restrictions) with the
-most amount of elements would be C(max(BALLOTS_VOTES)+TOTAL_CANDIDATES-1, TOTAL_CANDIDATES-1) . The amount of
-maximum combinations with restrictions would follow an Inclusion-Exclusion Principle with Slot-Specific Bounds
-F(n,k,g(m),i), where:
+The capacity should be the maximum amount of range of elements from `K`. We know it's a combinatory with
+restrictions. The naive way would be a O(BF*O(getK())) loop that gets the maximum size. The maximum amount of
+combinations on this case increased according \frac{k^{n-1}}{(n-1)!}. Since `n`=TOTAL_CANDIDATES, the  set (without
+restrictions) with the most amount of elements would be C(max(BALLOTS_VOTES)+TOTAL_CANDIDATES-1, TOTAL_CANDIDATES-1)
+. The amount of maximum combinations with restrictions would follow an Inclusion-Exclusion Principle with
+Slot-Specific Bounds F(n,k,g(m),i), where:
 
 - `n`: TOTAL_CANDIDATES (dimension or slots of the vector)
 - `k`: BALLOTS_VOTES[b] (total amount of votes of the ballot)
@@ -280,9 +349,10 @@ F(n,k,g(m),i), where:
 
 F(n,k, g(m),i)=\sum_{\forall i}(-1)^{i}\binom{k-\sum_{\forall i}(m_i+1)+n-1}{n-1}
 
-Obviously this formula is too complicated for maximizing, knowing that g(m) changes per each ballot. It would be better
-to do the naive approach, but then, it would still be complex. Then, we'll assume the cost for assignating more space
-than necessary, assuming the maximum amount of elements for the set without restriction (also known as `H`).
+Obviously this formula is too complicated for maximizing, knowing that g(m) changes per each ballot. It would be
+better to do the naive approach, but then, it would still be complex. Then, we'll assume the cost for assignating
+more space than necessary, assuming the maximum amount of elements for the set without restriction (also known as
+`H`).
     */
 
     uint16_t maxB = BALLOTS_VOTES[0];
