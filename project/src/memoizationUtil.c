@@ -30,7 +30,7 @@ typedef struct
 MemoizationTable *initMemo(int capacity)
 {
     MemoizationTable *table = (MemoizationTable *)malloc(sizeof(MemoizationTable));
-    table->entries = (MemoizationEntry *)malloc(capacity * sizeof(MemoizationEntry));
+    table->entries = (MemoizationEntry *)calloc(capacity, sizeof(MemoizationEntry));
     table->capacity = capacity;
     table->size = 0;
     return table;
@@ -51,6 +51,10 @@ double getMemoValue(MemoizationTable *table, int a, int b, int c, int d, double 
 {
     for (int i = 0; i < table->size; i++)
     {
+        // Compare using memcmp
+        // 1. If the indices match; and
+        // 2. The size of the input vector matches the table vector size; and
+        // 3. The vector key is the same as the vector input
         if (memcmp(table->entries[i].key.indices, (int[]){a, b, c, d}, 4 * sizeof(int)) == 0 &&
             table->entries[i].key.vector_size == vector_size &&
             memcmp(table->entries[i].key.vector, vector, vector_size * sizeof(double)) == 0)
