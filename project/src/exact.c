@@ -1,5 +1,5 @@
 #include "matrixUtils.h"
-#include "memoizationUtil.h"
+#include "memoizationUtil2.h"
 #include <cblas.h>
 #include <cstdlib>
 #include <gsl/gsl_combination.h>
@@ -74,7 +74,7 @@ double prod(const size_t *hElement, const Matrix *probabilities, const int f)
 }
 
 /**
- * @brief Calculate a given the multinomial coefficient, subject to the `H` set:
+ * @brief Calculate `a` given the multinomial coefficient, subject to the `H` set:
  *
  * Given an `H` element, it computes its multinomial coefficient subject to the total amount of votes a group received.
  * It yields the following calculation:
@@ -137,6 +137,18 @@ gsl_combination *getH(int b, int f)
     return result;
 }
 
+bool filterCombinations(const size_t *hVector, const int b)
+{
+    for (int c = 0; c < TOTAL_CANDIDATES; c++)
+    {
+        if (hVector[c] > (size_t)MATRIX_AT_PTR(X, b, c))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 /**
  * @brief Calculate a given `K` set.
  *
@@ -183,11 +195,11 @@ size_t **getK(const int b, const int f, size_t *size) // combination[i][j]; i th
         {
             restriction = realloc(restriction, (*size + 1) * sizeof(size_t *)); // The size of the whole array
             restriction[*size] = malloc(TOTAL_CANDIDATES * sizeof(size_t)); // The size of a single element (constant)
-        }
 
-        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-        {
-            restriction[*size][c] = elementArray[c]; // Copy the element into the array
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            {
+                restriction[*size][c] = elementArray[c]; // Copy the element into the array
+            }
         }
 
     } while (gsl_combination_next(noRestriction) == GSL_SUCCESS);
@@ -197,130 +209,11 @@ size_t **getK(const int b, const int f, size_t *size) // combination[i][j]; i th
     return restriction;
 }
 
-// x_b = x_bc s.a c\in C i.e total amount of votes that a candidate got on ballot b.
-// B void recursionG(const size_t *hElement)
-double getU(const int b, const int f, const int g, const int c, const Matrix *probabilities, const int k,
-            Matrix *Umatrix)
-{
-
-    // Matrix dim2Mat = createMatrix(TOTAL_GROUPS, TOTAL_VOTES);
-
-    if (f == 0)
-    {
-        if (k == 0)
-        {
-            MATRIX_AT_PTR(Umatrix, 0, 0) = 1;
-        }
-        else
-        {
-            return MATRIX_AT_PTR(Umatrix, 0, k) = 0;
-        }
-    }
-
-    for (int b = 0; b < TOTAL_BALLOTS; b++)
-    {
-        for (int f = 0; f < TOTAL_GROUPS; f++)
-        {
-            size_t sizeK;
-            size_t **K = getK(b, f, &sizeK);
-
-            for (int k = 0; k < sizeK; k++)
-            { // Loop over K
-                size_t *kElement = K[k];
-                gsl_combination *H = getH(b, f);
-
-                // The gsl_combination library offers a way to iterate over the elements of a set, hence, the iteration
-                // with H will be made with that method in mind on a do-while loop.
-                do
-                {
-                    const size_t *hElement = gsl_combination_data(H);
-                    if (ifAllElements(hElement, kElement))
-                    {
-                        double a = computeA(b, f, hElement, probabilities);
-                        for (int c = 0; c < TOTAL_CANDIDATES; c++)
-                        {
-                            for (int g = 0; g < TOTAL_GROUPS; g++)
-                            {
-                                if (g == f)
-                                {
-                                    return getU(b, f, g, c, probabilities, k) + getU(b, f - 1, g, c, k)
-                                }
-                            }
-                        }
-                    }
-
-                } while (gsl_combination_next(H) == GSL_SUCCESS); // Loop over each H element
-            }
-        }
-    }
-}
-
 void vectorDiff(const size_t *K, const size_t *H, double *arr)
 {
     for (int c = 0; c < TOTAL_CANDIDATES; c++)
     {
         arr[c] = K[c] - H[c];
-    }
-}
-
-// This function should do the recursion!
-double recursion2(MemoizationTable *memo, int b, int f, int g, int c, double *vector, int vectorSize,
-                  const Matrix *probabilities)
-{
-    double havePassed = getMemoValue(memo, b, f, g, c, vector, vectorSize);
-    if (havePassed != INVALID)
-    { // If it had already passed, then return the value.
-        return havePassed;
-    }
-
-    // Base case
-    if (f == 0)
-    {
-        // If `k` is a null vector, then return "1", else, "0"
-        for (int k = 0; k < vectorSize; k++)
-        {
-            if (vector[k] != 0)
-            {
-                setMemoValue(memo, b, f, g, c, vector, vectorSize, 0);
-                return 0.0;
-            }
-        }
-        setMemoValue(memo, b, f, g, c, vector, vectorSize, 1);
-        return 1.0;
-    }
-
-    // -- Main definition of `u` //
-    // double a = if (g == f)
-}
-
-// This function should do the recursion!
-double recursion(MemoizationTable *memo, int b, int f, int g, int c, double *vector, int vectorSize,
-                 const Matrix *probabilities)
-{
-    double havePassed = getMemoValue(memo, b, f, g, c, vector, vectorSize);
-    if (havePassed != INVALID)
-    { // If it had already passed, then return the value.
-        return havePassed;
-    }
-
-    // Base case
-    if (f == 0)
-    {
-        // If `k` is a null vector, then return "1", else, "0"
-        for (int k = 0; k < vectorSize; k++)
-        {
-            if (vector[k] != 0)
-            {
-                setMemoValue(memo, b, f, g, c, vector, vectorSize, 0);
-                return 0.0;
-            }
-        }
-        setMemoValue(memo, b, f, g, c, vector, vectorSize, 1);
-        return 1.0;
-    }
-
-    if (g == f)
-    {
     }
 }
 
@@ -433,7 +326,7 @@ void getUrecursive2(MemoizationTable *memo, const Matrix *probabilities)
                             passed = true;
                         }
                     }
-                    if (passed)
+                    if (!passed)
                         setMemoValue(memo, b, f, g, c, kElement, TOTAL_CANDIDATES, 1.0);
                 }
                 else
@@ -452,10 +345,6 @@ void getUrecursive2(MemoizationTable *memo, const Matrix *probabilities)
                         {
                             setMemoValue(memo, b, f, g, c, vector, vectorSize, result) +=
                                 (getMemoValue(memo, f - 1, g, c, substractionVector) * a * hElement[c]) / division;
-                            // result +=
-                            //    (getUrecursive(memo, b, f - 1, g, c, substractionVector, vectorSize, probabilities) *
-                            //    a) /
-                            //   (MATRIX_AT_PTR(probabilities, f, c) * MATRIX_AT_PTR(W, b, f));
                         }
                         else
                         {
@@ -463,7 +352,6 @@ void getUrecursive2(MemoizationTable *memo, const Matrix *probabilities)
                         }
                         free(substractionVector);
                         setMemoValue(memo, b, f, g, c, vector, vectorSize, result);
-                        return result;
 
                     } while (gsl_combination_next(H) == GSL_SUCCESS); // Loop over each H element
                 }
