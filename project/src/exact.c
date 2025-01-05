@@ -217,81 +217,9 @@ void vectorDiff(const size_t *K, const size_t *H, double *arr)
     }
 }
 
-double getUrecursive(MemoizationTable *memo, int b, int f, int g, int c, double *vector, int vectorSize,
-                     const Matrix *probabilities)
-{
-    double havePassed = getMemoValue(memo, b, f, g, c, vector, vectorSize);
-    if (havePassed != INVALID)
-    { // If it had already passed, then return the value.
-        return havePassed;
-    }
-
-    // Base case
-    if (f == 0)
-    {
-        // If `k` is a null vector, then return "1", else, "0"
-        for (int k = 0; k < vectorSize; k++)
-        {
-            if (vector[k] != 0)
-            {
-                setMemoValue(memo, b, f, g, c, vector, vectorSize, 0);
-                return 0.0;
-            }
-        }
-        setMemoValue(memo, b, f, g, c, vector, vectorSize, 1);
-        return 1.0;
-    }
-
-    /* Here is where the loop starts and the values are defined */
-    double result = 0.0;
-    for (int b = 0; b < TOTAL_BALLOTS; b++)
-    {
-        for (int f = 0; f < TOTAL_GROUPS; g++)
-        {
-            size_t sizeK;
-            size_t **K = getK(b, f, &sizeK); // K_{bf}
-
-            double division = MATRIX_AT_PTR(probabilities, f, c) *
-                              MATRIX_AT_PTR(W, b, f); // Computes now the division to avoid multiple divisions.
-            for (int k = 0; k < sizeK; k++)           // For each element of K_{bf}
-            {                                         // Loop over K
-                size_t *kElement = K[k];
-                gsl_combination *H = getH(b, f);
-
-                // The gsl_combination library offers a way to iterate over the elements of a set, hence, the iteration
-                // with H will be made with that method in mind on a do-while loop.
-                do
-                {
-                    const size_t *hElement = gsl_combination_data(H);
-                    double a = computeA(b, f, hElement, probabilities);
-                    double *substractionVector = (double *)malloc(vectorSize * sizeof(double));
-                    vectorDiff(kElement, hElement, substractionVector);
-
-                    if (ifAllElements(hElement, kElement))
-                    {
-                        setMemoValue(memo, b, f, g, c, vector, vectorSize, result) +=
-                            (getMemoValue(memo, f - 1, g, c, substractionVector) * a * hElement[c]) / division;
-                        // result +=
-                        //    (getUrecursive(memo, b, f - 1, g, c, substractionVector, vectorSize, probabilities) * a) /
-                        //   (MATRIX_AT_PTR(probabilities, f, c) * MATRIX_AT_PTR(W, b, f));
-                    }
-                    else
-                    {
-                        setMemoValue(memo, b, f, g, c, vector, vectorSize, result) += (getMemoValue(memo, f-1, g, c, substractionVector)*a;
-                    }
-                    free(substractionVector);
-                    setMemoValue(memo, b, f, g, c, vector, vectorSize, result);
-                    return result;
-
-                } while (gsl_combination_next(H) == GSL_SUCCESS); // Loop over each H element
-            }
-        }
-    }
-}
-
 void getUrecursive2(MemoizationTable *memo, const Matrix *probabilities)
 {
-    // Have to check what to do with c...
+    // Have to check what to do with c and g...
     double havePassed = getMemoValue(memo, b, f, g, c, vector, vectorSize);
     if (havePassed != INVALID)
     { // If it had already passed, then return the value.
@@ -301,19 +229,21 @@ void getUrecursive2(MemoizationTable *memo, const Matrix *probabilities)
     /* Here is where the loop starts and the values are defined */
     for (int b = 0; b < TOTAL_BALLOTS; b++)
     {
-        for (int f = 0; f < TOTAL_GROUPS; g++)
+        for (int f = 0; f < TOTAL_GROUPS; f++)
         {
             size_t sizeK;
             size_t **K = getK(b, f, &sizeK); // K_{bf}
 
             double division = MATRIX_AT_PTR(probabilities, f, c) *
                               MATRIX_AT_PTR(W, b, f); // Computes now the division to avoid multiple divisions.
-            for (int k = 0; k < sizeK; k++)           // For each element of K_{bf}
-            {                                         // Loop over K
+
+            // ---- For each element of K_{bf} ----
+            for (int k = 0; k < sizeK; k++) // For each element of K_{bf}
+            {                               // Loop over K
                 size_t *kElement = K[k];
                 gsl_combination *H = getH(b, f);
 
-                // Base case
+                // ---- Base case ----
                 if (f == 0)
                 {
                     // If `k` is a null vector, then return "1", else, "0"
@@ -329,29 +259,34 @@ void getUrecursive2(MemoizationTable *memo, const Matrix *probabilities)
                     if (!passed)
                         setMemoValue(memo, b, f, g, c, kElement, TOTAL_CANDIDATES, 1.0);
                 }
+                // ---- End base case ----
                 else
                 {
 
+                    // ---- For each element of H_{bf} ----
                     // The gsl_combination library offers a way to iterate over the elements of a set, hence, the
                     // iteration with H will be made with that method in mind on a do-while loop.
                     do
                     {
                         const size_t *hElement = gsl_combination_data(H);
+                        if (!ifAllElements(hElement, kElement))
+                            continue;
                         double a = computeA(b, f, hElement, probabilities);
                         double *substractionVector = (double *)malloc(vectorSize * sizeof(double));
-                        vectorDiff(kElement, hElement, substractionVector);
+                        vectorDiff(kElement, hElement,
+                                   substractionVector); // Handle case when substraction vector could be negative
 
-                        if (ifAllElements(hElement, kElement))
+                        if (f == g)
                         {
-                            setMemoValue(memo, b, f, g, c, vector, vectorSize, result) +=
+                            setMemoValue(memo, b, f, g, c, vector, vectorSize) +=
                                 (getMemoValue(memo, f - 1, g, c, substractionVector) * a * hElement[c]) / division;
                         }
                         else
                         {
-                        setMemoValue(memo, b, f, g, c, vector, vectorSize, result) += (getMemoValue(memo, f-1, g, c, substractionVector)*a;
+                            setMemoValue(memo, b, f, g, c, vector, vectorSize) +=
+                                getMemoValue(memo, f - 1, g, c, substractionVector) * a;
                         }
                         free(substractionVector);
-                        setMemoValue(memo, b, f, g, c, vector, vectorSize, result);
 
                     } while (gsl_combination_next(H) == GSL_SUCCESS); // Loop over each H element
                 }
