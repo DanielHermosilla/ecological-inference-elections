@@ -20,6 +20,7 @@ extern Matrix *W;
 
 Matrix *KSET = NULL;
 
+#define Q_3D(q, bIdx, gIdx, cIdx, G, C) ((q)[((bIdx) * (G) * (C)) + ((gIdx) * (C)) + (cIdx)])
 typedef struct
 {
     size_t n;
@@ -50,6 +51,14 @@ void gsl_combination_free(gsl_combination *c)
 
     This function frees all the memory used by the combination c.
 */
+
+void convertDoubleToSizeT(const double *doubleVector, size_t *sizeTVector, int size)
+{
+    for (int i = 0; i < size; i++)
+    {
+        sizeTVector[i] = (size_t)doubleVector[i];
+    }
+}
 
 /**
  * @brief Calculate the chained product between probabilities as defined in `a`:
@@ -279,91 +288,34 @@ double recursion2(const int b, const int f, const int g, const int c, size_t *ve
 
     } while (gsl_combination_next(H) == GSL_SUCCESS); // Recursion: condition to loop over each H element
 
+    // ---- Recursion: free the H set that was created ----
+    // TODO: Maybe precompute the set to avoid multiple computations
+    gsl_combination_free(H);
     // ---- Recursion: final step, set the hash table to the final value and return it
     setMemoValue(memo, b, f, g, c, vector, TOTAL_CANDIDATES, result);
+    // ---- Note: the vector that was used as a key will be free'd with the table, since it's a pointer.
     return result;
     // ---- End recursion ----
 }
 
-void getUrecursive2(MemoizationTable *memo, const Matrix *probabilities, int g, int c)
+void computeQExact(const Matrix *probabilities)
 {
-    /* Here is where the loop starts and the values are defined */
+    MemoizationTable *table = initMemo();
+    double *array2 =
+        (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double)); // Array to return
+
     for (int b = 0; b < TOTAL_BALLOTS; b++)
     {
-        for (int f = 0; f < TOTAL_GROUPS; f++)
+        for (int c = 0; c < TOTAL_CANDIDATES; c++)
         {
-            size_t sizeK;
-            size_t **K = getK(b, f, &sizeK); // K_{bf}
-
-            double division = MATRIX_AT_PTR(probabilities, f, c) *
-                              MATRIX_AT_PTR(W, b, f); // Computes now the division to avoid multiple divisions.
-
-            // ---- For each element of K_{bf} ----
-            for (int k = 0; k < sizeK; k++) // For each element of K_{bf}
-            {                               // Loop over K
-                size_t *kElement = K[k];
-                gsl_combination *H = getH(b, f);
-
-                // ---- Base case ----
-                if (f == 0)
-                {
-                    // If `k` is a null vector, then return "1", else, "0"
-                    bool passed = false;
-                    for (int k = 0; k < TOTAL_CANDIDATES; k++)
-                    {
-                        if (kElement[k] != 0 && !passed)
-                        {
-                            setMemoValue(memo, b, f, g, c, kElement, TOTAL_CANDIDATES, 0.0);
-                            passed = true;
-                        }
-                    }
-                    if (!passed)
-                        setMemoValue(memo, b, f, g, c, kElement, TOTAL_CANDIDATES, 1.0);
-                }
-                // ---- End base case ----
-                else
-                {
-
-                    // ---- For each element of H_{bf} ----
-                    // The gsl_combination library offers a way to iterate over the elements of a set, hence, the
-                    // iteration with H will be made with that method in mind on a do-while loop.
-                    do
-                    {
-                        const size_t *hElement = gsl_combination_data(H);
-                        if (!ifAllElements(hElement,
-                                           kElement)) // Handle case when substraction vector could be negative
-
-                            continue;
-                        double a = computeA(b, f, hElement, probabilities);
-                        size_t *substractionVector = malloc(TOTAL_CANDIDATES * sizeof(int));
-                        vectorDiff(kElement, hElement, substractionVector);
-
-                        double value = getMemoValue(memo, b, f, g, c, kElement, TOTAL_CANDIDATES);
-                        if (value == INVALID) // If the entry doesn't exist yet
-                        {
-                            value = 0.0;
-                        }
-                        if (f == g)
-                        {
-                            double division = MATRIX_AT_PTR(probabilities, f, c) * MATRIX_AT_PTR(W, b, f);
-                            value += getMemoValue(memo, b, f - 1, g, c, substractionVector, TOTAL_CANDIDATES) * a *
-                                     hElement[c] / division;
-                        }
-                        else
-                        {
-                            value += getMemoValue(memo, b, f - 1, g, c, substractionVector, TOTAL_CANDIDATES) * a;
-                        }
-                        setMemoValue(memo, b, f, g, c, kElement, TOTAL_CANDIDATES, value);
-                        free(substractionVector);
-
-                    } while (gsl_combination_next(H) == GSL_SUCCESS); // Loop over each H element
-                }
+            size_t *sizeTCandidate =
+                malloc(TOTAL_CANDIDATES * sizeof(size_t)); // Maybe store this, since it'll be used at each EM iteration
+            convertDoubleToSizeT(&MATRIX_AT_PTR(X, c, b), sizeTCandidate, TOTAL_CANDIDATES);
+            for (int g = 0; g < TOTAL_BALLOTS; g++)
+            {
+                double uValue = recursion2(b, TOTAL_GROUPS, g, c, sizeTCandidate, table, probabilities);
+                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = uValue;
             }
         }
     }
-}
-void computeQExact()
-{
-
-    MemoizationTable *table = initMemo();
 }
