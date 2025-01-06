@@ -1,23 +1,9 @@
 #ifndef COMPUTE_MULTINOMIAL_H
 #define COMPUTE_MULTINOMIAL_H
 
+#include "globals.h"
 #include "matrixUtils.h"
-#include <stdint.h>
-#include <stdlib.h>
 
-extern uint32_t TOTAL_VOTES;
-extern uint32_t TOTAL_BALLOTS;
-extern uint16_t TOTAL_CANDIDATES;
-extern uint16_t TOTAL_GROUPS;
-extern uint16_t *BALLOTS_VOTES;    // Total votes per ballot
-extern uint32_t *CANDIDATES_VOTES; // Total votes per candidate
-extern uint32_t *GROUP_VOTES;      // Total votes per group
-extern double *inv_BALLOTS_VOTES;
-extern Matrix *X;
-extern Matrix *W;
-
-// Macro for accessing a 3D flattened array (b x g x c)
-#define Q_3D(q, bIdx, gIdx, cIdx, G, C) ((q)[((bIdx) * (G) * (C)) + ((gIdx) * (C)) + (cIdx)])
 /**
  * @brief Computes an approximate conditional probability using a Multinomial approach.
  *

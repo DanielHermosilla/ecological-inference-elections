@@ -1,5 +1,4 @@
-#include "matrixUtils.h"
-#include "memoizationUtil.h"
+#include "exact.h"
 #include <cblas.h>
 #include <cstdlib>
 #include <gsl/gsl_combination.h>

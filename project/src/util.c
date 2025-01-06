@@ -1,4 +1,5 @@
 #include "fileutils.h"
+#include "globals.h"
 #include "instanceGenerator.h"
 #include "matrixUtils.h"
 #include "multinomial.h"

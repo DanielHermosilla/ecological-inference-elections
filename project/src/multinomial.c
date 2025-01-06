@@ -1,21 +1,5 @@
 #include "multinomial.h"
-#include "matrixUtils.h"
 #include <cblas.h>
-
-/**
- * Access the element (b, g, c) from a row-major 3D array `q` with dimensions:
- *   b-dimension  = total number of ballot boxes
- *   g-dimension  = total number of groups
- *   c-dimension  = total number of candidates
- *
- * \param q     A pointer to the double array of size (b * g * c)
- * \param bIdx  The ballot index
- * \param gIdx  The group  index
- * \param cIdx  The candidate index
- * \param G     The total number of groups
- * \param C     The total number of candidates
- */
-#define Q_3D(q, bIdx, gIdx, cIdx, G, C) ((q)[((bIdx) * (G) * (C)) + ((gIdx) * (C)) + (cIdx)])
 
 /**
  * @brief Computes the value of `r` without the denominator.
@@ -75,14 +59,12 @@ double *computeQMultinomial(Matrix const *probabilities)
 
                 double result = (1.0 / computeR(probabilities, &WP, b, c, g)) * MATRIX_AT_PTR(probabilities, g, c) *
                                 MATRIX_AT_PTR(X, c, b);
-                // printf("The alpha term is:\t%.4f\nThe beta term is:\t%.4f\n", alpha, beta);
                 MATRIX_AT(temp, b, g) += result;
             }
             for (int c = 0; c < (int)TOTAL_CANDIDATES; c++)
             {
                 double result2 = (1.0 / computeR(probabilities, &WP, b, c, g)) * MATRIX_AT_PTR(probabilities, g, c) *
                                  MATRIX_AT_PTR(X, c, b);
-                // printf("The alpha term is:\t%.4f\nThe beta term is:\t%.4f\n", alpha, beta);
                 Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = result2 / MATRIX_AT(temp, b, g);
             }
         }
