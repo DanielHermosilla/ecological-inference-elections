@@ -2,8 +2,6 @@
 #define FILEUTILS_H
 
 #include "matrixUtils.h"
-#include <stdio.h>
-#include <stdlib.h>
 
 /**
  * @brief Writes an array of matrices to a binary file, including their metadata.

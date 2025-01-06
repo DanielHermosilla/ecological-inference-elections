@@ -2,8 +2,6 @@
 #define MATRIX_UTILS_H
 
 #include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 // Macro for making an easier indexation.
 #define MATRIX_AT(matrix, i, j) (matrix.data[(i) * (matrix.cols) + (j)])
