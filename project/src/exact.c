@@ -217,6 +217,74 @@ void vectorDiff(const size_t *K, const size_t *H, size_t *arr)
     }
 }
 
+double recursion2(const int b, const int f, const int g, const int c, size_t *vector, MemoizationTable *memo,
+                  const Matrix *probabilities)
+{
+    // If it's already defined, return the defined value instead; at each iteration this condition will be met more
+    // times.
+    double currentVal = getMemoValue(memo, b, f, g, c, vector, TOTAL_CANDIDATES);
+    if (currentVal != INVALID)
+    {
+        return currentVal;
+    }
+
+    // ---- Base case ----
+    if (f == 0)
+    {
+        for (int k = 0; k < TOTAL_CANDIDATES; k++)
+        {
+            if (vector[k] != 0)
+            {
+                setMemoValue(memo, b, f, g, c, vector, TOTAL_CANDIDATES, 0.0);
+                return 0.0;
+            }
+        }
+        setMemoValue(memo, b, f, g, c, vector, TOTAL_CANDIDATES, 1.0);
+        return 1.0;
+    }
+    // ---- End base case ----
+
+    // ---- Recursion ----
+    // ---- Recursion: definition of H ----
+    gsl_combination *H = getH(b, f);
+    // ---- Recursion: definition of the resulting variable ----
+    double result = 0;
+    // ---- Recursion: loop over H, it must be a summatory ----
+    do
+    {
+        // ---- Recursion: get a pointer of an element from H ----
+        const size_t *hElement = gsl_combination_data(H);
+        // ---- Recursion: handle case when substraction could be negative (*) ----
+        if (!ifAllElements(hElement, vector))
+            continue;
+        // ---- Recursion: compute the value of `a` ----
+        double a = computeA(b, f, hElement, probabilities);
+        // ---- Recursion: define the vector k-h ----
+        size_t *substractionVector = malloc(TOTAL_CANDIDATES * sizeof(int));
+        vectorDiff(vector, hElement, substractionVector);
+
+        // ---- Recursion: handle case of the additional multiplication ----
+        if (f == g)
+        {
+            double division = MATRIX_AT_PTR(probabilities, f, c) * MATRIX_AT_PTR(W, b, f);
+            result += (recursion2(b, f - 1, g, c, substractionVector, memo, probabilities) * a) / division;
+        }
+        else
+        {
+            result += recursion2(b, f - 1, g, c, substractionVector, memo, probabilities) * a;
+        }
+        // ---- Recursion: free the substracting vector, it won't be used again ----
+        free(substractionVector);
+        // ---- Note: the element is defined as a summatory from all elements from H_bf that accomplish (*) ----
+
+    } while (gsl_combination_next(H) == GSL_SUCCESS); // Recursion: condition to loop over each H element
+
+    // ---- Recursion: final step, set the hash table to the final value and return it
+    setMemoValue(memo, b, f, g, c, vector, TOTAL_CANDIDATES, result);
+    return result;
+    // ---- End recursion ----
+}
+
 void getUrecursive2(MemoizationTable *memo, const Matrix *probabilities, int g, int c)
 {
     /* Here is where the loop starts and the values are defined */
