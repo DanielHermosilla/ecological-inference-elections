@@ -318,4 +318,5 @@ void computeQExact(const Matrix *probabilities)
             }
         }
     }
+    freeMemo(table);
 }
