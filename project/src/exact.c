@@ -209,7 +209,7 @@ size_t **getK(const int b, const int f, size_t *size) // combination[i][j]; i th
     return restriction;
 }
 
-void vectorDiff(const size_t *K, const size_t *H, double *arr)
+void vectorDiff(const size_t *K, const size_t *H, size_t *arr)
 {
     for (int c = 0; c < TOTAL_CANDIDATES; c++)
     {
@@ -217,15 +217,8 @@ void vectorDiff(const size_t *K, const size_t *H, double *arr)
     }
 }
 
-void getUrecursive2(MemoizationTable *memo, const Matrix *probabilities)
+void getUrecursive2(MemoizationTable *memo, const Matrix *probabilities, int g, int c)
 {
-    // Have to check what to do with c and g...
-    double havePassed = getMemoValue(memo, b, f, g, c, vector, vectorSize);
-    if (havePassed != INVALID)
-    { // If it had already passed, then return the value.
-        return havePassed;
-    }
-
     /* Here is where the loop starts and the values are defined */
     for (int b = 0; b < TOTAL_BALLOTS; b++)
     {
@@ -269,23 +262,30 @@ void getUrecursive2(MemoizationTable *memo, const Matrix *probabilities)
                     do
                     {
                         const size_t *hElement = gsl_combination_data(H);
-                        if (!ifAllElements(hElement, kElement))
+                        if (!ifAllElements(hElement,
+                                           kElement)) // Handle case when substraction vector could be negative
+
                             continue;
                         double a = computeA(b, f, hElement, probabilities);
-                        double *substractionVector = (double *)malloc(vectorSize * sizeof(double));
-                        vectorDiff(kElement, hElement,
-                                   substractionVector); // Handle case when substraction vector could be negative
+                        size_t *substractionVector = malloc(TOTAL_CANDIDATES * sizeof(int));
+                        vectorDiff(kElement, hElement, substractionVector);
 
+                        double value = getMemoValue(memo, b, f, g, c, kElement, TOTAL_CANDIDATES);
+                        if (value == INVALID) // If the entry doesn't exist yet
+                        {
+                            value = 0.0;
+                        }
                         if (f == g)
                         {
-                            setMemoValue(memo, b, f, g, c, vector, vectorSize) +=
-                                (getMemoValue(memo, f - 1, g, c, substractionVector) * a * hElement[c]) / division;
+                            double division = MATRIX_AT_PTR(probabilities, f, c) * MATRIX_AT_PTR(W, b, f);
+                            value += getMemoValue(memo, b, f - 1, g, c, substractionVector, TOTAL_CANDIDATES) * a *
+                                     hElement[c] / division;
                         }
                         else
                         {
-                            setMemoValue(memo, b, f, g, c, vector, vectorSize) +=
-                                getMemoValue(memo, f - 1, g, c, substractionVector) * a;
+                            value += getMemoValue(memo, b, f - 1, g, c, substractionVector, TOTAL_CANDIDATES) * a;
                         }
+                        setMemoValue(memo, b, f, g, c, kElement, TOTAL_CANDIDATES, value);
                         free(substractionVector);
 
                     } while (gsl_combination_next(H) == GSL_SUCCESS); // Loop over each H element
@@ -296,39 +296,6 @@ void getUrecursive2(MemoizationTable *memo, const Matrix *probabilities)
 }
 void computeQExact()
 {
-    /*
-The capacity should be the maximum amount of range of elements from `K`. We know it's a combinatory with
-restrictions. The naive way would be a O(BF*O(getK())) loop that gets the maximum size. The maximum amount of
-combinations on this case increased according \frac{k^{n-1}}{(n-1)!}. Since `n`=TOTAL_CANDIDATES, the  set (without
-restrictions) with the most amount of elements would be C(max(BALLOTS_VOTES)+TOTAL_CANDIDATES-1, TOTAL_CANDIDATES-1)
-. The amount of maximum combinations with restrictions would follow an Inclusion-Exclusion Principle with
-Slot-Specific Bounds F(n,k,g(m),i), where:
 
-- `n`: TOTAL_CANDIDATES (dimension or slots of the vector)
-- `k`: BALLOTS_VOTES[b] (total amount of votes of the ballot)
-- `g(m)`: Maximum value per slot.
-- `i`: Amount of points that violate the restrictions.
-
-F(n,k, g(m),i)=\sum_{\forall i}(-1)^{i}\binom{k-\sum_{\forall i}(m_i+1)+n-1}{n-1}
-
-Obviously this formula is too complicated for maximizing, knowing that g(m) changes per each ballot. It would be
-better to do the naive approach, but then, it would still be complex. Then, we'll assume the cost for assignating
-more space than necessary, assuming the maximum amount of elements for the set without restriction (also known as
-`H`).
-    */
-
-    uint16_t maxB = BALLOTS_VOTES[0];
-    for (int b = 1; b < TOTAL_BALLOTS; b++)
-    {
-        if (maxB < BALLOTS_VOTES[b])
-        {
-            maxB = BALLOTS_VOTES[b];
-        }
-    }
-
-    // GSL doesn't have a binomial coefficient calculator, but we can compute the pdf of one, assuming p=1.
-    unsigned int n = maxB + TOTAL_CANDIDATES - 1;
-    unsigned int k = TOTAL_CANDIDATES - 1;
-    double maxCombinations = gsl_ran_binomial_pdf(k, n, 1);
-    MemoizationTable *table = initMemo((int)maxCombinations);
+    MemoizationTable *table = initMemo();
 }

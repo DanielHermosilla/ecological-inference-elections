@@ -9,7 +9,7 @@
 typedef struct
 {
     int indices[4];  // The 4 existing indices
-    double *vector;  // Pointer to the vector `K`
+    size_t *vector;  // Pointer to the vector `K`
     int vector_size; // Size of the vector
 } MemoizationKey;
 
@@ -39,7 +39,7 @@ uint64_t hashKey(MemoizationKey *key)
     {
         hash ^= (uint64_t)(key->vector[i] * 1e6) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
     }
-    hash ^= key->vector_size; // Include vector_size for uniqueness
+    hash ^= key->vector_size; // Include vector_size for uniqueness, this isn't really necessary for our use case
     return hash;
 }
 
@@ -50,7 +50,7 @@ MemoizationTable *initMemo()
     return table;
 }
 
-double getMemoValue(MemoizationTable *table, int a, int b, int c, int d, double *vector, int vector_size)
+double getMemoValue(MemoizationTable *table, int a, int b, int c, int d, size_t *vector, int vector_size)
 {
     MemoizationEntry *entry;
 
@@ -73,7 +73,7 @@ double getMemoValue(MemoizationTable *table, int a, int b, int c, int d, double 
     return -1.0; // INVALID
 }
 
-void setMemoValue(MemoizationTable *table, int a, int b, int c, int d, double *vector, int vector_size, double value)
+void setMemoValue(MemoizationTable *table, int a, int b, int c, int d, size_t *vector, int vector_size, double value)
 {
     MemoizationEntry *entry = (MemoizationEntry *)malloc(sizeof(MemoizationEntry));
 
@@ -83,14 +83,15 @@ void setMemoValue(MemoizationTable *table, int a, int b, int c, int d, double *v
     entry->key.indices[3] = d;
     entry->key.vector_size = vector_size;
 
-    entry->key.vector = (double *)malloc(vector_size * sizeof(double));
-    memcpy(entry->key.vector, vector, vector_size * sizeof(double));
+    entry->key.vector = (size_t *)malloc(vector_size * sizeof(size_t));
+    memcpy(entry->key.vector, vector, vector_size * sizeof(size_t));
 
     entry->value = value;
 
     uint64_t keyHash = hashKey(&entry->key);
 
-    HASH_ADD(hh, table->hashmap, keyHash, sizeof(uint64_t), entry);
+    // Use HASH_ADD_KEYPTR to add dynamically hashed key
+    HASH_ADD_KEYPTR(hh, table->hashmap, &keyHash, sizeof(uint64_t), entry);
 }
 
 void freeMemo(MemoizationTable *table)
