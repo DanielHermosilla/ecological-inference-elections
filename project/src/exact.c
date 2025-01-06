@@ -343,7 +343,7 @@ double recursion(const int b, const int f, const int g, const int c, size_t *vec
         // ---- Recursion: compute the value of `a` ----
         double a = computeA(b, f, hElement, probabilities);
         // ---- Recursion: define the vector k-h ----
-        size_t *substractionVector = malloc(TOTAL_CANDIDATES * sizeof(int));
+        size_t *substractionVector = malloc(TOTAL_CANDIDATES * sizeof(size_t));
         vectorDiff(vector, hElement, substractionVector);
 
         // ---- Recursion: handle case of the additional multiplication ----
@@ -419,15 +419,16 @@ double *computeQExact(const Matrix *probabilities)
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // ---- For each candidate
                 // ---- Add the values of the denominator
-                den += recursion(b, TOTAL_GROUPS, g, c, &MATRIX_AT_PTR(CANDIDATEARRAYS, c, b), table, probabilities) *
-                       MATRIX_AT_PTR(probabilities, g, c);
+                den +=
+                    recursion(b, TOTAL_GROUPS - 1, g, c, &MATRIX_AT_PTR(CANDIDATEARRAYS, c, b), table, probabilities) *
+                    MATRIX_AT_PTR(probabilities, g, c);
             }
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // ---- For each candidate
                 // ---- Compute the numerator; the recursion shouldn't be ran since the denominator initialized the
                 // hashed values.
                 double num =
-                    recursion(b, TOTAL_GROUPS, g, c, &MATRIX_AT_PTR(CANDIDATEARRAYS, c, b), table, probabilities) *
+                    recursion(b, TOTAL_GROUPS - 1, g, c, &MATRIX_AT_PTR(CANDIDATEARRAYS, c, b), table, probabilities) *
                     MATRIX_AT_PTR(probabilities, g, c);
                 // ---- Store the resulting values as q_{bgc}
                 Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num / den;
