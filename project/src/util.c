@@ -1,3 +1,4 @@
+#include "exact.h"
 #include "fileutils.h"
 #include "globals.h"
 #include "instanceGenerator.h"
@@ -338,8 +339,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         // Exact method
         if (strcmp(q_method, "Exact") == 0)
         {
-            printf("Executing 'Exact' method.\n");
-            break;
+            q = computeQExact(currentP);
         }
 
         else if (strcmp(q_method, "Hit and Run") == 0)
@@ -472,7 +472,7 @@ int main()
     // Start timer
     clock_gettime(CLOCK_MONOTONIC, &start);
     Matrix P = getInitialP("group proportional");
-    Matrix Pnew = EMAlgoritm(&P, "Multinomial", 0.0001, 10000, false);
+    Matrix Pnew = EMAlgoritm(&P, "Exact", 0.01, 10000, false);
 
     clock_gettime(CLOCK_MONOTONIC, &end);
     double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;

@@ -1,31 +1,17 @@
 #include "exact.h"
+#include "globals.h"
+#include "matrixUtils.h"
 #include <cblas.h>
-#include <cstdlib>
 #include <gsl/gsl_combination.h>
-#include <gsl/gsl_sf_comb.h>
+#include <gsl/gsl_sf_gamma.h>
 #include <math.h>
 #include <stdint.h>
-
-extern uint32_t TOTAL_VOTES;
-extern uint32_t TOTAL_BALLOTS;
-extern uint16_t TOTAL_CANDIDATES;
-extern uint16_t TOTAL_GROUPS;
-extern uint16_t *BALLOTS_VOTES;    // Total votes per ballot
-extern uint32_t *CANDIDATES_VOTES; // Total votes per candidate
-extern uint32_t *GROUP_VOTES;      // Total votes per group
-extern double *inv_BALLOTS_VOTES;
-extern Matrix *X;
-extern Matrix *W;
-
-Matrix *KSET = NULL;
+#include <stdlib.h>
 
 #define Q_3D(q, bIdx, gIdx, cIdx, G, C) ((q)[((bIdx) * (G) * (C)) + ((gIdx) * (C)) + (cIdx)])
-typedef struct
-{
-    size_t n;
-    size_t k;
-    size_t *data;
-} gsl_combination;
+
+SizeTMatrix *CANDIDATEARRAYS = NULL;
+
 // Funciones utiles;
 // gsl_sl_fact(unsigned int n) Factorial
 //
@@ -87,7 +73,7 @@ void convertDoubleToSizeT(const double *doubleVector, size_t *sizeTVector, int s
 double prod(const size_t *hElement, const Matrix *probabilities, const int f)
 {
     double result = 1;
-    for (int c = 0; c < TOTAL_CANDIDATES; c++)
+    for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
     {
         result *= pow(MATRIX_AT_PTR(probabilities, f, c), hElement[c]);
     }
@@ -200,7 +186,7 @@ gsl_combination *getH(int b, int f)
 
 bool filterCombinations(const size_t *hVector, const int b)
 {
-    for (int c = 0; c < TOTAL_CANDIDATES; c++)
+    for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
     {
         if (hVector[c] > (size_t)MATRIX_AT_PTR(X, b, c))
         {
@@ -232,7 +218,7 @@ bool filterCombinations(const size_t *hVector, const int b)
 
 size_t **getK(const int b, const int f, size_t *size) // combination[i][j]; i the combination, j the element
 {
-    if (f >= TOTAL_GROUPS || b >= TOTAL_BALLOTS)
+    if (f >= (int)TOTAL_GROUPS || b >= (int)TOTAL_BALLOTS)
     {
         printf("An incorrect index was passed to the `K` set");
         exit(EXIT_FAILURE);
@@ -285,7 +271,7 @@ size_t **getK(const int b, const int f, size_t *size) // combination[i][j]; i th
 
 void vectorDiff(const size_t *K, const size_t *H, size_t *arr)
 {
-    for (int c = 0; c < TOTAL_CANDIDATES; c++)
+    for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
     { // ---- For each candidate
         arr[c] = K[c] - H[c];
     }
@@ -327,7 +313,7 @@ double recursion(const int b, const int f, const int g, const int c, size_t *vec
     // ---- Base case ----
     if (f == 0)
     {
-        for (int k = 0; k < TOTAL_CANDIDATES; k++)
+        for (uint16_t k = 0; k < TOTAL_CANDIDATES; k++)
         { // ---- For each candidate
             if (vector[k] != 0)
             { // ---- If the vector contains an non zero element; return 0.0
@@ -401,44 +387,63 @@ double recursion(const int b, const int f, const int g, const int c, size_t *vec
 
 double *computeQExact(const Matrix *probabilities)
 {
+
+    // ---- Initialize CANDIDATEARRAYS, which corresponds as a copy of `X` but in size_t.
+    if (CANDIDATEARRAYS == NULL)
+    {
+        // ---- Define the memory for the matrix and its parameters
+        CANDIDATEARRAYS = malloc(sizeof(SizeTMatrix));
+        CANDIDATEARRAYS->cols = X->cols;
+        CANDIDATEARRAYS->rows = X->rows;
+        CANDIDATEARRAYS->data = malloc(TOTAL_CANDIDATES * TOTAL_BALLOTS * sizeof(size_t));
+        for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+        { // ---- For each ballot box
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            { // ---- For each candidate
+                MATRIX_AT_PTR(CANDIDATEARRAYS, c, b) = (size_t)MATRIX_AT_PTR(X, c, b);
+            }
+        }
+    }
+
     // ---- Initialize the hash table
     MemoizationTable *table = initMemo();
     // ---- Initialize the array to return
     double *array2 = (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double));
     // ---- Initialize the loop for computing each element of q_{bgc}
-    for (int b = 0; b < TOTAL_BALLOTS; b++)
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For each ballot box
-        for (int g = 0; g < TOTAL_GROUPS; g++)
+        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         { // ---- For each group
-            // ---- Initialize an array of arrays to store the candidates votes on `size_t`
-            size_t **candidateArrays = malloc(TOTAL_CANDIDATES * sizeof(size_t *));
             // ---- Initialize the denominator variable to avoid multiple computations
             double den = 0;
-            for (int c = 0; c < TOTAL_CANDIDATES; c++)
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // ---- For each candidate
-                // ---- Initialize an array for the outer array
-                candidateArrays[c] = malloc(TOTAL_CANDIDATES * sizeof(size_t));
-                // ---- Convert the array to `size_t`
-                convertDoubleToSizeT(&MATRIX_AT_PTR(X, c, b), candidateArrays[c], TOTAL_CANDIDATES);
                 // ---- Add the values of the denominator
-                den += recursion(b, TOTAL_GROUPS, g, c, candidateArrays[c], table, probabilities) *
+                den += recursion(b, TOTAL_GROUPS, g, c, &MATRIX_AT_PTR(CANDIDATEARRAYS, c, b), table, probabilities) *
                        MATRIX_AT_PTR(probabilities, g, c);
             }
-            for (int c = 0; c < TOTAL_CANDIDATES; c++)
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // ---- For each candidate
                 // ---- Compute the numerator; the recursion shouldn't be ran since the denominator initialized the
                 // hashed values.
-                double num = recursion(b, TOTAL_GROUPS, g, c, candidateArrays[c], table, probabilities) *
-                             MATRIX_AT_PTR(probabilities, g, c);
+                double num =
+                    recursion(b, TOTAL_GROUPS, g, c, &MATRIX_AT_PTR(CANDIDATEARRAYS, c, b), table, probabilities) *
+                    MATRIX_AT_PTR(probabilities, g, c);
                 // ---- Store the resulting values as q_{bgc}
                 Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num / den;
             }
-            // ---- Frees the array of arrays outer pointer. This should be safe since the keys of the Hash Table has a
-            // pointer towards the inner arrays. Something that could be done is to store this value since it's going to
-            // be reused for each EM iteration.
-            free(candidateArrays);
         }
     }
     freeMemo(table);
     return array2;
+}
+
+__attribute__((destructor)) void cleanupCandidateArrays()
+{
+    if (CANDIDATEARRAYS != NULL)
+    {
+        free(CANDIDATEARRAYS->data);
+        free(CANDIDATEARRAYS);
+        CANDIDATEARRAYS = NULL;
+    }
 }

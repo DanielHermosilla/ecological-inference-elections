@@ -2,17 +2,27 @@
 #define MATRIX_UTILS_H
 
 #include <stdbool.h>
+#include <stdlib.h>
 
 // Macro for making an easier indexation.
 #define MATRIX_AT(matrix, i, j) (matrix.data[(i) * (matrix.cols) + (j)])
 #define MATRIX_AT_PTR(matrix, i, j) (matrix->data[(i) * (matrix->cols) + (j)])
 
+// All of the helper functions are made towards double type matrices
 typedef struct
 {
     double *data; // Pointer to matrix data array (row-major order)
     int rows;     // Number of rows
     int cols;     // Number of columns
 } Matrix;
+
+// The helper functions won't work towards this matrix
+typedef struct
+{
+    size_t *data; // Pointer to matrix data array (row-major order)
+    int rows;     // Number of rows
+    int cols;     // Number of columns
+} SizeTMatrix;
 
 /**
  * @brief Make an array of a constant value.
