@@ -331,7 +331,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     clock_gettime(CLOCK_MONOTONIC, &start);
     for (int i = 0; i < maxIter; i++)
     {
-        if (i % 200 == 0 && verbose)
+        if (i % 1 == 0 && verbose)
         {
             printf("%.0f%% of iterations have been done.\n", (i / (double)maxIter) * 100);
         }
@@ -452,27 +452,29 @@ void cleanup()
 int main()
 {
     printf("The program is running\n");
+
+    Matrix XX = {.data = NULL, .rows = 0, .cols = 0};
+    Matrix G = {.data = NULL, .rows = 0, .cols = 0};
+    char *method = "multinomial";
+    createInstance(&XX, &G, 42, *method); // TODO: Arreglar esto para poder crear una instancia...
+
+    // Matrix matrices[2] = {XX, G};
+
+    // writeMatrices("matricesTest3.bin", matrices, 2);
+
     /*
-        Matrix XX = {.data = NULL, .rows = 0, .cols = 0};
-        Matrix G = {.data = NULL, .rows = 0, .cols = 0};
-        char *method = "multinomial";
-        createInstance(&XX, &G, 42, *method); // TODO: Arreglar esto para poder crear una instancia...
-
-        Matrix matrices[2] = {XX, G};
-
-        writeMatrices("matricesTest3.bin", matrices, 2);
-    */
     Matrix matrixArray[2];
     readMatrices("matricesTest3.bin", matrixArray, 2);
     Matrix XX = matrixArray[0];
     Matrix G = matrixArray[1];
+    */
     setParameters(&XX, &G);
     struct timespec start, end; // Start time
 
     // Start timer
     clock_gettime(CLOCK_MONOTONIC, &start);
     Matrix P = getInitialP("group proportional");
-    Matrix Pnew = EMAlgoritm(&P, "Exact", 0.01, 10000, false);
+    Matrix Pnew = EMAlgoritm(&P, "Exact", 0.01, 10000, true);
 
     clock_gettime(CLOCK_MONOTONIC, &end);
     double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;

@@ -11,6 +11,7 @@
 #define Q_3D(q, bIdx, gIdx, cIdx, G, C) ((q)[((bIdx) * (G) * (C)) + ((gIdx) * (C)) + (cIdx)])
 
 SizeTMatrix *CANDIDATEARRAYS = NULL;
+gsl_combination ***PRECOMPUTED_H = NULL;
 
 // Funciones utiles;
 // gsl_sl_fact(unsigned int n) Factorial
@@ -167,7 +168,12 @@ double computeA(const int b, const int f, const size_t *hElement, const Matrix *
  */
 gsl_combination *getH(int b, int f)
 {
-    gsl_combination *result = gsl_combination_calloc(MATRIX_AT_PTR(W, b, f), TOTAL_CANDIDATES);
+    if (MATRIX_AT_PTR(W, b, f) < TOTAL_CANDIDATES)
+    {
+        gsl_combination *result1 = gsl_combination_calloc((int)TOTAL_CANDIDATES, (int)TOTAL_CANDIDATES);
+        return result1;
+    }
+    gsl_combination *result = gsl_combination_calloc((int)MATRIX_AT_PTR(W, b, f), (int)TOTAL_CANDIDATES); // Order: n, k
     return result;
 }
 
@@ -329,21 +335,24 @@ double recursion(const int b, const int f, const int g, const int c, size_t *vec
 
     // ---- Recursion ----
     // ---- Recursion: definition of H ----
-    gsl_combination *H = getH(b, f);
+    // ---- There will be a copy for handling multithreaded loops
+    gsl_combination *Hlocal = gsl_combination_alloc(PRECOMPUTED_H[b][f]->n, PRECOMPUTED_H[b][f]->k);
+    gsl_combination_memcpy(Hlocal, PRECOMPUTED_H[b][f]);
+    gsl_combination *Hlocal = PRECOMPUTED_H[b, f];
     // ---- Recursion: definition of the resulting variable ----
     double result = 0;
     // ---- Recursion: loop over H, it must be a summatory ----
     do
     {
         // ---- Recursion: get a pointer of an element from H ----
-        const size_t *hElement = gsl_combination_data(H);
+        const size_t *hElement = gsl_combination_data(Hlocal);
         // ---- Recursion: handle case when substraction could be negative (*) ----
         if (!ifAllElements(hElement, vector))
             continue;
         // ---- Recursion: compute the value of `a` ----
         double a = computeA(b, f, hElement, probabilities);
         // ---- Recursion: define the vector k-h ----
-        size_t *substractionVector = malloc(TOTAL_CANDIDATES * sizeof(size_t));
+        size_t *substractionVector[TOTAL_CANDIDATES]; // Better to be a stack variable
         vectorDiff(vector, hElement, substractionVector);
 
         // ---- Recursion: handle case of the additional multiplication ----
@@ -356,15 +365,12 @@ double recursion(const int b, const int f, const int g, const int c, size_t *vec
         {
             result += recursion(b, f - 1, g, c, substractionVector, memo, probabilities) * a;
         }
-        // ---- Recursion: free the substracting vector, it won't be used again ----
-        free(substractionVector);
         // ---- Note: the element is defined as a summatory from all elements from H_bf that accomplish (*) ----
 
-    } while (gsl_combination_next(H) == GSL_SUCCESS); // Recursion: condition to loop over each H element
+    } while (gsl_combination_next(Hlocal) == GSL_SUCCESS); // Recursion: condition to loop over each H element
 
-    // ---- Recursion: free the H set that was created ----
-    // TODO: Maybe precompute the set to avoid multiple computations
-    gsl_combination_free(H);
+    // ---- Recursion: free the copy of `H`
+    gsl_combination_free(Hlocal);
     // ---- Recursion: final step, set the hash table to the final value and return it
     setMemoValue(memo, b, f, g, c, vector, TOTAL_CANDIDATES, result);
     // ---- Note: the vector that was used as a key will be free'd with the table, since it's a pointer.
@@ -396,11 +402,39 @@ double *computeQExact(const Matrix *probabilities)
         CANDIDATEARRAYS->cols = X->cols;
         CANDIDATEARRAYS->rows = X->rows;
         CANDIDATEARRAYS->data = malloc(TOTAL_CANDIDATES * TOTAL_BALLOTS * sizeof(size_t));
+// ---- Parallelization will consider the two inner loops as only one
+#pragma omp parallel for collapse(2)
         for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
         { // ---- For each ballot box
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // ---- For each candidate
                 MATRIX_AT_PTR(CANDIDATEARRAYS, c, b) = (size_t)MATRIX_AT_PTR(X, c, b);
+            }
+        }
+    }
+
+    // ---- Initialize the `H` set, for recicling its values
+    if (PRECOMPUTED_H = NULL)
+    {
+// ---- Define memory for the b index
+// ---- Parallelization would be dynamic according the different workload
+#pragma omp parallel for collapse(2) schedule(dynamic)
+        PRECOMPUTED_H = malloc(TOTAL_BALLOTS * sizeof(gsl_combination **));
+        for (int b = 0; b < TOTAL_BALLOTS; b++)
+        { // ---- For each ballot box
+            // ---- Define memory for the f index
+            PRECOMPUTED_H[b] = malloc(TOTAL_GROUPS * sizeof(gsl_combination *));
+            for (int f = 0; f < TOTAL_GROUPS; f++)
+            { // ---- For each group
+                // ---- Handle error case where n < k, on that case, just give a "1" vector. Maybe it could change
+                if (MATRIX_AT_PTR(W, b, f) < TOTAL_CANDIDATES)
+                {
+                    PRECOMPUTED_H[b][f] = gsl_combination_calloc(TOTAL_CANDIDATES, TOTAL_CANDIDATES);
+                }
+                else
+                {
+                    PRECOMPUTED_H[b][f] = gsl_combination_calloc(MATRIX_AT_PTR(W, b, f), TOTAL_CANDIDATES);
+                }
             }
         }
     }
@@ -439,12 +473,27 @@ double *computeQExact(const Matrix *probabilities)
     return array2;
 }
 
-__attribute__((destructor)) void cleanupCandidateArrays()
+__attribute__((destructor)) void cleanUp()
 {
+    // ---- Destroy the candidate array of size_t
     if (CANDIDATEARRAYS != NULL)
     {
         free(CANDIDATEARRAYS->data);
         free(CANDIDATEARRAYS);
         CANDIDATEARRAYS = NULL;
+    }
+    // ---- Destroy the array of precomputed H
+    if (PRECOMPUTED_H != NULL)
+    {
+        for (int b = 0; b < TOTAL_BALLOTS; b++)
+        {
+            for (int f = 0; f < TOTAL_GROUPS; f++)
+            {
+                gsl_combination_free(PRECOMPUTED_H[b][f]);
+            }
+            free(PRECOMPUTED_H[b]);
+        }
+        free(PRECOMPUTED_H);
+        PRECOMPUTED_H = NULL;
     }
 }
