@@ -61,6 +61,7 @@ combination.
 void precomputeH()
 {
     PRECOMPUTED_SETS.H = malloc(TOTAL_BALLOTS * sizeof(CombinationSet *));
+#pragma omp parallel for schedule(dynamic)
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
         PRECOMPUTED_SETS.H[b] = malloc(TOTAL_GROUPS * sizeof(CombinationSet));
@@ -110,6 +111,7 @@ void precomputeH()
 void precomputeK()
 {
     PRECOMPUTED_SETS.K = malloc(TOTAL_BALLOTS * sizeof(CombinationSet *));
+#pragma omp parallel for schedule(dynamic)
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
         PRECOMPUTED_SETS.K[b] = malloc(TOTAL_GROUPS * sizeof(CombinationSet));
@@ -247,16 +249,24 @@ double factorial(double n)
  * @return double: The result of the product
  *
  */
+
 double prod(const size_t *hElement, const Matrix *probabilities, const int f)
 {
-    double result = 1;
+    double log_result = 0;
     for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
     {
-        result *= pow(MATRIX_AT_PTR(probabilities, f, c), hElement[c]);
+        double prob = MATRIX_AT_PTR(probabilities, f, c);
+        if (prob == 0.0 && hElement[c] > 0)
+        {
+            return 0.0; // Early exit if probability is zero for a non-zero count
+        }
+        if (prob > 0)
+        {
+            log_result += hElement[c] * log(prob);
+        }
     }
-    return result;
+    return exp(log_result); // Exponentiate the final result
 }
-
 /**
  * @brief Calculate `a` given the multinomial coefficient, subject to the `H` set:
  *
@@ -273,13 +283,17 @@ double prod(const size_t *hElement, const Matrix *probabilities, const int f)
  */
 double multinomialCoeff(const int b, const int f, const size_t *hElement)
 {
-    double result = factorial(MATRIX_AT_PTR(W, b, f)); // Calculate w_bf! GSL_SF_FACT HAVE A MAXIMUM VALUE OF 170.
+    double result = gsl_sf_lngamma((int)MATRIX_AT_PTR(W, b, f) + 1); // ln(w_bf!)
+    printf("\nThe result of ln factorial is\t%1.f\n", gsl_sf_lngamma(MATRIX_AT_PTR(W, b, f)));
+    // double result = factorial(MATRIX_AT_PTR(W, b, f)); // Calculate w_bf! GSL_SF_FACT HAVE A MAXIMUM VALUE OF
+    // 170.
     for (uint16_t i = 0; i < TOTAL_CANDIDATES; i++)
     {
-        result /= factorial(hElement[i]); // Divide by each h_i!
+        printf("\nThe hElement is\t%1.zu\n", hElement[i]);
+        result -= gsl_sf_lngamma(hElement[i] + 1); // Divide by each h_i!
     }
 
-    return result;
+    return exp(result);
 }
 
 /**
@@ -323,6 +337,8 @@ bool ifAllElements(const size_t *hElement, const size_t *kElement)
 
 double computeA(const int b, const int f, const size_t *hElement, const Matrix *probabilities)
 {
+    printf("\nWhen passing to computeA, the multinomial coefficient is %1.f and the product is %1.f",
+           multinomialCoeff(b, f, hElement), prod(hElement, probabilities, f));
     return multinomialCoeff(b, f, hElement) * prod(hElement, probabilities, f);
 }
 
@@ -455,6 +471,7 @@ bool checkNull(const size_t *vector, size_t size)
 
 void recursion2(MemoizationTable *memo, const Matrix *probabilities)
 {
+#pragma omp parallel for
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
         for (uint16_t f = 1; f < TOTAL_GROUPS; f++)
@@ -462,15 +479,20 @@ void recursion2(MemoizationTable *memo, const Matrix *probabilities)
             for (size_t k = 0; k < PRECOMPUTED_SETS.K[b][f].size; k++)
             {
                 size_t *currentK = PRECOMPUTED_SETS.K[b][f].data[k];
+                printf("\nThe current combination vector is:\n");
+                printSizeTVector(currentK, TOTAL_CANDIDATES);
+                printf("\n");
                 for (size_t k2 = 0; k2 < PRECOMPUTED_SETS.K[b][f].size; k2++)
                 {
                     size_t *currentK2 = PRECOMPUTED_SETS.K[b][f].data[k2];
-
+                    printf("\nThe current combination2 vector is:\n");
+                    printSizeTVector(currentK2, TOTAL_CANDIDATES);
+                    printf("\n");
                     if (!ifAllElements(currentK, currentK2)) // Maybe could be optimized
                         continue;
                     // ---- Recursion: compute the value of `a` ----
                     double a = computeA(b, f, currentK2, probabilities);
-
+                    printf("\nThe value a is\t%1.f", a);
                     double valueBefore[TOTAL_CANDIDATES][TOTAL_GROUPS];
                     if (f == 1 && checkNull(currentK2, (size_t)TOTAL_CANDIDATES))
                     {
@@ -511,9 +533,10 @@ void recursion2(MemoizationTable *memo, const Matrix *probabilities)
                         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
                         {
                             double valueNow = getMemoValue(memo, b, f, g, c, currentK, TOTAL_CANDIDATES);
+                            printf("\nThe value retrieved when searching is\t%1.f\n", valueNow);
                             if (valueNow == INVALID)
                             {
-                                setMemoValue(memo, b, f, g, c, currentK, TOTAL_CANDIDATES, 0.0);
+                                valueNow = 0.0;
                             }
                             if (f == g)
                             {
@@ -524,7 +547,11 @@ void recursion2(MemoizationTable *memo, const Matrix *probabilities)
                             {
                                 valueNow += valueBefore[c][g] * a;
                             }
-                            setMemoValue(memo, b, f, g, c, currentK, TOTAL_CANDIDATES, valueNow);
+#pragma omp critical
+                            {
+                                setMemoValue(memo, b, f, g, c, currentK, TOTAL_CANDIDATES, valueNow);
+                                printf("\nThe value to add is:\t%1.f\n", valueNow);
+                            }
                         }
                     }
                 }
@@ -582,8 +609,9 @@ double *computeQExact(const Matrix *probabilities)
     double *array2 = (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double));
     recursion2(table, probabilities);
 
-    // ---- The parallelization would be made on the outer loops. It might cause a problem if the recursion tries to
-    // write at the same location, to be checked. #pragma omp parallel for schedule(dynamic) collapse(2)
+// ---- The parallelization would be made on the outer loops. It might cause a problem if the recursion tries to
+// write at the same location, to be checked.
+#pragma omp parallel for schedule(dynamic) collapse(2)
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For each ballot box
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
@@ -606,6 +634,7 @@ double *computeQExact(const Matrix *probabilities)
                              MATRIX_AT_PTR(probabilities, g, c);
                 // ---- Store the resulting values as q_{bgc}
                 Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num / den;
+                printf("The result stored is %.1f\n", num / den);
             }
         }
     }

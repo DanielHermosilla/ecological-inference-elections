@@ -4,6 +4,8 @@ from time import perf_counter
 from tqdm import tqdm
 import pickle
 
+epsilon = 1e-10  # Small stabilizing value
+
 """Main EM algorithm functions to estimate probability"""
 
 
@@ -255,9 +257,11 @@ def EM_algorithm(
     previous_Q = -np.inf
     previous_ll = -np.inf
     dict_results["end"] = 0  # not converged yet until the time/iteration limit
+    start_iteration = (
+        perf_counter()
+    )  # This iteration starts before the loop NOW, to compare it against C.
     for i in tqdm(range(1, max_iterations + 1), disable=not load_bar):
         # start_iteration = time.time()
-        start_iteration = perf_counter()
         q = q_method(X, p_est, b)
         p_new = compute_p(q, b)
         p_new[np.isnan(p_new)] = 0
@@ -265,22 +269,25 @@ def EM_algorithm(
         # check convergence of p
 
         if (np.abs(p_new - p_est) < convergence_value).all():
+            end_time = perf_counter()
+            run_time = end_time - start_iteration
+            # run_time += perf_counter() - start_iteration
             dict_results["end"] = 1
             if verbose:
                 print(f"Convergence took {i} iterations and {run_time} seconds.")
 
         # update time
-        run_time += perf_counter() - start_iteration
+        # run_time += perf_counter() - start_iteration
 
         # update Q
-        log_p_new = np.where(p_new > 0, np.log(p_new), 0)
+        log_p_new = np.where(p_new > 0, np.log(p_new + epsilon), 0)
         Q = np.sum(b * np.sum(q * log_p_new, axis=2))
         dif_Q = Q - previous_Q
         dict_results["dif_Q"] = dif_Q
         dict_results["Q"] = Q
 
         # compute the other term of the expected log likelihood
-        log_q = np.where(q > 0, np.log(q), 0)
+        log_q = np.where(q > 0, np.log(q + epsilon), 0)
         E_log_q = np.sum(b * np.sum(log_q * q, axis=2))
         dict_results["q"] = q
         dict_results["E_log_q"] = E_log_q
