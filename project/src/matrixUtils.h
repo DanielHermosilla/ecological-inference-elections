@@ -313,4 +313,39 @@ bool convergeMatrix(const Matrix *matrixA, const Matrix *matrixB, const double c
 
 double maxElement(const Matrix *m);
 
+/**
+ * @brief Removes the last column of a matrix.
+ *
+ * @param[in] matrix Pointer to the input matrix.
+ * @return Matrix A new matrix with one less column.
+ *
+ * @note
+ * - The original matrix remains unchanged.
+ * - The memory for the new matrix is dynamically allocated; remember to free it.
+ */
+Matrix removeLastColumn(const Matrix *matrix);
+
+/**
+ * @brief Removes the last row of a matrix.
+ *
+ * @param[in] matrix Pointer to the input matrix.
+ * @return Matrix A new matrix with one less row.
+ *
+ * @note
+ * - The original matrix remains unchanged.
+ * - The memory for the new matrix is dynamically allocated; remember to free it.
+ */
+Matrix removeLastRow(const Matrix *matrix);
+
+/**
+ * @brief Creates a diagonal matrix given a 1D array
+ *
+ * @param[in] vector Pointer to the array.
+ * @param[in] size The size of the array.
+ * @return Matrix A new matrix (size x size) with each element of the array as a diagonal.
+ *
+ * @note
+ * - The original array remains unchanged.
+ */
+Matrix createDiagonalMatrix(const double *vector, int size);
 #endif // MATRIX_UTILS_H

@@ -485,3 +485,101 @@ double maxElement(const Matrix *m)
     }
     return max;
 }
+
+/**
+ * @brief Removes the last row of a matrix.
+ *
+ * @param[in] matrix Pointer to the input matrix.
+ * @return Matrix A new matrix with one less row.
+ *
+ * @note
+ * - The original matrix remains unchanged.
+ * - The memory for the new matrix is dynamically allocated; remember to free it.
+ */
+Matrix removeLastRow(const Matrix *matrix)
+{
+    checkMatrix(matrix); // Validate the matrix
+
+    if (matrix->rows <= 1)
+    {
+        fprintf(stderr, "Matrix must have at least two rows to remove one.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Create a new matrix with one less row
+    Matrix newMatrix = createMatrix(matrix->rows - 1, matrix->cols);
+
+    // Copy all rows except the last one
+    for (int i = 0; i < matrix->rows - 1; i++)
+    {
+        for (int j = 0; j < matrix->cols; j++)
+        {
+            MATRIX_AT(newMatrix, i, j) = MATRIX_AT_PTR(matrix, i, j);
+        }
+    }
+
+    return newMatrix;
+}
+
+/**
+ * @brief Removes the last column of a matrix.
+ *
+ * @param[in] matrix Pointer to the input matrix.
+ * @return Matrix A new matrix with one less column.
+ *
+ * @note
+ * - The original matrix remains unchanged.
+ * - The memory for the new matrix is dynamically allocated; remember to free it.
+ */
+Matrix removeLastColumn(const Matrix *matrix)
+{
+    checkMatrix(matrix); // Validate the matrix
+
+    if (matrix->cols <= 1)
+    {
+        fprintf(stderr, "Matrix must have at least two columns to remove one.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Create a new matrix with one less column
+    Matrix newMatrix = createMatrix(matrix->rows, matrix->cols - 1);
+
+    // Copy all columns except the last one
+    for (int i = 0; i < matrix->rows; i++)
+    {
+        for (int j = 0; j < matrix->cols - 1; j++)
+        {
+            MATRIX_AT(newMatrix, i, j) = MATRIX_AT(matrix, i, j);
+        }
+    }
+
+    return newMatrix;
+}
+
+/**
+ * @brief Creates a diagonal matrix given a 1D array
+ *
+ * @param[in] vector Pointer to the array.
+ * @param[in] size The size of the array.
+ * @return Matrix A new matrix (size x size) with each element of the array as a diagonal.
+ *
+ * @note
+ * - The original array remains unchanged.
+ */
+Matrix createDiagonalMatrix(const double *vector, int size)
+{
+    Matrix diag = createMatrix(size, size);
+
+    if (!diag.data)
+    {
+        fprintf(stderr, "Failed to allocate memory for diagonal matrix.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    for (int i = 0; i < size; i++)
+    {
+        MATRIX_AT(diag, i, i) = vector[i];
+    }
+
+    return diag;
+}
