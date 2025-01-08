@@ -1,7 +1,6 @@
 #include "exact.h"
 #include "globals.h"
 #include "matrixUtils.h"
-#include "memoizationUtil.h"
 #include <cblas.h>
 #include <gsl/gsl_combination.h>
 #include <gsl/gsl_sf_gamma.h>
@@ -18,25 +17,9 @@ typedef struct
     size_t *data;
 } gsl_combination;
 */
-typedef struct
-{
-    size_t **data; // Array of valid combinations
-    size_t size;   // Number of valid combinations
-} CombinationSet;
-
-typedef struct
-{
-    CombinationSet **H; // Precomputed H_bf sets
-    CombinationSet **K; // Precomputed K_bf sets
-} PrecomputedSets;
-
-PrecomputedSets PRECOMPUTED_SETS;
 SizeTMatrix *CANDIDATEARRAYS = NULL;
+gsl_combination ***PRECOMPUTED_H = NULL;
 
-/*
-gsl_combination *gsl_combination_calloc(size_t n, size_t k);
-size_t *gsl_combination_data(const gsl_combination *c);
-*/
 // Funciones utiles;
 // gsl_sl_fact(unsigned int n) Factorial
 //
@@ -56,142 +39,11 @@ lexicographically first combination. A null pointer is returned if insufficient 
 combination.
 */
 
-// void gsl_combination_free(gsl_combination *c);
+/*
+void gsl_combination_free(gsl_combination *c)
 
-void precomputeH()
-{
-    PRECOMPUTED_SETS.H = malloc(TOTAL_BALLOTS * sizeof(CombinationSet *));
-    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    {
-        PRECOMPUTED_SETS.H[b] = malloc(TOTAL_GROUPS * sizeof(CombinationSet));
-        for (uint16_t f = 0; f < TOTAL_GROUPS; f++)
-        {                                     // For all groups, given a arbitrary ballot box
-            int wbf = MATRIX_AT_PTR(W, b, f); // Total votes for group f
-
-            // Initialize the GSL combination generator
-            gsl_combination *Hcomb = gsl_combination_calloc(
-                wbf + TOTAL_CANDIDATES - 1,
-                TOTAL_CANDIDATES - 1); // Generate the combinations, note that the last candidate vote is redundant.
-                                       // That would be used for efficiency purpose.
-
-            size_t **combinations = NULL; // Array of pointers to combinations
-            size_t count = 0;             // Counter for the number of valid combinations
-
-            do
-            {
-                combinations = realloc(combinations, (count + 1) * sizeof(size_t *));
-                combinations[count] = malloc(TOTAL_CANDIDATES * sizeof(size_t));
-
-                const size_t *elements = gsl_combination_data(Hcomb);
-
-                // Fill the current combination
-                for (uint16_t i = 0; i < TOTAL_CANDIDATES; i++)
-                {
-                    combinations[count][i] =
-                        (i < TOTAL_CANDIDATES - 1)
-                            ? elements[i]
-                            : (wbf -
-                               elements[TOTAL_CANDIDATES - 2]); // The redudancy of using TOTAL_CANDIDATES-1 votes.
-                }
-
-                count++;
-            } while (gsl_combination_next(Hcomb) == GSL_SUCCESS);
-
-            gsl_combination_free(Hcomb);
-
-            // Store in the precomputed set
-            PRECOMPUTED_SETS.H[b][f].data = combinations;
-            PRECOMPUTED_SETS.H[b][f].size = count; // Total valid combinations
-        }
-    }
-    printf("Precomputation of H complete.\n");
-}
-
-void precomputeK()
-{
-    PRECOMPUTED_SETS.K = malloc(TOTAL_BALLOTS * sizeof(CombinationSet *));
-    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    {
-        PRECOMPUTED_SETS.K[b] = malloc(TOTAL_GROUPS * sizeof(CombinationSet));
-        for (uint16_t f = 0; f < TOTAL_GROUPS; f++)
-        {
-            int cumulativeVotes = 0;
-            for (uint16_t f_prime = 0; f_prime <= f; f_prime++)
-            {
-                cumulativeVotes += MATRIX_AT_PTR(W, b, f_prime);
-            }
-
-            gsl_combination *Kcomb =
-                gsl_combination_calloc(cumulativeVotes + TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1);
-
-            size_t **combinations = NULL;
-            size_t count = 0;
-
-            do
-            {
-                const size_t *elements = gsl_combination_data(Kcomb);
-                int valid = 1;
-
-                for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-                {
-                    size_t kc = (c < TOTAL_CANDIDATES - 1)
-                                    ? elements[c]
-                                    : (cumulativeVotes -
-                                       elements[TOTAL_CANDIDATES -
-                                                2]); // If the votes for a candidate is bigger than its actual votes
-                    if (kc > MATRIX_AT_PTR(X, c, b))
-                    {
-                        valid = 0;
-                        break;
-                    }
-                }
-
-                if (valid)
-                {
-                    combinations = realloc(combinations, (count + 1) * sizeof(size_t *));
-                    combinations[count] = malloc(TOTAL_CANDIDATES * sizeof(size_t));
-
-                    for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-                    {
-                        combinations[count][c] = (c < TOTAL_CANDIDATES - 1)
-                                                     ? elements[c]
-                                                     : (cumulativeVotes - elements[TOTAL_CANDIDATES - 2]);
-                    }
-                    count++;
-                }
-            } while (gsl_combination_next(Kcomb) == GSL_SUCCESS);
-
-            gsl_combination_free(Kcomb);
-
-            PRECOMPUTED_SETS.K[b][f].data = combinations;
-            PRECOMPUTED_SETS.K[b][f].size = count;
-        }
-    }
-    printf("Precomputation of K complete.\n");
-}
-
-void freePrecomputedSets()
-{
-    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    {
-        for (uint16_t f = 0; f < TOTAL_GROUPS; f++)
-        {
-            for (size_t i = 0; i < PRECOMPUTED_SETS.H[b][f].size; i++)
-                free(PRECOMPUTED_SETS.H[b][f].data[i]);
-            free(PRECOMPUTED_SETS.H[b][f].data);
-
-            for (size_t i = 0; i < PRECOMPUTED_SETS.K[b][f].size; i++)
-                free(PRECOMPUTED_SETS.K[b][f].data[i]);
-            free(PRECOMPUTED_SETS.K[b][f].data);
-        }
-        free(PRECOMPUTED_SETS.H[b]);
-        free(PRECOMPUTED_SETS.K[b]);
-    }
-    free(PRECOMPUTED_SETS.H);
-    free(PRECOMPUTED_SETS.K);
-}
-
-//    This function frees all the memory used by the combination c.
+    This function frees all the memory used by the combination c.
+*/
 
 /**
  * @brief Converts a type `double` array to a `size_t`
@@ -379,6 +231,66 @@ bool filterCombinations(const size_t *hVector, const int b)
 }
 
 /**
+ * @brief Calculate a given `K` set.
+ *
+ * Given the index of the set, it returns the `K` set and its size. Note that it will be an array of arrays. Both arrays
+ * are size_t.
+ *
+ * @param[in] b Index that represents the corresponding ballot.
+ * @param[in] f Index that represents the first `f` groups (starting at 0).
+ * @param[in, out] size The size of the new array.
+ *
+ * @return size_t **: A pointer towards the elements of the array of arrays.
+ *
+ * @note TODO: The while loop could be optimized.
+ *
+ * @warning
+ * - The `f` index cannot be bigger than the total amount of groups.
+ * - The `b` index cannot be bigger than the total ballots.
+ *
+ */
+
+size_t **getK(const int b, const int f, size_t *size) // combination[i][j]; i the combination, j the element
+{
+    if (f >= (int)TOTAL_GROUPS || b >= (int)TOTAL_BALLOTS)
+    {
+        printf("An incorrect index was passed to the `K` set");
+        exit(EXIT_FAILURE);
+    }
+
+    size_t **restriction = NULL;
+    *size = 0;
+
+    int totalVotes = 0; // The total votes accumulated for the first `f` groups
+    for (int i = 0; i < f; i++)
+    {
+        totalVotes += MATRIX_AT_PTR(W, b, i);
+    }
+    gsl_combination *noRestriction = getH(totalVotes, TOTAL_CANDIDATES);
+
+    do // It could be optimized by stepping on a big amount of elements.
+    {
+        const size_t *elementArray = gsl_combination_data(noRestriction);
+
+        if (filterCombinations(elementArray, b))
+        {
+            restriction = realloc(restriction, (*size + 1) * sizeof(size_t *)); // The size of the whole array
+            restriction[*size] = malloc(TOTAL_CANDIDATES * sizeof(size_t)); // The size of a single element (constant)
+
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            {
+                restriction[*size][c] = elementArray[c]; // Copy the element into the array
+            }
+        }
+
+    } while (gsl_combination_next(noRestriction) == GSL_SUCCESS);
+
+    gsl_combination_free(noRestriction);
+
+    return restriction;
+}
+
+/**
  * @brief Calculate the difference between two vectors.
  *
  * Utility function to get the difference between two 1-dimensional arrays.
@@ -452,85 +364,145 @@ bool checkNull(const size_t *vector, size_t size)
     }
     return true;
 }
-
-void recursion2(MemoizationTable *memo, const Matrix *probabilities)
+double recursion2(const int b, const int f, const int g, const int c, size_t *vector, MemoizationTable *memo,
+                  const Matrix *probabilities)
 {
-    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+
+    double result = 0;
+    for (int16_t f = 0; f < TOTAL_GROUPS; f++)
     {
-        for (uint16_t f = 1; f < TOTAL_GROUPS; f++)
+
+        gsl_combination *Hlocal = gsl_combination_alloc(PRECOMPUTED_H[b][f]->n, PRECOMPUTED_H[b][f]->k);
+        gsl_combination_memcpy(Hlocal, PRECOMPUTED_H[b][f]);
+        do // If it's too heavy, parallelize
         {
-            for (size_t k = 0; k < PRECOMPUTED_SETS.K[b][f].size; k++)
+            // ---- Recursion: get a pointer of an element from H ----
+            size_t *hElement = gsl_combination_data(Hlocal);
+            // ---- Recursion: handle case when substraction could be negative (*) ----
+            if (!ifAllElements(hElement, vector))
+                continue;
+
+            double a = computeA(b, f, hElement, probabilities);
+
+            if (f == 1 && checkNull(hElement, (size_t)TOTAL_CANDIDATES))
             {
-                size_t *currentK = PRECOMPUTED_SETS.K[b][f].data[k];
-                for (size_t k2 = 0; k2 < PRECOMPUTED_SETS.K[b][f].size; k2++)
-                {
-                    size_t *currentK2 = PRECOMPUTED_SETS.K[b][f].data[k2];
+                double valueBefore = 1.0;
+            }
+            else if (f == 1 && !checkNull(hElement, (size_t)TOTAL_CANDIDATES))
+            {
+                double valueBefore = 0.0;
+            }
+            else
+            {
+                size_t *substractionVector = malloc((size_t)TOTAL_CANDIDATES * sizeof(size_t));
+                vectorDiff(vector, hElement, substractionVector);
+                double valueBefore = getMemoValue(memo, b, f - 1, g, c, substractionVector, TOTAL_CANDIDATES);
+                free(substractionVector);
+            }
+            for (int16_t g = 0; g < TOTAL_GROUPS; g++)
+            {
+                double result = valueBefore +
+            }
 
-                    if (!ifAllElements(currentK, currentK2)) // Maybe could be optimized
-                        continue;
-                    // ---- Recursion: compute the value of `a` ----
-                    double a = computeA(b, f, currentK2, probabilities);
+        } while (gsl_combination_next(Hlocal) == GSL_SUCCESS); // Recursion: condition to loop over each H element
+    }
+    return result;
+    // ---- End recursion ----
+}
 
-                    double valueBefore[TOTAL_CANDIDATES][TOTAL_GROUPS];
-                    if (f == 1 && checkNull(currentK2, (size_t)TOTAL_CANDIDATES))
-                    {
-                        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-                        {
-                            for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-                            {
-                                valueBefore[c][g] = 1.0;
-                            }
-                        }
-                    }
-                    else if (f == 1 && !checkNull(currentK2, (size_t)TOTAL_CANDIDATES))
-                    {
-                        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-                        {
-                            for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-                            {
-                                valueBefore[c][g] = 0;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        size_t *substractionVector = malloc((size_t)TOTAL_CANDIDATES * sizeof(size_t));
-                        vectorDiff(currentK, currentK2, substractionVector);
-                        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-                        {
-                            for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-                            {
-                                valueBefore[c][g] =
-                                    getMemoValue(memo, b, f - 1, g, c, substractionVector, TOTAL_CANDIDATES);
-                            }
-                        }
-                        free(substractionVector);
-                    }
-                    for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-                    {
-                        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-                        {
-                            double valueNow = getMemoValue(memo, b, f, g, c, currentK, TOTAL_CANDIDATES);
-                            if (valueNow == INVALID)
-                            {
-                                setMemoValue(memo, b, f, g, c, currentK, TOTAL_CANDIDATES, 0.0);
-                            }
-                            if (f == g)
-                            {
-                                valueNow += valueBefore[c][g] * a * currentK2[c] /
-                                            (MATRIX_AT_PTR(probabilities, f, c) * MATRIX_AT_PTR(W, b, f));
-                            }
-                            else
-                            {
-                                valueNow += valueBefore[c][g] * a;
-                            }
-                            setMemoValue(memo, b, f, g, c, currentK, TOTAL_CANDIDATES, valueNow);
-                        }
-                    }
+double recursion(const int b, const int f, const int g, const int c, size_t *vector, MemoizationTable *memo,
+                 const Matrix *probabilities)
+{
+    // If it's already defined, return the defined value instead; at each iteration this condition will be met more
+    // times.
+    printSizeTVector(vector, TOTAL_CANDIDATES);
+    printf("\nUnder the indices of (%d, %d, %d, %d)", b, f, g, c);
+    double currentVal = getMemoValue(memo, b, f, g, c, vector, TOTAL_CANDIDATES);
+    if (currentVal != INVALID)
+    {
+        return currentVal;
+    }
+
+    // ---- Base case ----
+    if (f == 0)
+    {
+        printf("\nIt's the base case");
+        for (uint16_t k = 0; k < TOTAL_CANDIDATES; k++)
+        { // ---- For each candidate
+            if (vector[k] != 0)
+            { // ---- If the vector contains an non zero element; return 0.0
+#pragma omp critical
+                { // ---- Race condition isn't a problem but it might cause memory corruption for the hash table
+                    setMemoValue(memo, b, f, g, c, vector, TOTAL_CANDIDATES, 0.0);
                 }
+                return 0.0;
             }
         }
+// ---- Up to this point, the vector should be full of zeros.
+#pragma omp critical
+        {
+            setMemoValue(memo, b, f, g, c, vector, TOTAL_CANDIDATES, 1.0);
+        }
+        return 1.0;
     }
+    // ---- End base case ----
+
+    // ---- Recursion ----
+    // ---- Recursion: definition of H ----
+    // ---- There will be a copy for handling multithreaded loops, hence, the parallelization would be made starting
+    // this point.
+    double result = 0;
+    gsl_combination *Hlocal = gsl_combination_alloc(PRECOMPUTED_H[b][f]->n, PRECOMPUTED_H[b][f]->k);
+    gsl_combination_memcpy(Hlocal, PRECOMPUTED_H[b][f]);
+    // ---- Recursion: definition of the resulting variable ----
+    // ---- Recursion: loop over H, it must be a summatory ----
+    // ---- The while loop can be parralelized if each thread get its own local copy of Hlocal
+    do // If it's too heavy, parallelize
+    {
+        // ---- Recursion: get a pointer of an element from H ----
+        size_t *hElement = gsl_combination_data(Hlocal);
+        if (!hElement)
+        {
+            fprintf(stderr, "Error: hElement is NULL in b=%d, f=%d\n", b, f);
+            exit(EXIT_FAILURE);
+        }
+        // ---- Recursion: handle case when substraction could be negative (*) ----
+        if (!ifAllElements(hElement, vector))
+            continue;
+        // ---- Recursion: compute the value of `a` ----
+        double a = computeA(b, f, hElement, probabilities);
+        // ---- Recursion: define the vector k-h ----
+        size_t *substractionVector = malloc((size_t)TOTAL_CANDIDATES * sizeof(size_t));
+        vectorDiff(vector, hElement, substractionVector);
+        printf("\nThe substracting vector is:\n");
+        printSizeTVector(substractionVector, TOTAL_CANDIDATES);
+
+        // ---- Recursion: handle case of the additional multiplication ----
+        if (f == g)
+        {
+            double division = MATRIX_AT_PTR(probabilities, f, c) * MATRIX_AT_PTR(W, b, f);
+            result += (recursion(b, f - 1, g, c, substractionVector, memo, probabilities) * a) / division;
+        }
+        else
+        {
+            result += recursion(b, f - 1, g, c, substractionVector, memo, probabilities) * a;
+        }
+        // ---- Recursion: Free the substracting vector
+        free(substractionVector);
+        // ---- Note: the element is defined as a summatory from all elements from H_bf that accomplish (*) ----
+
+    } while (gsl_combination_next(Hlocal) == GSL_SUCCESS); // Recursion: condition to loop over each H element
+
+    // ---- Recursion: free the copy of `H`
+    gsl_combination_free(Hlocal);
+// ---- Recursion: final step, set the hash table to the final value and return it
+#pragma omp critical
+    {
+        setMemoValue(memo, b, f, g, c, vector, TOTAL_CANDIDATES, result);
+    }
+    // ---- Note: the vector that was used as a key will be free'd with the table, since it's a pointer.
+    return result;
+    // ---- End recursion ----
 }
 
 /**
@@ -546,6 +518,7 @@ void recursion2(MemoizationTable *memo, const Matrix *probabilities)
  * @note: A single pointer is used to store the array continously. This is for using cBLAS operations later.
  *
  */
+
 double *computeQExact(const Matrix *probabilities)
 {
 
@@ -567,12 +540,34 @@ double *computeQExact(const Matrix *probabilities)
             }
         }
     }
+
     // ---- Initialize the `H` set, for recicling its values
-    if (PRECOMPUTED_SETS.H == NULL && PRECOMPUTED_SETS.K == NULL)
+    if (PRECOMPUTED_H == NULL)
     {
         printf("Starting the heavy precomputation\n");
-        precomputeH();
-        precomputeK();
+        // ---- Define memory for the b index
+        PRECOMPUTED_H = malloc(TOTAL_BALLOTS * sizeof(gsl_combination **));
+        // ---- Parallelization would be dynamic according the different workload
+        // #pragma omp parallel for collapse(2) schedule(dynamic)
+        for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+        { // ---- For each ballot box
+            // ---- Define memory for the f index
+            PRECOMPUTED_H[b] = malloc(TOTAL_GROUPS * sizeof(gsl_combination *));
+            for (uint16_t f = 0; f < TOTAL_GROUPS; f++)
+            { // ---- For each group
+                // ---- Handle error case where n < k, on that case, just give a "1" vector. Maybe it could change
+                if (MATRIX_AT_PTR(W, b, f) < TOTAL_CANDIDATES)
+                {
+                    PRECOMPUTED_H[b][f] = gsl_combination_calloc((int)TOTAL_CANDIDATES, (int)TOTAL_CANDIDATES);
+                }
+                else
+                {
+                    PRECOMPUTED_H[b][f] = gsl_combination_calloc(
+                        MATRIX_AT_PTR(W, b, f),
+                        (int)TOTAL_CANDIDATES); // Maybe, instead of casting as int use the candidate arrays
+                }
+            }
+        }
     }
 
     printf("Starting the recursion\n");
@@ -580,8 +575,7 @@ double *computeQExact(const Matrix *probabilities)
     MemoizationTable *table = initMemo();
     // ---- Initialize the array to return
     double *array2 = (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double));
-    recursion2(table, probabilities);
-
+    // ---- Initialize the loop for computing each element of q_{bgc}
     // ---- The parallelization would be made on the outer loops. It might cause a problem if the recursion tries to
     // write at the same location, to be checked. #pragma omp parallel for schedule(dynamic) collapse(2)
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
@@ -592,18 +586,18 @@ double *computeQExact(const Matrix *probabilities)
             double den = 0;
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // ---- For each candidate
-              // ---- Add the values of the denominator
-                den += getMemoValue(table, b, TOTAL_GROUPS, g, c, &MATRIX_AT_PTR(CANDIDATEARRAYS, c, b),
-                                    TOTAL_CANDIDATES) *
-                       MATRIX_AT_PTR(probabilities, g, c);
+                // ---- Add the values of the denominator
+                den +=
+                    recursion(b, TOTAL_GROUPS - 1, g, c, &MATRIX_AT_PTR(CANDIDATEARRAYS, c, b), table, probabilities) *
+                    MATRIX_AT_PTR(probabilities, g, c);
             }
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // ---- For each candidate
                 // ---- Compute the numerator; the recursion shouldn't be ran since the denominator initialized the
                 // hashed values.
-                double num = getMemoValue(table, b, TOTAL_GROUPS, g, c, &MATRIX_AT_PTR(CANDIDATEARRAYS, c, b),
-                                          TOTAL_CANDIDATES) *
-                             MATRIX_AT_PTR(probabilities, g, c);
+                double num =
+                    recursion(b, TOTAL_GROUPS - 1, g, c, &MATRIX_AT_PTR(CANDIDATEARRAYS, c, b), table, probabilities) *
+                    MATRIX_AT_PTR(probabilities, g, c);
                 // ---- Store the resulting values as q_{bgc}
                 Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num / den;
             }
@@ -623,5 +617,17 @@ __attribute__((destructor)) void cleanUp()
         CANDIDATEARRAYS = NULL;
     }
     // ---- Destroy the array of precomputed H
-    freePrecomputedSets();
+    if (PRECOMPUTED_H != NULL)
+    {
+        for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+        {
+            for (uint16_t f = 0; f < TOTAL_GROUPS; f++)
+            {
+                gsl_combination_free(PRECOMPUTED_H[b][f]);
+            }
+            free(PRECOMPUTED_H[b]);
+        }
+        free(PRECOMPUTED_H);
+        PRECOMPUTED_H = NULL;
+    }
 }

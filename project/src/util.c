@@ -453,21 +453,20 @@ int main()
 {
     printf("The program is running\n");
 
-    Matrix XX = {.data = NULL, .rows = 0, .cols = 0};
-    Matrix G = {.data = NULL, .rows = 0, .cols = 0};
-    char *method = "multinomial";
-    createInstance(&XX, &G, 42, *method); // TODO: Arreglar esto para poder crear una instancia...
+    // Matrix XX = {.data = NULL, .rows = 0, .cols = 0};
+    // Matrix G = {.data = NULL, .rows = 0, .cols = 0};
+    // char *method = "multinomial";
+    // createInstance(&XX, &G, 42, *method); // TODO: Arreglar esto para poder crear una instancia...
 
     // Matrix matrices[2] = {XX, G};
 
     // writeMatrices("matricesTest3.bin", matrices, 2);
 
-    /*
     Matrix matrixArray[2];
     readMatrices("matricesTest3.bin", matrixArray, 2);
     Matrix XX = matrixArray[0];
     Matrix G = matrixArray[1];
-    */
+
     setParameters(&XX, &G);
     struct timespec start, end; // Start time
 

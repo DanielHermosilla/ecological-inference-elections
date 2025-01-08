@@ -69,10 +69,9 @@ MemoizationTable *initMemo()
  */
 double getMemoValue(MemoizationTable *table, int a, int b, int c, int d, size_t *vector, int vector_size)
 {
-    // ---- Define the entry to be used as a key
     MemoizationEntry *entry;
 
-    // ---- Initialize the entry elements of the struct.
+    // Fill the temporary key structure
     MemoizationKey tempKey;
     tempKey.indices[0] = a;
     tempKey.indices[1] = b;
@@ -81,14 +80,11 @@ double getMemoValue(MemoizationTable *table, int a, int b, int c, int d, size_t 
     tempKey.vector = vector;
     tempKey.vector_size = vector_size;
 
-    // ---- Calculate the hash key
-    uint64_t keyHash = hashKey(&tempKey);
-
-    // ---- Query the element under the hash key
-    HASH_FIND(hh, table->hashmap, &keyHash, sizeof(uint64_t), entry);
+    // Find using the entire key
+    HASH_FIND(hh, table->hashmap, &tempKey, sizeof(MemoizationKey), entry);
 
     if (entry)
-    { // ---- If there's an entry, return the value
+    {
         return entry->value;
     }
     return -1.0; // INVALID
