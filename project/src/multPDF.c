@@ -1,8 +1,10 @@
+#include "multPDF.h"
 #include "globals.h"
 #include "matrixUtils.h"
-#include "multivariateUtils.h"
 #include <cblas.h>
+#include <lapacke.h>
 #include <math.h>
+#include <stdio.h>
 // Calculate Mahalanobis Distance
 // https://en.wikipedia.org/wiki/Mahalanobis_distance
 // Used to check similarity between multicovariate normals.
@@ -36,7 +38,7 @@ void mahanalobis(double *x, double *mu, Matrix *inverseSigma, double *maha, int 
     }
 
     // Compute invs_devs (inverseSigma * diff)
-    cblas_dsymv(CblasRowMajor, CblasUpper, size, 1.0, inverseSigma, size, diff, 1, 0.0, temp, 1);
+    cblas_dsymv(CblasRowMajor, CblasUpper, size, 1.0, inverseSigma->data, size, diff, 1, 0.0, temp, 1);
 
     // Compute Mahalanobis Distance (truncated)
     double mahanobisTruncated = 0.0;
@@ -65,18 +67,22 @@ void mahanalobis(double *x, double *mu, Matrix *inverseSigma, double *maha, int 
 double *computeQforG(int b, int g, const Matrix *probabilities, const Matrix *probabilitiesReduced)
 {
 
-    double *candidateVotesPerBallot = (double *)malloc(TOTAL_CANDIDATES - 1 * sizeof(double));
+    double *candidateVotesPerBallot = (double *)malloc((TOTAL_CANDIDATES - 1) * sizeof(double));
     double *mahalanobisArray = (double *)malloc(TOTAL_CANDIDATES * sizeof(double));
 
     // --- Get the mu and sigma --- All of this depends of "g" and "b"
-    double *mu = (double *)malloc(TOTAL_CANDIDATES - 1 * sizeof(double));
+    double *mu = (double *)malloc((TOTAL_CANDIDATES - 1) * sizeof(double));
     Matrix sigma = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1);
     getAverageConditional(b, g, probabilitiesReduced, mu, &sigma);
-    inverseSymmetricMatrix(&sigma); // Cholensky decomposition for getting sigma ^{-1}
-                                    // --- ... ----
+    // printf("The sigma matrix before inverse is\n");
+    // printMatrix(&sigma);
+    inverseMatrixLU(&sigma); // Cholensky decomposition for getting sigma ^{-1}
+    // printf("After inverse is\n");
+    // printMatrix(&sigma);
+    //  --- ... ----
 
     // --- Calculate the mahanalobis distance --- //
-    for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+    for (uint16_t c = 0; c < TOTAL_CANDIDATES - 1; c++)
     {
         candidateVotesPerBallot[c] = MATRIX_AT_PTR(X, c, b);
     }
@@ -105,25 +111,29 @@ double *computeQforG(int b, int g, const Matrix *probabilities, const Matrix *pr
 
 double *computeQMultivariatePDF(Matrix const *probabilities)
 {
+    printf("The most original probability matrix is");
+    printMatrix(probabilities);
+    Matrix probabilitiesReduced = removeLastColumn(probabilities);
     double *array2 =
         (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double)); // Array to return
 
-#pragma omp parallel for
+    // #pragma omp parallel for
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
+
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         {
-            Matrix probabilitiesReduced = removeLastRow(probabilities);
             double *toInsert = computeQforG(b, g, probabilities, &probabilitiesReduced);
-            freeMatrix(&probabilitiesReduced);
-
+            return array2;
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             {
+                // printf("\nThe value to insert is:\t%.3f\n", toInsert[c]);
                 Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = toInsert[c];
             }
             free(toInsert);
         }
     }
 
+    freeMatrix(&probabilitiesReduced);
     return array2;
 }

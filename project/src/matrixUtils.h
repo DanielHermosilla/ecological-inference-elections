@@ -356,6 +356,17 @@ Matrix createDiagonalMatrix(const double *vector, int size);
  *
  * @note The input matrix must be square and symmetric.
  */
-void inverseSymmetricMatrix(Matrix *matrix);
+void inverseSymmetricPositiveMatrix(Matrix *matrix);
+
+/**
+ * @brief Computes the inverse of a general square matrix using LU decomposition.
+ *
+ * @param[in, out] matrix Pointer to the input matrix (overwritten with the inverse).
+ *
+ * @note The input matrix must be square and invertible.
+ */
+void inverseMatrixLU(Matrix *matrix);
+
+Matrix copyMatrix(const Matrix *original);
 
 #endif // MATRIX_UTILS_H

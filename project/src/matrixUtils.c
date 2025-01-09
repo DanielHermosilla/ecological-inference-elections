@@ -1,5 +1,6 @@
 #include "matrixUtils.h"
 #include <cblas.h>
+#include <lapacke.h>
 #include <math.h>
 #include <omp.h> // Parallelization
 #include <stdbool.h>
@@ -549,7 +550,7 @@ Matrix removeLastColumn(const Matrix *matrix)
     {
         for (int j = 0; j < matrix->cols - 1; j++)
         {
-            MATRIX_AT(newMatrix, i, j) = MATRIX_AT(matrix, i, j);
+            MATRIX_AT(newMatrix, i, j) = MATRIX_AT_PTR(matrix, i, j);
         }
     }
 
@@ -591,7 +592,7 @@ Matrix createDiagonalMatrix(const double *vector, int size)
  *
  * @note The input matrix must be square and symmetric.
  */
-void inverseSymmetricMatrix(Matrix *matrix)
+void inverseSymmetricPositiveMatrix(Matrix *matrix)
 {
     checkMatrix(matrix); // Ensure the matrix is valid
 
@@ -629,4 +630,71 @@ void inverseSymmetricMatrix(Matrix *matrix)
             MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT_PTR(matrix, j, i);
         }
     }
+}
+
+/**
+ * @brief Computes the inverse of a general square matrix using LU decomposition.
+ *
+ * @param[in, out] matrix Pointer to the input matrix (overwritten with the inverse).
+ *
+ * @note The input matrix must be square and invertible.
+ */
+void inverseMatrixLU(Matrix *matrix)
+{
+    checkMatrix(matrix); // Validate the matrix
+
+    if (matrix->rows != matrix->cols)
+    {
+        fprintf(stderr, "Matrix must be square for inversion.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int n = matrix->rows;
+    int *ipiv = malloc(n * sizeof(int)); // Pivot indices for LU decomposition
+    if (!ipiv)
+    {
+        fprintf(stderr, "Failed to allocate memory for pivot indices.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int info;
+
+    // Perform LU decomposition (matrix is overwritten with LU factors)
+    info = LAPACKE_dgetrf(LAPACK_ROW_MAJOR, n, n, matrix->data, n, ipiv);
+    if (info != 0)
+    {
+        fprintf(stderr, "LU decomposition failed. Error code: %d\n", info);
+        free(ipiv);
+        exit(EXIT_FAILURE);
+    }
+
+    // Compute the inverse using the LU decomposition (matrix is overwritten with its inverse)
+    info = LAPACKE_dgetri(LAPACK_ROW_MAJOR, n, matrix->data, n, ipiv);
+    if (info != 0)
+    {
+        fprintf(stderr, "Matrix inversion failed. Error code: %d\n", info);
+        free(ipiv);
+        exit(EXIT_FAILURE);
+    }
+
+    free(ipiv);
+}
+
+Matrix copyMatrix(const Matrix *original)
+{
+    checkMatrix(original); // Ensure the original matrix is valid
+
+    // Create a new matrix with the same dimensions
+    Matrix copy = createMatrix(original->rows, original->cols);
+
+    // Copy the data from the original matrix
+    for (int i = 0; i < original->rows; i++)
+    {
+        for (int j = 0; j < original->cols; j++)
+        {
+            MATRIX_AT(copy, i, j) = MATRIX_AT_PTR(original, i, j);
+        }
+    }
+
+    return copy;
 }

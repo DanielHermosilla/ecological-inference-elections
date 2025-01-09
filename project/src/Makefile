@@ -31,9 +31,9 @@ LDFLAGS_EXEC = -L$(shell R RHOME)/lib \
 # Files and Targets
 LIB_TARGET = libutil.dylib  # Use libutil.so for Linux
 EXEC_TARGET = util_exec     # Name for the executable
-SRCS = util.c matrixUtils.c instanceGenerator.c multinomial.c fileutils.c exact.c memoizationUtil.c
+SRCS = util.c matrixUtils.c instanceGenerator.c multinomial.c fileutils.c exact.c memoizationUtil.c multivariateUtils.c multPDF.c
 OBJS = $(SRCS:.c=.o)
-HEADERS = matrixUtils.h instanceGenerator.h multinomial.h fileutils.h memoizationUtil.h exact.h globals.h uthash.h
+HEADERS = matrixUtils.h instanceGenerator.h multinomial.h fileutils.h memoizationUtil.h exact.h globals.h uthash.h multivariateUtils.h multPDF.h
 
 # Default Rule
 all: $(LIB_TARGET) $(EXEC_TARGET)
@@ -43,8 +43,8 @@ $(LIB_TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $(LIB_TARGET) $(OBJS) $(LDFLAGS_LIB)
 
 # Build Executable
-$(EXEC_TARGET): util.o matrixUtils.o instanceGenerator.o multinomial.o fileutils.o exact.o memoizationUtil.o
-	$(CC) $(CFLAGS) -o $(EXEC_TARGET) util.o matrixUtils.o instanceGenerator.o multinomial.o fileutils.o exact.o memoizationUtil.o $(LDFLAGS_EXEC)
+$(EXEC_TARGET): util.o matrixUtils.o instanceGenerator.o multinomial.o fileutils.o exact.o memoizationUtil.o multivariateUtils.o multPDF.o
+	$(CC) $(CFLAGS) -o $(EXEC_TARGET) util.o matrixUtils.o instanceGenerator.o multinomial.o fileutils.o exact.o memoizationUtil.o multivariateUtils.o multPDF.o $(LDFLAGS_EXEC)
 
 # Build Object Files
 %.o: %.c $(HEADERS)
