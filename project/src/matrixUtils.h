@@ -348,4 +348,14 @@ Matrix removeLastRow(const Matrix *matrix);
  * - The original array remains unchanged.
  */
 Matrix createDiagonalMatrix(const double *vector, int size);
+
+/**
+ * @brief Computes the inverse of a symmetric positive-definite matrix using Cholesky decomposition.
+ *
+ * @param[in, out] matrix Pointer to the input matrix (overwritten with the inverse).
+ *
+ * @note The input matrix must be square and symmetric.
+ */
+void inverseSymmetricMatrix(Matrix *matrix);
+
 #endif // MATRIX_UTILS_H

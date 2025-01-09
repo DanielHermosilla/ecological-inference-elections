@@ -583,3 +583,50 @@ Matrix createDiagonalMatrix(const double *vector, int size)
 
     return diag;
 }
+
+/**
+ * @brief Computes the inverse of a symmetric positive-definite matrix using Cholesky decomposition.
+ *
+ * @param[in, out] matrix Pointer to the input matrix (overwritten with the inverse).
+ *
+ * @note The input matrix must be square and symmetric.
+ */
+void inverseSymmetricMatrix(Matrix *matrix)
+{
+    checkMatrix(matrix); // Ensure the matrix is valid
+
+    if (matrix->rows != matrix->cols)
+    {
+        fprintf(stderr, "Matrix must be square for inversion.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int n = matrix->rows;
+    int lda = n; // Leading dimension (number of columns in row-major storage)
+    int info;
+
+    // Cholesky Decomposition (L * L^T = A)
+    info = LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'L', n, matrix->data, lda);
+    if (info != 0)
+    {
+        fprintf(stderr, "Cholesky decomposition failed. Error code: %d\n", info);
+        exit(EXIT_FAILURE);
+    }
+
+    // Invert the Cholesky Factorization
+    info = LAPACKE_dpotri(LAPACK_ROW_MAJOR, 'L', n, matrix->data, lda);
+    if (info != 0)
+    {
+        fprintf(stderr, "Matrix inversion failed after Cholesky decomposition. Error code: %d\n", info);
+        exit(EXIT_FAILURE);
+    }
+
+    // Fill the upper triangle of the inverse matrix
+    for (int i = 0; i < n; i++)
+    {
+        for (int j = i + 1; j < n; j++)
+        {
+            MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT_PTR(matrix, j, i);
+        }
+    }
+}

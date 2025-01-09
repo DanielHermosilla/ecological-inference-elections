@@ -1,87 +1,129 @@
+#include "globals.h"
 #include "matrixUtils.h"
+#include "multivariateUtils.h"
 #include <cblas.h>
+#include <math.h>
 // Calculate Mahalanobis Distance
 // https://en.wikipedia.org/wiki/Mahalanobis_distance
 // Used to check similarity between multicovariate normals.
 // x; observation
 // mu; average
-// cov_inv; inverse of the covariate matrix
+// inverseSigma; inverse of the covariate matrix
 //
 // $$d = \sqrt{(\vec{x}-\vec{mu})\sigma^{-1}(\vec{x}-\vec{mu})}$$
 //
-void mahalanobis(double *x, double *mu, double *cov_inv, double *maha, int size)
+
+/**
+ * @brief Computes the Mahalanobis distance with last candidate adjustment.
+ *
+ * @param[in] x Pointer to the input feature vector (size C-1).
+ * @param[in] mu Pointer to the mean vector (size C-1).
+ * @param[in] inverseSigma Pointer to the inverse covariance matrix (size (C-1) x (C-1)).
+ * @param[out] maha Pointer to the resulting Mahalanobis distances (size C).
+ * @param[in] size Size of the truncated candidate space (C-1).
+ */
+void mahanalobis(double *x, double *mu, Matrix *inverseSigma, double *maha, int size)
 {
     double diff[size];
     double temp[size];
+    double invs_devs[size];
+    double diagonalInverse[size];
 
-    // Computes (x-mu)
+    // Computes (x - mu)
     for (int i = 0; i < size; i++)
     {
         diff[i] = x[i] - mu[i];
     }
 
-    // Computes in temp[size] the multiplication of (\sigma^{-1})*diff. It's a multiplication of a matrix with a vector.
-    cblas_dsymv(CblasRowMajor, CblasUpper, size, 1.0, cov_inv, size, diff, 1, 0.0, temp, 1);
+    // Compute invs_devs (inverseSigma * diff)
+    cblas_dsymv(CblasRowMajor, CblasUpper, size, 1.0, inverseSigma, size, diff, 1, 0.0, temp, 1);
 
-    // Computes the final product, that being (x-u)^T*temp. That's a dot product.
-    double result = 0.0;
+    // Compute Mahalanobis Distance (truncated)
+    double mahanobisTruncated = 0.0;
     for (int i = 0; i < size; i++)
     {
-        result += diff[i] * temp[i];
+        // The second parenthesis
+        mahanobisTruncated += diff[i] * temp[i];
+        invs_devs[i] = temp[i]; // Store intermediate results
     }
-    *maha = result; // The result is squared since the approximate uses the squared result.
+
+    maha[size] = mahanobisTruncated; // Last element is used as a reference
+
+    // Extract diagonal inverses
+    for (int i = 0; i < size; i++)
+    {
+        diagonalInverse[i] = MATRIX_AT_PTR(inverseSigma, i, i);
+    }
+
+    // Correct Mahalanobis Distance for all candidates
+    for (int i = 0; i < size; i++)
+    {
+        maha[i] = maha[size] - 2 * invs_devs[i] + diagonalInverse[i];
+    }
 }
 
-void compute_qm_mvn_pdf(double *n_trunc, double *p, double *p_trunc, double *b_m, double *diag_p, double *p_g_squared,
-                        double *q_m)
+double *computeQforG(int b, int g, const Matrix *probabilities, const Matrix *probabilitiesReduced)
 {
-    int I = TOTAL_CANDIDATES - 1;
-    double mu[I - 1] = {0};
-    double cov[(I - 1) * (I - 1)] = {0};
-    double covs_U[G * (I - 1) * (I - 1)] = {0};
-    double mus_U[G * (I - 1)] = {0};
-    double vals_U[(I - 1)] = {0};           // Eigenvalues
-    double vecs_U[(I - 1) * (I - 1)] = {0}; // Eigenvectors
-    double maha[G * I] = {0};
 
-    // Step 1: Calculate mu = b_m @ p_trunc
-    cblas_dgemv(CblasRowMajor, CblasNoTrans, G, I - 1, 1.0, p_trunc, I - 1, b_m, 1, 0.0, mu, 1);
+    double *candidateVotesPerBallot = (double *)malloc(TOTAL_CANDIDATES - 1 * sizeof(double));
+    double *mahalanobisArray = (double *)malloc(TOTAL_CANDIDATES * sizeof(double));
 
-    // Step 2: Calculate Covariance Matrix
-    for (int i = 0; i < I - 1; i++)
+    // --- Get the mu and sigma --- All of this depends of "g" and "b"
+    double *mu = (double *)malloc(TOTAL_CANDIDATES - 1 * sizeof(double));
+    Matrix sigma = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1);
+    getAverageConditional(b, g, probabilitiesReduced, mu, &sigma);
+    inverseSymmetricMatrix(&sigma); // Cholensky decomposition for getting sigma ^{-1}
+                                    // --- ... ----
+
+    // --- Calculate the mahanalobis distance --- //
+    for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
     {
-        cov[i * (I - 1) + i] = mu[i] - p_trunc[i];
+        candidateVotesPerBallot[c] = MATRIX_AT_PTR(X, c, b);
+    }
+    mahanalobis(candidateVotesPerBallot, mu, &sigma, mahalanobisArray,
+                TOTAL_CANDIDATES - 1); // Vector of size "c" with all the distances
+    // --- ... ---
+
+    double *toReturn = (double *)malloc(TOTAL_CANDIDATES * sizeof(double));
+
+    double den = 0;
+    for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+    {
+        toReturn[c] = exp(-0.5 * mahalanobisArray[c]) * MATRIX_AT_PTR(probabilities, g, c);
+        den += toReturn[c];
     }
 
-    // Step 3: Eigen Decomposition
-    LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'V', 'U', I - 1, cov, I - 1, vals_U);
-
-    // Step 4: Mahalanobis Distance
-    for (int g = 0; g < G; g++)
+    for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
     {
-        mahalanobis_distance(n_trunc, &mus_U[g * (I - 1)], cov, &maha[g * I], I - 1);
+        toReturn[c] /= den;
     }
 
-    // Step 5: Probability Calculation
-    for (int g = 0; g < G; g++)
+    free(candidateVotesPerBallot);
+    free(mahalanobisArray);
+    return toReturn;
+}
+
+double *computeQMultivariatePDF(Matrix const *probabilities)
+{
+    double *array2 =
+        (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double)); // Array to return
+
+#pragma omp parallel for
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
-        for (int i = 0; i < I; i++)
+        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         {
-            q_m[g * I + i] = exp(-0.5 * maha[g * I + i]) * p[g * I + i];
+            Matrix probabilitiesReduced = removeLastRow(probabilities);
+            double *toInsert = computeQforG(b, g, probabilities, &probabilitiesReduced);
+            freeMatrix(&probabilitiesReduced);
+
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            {
+                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = toInsert[c];
+            }
+            free(toInsert);
         }
     }
 
-    // Step 6: Normalize
-    for (int g = 0; g < G; g++)
-    {
-        double sum = 0.0;
-        for (int i = 0; i < I; i++)
-        {
-            sum += q_m[g * I + i];
-        }
-        for (int i = 0; i < I; i++)
-        {
-            q_m[g * I + i] /= sum;
-        }
-    }
+    return array2;
 }
