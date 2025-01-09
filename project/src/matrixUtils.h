@@ -369,4 +369,26 @@ void inverseMatrixLU(Matrix *matrix);
 
 Matrix copyMatrix(const Matrix *original);
 
+/**
+ * @brief Extracts the n-th row of a matrix as a dynamically allocated array.
+ *
+ * @param[in] matrix Pointer to the input matrix.
+ * @param[in] rowIndex The index of the row to extract (0-based).
+ * @return double* A dynamically allocated array containing the row elements.
+ *
+ * @note The caller is responsible for freeing the returned array.
+ */
+double *getRow(const Matrix *matrix, int rowIndex);
+
+/**
+ * @brief Extracts the n-th column of a matrix as a dynamically allocated array.
+ *
+ * @param[in] matrix Pointer to the input matrix.
+ * @param[in] colIndex The index of the column to extract (0-based).
+ * @return double* A dynamically allocated array containing the column elements.
+ *
+ * @note The caller is responsible for freeing the returned array.
+ */
+double *getColumn(const Matrix *matrix, int colIndex);
+
 #endif // MATRIX_UTILS_H

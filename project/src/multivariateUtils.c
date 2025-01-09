@@ -25,7 +25,7 @@
  *
  */
 
-void getParams(int b, int g, const Matrix *probabilitiesReduced, double *mu, Matrix *sigma)
+void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *sigma)
 {
 
     // mu MUST be of size TOTAL_CANDIDATES-1
@@ -75,11 +75,11 @@ void getParams(int b, int g, const Matrix *probabilitiesReduced, double *mu, Mat
     // printMatrix(probabilitiesReduced);
 
     Matrix temp = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_GROUPS);
-    printf("Created temp, an empty matrix, that is:");
-    printMatrix(&temp);
-    printf("Going to multiplicate p^T*diag(w_b) as\n");
-    printMatrix(probabilitiesReduced);
-    printMatrix(&diagonalVotesPerBallot);
+    // printf("Created temp, an empty matrix, that is:");
+    // printMatrix(&temp);
+    // printf("Going to multiplicate p^T*diag(w_b) as\n");
+    // printMatrix(probabilitiesReduced);
+    // printMatrix(&diagonalVotesPerBallot);
     // Compute p^T * diag(w_b)
     cblas_dgemm(CblasRowMajor,               // Row-major order
                 CblasNoTrans,                // No transpose (Matrix A => p^T)
@@ -97,12 +97,12 @@ void getParams(int b, int g, const Matrix *probabilitiesReduced, double *mu, Mat
                 TOTAL_GROUPS);               // Leading dimension
 
     // Result is (c-1, g)
-    printf("The first product is\n");
-    printMatrix(&temp);
+    // printf("The first product is\n");
+    // printMatrix(&temp);
     //  Compute (p^T * diag(w_b)) * p
-    printf("Going to multiplicate [p^T*diag(w_b)]*p as\n");
-    printMatrix(&temp);
-    printMatrix(probabilitiesReduced);
+    // printf("Going to multiplicate [p^T*diag(w_b)]*p as\n");
+    // printMatrix(&temp);
+    // printMatrix(probabilitiesReduced);
     cblas_dgemm(CblasRowMajor,              // Row-major order
                 CblasNoTrans,               // No transpose
                 CblasTrans,                 // No transpose
@@ -118,17 +118,17 @@ void getParams(int b, int g, const Matrix *probabilitiesReduced, double *mu, Mat
                 sigma->data,                // Output Σ_b
                 TOTAL_CANDIDATES - 1);      // Leading dimension
 
-    printf("The second product is\n");
-    printMatrix(sigma);
+    // printf("The second product is\n");
+    // printMatrix(sigma);
     //  Subtract diag(μ_b)
-    printf("\nSubstracting mu of the diagonal, whom elements are:\n");
+    // printf("\nSubstracting mu of the diagonal, whom elements are:\n");
     for (int i = 0; i < TOTAL_CANDIDATES - 1; i++)
     {
-        printf("%.3f, ", mu[i]);
+        // printf("%.3f, ", mu[i]);
         MATRIX_AT_PTR(sigma, i, i) = mu[i] - MATRIX_AT_PTR(sigma, i, i);
     }
-    printf("\nFinal matrix is");
-    printMatrix(sigma);
+    // printf("\nFinal matrix is");
+    //  printMatrix(sigma);
     freeMatrix(&temp);
     freeMatrix(&diagonalVotesPerBallot);
     free(groupVotesPerBallot);
@@ -154,13 +154,12 @@ void getParams(int b, int g, const Matrix *probabilitiesReduced, double *mu, Mat
  *
  */
 
-void getAverageConditional(int b, int g, const Matrix *probabilitiesReduced, Matrix *conditionalMu,
-                           Matrix *conditionalSigma)
+void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *conditionalMu, Matrix **conditionalSigma)
 {
     // ---- Get the parameters of the unconditional probability ---- //
     double *newMu = (double *)malloc((TOTAL_CANDIDATES - 1) * sizeof(double));
     Matrix newSigma = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1);
-    getParams(b, g, probabilitiesReduced, newMu, &newSigma);
+    getParams(b, probabilitiesReduced, newMu, &newSigma);
     // ---- ... ----
 
     // ---- Computation for mu ---- //
@@ -172,9 +171,9 @@ void getAverageConditional(int b, int g, const Matrix *probabilitiesReduced, Mat
         }
     }
     free(newMu);
-    printf("\nThe new mu for the conditional probability is mu - p_g:\n");
-    printMatrix(conditionalMu);
-    // ---- ... ---- //
+    // printf("\nThe new mu for the conditional probability is mu - p_g:\n");
+    //   printMatrix(conditionalMu);
+    //  ---- ... ---- //
 
     // ---- Get the parameters for the conditional sigma ---- //
 
@@ -183,11 +182,7 @@ void getAverageConditional(int b, int g, const Matrix *probabilitiesReduced, Mat
     Matrix *diagonalProbabilities = (Matrix *)malloc((TOTAL_GROUPS) * sizeof(Matrix));
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     {
-        probabilitiesForG[g] = (double *)malloc(((TOTAL_CANDIDATES - 1) * sizeof(double)));
-        for (uint16_t c = 0; c < TOTAL_CANDIDATES - 1; c++)
-        {
-            probabilitiesForG[g][c] = MATRIX_AT_PTR(probabilitiesReduced, g, c);
-        }
+        probabilitiesForG[g] = getRow(probabilitiesReduced, g);
         diagonalProbabilities[g] = createDiagonalMatrix(probabilitiesForG[g], TOTAL_CANDIDATES - 1);
     }
 
@@ -206,19 +201,18 @@ void getAverageConditional(int b, int g, const Matrix *probabilitiesReduced, Mat
     // $$\sigma_b = diag(p_{g}^{t})-p^{t}_{g}p_{g}$$
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     {
-        Matrix sigmaG = copyMatrix(&newSigma);
+        //*conditionalSigma[g] = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1);
         for (uint16_t i = 0; i < TOTAL_CANDIDATES - 1; i++)
         {
             for (uint16_t j = 0; j < TOTAL_CANDIDATES - 1; j++)
             {
-                MATRIX_AT(conditionalSigma[g], i, j) =
-                    MATRIX_AT(sigmaG, i, j) - MATRIX_AT(matrixMultiplications[g], i, j);
+                MATRIX_AT_PTR(conditionalSigma[g], i, j) =
+                    MATRIX_AT(newSigma, i, j) - MATRIX_AT(matrixMultiplications[g], i, j);
                 if (i == j)
                 {
-                    MATRIX_AT(conditionalSigma[g], i, j) = MATRIX_AT(diagonalProbabilities[g], i, j);
+                    MATRIX_AT_PTR(conditionalSigma[g], i, j) -= MATRIX_AT(diagonalProbabilities[g], i, j);
                 }
             }
-            freeMatrix(&sigmaG);
         }
         freeMatrix(&matrixMultiplications[g]);
         freeMatrix(&diagonalProbabilities[g]);

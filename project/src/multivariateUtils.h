@@ -10,7 +10,6 @@
  * Computes the first and second moments of an approximated Multivariate Normal distribution.
  *
  * @param[in] b The index of the ballot box
- * @param[in] g The index of the group
  * @param[in] *probabilitiesReduce Matrix of dimension (gxc-1) with the probabilities of each group and candidate,
  * except the last one. Consider that the information of the last candidate is redundant. The probability matrix could
  * be reduced with the "removeRows()" function from matrixUtils.
@@ -23,28 +22,27 @@
  *
  */
 
-void getParams(int b, int g, const Matrix *probabilitiesReduced, double *mu, Matrix *sigma);
+void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *sigma);
 
 /**
  * @brief Computes the parameters of the conditional probability
  *
  * Computes the first and second moments of an approximated Multivariate Normal distribution conditional to the results
- * of a group.
+ * of a ballot box.
  *
  * @param[in] b The index of the ballot box
- * @param[in] g The index of the group
  * @param[in] *probabilitiesReduce Matrix of dimension (gxc-1) with the probabilities of each group and candidate,
  * except the last one. Consider that the information of the last candidate is redundant. The probability matrix could
- * be reduced with the "removeRows()" function from matrixUtils.
- * @param[in, out] *newMu An array of size c-1 to store the results of the average.
- * @param[in, out] *newSigma A matrix of size (c-1, c-1) to store the sigma matrix.
+ * be reduced with the "removeCols()" function from matrixUtils.
+ * @param[in, out] *conditionalMu A matrix of size (gxc-1) that stores the average of each candidate given a group.
+ * @param[in, out] *newSigma An array of matrices of size `g` that stores matrices of size (c-1, c-1) that represents
+ * the sigma of each group.
  *
  * @warning Remember to eliminate one dimension for candidates.
  *
  * @return void. Results to be written on mu and sigma.
  *
  */
-
-void getAverageConditional(int b, int g, const Matrix *probabilitiesReduced, double *newMu, Matrix *newSigma);
+void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *conditionalMu, Matrix **conditionalSigma);
 
 #endif

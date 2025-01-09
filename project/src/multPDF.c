@@ -64,48 +64,71 @@ void mahanalobis(double *x, double *mu, Matrix *inverseSigma, double *maha, int 
     }
 }
 
-double *computeQforG(int b, int g, const Matrix *probabilities, const Matrix *probabilitiesReduced)
+Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *probabilitiesReduced)
 {
 
-    double *candidateVotesPerBallot = (double *)malloc((TOTAL_CANDIDATES - 1) * sizeof(double));
-    double *mahalanobisArray = (double *)malloc(TOTAL_CANDIDATES * sizeof(double));
+    // --- Get the mu and sigma --- Arrays and matrices since it depends on g
+    Matrix muR = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES - 1);
+    Matrix **sigma = (Matrix **)malloc(TOTAL_GROUPS * sizeof(Matrix *));
+    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+    {
+        sigma[g] = (Matrix *)malloc(sizeof(Matrix));
+        *sigma[g] = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1); // Initialize
+    }
 
-    // --- Get the mu and sigma --- All of this depends of "g" and "b"
-    double *mu = (double *)malloc((TOTAL_CANDIDATES - 1) * sizeof(double));
-    Matrix sigma = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1);
-    getAverageConditional(b, g, probabilitiesReduced, mu, &sigma);
-    // printf("The sigma matrix before inverse is\n");
-    // printMatrix(&sigma);
-    inverseMatrixLU(&sigma); // Cholensky decomposition for getting sigma ^{-1}
+    getAverageConditional(b, probabilitiesReduced, &muR, sigma);
+    // ---- ... ----
+
+    // ---- Get the inverse matrix for each sigma ---- //
+    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+    {
+        inverseMatrixLU(sigma[g]);
+    }
+    // ---- ... ----
     // printf("After inverse is\n");
     // printMatrix(&sigma);
     //  --- ... ----
 
     // --- Calculate the mahanalobis distance --- //
-    for (uint16_t c = 0; c < TOTAL_CANDIDATES - 1; c++)
+    double **mahanalobisDistances = (double **)malloc(TOTAL_GROUPS * sizeof(double *));
+
+    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     {
-        candidateVotesPerBallot[c] = MATRIX_AT_PTR(X, c, b);
+        mahanalobisDistances[g] = (double *)malloc(TOTAL_CANDIDATES * sizeof(double));
+        double *feature = getColumn(X, b);
+        double *muG = getRow(&muR, g);
+        mahanalobis(feature, muG, sigma[g], mahanalobisDistances[g], TOTAL_CANDIDATES - 1);
+        freeMatrix(sigma[g]);
+        free(feature);
+        free(muG);
     }
-    mahanalobis(candidateVotesPerBallot, mu, &sigma, mahalanobisArray,
-                TOTAL_CANDIDATES - 1); // Vector of size "c" with all the distances
-    // --- ... ---
+    free(sigma);
+    freeMatrix(&muR);
+    // --- .... ---
 
-    double *toReturn = (double *)malloc(TOTAL_CANDIDATES * sizeof(double));
+    // --- Calculate the returning values ---
+    Matrix toReturn = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES);
 
-    double den = 0;
-    for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     {
-        toReturn[c] = exp(-0.5 * mahalanobisArray[c]) * MATRIX_AT_PTR(probabilities, g, c);
-        den += toReturn[c];
-    }
+        double den = 0;
+        double *QC = (double *)calloc(TOTAL_CANDIDATES, sizeof(double)); // Value of Q on candidate C
 
-    for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-    {
-        toReturn[c] /= den;
-    }
+        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+        {
 
-    free(candidateVotesPerBallot);
-    free(mahalanobisArray);
+            QC[c] = exp(-0.5 * mahanalobisDistances[g][c]) * MATRIX_AT_PTR(probabilities, g, c);
+            den += QC[c];
+        }
+        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+        {
+            MATRIX_AT(toReturn, g, c) = QC[c] / den;
+        }
+        free(mahanalobisDistances[g]);
+        free(QC);
+    }
+    free(mahanalobisDistances); // Might have to remove
+
     return toReturn;
 }
 
@@ -121,19 +144,26 @@ double *computeQMultivariatePDF(Matrix const *probabilities)
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
 
+        Matrix resultsForB = computeQforABallot((int)b, probabilities, &probabilitiesReduced);
+        printf("\nThe results for %d ballot is:\n", b);
+        printMatrix(&resultsForB);
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         {
-            double *toInsert = computeQforG(b, g, probabilities, &probabilitiesReduced);
-            return array2;
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             {
-                // printf("\nThe value to insert is:\t%.3f\n", toInsert[c]);
-                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = toInsert[c];
+                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = MATRIX_AT(resultsForB, g, c);
             }
-            free(toInsert);
         }
+        freeMatrix(&resultsForB);
     }
 
     freeMatrix(&probabilitiesReduced);
+    printf("The array to return is:\n");
+    printf("[");
+    for (int a = 0; a < (int)TOTAL_BALLOTS * (int)TOTAL_CANDIDATES * (int)TOTAL_GROUPS; a++)
+    {
+        printf("%.4f, ", array2[a]);
+    }
+    printf("]");
     return array2;
 }

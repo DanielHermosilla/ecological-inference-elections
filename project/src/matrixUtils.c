@@ -698,3 +698,75 @@ Matrix copyMatrix(const Matrix *original)
 
     return copy;
 }
+
+/**
+ * @brief Extracts the n-th row of a matrix as a dynamically allocated array.
+ *
+ * @param[in] matrix Pointer to the input matrix.
+ * @param[in] rowIndex The index of the row to extract (0-based).
+ * @return double* A dynamically allocated array containing the row elements.
+ *
+ * @note The caller is responsible for freeing the returned array.
+ */
+double *getRow(const Matrix *matrix, int rowIndex)
+{
+    checkMatrix(matrix); // Ensure the matrix is valid
+
+    if (rowIndex < 0 || rowIndex >= matrix->rows)
+    {
+        fprintf(stderr, "Row index out of bounds: %d\n", rowIndex);
+        exit(EXIT_FAILURE);
+    }
+
+    // Allocate memory for the row
+    double *row = (double *)malloc(matrix->cols * sizeof(double));
+    if (!row)
+    {
+        fprintf(stderr, "Failed to allocate memory for row.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Copy the elements of the row
+    for (int j = 0; j < matrix->cols; j++)
+    {
+        row[j] = MATRIX_AT_PTR(matrix, rowIndex, j);
+    }
+
+    return row;
+}
+
+/**
+ * @brief Extracts the n-th column of a matrix as a dynamically allocated array.
+ *
+ * @param[in] matrix Pointer to the input matrix.
+ * @param[in] colIndex The index of the column to extract (0-based).
+ * @return double* A dynamically allocated array containing the column elements.
+ *
+ * @note The caller is responsible for freeing the returned array.
+ */
+double *getColumn(const Matrix *matrix, int colIndex)
+{
+    checkMatrix(matrix); // Ensure the matrix is valid
+
+    if (colIndex < 0 || colIndex >= matrix->cols)
+    {
+        fprintf(stderr, "Column index out of bounds: %d\n", colIndex);
+        exit(EXIT_FAILURE);
+    }
+
+    // Allocate memory for the column
+    double *column = (double *)malloc(matrix->rows * sizeof(double));
+    if (!column)
+    {
+        fprintf(stderr, "Failed to allocate memory for column.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Copy the elements of the column
+    for (int i = 0; i < matrix->rows; i++)
+    {
+        column[i] = MATRIX_AT_PTR(matrix, i, colIndex);
+    }
+
+    return column;
+}
