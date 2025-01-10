@@ -8,7 +8,7 @@
 /**
  * @brief Computes an approximate conditional probability using a Multivariate PDF approach.
  *
- * @param[in] probabilities    Matrix (g x c) - probabilities of each group and candidate.
+ * @param[in] probabilities Matrix (g x c) - probabilities of each group and candidate.
  *
  * @return A pointer to a flattened 3D array (b x g x c) representing the probabilities.
  */

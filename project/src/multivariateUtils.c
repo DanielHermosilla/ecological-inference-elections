@@ -28,8 +28,8 @@
 void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *sigma)
 {
 
-    // mu MUST be of size TOTAL_CANDIDATES-1
-    // sigma MUST be of size TOTAL_CANDIDATES-1xTOTAL_CANDIDATES-1
+    // ---- Check parameters ---- //
+    // ---- Note: Mu must be of size TOTAL_CANDIDATES-1 and sigma of size (TOTAL_CANDIDATES-1xTOTAL_CANDIDATES-1) ----
     if (probabilitiesReduced->cols != TOTAL_CANDIDATES - 1)
     {
         fprintf(
@@ -44,14 +44,14 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
         fprintf(stderr, "The `w` and `x` matrices aren't defined.\n");
         exit(EXIT_FAILURE);
     }
+    // --- ... --- //
 
-    double *groupVotesPerBallot = (double *)malloc(TOTAL_GROUPS * sizeof(double));
-    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-    {
-        groupVotesPerBallot[g] = MATRIX_AT_PTR(W, b, g);
-    }
+    // --- Calculations --- //
+    // ---- The votes that a group has made on a given ballot ----
+    double *groupVotesPerBallot = getRow(W, b);
 
-    // ---- Computation of mu ---- //
+    // ---- Computation of mu ----
+    // ---- Performing the matrix multiplication of p^T * w_b
     cblas_dgemv(CblasRowMajor,              // Row-major order
                 CblasTrans,                 // Transpose the matrix (p^T)
                 TOTAL_GROUPS,               // Rows of original matrix (G)
@@ -65,22 +65,13 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
                 mu,                         // Output vector μ
                 1                           // Increment for y
     );
-    // free(groupVotesPerBallot);
 
-    // ---- Computation of sigma ---- //
+    // ---- Computation of sigma ----
+    // ---- Get a diagonal matrix with the group votes on a given ballot ----
     Matrix diagonalVotesPerBallot = createDiagonalMatrix(groupVotesPerBallot, TOTAL_GROUPS);
-    // printf("The diagonal votes per ballot matrix is\n");
-    // printMatrix(&diagonalVotesPerBallot);
-    // printf("The probabilities reduced matrix is\n");
-    // printMatrix(probabilitiesReduced);
-
+    // ---- Temporary matrix to store results ----
     Matrix temp = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_GROUPS);
-    // printf("Created temp, an empty matrix, that is:");
-    // printMatrix(&temp);
-    // printf("Going to multiplicate p^T*diag(w_b) as\n");
-    // printMatrix(probabilitiesReduced);
-    // printMatrix(&diagonalVotesPerBallot);
-    // Compute p^T * diag(w_b)
+    // ---- Calculates the matrix multiplication of p^T * diag(w_b); result must be (C-1 x G) ----
     cblas_dgemm(CblasRowMajor,               // Row-major order
                 CblasTrans,                  // No transpose (Matrix A => p^T)
                 CblasNoTrans,                // No transpose
@@ -96,13 +87,7 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
                 temp.data,                   // Output matrix
                 TOTAL_GROUPS);               // Leading dimension
 
-    // Result is (c-1, g)
-    // printf("The first product is\n");
-    // printMatrix(&temp);
-    //  Compute (p^T * diag(w_b)) * p
-    // printf("Going to multiplicate [p^T*diag(w_b)]*p as\n");
-    // printMatrix(&temp);
-    // printMatrix(probabilitiesReduced);
+    // ---- Calculates the matrix multiplication of (p^T * diag(w_b)) * p; result must be (C-1 x C-1) ----
     cblas_dgemm(CblasRowMajor,              // Row-major order
                 CblasNoTrans,               // No transpose
                 CblasNoTrans,               // No transpose
@@ -118,30 +103,26 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
                 sigma->data,                // Output Σ_b
                 TOTAL_CANDIDATES - 1);      // Leading dimension
 
-    // printf("The second product is\n");
-    // printMatrix(sigma);
-    //  Subtract diag(μ_b)
-    // printf("\nSubstracting mu of the diagonal, whom elements are:\n");
-    //
-    // This could be optimized with the blas call too
+    // ---- Substract the diagonal with the average ----
+    // ---- Note: This could be optimized with a cBLAS call too ----
+
     for (int j = 0; j < TOTAL_CANDIDATES - 1; j++)
-    {
+    { // ---- For each candidate
         for (int i = 0; i < TOTAL_CANDIDATES - 1; i++)
-        {
-            // printf("%.3f, ", mu[i]);
+        { // ---- For each candidate given another candidate
             if (i == j)
-            {
+            { // ---- If it corresponds to a diagonal, substract diagonal
                 MATRIX_AT_PTR(sigma, i, j) = mu[i] - MATRIX_AT_PTR(sigma, i, j);
                 continue;
             }
             MATRIX_AT_PTR(sigma, i, j) = -MATRIX_AT_PTR(sigma, i, j);
         }
     }
-    // printf("\nFinal matrix is");
-    //  printMatrix(sigma);
+    //  ---- Free alocated memory ----
     freeMatrix(&temp);
     freeMatrix(&diagonalVotesPerBallot);
     free(groupVotesPerBallot);
+    // --- ... --- //
 }
 
 /**
@@ -174,61 +155,70 @@ void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *co
 
     // ---- Computation for mu ---- //
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-    {
+    { // ---- For each group
         for (uint16_t c = 0; c < TOTAL_CANDIDATES - 1; c++)
-        {
+        { // ---- For each candidate given a group
             MATRIX_AT_PTR(conditionalMu, g, c) = newMu[c] - MATRIX_AT_PTR(probabilitiesReduced, g, c);
         }
     }
+    // ---- The original mu isn't needed anymore ---- //
     free(newMu);
-    // printf("\nThe new mu for the conditional probability is mu - p_g:\n");
-    //   printMatrix(conditionalMu);
     //  ---- ... ---- //
 
     // ---- Get the parameters for the conditional sigma ---- //
 
-    // 1. Get the diagonal probabilities.
+    // ---- Get the diagonal probabilities ----
+    // ---- Create an array of size `TOTAL_GROUPS` that will store the probabilities for a given group ----
     double **probabilitiesForG = (double **)malloc(TOTAL_GROUPS * sizeof(double *));
+    // ---- Create an array of size `TOTAL_GROUPS` that will store diagonal matrices with the probabilities ----
     Matrix *diagonalProbabilities = (Matrix *)malloc((TOTAL_GROUPS) * sizeof(Matrix));
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-    {
+    { // ---- For each group
         probabilitiesForG[g] = getRow(probabilitiesReduced, g);
         diagonalProbabilities[g] = createDiagonalMatrix(probabilitiesForG[g], TOTAL_CANDIDATES - 1);
     }
+    // --- ... --- //
 
-    // 2. Get the matrix multiplications, they're esentially outer products
+    // ---- Get the matrix multiplications ---- //
+    // ---- This multiplications are esentially outer products ----
+    // ---- Create an array of size `TOTAL_GROUPS` that will store each outer product ----
     Matrix *matrixMultiplications = (Matrix *)malloc((TOTAL_GROUPS) * sizeof(Matrix));
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-    {
+    {   // ---- For each group
+        // ---- Do the outer product and store it in the array ----
         Matrix mult = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1);
         cblas_dger(CblasRowMajor, TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1, 1.0, probabilitiesForG[g], 1,
                    probabilitiesForG[g], 1, mult.data, TOTAL_CANDIDATES - 1);
         matrixMultiplications[g] = mult;
     }
+    // --- ... --- //
 
-    // 3. Add the results to the final array of matrices.
-    // Esentially computes:
-    // $$\sigma_b = diag(p_{g}^{t})-p^{t}_{g}p_{g}$$
+    // ---- Add the results to the final array of matrices ----
+    // ---- Esentially computes: $$\sigma_b = diag(p_{g}^{t})-p^{t}_{g}p_{g}$$ ----
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-    {
-        //*conditionalSigma[g] = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1);
+    { // ---- For each group
         for (uint16_t i = 0; i < TOTAL_CANDIDATES - 1; i++)
-        {
+        { // ---- For each candidate given a group
             for (uint16_t j = 0; j < TOTAL_CANDIDATES - 1; j++)
-            {
+            {   // ---- For each candidate given a group and a candidate
+                // ---- Add the multiplication of probabilities ----
                 MATRIX_AT_PTR(conditionalSigma[g], i, j) =
                     MATRIX_AT(newSigma, i, j) + MATRIX_AT(matrixMultiplications[g], i, j);
                 if (i == j)
-                {
+                {   // ---- If it's a diagonal
+                    // ---- Substract the diagonal probabilities ----
                     MATRIX_AT_PTR(conditionalSigma[g], i, j) -= MATRIX_AT(diagonalProbabilities[g], i, j);
                 }
             }
         }
+        // ---- Free unnecesary space ----
         freeMatrix(&matrixMultiplications[g]);
         freeMatrix(&diagonalProbabilities[g]);
     }
+    // ---- Free space ----
     free(matrixMultiplications);
     free(probabilitiesForG);
     freeMatrix(&newSigma);
-    // ---- ... ----
+
+    // --- ... --- //
 }
