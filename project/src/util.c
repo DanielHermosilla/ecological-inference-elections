@@ -362,9 +362,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         // MVN PDF
         else
         {
-            printf("Executing 'MVN PDF' method.\n");
-            printf("GOING IN WITH THE MATRIX\n");
-            printMatrix(currentP);
+            // printf("Executing 'MVN PDF' method.\n");
             q = computeQMultivariatePDF(currentP);
         }
 
@@ -473,8 +471,8 @@ int main()
 
     // Start timer
     clock_gettime(CLOCK_MONOTONIC, &start);
-    Matrix P = getInitialP("uniform");
-    Matrix Pnew = EMAlgoritm(&P, "MVN PDF", 0.001, 10000, true);
+    Matrix P = getInitialP("group proportional");
+    Matrix Pnew = EMAlgoritm(&P, "MVN PDF", 0.0001, 1, true);
 
     clock_gettime(CLOCK_MONOTONIC, &end);
     double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;

@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // Macro for easier matrix indexation
 #define MATRIX_AT(matrix, i, j) (matrix.data[(i) * (matrix.cols) + (j)])
@@ -174,7 +175,7 @@ void printMatrix(const Matrix *matrix)
     {
         for (int j = 0; j < matrix->cols; j++)
         {
-            printf("%.3f ", matrix->data[(i) * (matrix->cols) + (j)]);
+            printf("%.5f ", matrix->data[(i) * (matrix->cols) + (j)]);
         }
         printf("\n");
     }
@@ -622,7 +623,7 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
         exit(EXIT_FAILURE);
     }
 
-    // Fill the upper triangle of the inverse matrix
+    // Fill the upper triangle of the inverse matrix, this is not really necessary, but would prevent future problems.
     for (int i = 0; i < n; i++)
     {
         for (int j = i + 1; j < n; j++)
@@ -630,6 +631,89 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
             MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT_PTR(matrix, j, i);
         }
     }
+}
+
+/**
+ * @brief Inverts a real symmetric NxN matrix (overwrites the input).
+ *
+ * Uses an eigen-decomposition (dsyev) to invert A = Q * diag(vals) * Q^T.
+ * The input matrix must be square and invertible (no zero eigenvalues).
+ *
+ * @param[in,out] matrix Pointer to the NxN symmetric matrix in row-major layout.
+ */
+void inverseMatrixEigen(Matrix *matrix)
+{
+    checkMatrix(matrix);
+
+    if (matrix->rows != matrix->cols)
+    {
+        fprintf(stderr, "inverseMatrixEigen: Matrix must be square.\n");
+        exit(EXIT_FAILURE);
+    }
+    int n = matrix->rows;
+
+    // Allocate space for eigenvalues
+    double *eigenvals = (double *)malloc(n * sizeof(double));
+    if (!eigenvals)
+    {
+        fprintf(stderr, "inverseMatrixEigen: cannot allocate eigenvals.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // 2) dsyev: compute all eigenvalues and eigenvectors of a real symmetric matrix
+    //    - 'V' means we want both eigenvalues and eigenvectors
+    //    - 'U' means the matrix is stored in the upper part (row-major).
+    //    On exit, matrix->data holds the eigenvectors in columns, eigenvals[] holds the eigenvalues.
+    int info = LAPACKE_dsyev(LAPACK_ROW_MAJOR, // row-major storage
+                             'V',              // compute Eigenvalues & Eigenvectors
+                             'U',              // 'U' => input matrix is in the upper triangle
+                             n,                // dimension
+                             matrix->data,     // in/out: on exit, columns = eigenvectors
+                             n,                // leading dimension (row-major)
+                             eigenvals         // out: eigenvalues
+    );
+
+    if (info != 0)
+    {
+        fprintf(stderr, "inverseMatrixEigen: dsyev failed (info = %d)\n", info);
+        free(eigenvals);
+        exit(EXIT_FAILURE);
+    }
+
+    // Invert the eigenvalues => 1 / lambda_i (check none are zero too)
+    for (int i = 0; i < n; i++)
+    {
+        if (fabs(eigenvals[i]) < 1e-15)
+        {
+            fprintf(stderr, "inverseMatrixEigen: Zero or near-zero eigenvalue => not invertible.\n");
+            free(eigenvals);
+            exit(EXIT_FAILURE);
+        }
+        eigenvals[i] = 1.0 / eigenvals[i];
+    }
+
+    // ---- Calculation of A^{-1} as Q *1/\lambda * Q^T ---- //
+    // Build the diagonal matrix from eigenvals
+    Matrix Dinv = createDiagonalMatrix(eigenvals, n);
+
+    // temp = Q * Dinv
+    Matrix temp = createMatrix(n, n);
+
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, // Q is NxN, Dinv is NxN
+                n, n, n, 1.0, matrix->data, n,             // Q (eigenvectors in columns)
+                Dinv.data, n, 0.0, temp.data, n);
+
+    // A_inv = temp * Q^T
+    // I will use a temporary matrix since it generate errors when recicling a variable
+    Matrix temp2 = createMatrix(n, n);
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, n, n, n, 1.0, temp.data, n, // first operand
+                matrix->data, n,                                                     // second operand
+                0.0, temp2.data, n);
+
+    freeMatrix(&temp2);
+    freeMatrix(&temp);
+    freeMatrix(&Dinv);
+    free(eigenvals);
 }
 
 /**

@@ -53,12 +53,12 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
 
     // ---- Computation of mu ---- //
     cblas_dgemv(CblasRowMajor,              // Row-major order
-                CblasNoTrans,               // Transpose the matrix (p^T)
+                CblasTrans,                 // Transpose the matrix (p^T)
                 TOTAL_GROUPS,               // Rows of original matrix (G)
                 TOTAL_CANDIDATES - 1,       // Columns of original matrix (C)
                 1.0,                        // alpha
                 probabilitiesReduced->data, // Matrix p
-                TOTAL_GROUPS,               // Leading dimension (rows in original p)
+                TOTAL_CANDIDATES - 1,       // Leading dimension (rows in original p)
                 groupVotesPerBallot,        // Vector w_b
                 1,                          // Increment for x
                 0.0,                        // beta
@@ -67,7 +67,7 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
     );
     // free(groupVotesPerBallot);
 
-    // ---- Computation of sigma ---- // Here there is an error
+    // ---- Computation of sigma ---- //
     Matrix diagonalVotesPerBallot = createDiagonalMatrix(groupVotesPerBallot, TOTAL_GROUPS);
     // printf("The diagonal votes per ballot matrix is\n");
     // printMatrix(&diagonalVotesPerBallot);
@@ -82,14 +82,14 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
     // printMatrix(&diagonalVotesPerBallot);
     // Compute p^T * diag(w_b)
     cblas_dgemm(CblasRowMajor,               // Row-major order
-                CblasNoTrans,                // No transpose (Matrix A => p^T)
+                CblasTrans,                  // No transpose (Matrix A => p^T)
                 CblasNoTrans,                // No transpose
                 TOTAL_CANDIDATES - 1,        // Rows
                 TOTAL_GROUPS,                // Columns
                 TOTAL_GROUPS,                // Inner dimension
                 1.0,                         // alpha
                 probabilitiesReduced->data,  // Matrix p
-                TOTAL_GROUPS,                // Leading dimension
+                TOTAL_CANDIDATES - 1,        // Leading dimension
                 diagonalVotesPerBallot.data, // Matrix diag(w_b)
                 TOTAL_GROUPS,                // Leading dimension
                 0.0,                         // beta
@@ -105,7 +105,7 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
     // printMatrix(probabilitiesReduced);
     cblas_dgemm(CblasRowMajor,              // Row-major order
                 CblasNoTrans,               // No transpose
-                CblasTrans,                 // No transpose
+                CblasNoTrans,               // No transpose
                 TOTAL_CANDIDATES - 1,       // Rows
                 TOTAL_CANDIDATES - 1,       // Columns
                 TOTAL_GROUPS,               // Inner dimension
@@ -113,7 +113,7 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
                 temp.data,                  // Matrix (p^T * diag(w_b))
                 TOTAL_GROUPS,               // Leading dimension
                 probabilitiesReduced->data, // Matrix p
-                TOTAL_GROUPS,               // Leading dimension
+                TOTAL_CANDIDATES - 1,       // Leading dimension
                 0.0,                        // beta
                 sigma->data,                // Output Σ_b
                 TOTAL_CANDIDATES - 1);      // Leading dimension
@@ -122,10 +122,20 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
     // printMatrix(sigma);
     //  Subtract diag(μ_b)
     // printf("\nSubstracting mu of the diagonal, whom elements are:\n");
-    for (int i = 0; i < TOTAL_CANDIDATES - 1; i++)
+    //
+    // This could be optimized with the blas call too
+    for (int j = 0; j < TOTAL_CANDIDATES - 1; j++)
     {
-        // printf("%.3f, ", mu[i]);
-        MATRIX_AT_PTR(sigma, i, i) = mu[i] - MATRIX_AT_PTR(sigma, i, i);
+        for (int i = 0; i < TOTAL_CANDIDATES - 1; i++)
+        {
+            // printf("%.3f, ", mu[i]);
+            if (i == j)
+            {
+                MATRIX_AT_PTR(sigma, i, j) = mu[i] - MATRIX_AT_PTR(sigma, i, j);
+                continue;
+            }
+            MATRIX_AT_PTR(sigma, i, j) = -MATRIX_AT_PTR(sigma, i, j);
+        }
     }
     // printf("\nFinal matrix is");
     //  printMatrix(sigma);

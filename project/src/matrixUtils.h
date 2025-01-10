@@ -359,6 +359,16 @@ Matrix createDiagonalMatrix(const double *vector, int size);
 void inverseSymmetricPositiveMatrix(Matrix *matrix);
 
 /**
+ * @brief Inverts a real symmetric NxN matrix (overwrites the input).
+ *
+ * Uses an eigen-decomposition (dsyev) to invert A = Q * diag(vals) * Q^T.
+ * The input matrix must be square and invertible (no zero eigenvalues).
+ *
+ * @param[in,out] matrix Pointer to the NxN symmetric matrix in row-major layout.
+ */
+void inverseMatrixEigen(Matrix *matrix);
+
+/**
  * @brief Computes the inverse of a general square matrix using LU decomposition.
  *
  * @param[in, out] matrix Pointer to the input matrix (overwritten with the inverse).

@@ -18,13 +18,14 @@
 /**
  * @brief Computes the Mahalanobis distance with last candidate adjustment.
  *
- * @param[in] x Pointer to the input feature vector (size C-1).
+ * @param[in] x Pointer to the input feature vector (size C).
  * @param[in] mu Pointer to the mean vector (size C-1).
  * @param[in] inverseSigma Pointer to the inverse covariance matrix (size (C-1) x (C-1)).
  * @param[out] maha Pointer to the resulting Mahalanobis distances (size C).
  * @param[in] size Size of the truncated candidate space (C-1).
  */
-void mahanalobis(double *x, double *mu, Matrix *inverseSigma, double *maha, int size)
+void mahanalobis(int b, int g, double *x, double *mu, Matrix *inverseSigma, double *maha, int size,
+                 const Matrix *probabilities)
 {
     double diff[size];
     double temp[size];
@@ -32,35 +33,39 @@ void mahanalobis(double *x, double *mu, Matrix *inverseSigma, double *maha, int 
     double diagonalInverse[size];
 
     // Computes (x - mu)
+    printf("\nThe differences are\n");
     for (int i = 0; i < size; i++)
     {
         diff[i] = x[i] - mu[i];
+        printf("%.4f, ", diff[i]);
     }
 
     // Compute invs_devs (inverseSigma * diff)
-    cblas_dsymv(CblasRowMajor, CblasUpper, size, 1.0, inverseSigma->data, size, diff, 1, 0.0, temp, 1);
+    // The upper triangle is filled on the inverse Sigma
+    cblas_dsymv(CblasRowMajor, CblasLower, size, 1.0, inverseSigma->data, size, diff, 1, 0.0, temp, 1);
 
     // Compute Mahalanobis Distance (truncated)
     double mahanobisTruncated = 0.0;
     for (int i = 0; i < size; i++)
     {
-        // The second parenthesis
+        // The first parenthesis
         mahanobisTruncated += diff[i] * temp[i];
         invs_devs[i] = temp[i]; // Store intermediate results
     }
+    /*
+     * The updated mahanalobis distance for "C" candidates can be written as:
+     *
+     * $$D_{i}^{2}=D^{2}_{baseline}-\sigma^{-1}(x_i-\mu_i)+diag(\sigma^{-1})$$
+     *
+     * The baseline would be the mahanobis distance for the "C-1" candidate (mahanobisTruncated)
+     * */
 
     maha[size] = mahanobisTruncated; // Last element is used as a reference
-
-    // Extract diagonal inverses
-    for (int i = 0; i < size; i++)
+    printf("\nThe multiplication from mahanobis is:\t");
+    for (int c = 0; c < size; c++)
     {
-        diagonalInverse[i] = MATRIX_AT_PTR(inverseSigma, i, i);
-    }
-
-    // Correct Mahalanobis Distance for all candidates
-    for (int i = 0; i < size; i++)
-    {
-        maha[i] = maha[size] - 2 * invs_devs[i] + diagonalInverse[i];
+        printf("%.4f, ", temp[c]);
+        maha[c] = mahanobisTruncated - 2 * temp[c] + MATRIX_AT_PTR(inverseSigma, c, c);
     }
 }
 
@@ -82,12 +87,18 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
     // ---- Get the inverse matrix for each sigma ---- //
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     {
-        inverseMatrixLU(sigma[g]);
+        printf("\nThe covariance matrix is\n");
+        printMatrix(sigma[g]);
+        printf("\nThe inverse for group %d and ballot %d is:\n", g, b);
+        inverseMatrixEigen(sigma[g]);
+        printMatrix(sigma[g]);
     }
-    // ---- ... ----
-    // printf("After inverse is\n");
-    // printMatrix(&sigma);
-    //  --- ... ----
+    // printf("\nThe mu values are:\n");
+    // printMatrix(&muR);
+    //  ---- ... ----
+    //  printf("After inverse is\n");
+    //  printMatrix(&sigma);
+    //   --- ... ----
 
     // --- Calculate the mahanalobis distance --- //
     double **mahanalobisDistances = (double **)malloc(TOTAL_GROUPS * sizeof(double *));
@@ -97,7 +108,7 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
         mahanalobisDistances[g] = (double *)malloc(TOTAL_CANDIDATES * sizeof(double));
         double *feature = getColumn(X, b);
         double *muG = getRow(&muR, g);
-        mahanalobis(feature, muG, sigma[g], mahanalobisDistances[g], TOTAL_CANDIDATES - 1);
+        mahanalobis(b, g, feature, muG, sigma[g], mahanalobisDistances[g], TOTAL_CANDIDATES - 1, probabilities);
         freeMatrix(sigma[g]);
         free(feature);
         free(muG);
@@ -108,7 +119,7 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
 
     // --- Calculate the returning values ---
     Matrix toReturn = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES);
-
+    printf("\nThe mahanalobis distances are:\n");
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     {
         double den = 0;
@@ -116,10 +127,11 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
 
         for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
         {
-
+            printf("%.4f, ", mahanalobisDistances[g][c]);
             QC[c] = exp(-0.5 * mahanalobisDistances[g][c]) * MATRIX_AT_PTR(probabilities, g, c);
             den += QC[c];
         }
+        printf("]\n");
         for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
         {
             MATRIX_AT(toReturn, g, c) = QC[c] / den;
@@ -134,8 +146,6 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
 
 double *computeQMultivariatePDF(Matrix const *probabilities)
 {
-    printf("The most original probability matrix is");
-    printMatrix(probabilities);
     Matrix probabilitiesReduced = removeLastColumn(probabilities);
     double *array2 =
         (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double)); // Array to return
@@ -143,10 +153,7 @@ double *computeQMultivariatePDF(Matrix const *probabilities)
     // #pragma omp parallel for
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
-
         Matrix resultsForB = computeQforABallot((int)b, probabilities, &probabilitiesReduced);
-        printf("\nThe results for %d ballot is:\n", b);
-        printMatrix(&resultsForB);
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         {
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
@@ -158,12 +165,5 @@ double *computeQMultivariatePDF(Matrix const *probabilities)
     }
 
     freeMatrix(&probabilitiesReduced);
-    printf("The array to return is:\n");
-    printf("[");
-    for (int a = 0; a < (int)TOTAL_BALLOTS * (int)TOTAL_CANDIDATES * (int)TOTAL_GROUPS; a++)
-    {
-        printf("%.4f, ", array2[a]);
-    }
-    printf("]");
     return array2;
 }
