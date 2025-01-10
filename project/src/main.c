@@ -3,8 +3,8 @@
 #include "globals.h"
 #include "instanceGenerator.h"
 #include "matrixUtils.h"
-#include "multPDF.h"
 #include "multinomial.h"
+#include "multivariate-pdf.h"
 #include <R.h>
 #include <R_ext/Rdynload.h>
 #include <Rinternals.h>

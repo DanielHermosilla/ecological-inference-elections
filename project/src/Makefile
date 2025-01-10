@@ -1,17 +1,15 @@
-# Compiler and Flags
+# Compiler
 CC = clang
 
-# Change -O1 to -O3 for efficiency
-# Compiler Flags
+# Compiler & Link Flags
 CFLAGS = -Wall -Wextra -g -fsanitize=address -fsanitize=leak -O3 \
     -I$(shell R RHOME)/include \
     -I/usr/local/opt/openblas/include \
     -I/usr/local/Cellar/gsl/2.8/include \
     -I/usr/local/opt/libomp/include \
     -Xpreprocessor -fopenmp \
-    -I/usr/local/opt/llvm/include
+    -I/usr/local/opt/llvm/include -Iutils -I.
 
-# Linker Flags for Shared Library
 LDFLAGS_LIB = -L$(shell R RHOME)/lib \
     -L/usr/local/opt/openblas/lib \
     -L/usr/local/Cellar/gsl/2.8/lib \
@@ -20,7 +18,6 @@ LDFLAGS_LIB = -L$(shell R RHOME)/lib \
     -lR -lopenblas -lgsl -lgslcblas -lomp \
     -Wl,-rpath,/usr/local/opt/libomp/lib
 
-# Linker Flags for Executable
 LDFLAGS_EXEC = -L$(shell R RHOME)/lib \
     -L/usr/local/opt/openblas/lib \
     -L/usr/local/Cellar/gsl/2.8/lib \
@@ -28,29 +25,55 @@ LDFLAGS_EXEC = -L$(shell R RHOME)/lib \
     -lR -lopenblas -lgsl -lgslcblas -lomp \
     -Wl,-rpath,/usr/local/opt/libomp/lib
 
-# Files and Targets
-LIB_TARGET = libutil.dylib  # Use libutil.so for Linux
-EXEC_TARGET = util_exec     # Name for the executable
-SRCS = util.c matrixUtils.c instanceGenerator.c multinomial.c fileutils.c exact.c memoizationUtil.c multivariateUtils.c multPDF.c
-OBJS = $(SRCS:.c=.o)
-HEADERS = matrixUtils.h instanceGenerator.h multinomial.h fileutils.h memoizationUtil.h exact.h globals.h uthash.h multivariateUtils.h multPDF.h
+# Targets
+BINDIR      = bin
+LIB_TARGET  = libutil.dylib    # (on Linux, could be libutil.so)
+EXEC_TARGET = util_exec
 
-# Default Rule
-all: $(LIB_TARGET) $(EXEC_TARGET)
+# List *all* .c files, no matter if top-level or in 'utils/' 
+SRCS = \
+  main.c \
+  exact.c \
+  multivariate-pdf.c \
+  multinomial.c \
+  utils/matrixUtils.c \
+  utils/instanceGenerator.c \
+  utils/fileutils.c \
+  utils/memoizationUtil.c \
+  utils/multivariateUtils.c
 
-# Build Shared Library
-$(LIB_TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $(LIB_TARGET) $(OBJS) $(LDFLAGS_LIB)
+# Convert each .c to a .o in bin/ mirrored subdirs
+OBJS = $(SRCS:%.c=$(BINDIR)/%.o)
 
-# Build Executable
-$(EXEC_TARGET): util.o matrixUtils.o instanceGenerator.o multinomial.o fileutils.o exact.o memoizationUtil.o multivariateUtils.o multPDF.o
-	$(CC) $(CFLAGS) -o $(EXEC_TARGET) util.o matrixUtils.o instanceGenerator.o multinomial.o fileutils.o exact.o memoizationUtil.o multivariateUtils.o multPDF.o $(LDFLAGS_EXEC)
+# Dependency files
+DEPS = $(OBJS:.o=.d)
 
-# Build Object Files
-%.o: %.c $(HEADERS)
-	$(CC) $(CFLAGS) -c $< -o $@
+# Default rule: build both library + executable
+all: $(BINDIR)/$(LIB_TARGET) $(BINDIR)/$(EXEC_TARGET)
 
-# Clean Build Artifacts
+# Shared Library
+$(BINDIR)/$(LIB_TARGET): $(OBJS)
+	@mkdir -p $(BINDIR)
+	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS_LIB)
+
+# Executable
+$(BINDIR)/$(EXEC_TARGET): $(OBJS)
+	@mkdir -p $(BINDIR)
+	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS_EXEC)
+
+# Pattern rule: build bin/something.o from something.c 
+# This also handles subdirs: e.g. utils/matrixUtils.c -> bin/utils/matrixUtils.o
+$(BINDIR)/%.o: %.c
+	@mkdir -p $(dir $@)   # create bin/utils/ if needed
+	$(CC) $(CFLAGS) -MMD -c $< -o $@
+
+# Include dependency files
+-include $(DEPS)
+
 clean:
-	rm -f $(LIB_TARGET) $(EXEC_TARGET) $(OBJS)
-
+	rm -f $(BINDIR)/*.o \
+	      $(BINDIR)/*/*.o \
+	      $(BINDIR)/*.d \
+	      $(BINDIR)/*/*.d \
+	      $(BINDIR)/$(LIB_TARGET) \
+	      $(BINDIR)/$(EXEC_TARGET)

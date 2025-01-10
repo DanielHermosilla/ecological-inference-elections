@@ -1,10 +1,9 @@
-#include "multPDF.h"
+#include "multivariate-pdf.h"
 #include "globals.h"
 #include "matrixUtils.h"
 #include <cblas.h>
 #include <lapacke.h>
 #include <math.h>
-#include <stdio.h>
 
 /**
  * @brief Computes the Mahalanobis distance with last candidate adjustment.
@@ -175,7 +174,7 @@ double *computeQMultivariatePDF(Matrix const *probabilities)
     // ---- Fill the array with the results ---- //
 #pragma omp parallel for
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    {   // ---- For each ballot
+    { // ---- For each ballot
         // ---- Call the function for calculating the `q` results for a given ballot
         Matrix resultsForB = computeQforABallot((int)b, probabilities, &probabilitiesReduced);
         // #pragma omp parallel for collapse(2)
