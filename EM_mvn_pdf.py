@@ -149,7 +149,9 @@ if __name__ == "__main__":
     start_iteration2 = (
         perf_counter()
     )  # This iteration starts before the loop NOW, to compare it against C.
-    answer = EM_mvn_pdf(matrixList[0].T, matrixList[1], max_iterations=50, verbose=True)
+    answer = EM_mvn_pdf(
+        matrixList[0].T, matrixList[1], max_iterations=200, verbose=False
+    )
     end_time = perf_counter()
     run_time = end_time - start_iteration2
     print("El tiempo de ejecución es {}".format(run_time))
