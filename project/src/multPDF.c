@@ -24,13 +24,11 @@
  * @param[out] maha Pointer to the resulting Mahalanobis distances (size C).
  * @param[in] size Size of the truncated candidate space (C-1).
  */
-void mahanalobis(int b, int g, double *x, double *mu, Matrix *inverseSigma, double *maha, int size,
-                 const Matrix *probabilities)
+void mahanalobis(double *x, double *mu, Matrix *inverseSigma, double *maha, int size)
 {
     double diff[size];
     double temp[size];
     double invs_devs[size];
-    double diagonalInverse[size];
 
     // Computes (x - mu)
     for (int i = 0; i < size; i++)
@@ -83,11 +81,7 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
     // ---- Get the inverse matrix for each sigma ---- //
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     {
-        printf("\nThe sigma matrix is:\n");
-        printMatrix(sigma[g]);
-        inverseMatrixEigen(sigma[g]);
-        printf("\nThe inverse is:\n");
-        printMatrix(sigma[g]);
+        inverseSymmetricPositiveMatrix(sigma[g]);
     }
     // printf("\nThe mu values are:\n");
     // printMatrix(&muR);
@@ -104,7 +98,7 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
         mahanalobisDistances[g] = (double *)malloc(TOTAL_CANDIDATES * sizeof(double));
         double *feature = getColumn(X, b);
         double *muG = getRow(&muR, g);
-        mahanalobis(b, g, feature, muG, sigma[g], mahanalobisDistances[g], TOTAL_CANDIDATES - 1, probabilities);
+        mahanalobis(feature, muG, sigma[g], mahanalobisDistances[g], TOTAL_CANDIDATES - 1);
         freeMatrix(sigma[g]);
         free(feature);
         free(muG);
@@ -143,10 +137,11 @@ double *computeQMultivariatePDF(Matrix const *probabilities)
     double *array2 =
         (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double)); // Array to return
 
-    // #pragma omp parallel for
+#pragma omp parallel for
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
         Matrix resultsForB = computeQforABallot((int)b, probabilities, &probabilitiesReduced);
+        // #pragma omp parallel for collapse(2)
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         {
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)

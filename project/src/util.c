@@ -472,7 +472,7 @@ int main()
     // Start timer
     clock_gettime(CLOCK_MONOTONIC, &start);
     Matrix P = getInitialP("group proportional");
-    Matrix Pnew = EMAlgoritm(&P, "MVN PDF", 0.0001, 50, true);
+    Matrix Pnew = EMAlgoritm(&P, "MVN PDF", 0.0001, 200, false);
 
     clock_gettime(CLOCK_MONOTONIC, &end);
     double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
