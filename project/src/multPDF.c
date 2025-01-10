@@ -33,11 +33,9 @@ void mahanalobis(int b, int g, double *x, double *mu, Matrix *inverseSigma, doub
     double diagonalInverse[size];
 
     // Computes (x - mu)
-    printf("\nThe differences are\n");
     for (int i = 0; i < size; i++)
     {
         diff[i] = x[i] - mu[i];
-        printf("%.4f, ", diff[i]);
     }
 
     // Compute invs_devs (inverseSigma * diff)
@@ -61,10 +59,8 @@ void mahanalobis(int b, int g, double *x, double *mu, Matrix *inverseSigma, doub
      * */
 
     maha[size] = mahanobisTruncated; // Last element is used as a reference
-    printf("\nThe multiplication from mahanobis is:\t");
     for (int c = 0; c < size; c++)
     {
-        printf("%.4f, ", temp[c]);
         maha[c] = mahanobisTruncated - 2 * temp[c] + MATRIX_AT_PTR(inverseSigma, c, c);
     }
 }
@@ -87,10 +83,10 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
     // ---- Get the inverse matrix for each sigma ---- //
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     {
-        printf("\nThe covariance matrix is\n");
+        printf("\nThe sigma matrix is:\n");
         printMatrix(sigma[g]);
-        printf("\nThe inverse for group %d and ballot %d is:\n", g, b);
         inverseMatrixEigen(sigma[g]);
+        printf("\nThe inverse is:\n");
         printMatrix(sigma[g]);
     }
     // printf("\nThe mu values are:\n");
@@ -119,7 +115,6 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
 
     // --- Calculate the returning values ---
     Matrix toReturn = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES);
-    printf("\nThe mahanalobis distances are:\n");
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     {
         double den = 0;
@@ -127,11 +122,9 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
 
         for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
         {
-            printf("%.4f, ", mahanalobisDistances[g][c]);
             QC[c] = exp(-0.5 * mahanalobisDistances[g][c]) * MATRIX_AT_PTR(probabilities, g, c);
             den += QC[c];
         }
-        printf("]\n");
         for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
         {
             MATRIX_AT(toReturn, g, c) = QC[c] / den;

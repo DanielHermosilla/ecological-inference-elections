@@ -710,6 +710,7 @@ void inverseMatrixEigen(Matrix *matrix)
                 matrix->data, n,                                                     // second operand
                 0.0, temp2.data, n);
 
+    memcpy(matrix->data, temp2.data, n * n * sizeof(double));
     freeMatrix(&temp2);
     freeMatrix(&temp);
     freeMatrix(&Dinv);

@@ -217,7 +217,7 @@ void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *co
             for (uint16_t j = 0; j < TOTAL_CANDIDATES - 1; j++)
             {
                 MATRIX_AT_PTR(conditionalSigma[g], i, j) =
-                    MATRIX_AT(newSigma, i, j) - MATRIX_AT(matrixMultiplications[g], i, j);
+                    MATRIX_AT(newSigma, i, j) + MATRIX_AT(matrixMultiplications[g], i, j);
                 if (i == j)
                 {
                     MATRIX_AT_PTR(conditionalSigma[g], i, j) -= MATRIX_AT(diagonalProbabilities[g], i, j);
