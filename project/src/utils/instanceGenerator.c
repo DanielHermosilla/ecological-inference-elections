@@ -67,7 +67,7 @@ void distributeTotalRandomly(int total, int size, double *array)
         // Random stopping criterion
         if ((rand() % 100) < 1) // 10% chance to stop early
         {
-            printf("Stopping early after distributing %d votes (Random criterion triggered).\n", votesDistributed);
+            // printf("Stopping early after distributing %d votes (Random criterion triggered).\n", votesDistributed);
             break;
         }
     }

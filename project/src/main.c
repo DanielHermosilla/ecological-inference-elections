@@ -454,16 +454,17 @@ int main()
 {
     printf("The program is running\n");
     /*
-        Matrix XX = {.data = NULL, .rows = 0, .cols = 0};
-        Matrix G = {.data = NULL, .rows = 0, .cols = 0};
-        char *method = "multinomial";
-        createInstance(&XX, &G, 42, *method); // TODO: Arreglar esto para poder crear una instancia...
-
-        Matrix matrices[2] = {XX, G};
-    */
-    // writeMatrices("matricesTest4.bin", matrices, 2);
+    Matrix XX = {.data = NULL, .rows = 0, .cols = 0};
+    Matrix G = {.data = NULL, .rows = 0, .cols = 0};
+    char *method = "multinomial";
+    // createInstance(&XX, &G, 42, *method); // TODO: Arreglar esto para poder crear una instancia...
+    //Matrix matrices[2] = {XX, G};
+    //writeMatrices("matricesTest5.bin", matrices, 2);
+*/
+    /*
+     */
     Matrix matrixArray[2];
-    readMatrices("matricesTest3.bin", matrixArray, 2);
+    readMatrices("matricesTest5.bin", matrixArray, 2);
     Matrix XX = matrixArray[0];
     Matrix G = matrixArray[1];
     setParameters(&XX, &G);
@@ -472,7 +473,7 @@ int main()
     // Start timer
     clock_gettime(CLOCK_MONOTONIC, &start);
     Matrix P = getInitialP("group proportional");
-    Matrix Pnew = EMAlgoritm(&P, "MVN PDF", 0.0001, 200, false);
+    Matrix Pnew = EMAlgoritm(&P, "Multinomial", 0.0001, 200, false);
 
     clock_gettime(CLOCK_MONOTONIC, &end);
     double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
