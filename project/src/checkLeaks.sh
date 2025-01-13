@@ -6,4 +6,4 @@ export DYLD_INSERT_LIBRARIES=/usr/local/Cellar/llvm/19.1.6/lib/clang/19/lib/darw
 export DYLD_FORCE_FLAT_NAMESPACE=1
 
 # Run your C program
-./bin/util_exec "$@"
+./build/util_exec "$@"

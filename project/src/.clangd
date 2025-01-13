@@ -1,0 +1,38 @@
+CompileFlags:
+  Add:
+    - -Wall
+    - -Wextra
+    - -g
+    - -fsanitize=address
+    - -fsanitize=leak
+    - -O3
+    - -I$(shell R RHOME)/include
+    - -I/usr/local/opt/openblas/include
+    - -I/usr/local/Cellar/gsl/2.8/include
+    - -I/usr/local/opt/libomp/include
+    - -Xpreprocessor
+    - -fopenmp
+    - -I/usr/local/opt/llvm/include
+    - -Iutils
+    - -I.
+    - -L$(shell R RHOME)/lib
+    - -L/usr/local/opt/openblas/lib
+    - -L/usr/local/Cellar/gsl/2.8/lib
+    - -L/usr/local/opt/libomp/lib
+    - -shared
+    - -dynamiclib
+    - -fPIC
+    - -lR
+    - -lopenblas
+    - -lgsl
+    - -lgslcblas
+    - -lomp
+    - -Wl,-rpath,/usr/local/opt/libomp/lib
+
+FallbackFlags:
+  # Default flags for files not in compile_commands.json
+  Add: [-Wall, -Wextra, -I.]
+
+Diagnostics:
+  Suppress: []
+  ClangTidy: []

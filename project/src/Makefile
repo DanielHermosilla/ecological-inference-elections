@@ -1,3 +1,5 @@
+.PHONY: build
+
 # Compiler
 CC = clang
 
@@ -25,12 +27,14 @@ LDFLAGS_EXEC = -L$(shell R RHOME)/lib \
     -lR -lopenblas -lgsl -lgslcblas -lomp \
     -Wl,-rpath,/usr/local/opt/libomp/lib
 
+# Directory for build artifacts
+BUILDDIR = build
+
 # Targets
-BINDIR      = bin
 LIB_TARGET  = libutil.dylib    # (on Linux, could be libutil.so)
 EXEC_TARGET = util_exec
 
-# List *all* .c files, no matter if top-level or in 'utils/' 
+# List *all* .c files
 SRCS = \
   main.c \
   exact.c \
@@ -42,38 +46,38 @@ SRCS = \
   utils/memoizationUtil.c \
   utils/multivariateUtils.c
 
-# Convert each .c to a .o in bin/ mirrored subdirs
-OBJS = $(SRCS:%.c=$(BINDIR)/%.o)
+# Convert each .c to a .o in build/ mirrored subdirs
+OBJS = $(SRCS:%.c=$(BUILDDIR)/%.o)
 
 # Dependency files
 DEPS = $(OBJS:.o=.d)
 
 # Default rule: build both library + executable
-all: $(BINDIR)/$(LIB_TARGET) $(BINDIR)/$(EXEC_TARGET)
+all: $(BUILDDIR)/$(LIB_TARGET) $(BUILDDIR)/$(EXEC_TARGET)
 
 # Shared Library
-$(BINDIR)/$(LIB_TARGET): $(OBJS)
-	@mkdir -p $(BINDIR)
+$(BUILDDIR)/$(LIB_TARGET): $(OBJS)
+	@mkdir -p $(BUILDDIR)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS_LIB)
 
 # Executable
-$(BINDIR)/$(EXEC_TARGET): $(OBJS)
-	@mkdir -p $(BINDIR)
+$(BUILDDIR)/$(EXEC_TARGET): $(OBJS)
+	@mkdir -p $(BUILDDIR)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS_EXEC)
 
-# Pattern rule: build bin/something.o from something.c 
-# This also handles subdirs: e.g. utils/matrixUtils.c -> bin/utils/matrixUtils.o
-$(BINDIR)/%.o: %.c
-	@mkdir -p $(dir $@)   # create bin/utils/ if needed
+# Pattern rule: build build/something.o from something.c 
+# This also handles subdirs: e.g., utils/matrixUtils.c -> build/utils/matrixUtils.o
+$(BUILDDIR)/%.o: %.c
+	@mkdir -p $(dir $@)   # create build/utils/ if needed
 	$(CC) $(CFLAGS) -MMD -c $< -o $@
 
 # Include dependency files
 -include $(DEPS)
 
 clean:
-	rm -f $(BINDIR)/*.o \
-	      $(BINDIR)/*/*.o \
-	      $(BINDIR)/*.d \
-	      $(BINDIR)/*/*.d \
-	      $(BINDIR)/$(LIB_TARGET) \
-	      $(BINDIR)/$(EXEC_TARGET)
+	rm -f $(BUILDDIR)/*.o \
+	      $(BUILDDIR)/*/*.o \
+	      $(BUILDDIR)/*.d \
+	      $(BUILDDIR)/*/*.d \
+	      $(BUILDDIR)/$(LIB_TARGET) \
+	      $(BUILDDIR)/$(EXEC_TARGET)

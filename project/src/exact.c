@@ -57,52 +57,75 @@ combination.
 */
 
 // void gsl_combination_free(gsl_combination *c);
-
+// gsl_combination_calloc(4,2) = {0 1}, {0 2}, {0 3}, {1 2}, {1 3}, {2 3}
 void precomputeH()
 {
     PRECOMPUTED_SETS.H = malloc(TOTAL_BALLOTS * sizeof(CombinationSet *));
+
 #pragma omp parallel for schedule(dynamic)
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    {
+    { // ---- For all ballot boxes
         PRECOMPUTED_SETS.H[b] = malloc(TOTAL_GROUPS * sizeof(CombinationSet));
-        for (uint16_t f = 0; f < TOTAL_GROUPS; f++)
-        {                                     // For all groups, given a arbitrary ballot box
-            int wbf = MATRIX_AT_PTR(W, b, f); // Total votes for group f
 
-            // Initialize the GSL combination generator
-            gsl_combination *Hcomb = gsl_combination_calloc(
-                wbf + TOTAL_CANDIDATES - 1,
-                TOTAL_CANDIDATES - 1); // Generate the combinations, note that the last candidate vote is redundant.
-                                       // That would be used for efficiency purpose.
+        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+        { // ---- For all groups, given a arbitrary ballot box
 
-            size_t **combinations = NULL; // Array of pointers to combinations
-            size_t count = 0;             // Counter for the number of valid combinations
+            int wbg = (int)MATRIX_AT_PTR(W, b, g); // Total votes for group f
+            size_t **combinations = NULL;          // Array of pointers to combinations
+            size_t count = 0;                      // Counter for the number of valid combinations
+
+            // We know the combinations aren't defined if wbg+1>TOTAL_CANDIDATES.
+            if (wbg + 1 > TOTAL_CANDIDATES)
+            {
+                PRECOMPUTED_SETS.H[b][g].data = combinations; // Add the arrays of the while-loop
+                PRECOMPUTED_SETS.H[b][g].size = count;        // Total valid combinations
+                continue;                                     // Go to the next group on case of an invalid combination.
+            }
+
+            // Initialize the `gsl_combination` struct with all possible combinations -> it's still needed to make a
+            // verification given the total amount of votes the candidates had.
+            gsl_combination *Hcomb = gsl_combination_calloc(wbg + 1, TOTAL_CANDIDATES); //
 
             do
-            {
-                combinations = realloc(combinations, (count + 1) * sizeof(size_t *));
-                combinations[count] = malloc(TOTAL_CANDIDATES * sizeof(size_t));
+            { // ---- Loop over all possible combinations.
+                bool valid = true;
+                size_t *elements = gsl_combination_data(Hcomb); // An array with combinations.
+                size_t sumOfCombinations = 0;
 
-                const size_t *elements = gsl_combination_data(Hcomb);
-
-                // Fill the current combination
-                for (uint16_t i = 0; i < TOTAL_CANDIDATES; i++)
+                // Check if the combination is possible
+                for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
                 {
-                    combinations[count][i] =
-                        (i < TOTAL_CANDIDATES - 1)
-                            ? elements[i]
-                            : (wbf -
-                               elements[TOTAL_CANDIDATES - 2]); // The redudancy of using TOTAL_CANDIDATES-1 votes.
+                    sumOfCombinations += elements[c];
+                    if (elements[c] >
+                        MATRIX_AT_PTR(X, c, b)) // If a candidate has more votes than its real amount of votes.
+                        valid = false;
                 }
 
-                count++;
+                if (sumOfCombinations != (size_t)wbg)
+                { // If the sum of votes it's not equivalent to the total amount of votes from the group.
+
+                    valid = false;
+                }
+
+                // On case the combination is possible; add memory for the new combination.
+                if (valid)
+                {
+                    // Memory to add the new array
+                    combinations = realloc(combinations, (count + 1) * sizeof(size_t *));
+                    // Memory to add each element of the new array
+                    combinations[count] = malloc(TOTAL_CANDIDATES * sizeof(size_t));
+                    // Add the valid array
+                    combinations[count] = elements;
+                    count++;
+                }
             } while (gsl_combination_next(Hcomb) == GSL_SUCCESS);
 
+            // Free the combination for H_bf, it's not needed anymore
             gsl_combination_free(Hcomb);
 
             // Store in the precomputed set
-            PRECOMPUTED_SETS.H[b][f].data = combinations;
-            PRECOMPUTED_SETS.H[b][f].size = count; // Total valid combinations
+            PRECOMPUTED_SETS.H[b][g].data = combinations; // Add the arrays of the while-loop
+            PRECOMPUTED_SETS.H[b][g].size = count;        // Total valid combinations
         }
     }
     printf("Precomputation of H complete.\n");
