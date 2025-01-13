@@ -4,6 +4,7 @@
 #include "memoizationUtil.h"
 #include <cblas.h>
 #include <gsl/gsl_combination.h>
+#include <gsl/gsl_permutation.h>
 #include <gsl/gsl_sf_gamma.h>
 #include <math.h>
 #include <stdint.h>
@@ -11,14 +12,7 @@
 #include <unistd.h>
 
 #define Q_3D(q, bIdx, gIdx, cIdx, G, C) ((q)[((bIdx) * (G) * (C)) + ((gIdx) * (C)) + (cIdx)])
-/*
-typedef struct
-{
-    size_t n;
-    size_t k;
-    size_t *data;
-} gsl_combination;
-*/
+
 typedef struct
 {
     size_t **data; // Array of valid combinations
@@ -31,34 +25,117 @@ typedef struct
     CombinationSet **K; // Precomputed K_bf sets
 } PrecomputedSets;
 
+typedef struct
+{
+    uint32_t b;
+    uint16_t g;
+    size_t **data;
+    size_t size;
+} Set;
+
+Set **HSETS = NULL; // Global pointer to store all Hsets
+Set **KSETS = NULL; // Global pointer to store all Ksets
+
 PrecomputedSets PRECOMPUTED_SETS;
 SizeTMatrix *CANDIDATEARRAYS = NULL;
 
-/*
-gsl_combination *gsl_combination_calloc(size_t n, size_t k);
-size_t *gsl_combination_data(const gsl_combination *c);
-*/
-// Funciones utiles;
-// gsl_sl_fact(unsigned int n) Factorial
-//
-// Combinatoria: Está en el siguiente structure
-// typedef struct
-// {
-// size_t n;
-// size_t k;
-// size_t *data;
-//} gsl_combination;
+// Recursive function to distribute votes
+void generateConfigurations(int b, size_t *votes, int position, int remainingVotes, int numCandidates,
+                            size_t ***results, size_t *count)
+{
+    if (position == numCandidates - 1)
+    {
+        // Assign remaining votes to the last candidate
+        votes[position] = remainingVotes;
 
-/*
-gsl_combination *gsl_combination_calloc(size_t n, size_t k)
+        if (votes[position] > MATRIX_AT_PTR(X, position, b))
+        {
+            // Case where the last candidate exceeds the maximum possible amount.
+            return;
+        }
 
-    This function allocates memory for a new combination with parameters n, k and initializes it to the
-lexicographically first combination. A null pointer is returned if insufficient memory is available to create the
-combination.
-*/
+        // Store the result
+        (*results) = realloc(*results, (*count + 1) * sizeof(size_t *));
+        (*results)[*count] = malloc(numCandidates * sizeof(size_t));
+        memcpy((*results)[*count], votes, numCandidates * sizeof(size_t));
+        (*count)++;
+        return;
+    }
 
-// void gsl_combination_free(gsl_combination *c);
-// gsl_combination_calloc(4,2) = {0 1}, {0 2}, {0 3}, {1 2}, {1 3}, {2 3}
+    for (int i = 0; i <= remainingVotes; i++)
+    {
+        votes[position] = i;
+
+        if (votes[position] > MATRIX_AT_PTR(X, position, b))
+        {
+            // This would imply that all of the subsequent elements aren't useful.
+            return;
+        }
+        generateConfigurations(b, votes, position + 1, remainingVotes - i, numCandidates, results, count);
+    }
+}
+
+// Count is a pointer that indicates the total amount of elements
+size_t **generateAllConfigurations(int b, int totalVotes, int numCandidates, size_t *count)
+{
+    size_t **results = NULL;
+    *count = 0;
+
+    size_t *votes = malloc(numCandidates * sizeof(size_t));
+    // Votes is the
+    generateConfigurations(b, votes, 0, totalVotes, numCandidates, &results, count);
+
+    free(votes);
+    return results;
+}
+
+void generateSets()
+{
+    HSETS = malloc(TOTAL_BALLOTS * sizeof(Set *));
+    KSETS = malloc(TOTAL_BALLOTS * sizeof(Set *));
+
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        HSETS[b] = malloc(TOTAL_GROUPS * sizeof(Set));
+        KSETS[b] = malloc(TOTAL_GROUPS * sizeof(Set));
+        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+        {
+            // Initialize H set
+            HSETS[b][g].b = b;
+            HSETS[b][g].g = g;
+            // Initialize K set
+            KSETS[b][g].b = b;
+            KSETS[b][g].g = g;
+            // Parameters for the function
+            size_t total = (size_t)MATRIX_AT_PTR(W, b, g);
+            // Generate configurations
+            size_t count = 0;
+            size_t **configurations = generateAllConfigurations(b, total, TOTAL_CANDIDATES, &count);
+
+            // Store configurations and size
+            HSETS[b][g].data = configurations;
+            HSETS[b][g].size = count;
+
+            if (g == 0)
+            {
+                KSETS[b][g].data = configurations;
+                KSETS[b][g].size = count;
+            }
+            else
+            {
+                for (uint16_t f = 0; f < g; f++)
+                {
+                    total += (size_t)(MATRIX_AT_PTR(W, b, f));
+                }
+                size_t Kcount = 0;
+                size_t **Kconfigurations = generateAllConfigurations(b, total, TOTAL_CANDIDATES, Kcount);
+                KSETS[b][g].data = Kconfigurations;
+                KSETS[b][g].size = Kcount;
+            }
+        }
+    }
+}
+
 void precomputeH()
 {
     PRECOMPUTED_SETS.H = malloc(TOTAL_BALLOTS * sizeof(CombinationSet *));
@@ -85,7 +162,7 @@ void precomputeH()
 
             // Initialize the `gsl_combination` struct with all possible combinations -> it's still needed to make a
             // verification given the total amount of votes the candidates had.
-            gsl_combination *Hcomb = gsl_combination_calloc(wbg + 1, TOTAL_CANDIDATES); //
+            gsl_permutation *Hcomb = gsl_permutation_alloc(TOTAL_CANDIDATES); //
 
             do
             { // ---- Loop over all possible combinations.
@@ -93,10 +170,6 @@ void precomputeH()
                 size_t *elements = gsl_combination_data(Hcomb); // An array with combinations.
                 size_t sumOfCombinations = 0;
 
-                // printf("Iterating:\n{");
-                // gsl_combination_fprintf(stdout, Hcomb, " %u");
-                // printf(" }\n");
-                // sleep(1);
                 // Check if the combination is possible
                 for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
                 {
@@ -114,14 +187,11 @@ void precomputeH()
                 // On case the combination is possible; add memory for the new combination.
                 if (valid)
                 {
-                    // printf("Adding the combination\n");
                     // Memory to add the new array
                     combinations = realloc(combinations, (count + 1) * sizeof(size_t *));
                     // Memory to add each element of the new array
                     combinations[count] = malloc(TOTAL_CANDIDATES * sizeof(size_t));
                     memcpy(combinations[count], elements, TOTAL_CANDIDATES * sizeof(size_t));
-                    // Add the valid array
-                    // combinations[count] = elements;
                     count++;
                 }
             } while (gsl_combination_next(Hcomb) == GSL_SUCCESS);
@@ -140,7 +210,7 @@ void precomputeH()
 void precomputeK()
 {
     PRECOMPUTED_SETS.K = malloc(TOTAL_BALLOTS * sizeof(CombinationSet *));
-#pragma omp parallel for schedule(dynamic)
+    // #pragma omp parallel for schedule(dynamic)
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
         PRECOMPUTED_SETS.K[b] = malloc(TOTAL_GROUPS * sizeof(CombinationSet));
@@ -158,6 +228,7 @@ void precomputeK()
                 wbf += (int)MATRIX_AT_PTR(W, b, g); // Total votes for the first `f` groups.
             }
             // We know the combinations aren't defined if wbg+1>TOTAL_CANDIDATES.
+            printf("the wbf value is %d\n", wbf);
             if (wbf + 1 < TOTAL_CANDIDATES)
             {
                 PRECOMPUTED_SETS.K[b][g].data = combinations; // Add the arrays of the while-loop
@@ -189,17 +260,14 @@ void precomputeK()
                 // On case the combination is possible; add memory for the new combination.
                 if (valid)
                 {
-                    // printf("Adding:\n{");
-                    // gsl_combination_fprintf(stdout, Kcomb, " %u");
-                    // printf(" }\n");
-                    // sleep(1);
+                    printf("Adding the combination\n{");
+                    gsl_combination_fprintf(stdout, Kcomb, " %u");
+                    printf(" }\n");
                     // Memory to add the new array
                     combinations = realloc(combinations, (count + 1) * sizeof(size_t *));
                     // Memory to add each element of the new array
                     combinations[count] = malloc(TOTAL_CANDIDATES * sizeof(size_t));
                     memcpy(combinations[count], elements, TOTAL_CANDIDATES * sizeof(size_t));
-                    // Add the valid array
-                    // combinations[count] = elements;
                     count++;
                 }
             } while (gsl_combination_next(Kcomb) == GSL_SUCCESS);
@@ -236,48 +304,6 @@ void freePrecomputedSets()
 
 //    This function frees all the memory used by the combination c.
 
-/**
- * @brief Converts a type `double` array to a `size_t`
- *
- * Given an array that is made with `double` elements, it fills another one with `size_t` elements. Note that the
- * decimal values will be truncated.
- *
- * @param[in] *doubleVector A pointer towards the vector that has the values in `double`.
- * @param[in] *sizeTVector A pointer toward the vector with values of type `size_t`.
- * @param[in] size The size of the array
- *
- * @return void
- *
- */
-void convertDoubleToSizeT(const double *doubleVector, size_t *sizeTVector, int size)
-{
-    for (int i = 0; i < size; i++)
-    {
-        sizeTVector[i] = (size_t)doubleVector[i];
-    }
-}
-
-double factorial(double n)
-{
-    double result = 1.0;
-
-#pragma omp parallel
-    {
-        double local_result = 1.0;
-
-#pragma omp for schedule(static)
-        for (int i = 1; i <= (int)n; i++)
-        {
-            local_result *= i;
-        }
-
-// Combine the results safely
-#pragma omp atomic
-        result *= local_result;
-    }
-
-    return result;
-}
 /**
  * @brief Calculate the chained product between probabilities as defined in `a`:
  *
@@ -325,12 +351,8 @@ double prod(const size_t *hElement, const Matrix *probabilities, const int f)
 double multinomialCoeff(const int b, const int f, const size_t *hElement)
 {
     double result = gsl_sf_lngamma((int)MATRIX_AT_PTR(W, b, f) + 1); // ln(w_bf!)
-    printf("\nThe result of ln factorial is\t%1.f\n", gsl_sf_lngamma(MATRIX_AT_PTR(W, b, f)));
-    // double result = factorial(MATRIX_AT_PTR(W, b, f)); // Calculate w_bf! GSL_SF_FACT HAVE A MAXIMUM VALUE OF
-    // 170.
     for (uint16_t i = 0; i < TOTAL_CANDIDATES; i++)
     {
-        printf("\nThe hElement is\t%1.zu\n", hElement[i]);
         result -= gsl_sf_lngamma(hElement[i] + 1); // Divide by each h_i!
     }
 
@@ -338,7 +360,7 @@ double multinomialCoeff(const int b, const int f, const size_t *hElement)
 }
 
 /**
- * @brief Checks if all elements of `K` are bigger than the elements from `H` to ensure non negativity.
+ * @brief Checks if all elements of `H` are bigger than the elements from `K` to ensure non negativity.
  *
  * Given vectors `H` and `K` it iterates between all its values to see the sign of the difference
  *
@@ -378,61 +400,9 @@ bool ifAllElements(const size_t *hElement, const size_t *kElement)
 
 double computeA(const int b, const int f, const size_t *hElement, const Matrix *probabilities)
 {
-    printf("\nWhen passing to computeA, the multinomial coefficient is %1.f and the product is %1.f",
+    printf("\nWhen passing to computeA, the multinomial coefficient is %1.f and the product is %.7f",
            multinomialCoeff(b, f, hElement), prod(hElement, probabilities, f));
     return multinomialCoeff(b, f, hElement) * prod(hElement, probabilities, f);
-}
-
-/**
- * @brief Calculate a given `H` set.
- *
- * Given the index of the set, it returns the `H` set as a gsl_combination struct. Note that it could be used with the
- * gsl_combination functions since it doesn't have restrictions.
- *
- * @param[in] b Index that represents the corresponding ballot.
- * @param[in] f Index that represents the f group (starting at 0).
- *
- * @return gsl_combination *: A pointer towards the struct of a gsl_combination.
- *
- * @warning
- * - The `f` index cannot be bigger than the total amount of groups.
- * - The `b` index cannot be bigger than the total ballots.
- *
- */
-gsl_combination *getH(int b, int f)
-{
-    if (MATRIX_AT_PTR(W, b, f) < TOTAL_CANDIDATES)
-    {
-        gsl_combination *result1 = gsl_combination_calloc((int)TOTAL_CANDIDATES, (int)TOTAL_CANDIDATES);
-        return result1;
-    }
-    gsl_combination *result = gsl_combination_calloc((int)MATRIX_AT_PTR(W, b, f), (int)TOTAL_CANDIDATES); // Order: n, k
-    return result;
-}
-
-/**
- * @brief Tells if a combination is valid according the `K` definition
- *
- * Given the ballot box identificator, it checks if the condition for joining `K` is met.
- *
- * @param[in] *hVector
- * @param[in] b Index that represents the ballot box.
- *
- * @return A boolean that tells if the condition is met
- *
- *
- */
-
-bool filterCombinations(const size_t *hVector, const int b)
-{
-    for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-    {
-        if (hVector[c] > (size_t)MATRIX_AT_PTR(X, b, c))
-        {
-            return false;
-        }
-    }
-    return true;
 }
 
 /**
@@ -512,21 +482,35 @@ bool checkNull(const size_t *vector, size_t size)
 
 void recursion2(MemoizationTable *memo, const Matrix *probabilities)
 {
+    printf("entering...");
     // #pragma omp parallel for
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
         for (uint16_t f = 1; f < TOTAL_GROUPS; f++)
         {
+            printf("THE FIRST F VALUE IS %d\n", f);
+            printf("PRECOMPUTED_SETS.K[b][%d].size: %zu\n", f, PRECOMPUTED_SETS.K[b][f].size);
+            sleep(5);
+
             for (size_t k = 0; k < PRECOMPUTED_SETS.K[b][f].size; k++)
             {
+                printf("PRECOMPUTED_SETS.K[b][f].data: %p, PRECOMPUTED_SETS.K[b][f].data[k]: %p, f = %d\n",
+                       PRECOMPUTED_SETS.K[b][f].data,
+                       k < PRECOMPUTED_SETS.K[b][f].size ? PRECOMPUTED_SETS.K[b][f].data[k] : NULL, f);
                 if (!PRECOMPUTED_SETS.K[b][f].data || !PRECOMPUTED_SETS.K[b][f].data[k])
+                {
+                    printf("here for %d and %d on the first if\n", b, f);
                     continue;
+                }
                 size_t *currentK = PRECOMPUTED_SETS.K[b][f].data[k];
                 for (size_t h = 0; h < PRECOMPUTED_SETS.H[b][f].size; h++)
                 {
                     size_t *currentH = PRECOMPUTED_SETS.H[b][f].data[h];
-                    if (!ifAllElements(currentK, currentH)) // Maybe could be optimized
+                    if (!ifAllElements(currentH, currentK))
+                    { // Maybe could be optimized
+                        printf("here for %d and %d on the second if\n", b, f);
                         continue;
+                    }
                     // ---- Recursion: compute the value of `a` ----
                     double a = computeA(b, f, currentH, probabilities);
                     double valueBefore[TOTAL_CANDIDATES][TOTAL_GROUPS];
@@ -536,14 +520,29 @@ void recursion2(MemoizationTable *memo, const Matrix *probabilities)
                     {
                         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
                         {
-                            if (f == 1 && checkNull(currentH, (size_t)TOTAL_CANDIDATES))
+                            printf("THE F VALUE IS %d and the boolean returns %d\n", f,
+                                   checkNull(currentK, (size_t)TOTAL_CANDIDATES));
+                            sleep(1);
+                            if (f == 1 && checkNull(currentK, (size_t)TOTAL_CANDIDATES))
+                            {
                                 valueBefore[c][g] = 1.0;
-                            else if (f == 1 && !checkNull(currentH, (size_t)TOTAL_CANDIDATES))
+                                setMemoValue(memo, b, 0, g, c, currentK, TOTAL_CANDIDATES, 1.0);
+                                printf("IM HERE");
+                                sleep(4);
+                            }
+                            else if (f == 1 && !checkNull(currentK, (size_t)TOTAL_CANDIDATES))
+                            {
                                 valueBefore[c][g] = 0;
+                                setMemoValue(memo, b, 0, g, c, currentK, TOTAL_CANDIDATES, 1.0);
+                                printf("IM HERE, SECOND LOOP");
+                                sleep(4);
+                            }
                             else
                             {
                                 size_t *substractionVector = malloc((size_t)TOTAL_CANDIDATES * sizeof(size_t));
                                 vectorDiff(currentK, currentH, substractionVector);
+                                printf("The vector diff is:\n");
+                                printSizeTVector(substractionVector, TOTAL_CANDIDATES);
                                 valueBefore[c][g] =
                                     getMemoValue(memo, b, f - 1, g, c, substractionVector, TOTAL_CANDIDATES);
                                 free(substractionVector);
@@ -558,10 +557,14 @@ void recursion2(MemoizationTable *memo, const Matrix *probabilities)
                         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
                         {
                             double valueNow = getMemoValue(memo, b, f, g, c, currentK, TOTAL_CANDIDATES);
+                            printf("When searching for u on index %d, %d, %d, %d the value now is %.4f\n", b, f, g, c,
+                                   valueNow);
                             if (valueNow == INVALID)
                             { // If there wasn't a value before
                                 valueNow = 0.0;
                             }
+                            printf("The current value is:\t%.8f\nThe before value is:\t%.8f\n", valueNow,
+                                   valueBefore[c][g]);
                             if (f == g)
                             {
                                 valueNow += valueBefore[c][g] * a * currentH[c] /
@@ -658,7 +661,8 @@ double *computeQExact(const Matrix *probabilities)
                              MATRIX_AT_PTR(probabilities, g, c);
                 // ---- Store the resulting values as q_{bgc}
                 Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num / den;
-                printf("\nThe result stored for ballot %d, group %d and candidate %d is:\t%.8f\n", b, g, c, num / den);
+                // printf("\nThe result stored for ballot %d, group %d and candidate %d is:\t%.8f\n", b, g, c, num /
+                // den);
             }
         }
     }
