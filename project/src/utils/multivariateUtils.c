@@ -1,6 +1,4 @@
 #include "multivariateUtils.h"
-#include "globals.h"
-#include "matrixUtils.h"
 #include <cblas.h>
 #include <lapacke.h>
 #include <stdio.h>
@@ -184,7 +182,7 @@ void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *co
     // ---- Create an array of size `TOTAL_GROUPS` that will store each outer product ----
     Matrix *matrixMultiplications = (Matrix *)malloc((TOTAL_GROUPS) * sizeof(Matrix));
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-    {   // ---- For each group
+    { // ---- For each group
         // ---- Do the outer product and store it in the array ----
         Matrix mult = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1);
         cblas_dger(CblasRowMajor, TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1, 1.0, probabilitiesForG[g], 1,
@@ -200,12 +198,12 @@ void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *co
         for (uint16_t i = 0; i < TOTAL_CANDIDATES - 1; i++)
         { // ---- For each candidate given a group
             for (uint16_t j = 0; j < TOTAL_CANDIDATES - 1; j++)
-            {   // ---- For each candidate given a group and a candidate
+            { // ---- For each candidate given a group and a candidate
                 // ---- Add the multiplication of probabilities ----
                 MATRIX_AT_PTR(conditionalSigma[g], i, j) =
                     MATRIX_AT(newSigma, i, j) + MATRIX_AT(matrixMultiplications[g], i, j);
                 if (i == j)
-                {   // ---- If it's a diagonal
+                { // ---- If it's a diagonal
                     // ---- Substract the diagonal probabilities ----
                     MATRIX_AT_PTR(conditionalSigma[g], i, j) -= MATRIX_AT(diagonalProbabilities[g], i, j);
                 }
