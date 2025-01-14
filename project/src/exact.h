@@ -5,6 +5,16 @@
 #include "matrixUtils.h"
 #include "memoizationUtil.h"
 
+// ---- Define a structure to store the sets ---- //
+typedef struct
+{
+    uint32_t b;
+    uint16_t g;
+    size_t **data;
+    size_t size;
+} Set;
+// ---...--- //
+
 /**
  * @brief Calculate the value of `q_{bgc}`.
  *

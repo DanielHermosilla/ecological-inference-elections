@@ -1,28 +1,13 @@
 #include "exact.h"
-#include "globals.h"
-#include "matrixUtils.h"
-#include "memoizationUtil.h"
 #include <cblas.h>
-#include <gsl/gsl_combination.h>
-#include <gsl/gsl_permutation.h>
 #include <gsl/gsl_sf_gamma.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
 
-#define Q_3D(q, bIdx, gIdx, cIdx, G, C) ((q)[((bIdx) * (G) * (C)) + ((gIdx) * (C)) + (cIdx)])
-
-typedef struct
-{
-    uint32_t b;
-    uint16_t g;
-    size_t **data;
-    size_t size;
-} Set;
-
-Set **HSETS = NULL;       // Global pointer to store all Hsets
-Set **KSETS = NULL;       // Global pointer to store all Ksets
+Set **HSETS = NULL;       // Global pointer to store all H sets
+Set **KSETS = NULL;       // Global pointer to store all K sets
 size_t **CANDIDATEARRAYS; // 2D array indexed by [c][b]
 
 /**
@@ -47,25 +32,12 @@ void vectorDiff(const size_t *K, const size_t *H, size_t *arr)
 }
 
 /**
- * @brief Calculate the value of `u_{bfgc}(k)`.
+ * @brief Checks if the vector is null.
  *
- * Given the index from `u` it returns its value. If it hasn't been calculated yet, it starts iterating the recursion
- * for getting a final answer.
+ * @param[in] *vector A pointer towards the vector to check the condition.
+ * @param[in] size The size of the vector.
  *
- * @param[in] b Index that represents the corresponding ballot.
- * @param[in] f Index that represents the first `f` groups (starting at 0).
- * @param[in] g Index that represents the `g` group (starting at 0).
- * @param[in] c Index that represents the `c` candidate (starting at 0).
- * @param[in] *vector A pointer to the vector that functions as a key.
- * @param[in, out] *memo A pointer to the hash table.
- * @param[in] *probabilities A pointer to the matrix with the probabilities.
- *
- * @return double: The value from `u_{bfgc}(k)`
- *
- * @warning
- * - The `f` index cannot be bigger than the total amount of groups.
- * - The `b` index cannot be bigger than the total ballots.
- *
+ * @return Boolean value that tells if the vector is null (true) or not (false).
  */
 
 bool checkNull(const size_t *vector, size_t size)
@@ -104,179 +76,187 @@ bool ifAllElements(const size_t *hElement, const size_t *kElement)
     return true;
 }
 
-void printSizeTVector(size_t *vector, int size)
-{
-    if (!vector)
-    {
-        printf("Vector is NULL\n");
-        return;
-    }
+/**
+ * @brief Calculate the possible configurations via a recursion.
+ *
+ * Given the initial parameters, it will calculate an array with all of the possible voting outcomes, having the
+ * constraint on the votes that a candidate had scored. The constraint will put an upper limit towards the dimension of
+ * the given candidate.
+ *
+ * @param[in] b. The index of the ballot box that is going to be calculated.
+ * @param[in] *votes. The array that will be storing every vote.
+ * @param[in] position. The current position that indicates the index of the candidate that's being calculated.
+ * @param[in] remainingVotes. The remaining votes to distribute over each dimension.
+ * @param[in] numCandidates. The amount of candidates. It will also determine the dimensions of the array.
+ * @param[in, out] ***results. The main array for storing each possible combination.
+ * @param[in, out] *count. A counter that will have the amount of combinations
+ *
+ * @return void.
+ *
+ */
 
-    printf("Vector (size = %d): [", size);
-    for (int i = 0; i < size; i++)
-    {
-        printf("%zu", vector[i]);
-        if (i < size - 1)
-        {
-            printf(", ");
-        }
-    }
-    printf("]\n");
-}
-
-// Recursive function to distribute votes
 void generateConfigurations(int b, size_t *votes, int position, int remainingVotes, int numCandidates,
                             size_t ***results, size_t *count)
 {
+    // ---- Base case: we're on the last candidate ---- //
     if (position == numCandidates - 1)
     {
-        // Assign remaining votes to the last candidate
+        // ---- Assign remaining votes to the last candidate ----
         votes[position] = remainingVotes;
 
+        // ---- If the last candidate actually had less votes, ditch that combination ----
         if (votes[position] > MATRIX_AT_PTR(X, position, b))
         {
-            // Case where the last candidate exceeds the maximum possible amount.
+            // ---- Exit the recursion and don't save anything
             return;
         }
-        // Store the result
+
+        // ---- Store the result ---- //
+        // ---- Up to this point, the combination is valid, hence, the results will be stored.
         (*results) = realloc(*results, (*count + 1) * sizeof(size_t *));
         (*results)[*count] = malloc(numCandidates * sizeof(size_t));
         memcpy((*results)[*count], votes, numCandidates * sizeof(size_t));
         (*count)++;
         return;
+        // ---...--- //
     }
+    // ---...--- //
 
+    // ---- Loop over all the remaining votes ---- //
     for (int i = 0; i <= remainingVotes; i++)
-    {
+    { // ---- For each remaining vote
+        // ---- Assing that amount of votes to the candidate in the given position ----
         votes[position] = i;
 
+        // ---- If the candidate actually had less votes, ditch that combination ----
         if (votes[position] > MATRIX_AT_PTR(X, position, b))
         {
+            // ---- Exit the recursion and dont save anything
             return;
         }
+        // ---- Call the recursion ----
         generateConfigurations(b, votes, position + 1, remainingVotes - i, numCandidates, results, count);
     }
+    // ---...--- //
 }
 
-// Count is a pointer that indicates the total amount of elements
+/**
+ * @brief Main function for generating all combinations possible.
+ *
+ * Given that the combinations are created towards a recursion, the main function is to add as a wrapper towards the
+ * recursion function. It will return a pointer with all of the possible configurations. The combinations have an upper
+ * constraint given the results that a candidate have gotten.
+ *
+ * @param[in] b. The index of the ballot box that is going to be calculated.
+ * @param[in] totalVotes. The total amount of votes to handle. For example, if a group had `10` votes, the sum of each
+ * element will be 10.
+ * @param[in] numCandidates. The amount of candidates. It will also determine the dimensions of the array.
+ * @param[in, out] *count. Pointer that will store the total amount of combinations. Useful for iterating over a set.
+ *
+ * @return size_t **: A pointer that will store arrays of arrays, having all of the possible combinations.
+ *
+ */
 size_t **generateAllConfigurations(int b, int totalVotes, int numCandidates, size_t *count)
 {
+    // ---- Initialize parameters ---- //
     size_t **results = NULL;
     *count = 0;
-
     size_t *votes = malloc(numCandidates * sizeof(size_t));
-    // Votes is the
-    generateConfigurations(b, votes, 0, totalVotes, numCandidates, &results, count);
+    // --- ... --- //
 
+    // ---- Call the recursion ---- //
+    generateConfigurations(b, votes, 0, totalVotes, numCandidates, &results, count);
+    // --- ... --- //
     free(votes);
     return results;
 }
 
+/**
+ * @brief Precalculates the `H` set for every index.
+ *
+ * Given that the set wasn't calculated before, it calculates the H set defined as every possible combination for a
+ * given `g` group
+ *
+ * @return void: Results written at the global variable HSETS.
+ *
+ */
 void generateHSets()
 {
+    // ---- Allocate memory for the `b` index ----
     HSETS = malloc(TOTAL_BALLOTS * sizeof(Set *));
 
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    {
+    { // ---- For every ballot box
+
+        // ---- Allocate memory for the `g` index ----
         HSETS[b] = malloc(TOTAL_GROUPS * sizeof(Set));
+
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-        {
-            // Initialize H set
+        { // ---- For each group given a ballot box
+
+            // ---- Initialize H set and set initial parameters ---- //
             HSETS[b][g].b = b;
             HSETS[b][g].g = g;
-
-            // Parameters for the function
+            // ---- Parameters for the function ----
             size_t total = (size_t)MATRIX_AT_PTR(W, b, g);
-            // Generate configurations
+            // --- ... --- //
+
+            // ---- Compute the set combinations ---- //
             size_t count = 0;
             size_t **configurations = generateAllConfigurations(b, total, TOTAL_CANDIDATES, &count);
 
-            // Store configurations and size
+            // ---- Store configurations and size ----
             HSETS[b][g].data = configurations;
             HSETS[b][g].size = count;
+            // --- ... --- //
         }
     }
 }
+
+/**
+ * @brief Precalculates the `K` set for every index.
+ *
+ * Given that the set wasn't calculated before, it calculates the K set defined as every possible combination as a
+ * cummulative set given the first `f` groups.
+ *
+ * @return void: Results written at the global variable KSETS.
+ *
+ */
 
 void generateKSets()
 {
+    // ---- Allocate memory for the `b` index ----
     KSETS = malloc(TOTAL_BALLOTS * sizeof(Set *));
 
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    {
+    { // ---- For every ballot box
+
+        // ---- Allocate memory for the `f` index ----
         KSETS[b] = malloc(TOTAL_GROUPS * sizeof(Set));
+
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-        {
-            // Initialize K set
+        { // ---- For each group given a ballot box
+
+            // ---- Initialize K set and set initial parameters ---- //
             KSETS[b][g].b = b;
             KSETS[b][g].g = g;
-
+            // ---- Parameters for the function ----
             size_t total = 0;
             for (uint16_t f = 0; f <= g; f++)
-            {
+            { // --- For each cummulative group
+                // ---- Sum the amount of votes from the first `f` groups ----
                 total += (size_t)MATRIX_AT_PTR(W, b, f);
             }
+            // --- ... --- //
 
-            // Generate configurations
+            // ---- Compute the set combinations ---- //
             size_t count = 0;
             size_t **configurations = generateAllConfigurations(b, total, TOTAL_CANDIDATES, &count);
 
-            // Store configurations and size
+            // ---- Store configurations and size ----
             KSETS[b][g].data = configurations;
             KSETS[b][g].size = count;
-        }
-    }
-}
-
-void generateSets()
-{
-    HSETS = malloc(TOTAL_BALLOTS * sizeof(Set *));
-    KSETS = malloc(TOTAL_BALLOTS * sizeof(Set *));
-
-    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    {
-        HSETS[b] = malloc(TOTAL_GROUPS * sizeof(Set));
-        KSETS[b] = malloc(TOTAL_GROUPS * sizeof(Set));
-        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-        {
-            // Initialize H set
-            HSETS[b][g].b = b;
-            HSETS[b][g].g = g;
-            // Initialize K set
-            KSETS[b][g].b = b;
-            KSETS[b][g].g = g;
-            // Parameters for the function
-            size_t total = (size_t)MATRIX_AT_PTR(W, b, g);
-            // Generate configurations
-            size_t count = 0;
-            size_t **configurations = generateAllConfigurations(b, total, TOTAL_CANDIDATES, &count, true);
-
-            // Store configurations and size
-            HSETS[b][g].data = configurations;
-            HSETS[b][g].size = count;
-
-            if (g == 0)
-            {
-                KSETS[b][g].data = configurations;
-                KSETS[b][g].size = count;
-            }
-            else
-            {
-                int ktotal = 0;
-                for (uint16_t f = 0; f <= g; f++)
-                {
-                    ktotal += (size_t)(MATRIX_AT_PTR(W, b, f));
-                }
-                size_t Kcount = 0;
-                size_t **Kconfigurations = generateAllConfigurations(b, ktotal, TOTAL_CANDIDATES, &Kcount, true);
-                KSETS[b][g].data = Kconfigurations;
-                KSETS[b][g].size = Kcount;
-            }
-            printf("\nFor the last array on ballot %d and group %d we've got:\nHSET:\n", b, g);
-            printSizeTVector(HSETS[b][g].data[HSETS[b][g].size], TOTAL_CANDIDATES);
-            printf("\nKSET\n");
-            printSizeTVector(KSETS[b][g].data[KSETS[b][g].size], TOTAL_CANDIDATES);
-            sleep(1);
+            // --- ... --- //
         }
     }
 }
@@ -284,7 +264,8 @@ void generateSets()
 /**
  * @brief Calculate the chained product between probabilities as defined in `a`:
  *
- * Given an `H` element and the `f` index it computes the chained product.
+ * Given an `H` element and the `f` index it computes the chained product. It will use logarithmics for reducing
+ * complexity.
  *
  * @param[in] *hElement A pointer towards the element of `H`. This element is an array with the possible combinations
  * @param[in] *probabilities A pointer toward the probabilities Matrix.
@@ -293,30 +274,45 @@ void generateSets()
  * @return double: The result of the product
  *
  */
-
 double prod(const size_t *hElement, const Matrix *probabilities, const int f)
 {
     double log_result = 0;
+    // ---- Main computation ---- //
     for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-    {
+    { // ---- For each candidate
+
+        // ---- Get the matrix value at `f` and `c` ----
         double prob = MATRIX_AT_PTR(probabilities, f, c);
+
+        // ---- If the multiplication gets to be zero, it would be undefined in the logarithm (and zero for all of the
+        // chain). Do an early stop if that happens ----
         if (prob == 0.0 && hElement[c] > 0)
         {
-            return 0.0; // Early exit if probability is zero for a non-zero count
+            return 0.0; // ---- Early stop ----
         }
+
+        // ---- Ensures the probability is greater than zero for not getting a undefined logarithm. Anyways, that
+        // shouldn't happen. ----
         if (prob > 0)
         {
+            // ---- Add the result to the logarithm. Remember that by logarithm properties, the multiplication of the
+            // arguments goes as a summatory ----
             log_result += hElement[c] * log(prob);
         }
     }
-    return exp(log_result); // Exponentiate the final result
+    // --- ... --- //
+
+    // ---- Exponetiate the final result ----
+    return exp(log_result);
 }
+
 /**
- * @brief Calculate `a` given the multinomial coefficient, subject to the `H` set:
+ * @brief Calculate the multinomial coefficient, subject to the `H` set:
  *
  * Given an `H` element, it computes its multinomial coefficient subject to the total amount of votes a group received.
  * It yields the following calculation:
  * $$\binom{w_{bf}}{h_1,\dots,h_C}=\frac{w_{bf}!}{h_1!\cdots h_{C}!}$$
+ * It will use logarithms for the factorials, and later be converted to their exponential equivalent.
  *
  * @param [in] b The index of the ballot.
  * @param [in] f The index of the group
@@ -327,12 +323,15 @@ double prod(const size_t *hElement, const Matrix *probabilities, const int f)
  */
 double multinomialCoeff(const int b, const int f, const size_t *hElement)
 {
-    double result = gsl_sf_lngamma((int)MATRIX_AT_PTR(W, b, f) + 1); // ln(w_bf!)
-    for (uint16_t i = 0; i < TOTAL_CANDIDATES; i++)
-    {
-        result -= gsl_sf_lngamma(hElement[i] + 1); // Divide by each h_i!
-    }
+    // --- Compute ln(w_bf!). When adding by one, it considers the last element too ---
+    double result = gsl_sf_lngamma((int)MATRIX_AT_PTR(W, b, f) + 1);
 
+    for (uint16_t i = 0; i < TOTAL_CANDIDATES; i++)
+    { // ---- For each candidate
+        // ---- Divide by each h_i! ----
+        result -= gsl_sf_lngamma(hElement[i] + 1);
+    }
+    // ---- Return the original result by exponentiating ----
     return exp(result);
 }
 
@@ -350,57 +349,85 @@ double multinomialCoeff(const int b, const int f, const size_t *hElement)
  * @return The value of `A`
  *
  */
-
 double computeA(const int b, const int f, const size_t *hElement, const Matrix *probabilities)
 {
     return multinomialCoeff(b, f, hElement) * prod(hElement, probabilities, f);
 }
 
-void recursion2(MemoizationTable *memo, const Matrix *probabilities)
+/**
+ * @brief Calculates the main loop of the pseudocode and store the values on the hash table.
+ *
+ * It will loop over every value and add the results in the memoization table. It will be parallelized just on the outer
+ * loop, benchmarking has shown that parallelizing over `k` and `h` doesn't win anything. Anyways, it could be reverted.
+ *
+ * @param[in] *probabilities A pointer to the matrix with the probabilities.
+ * @param[in, out] *memo A pointer towards the hash table.
+ *
+ * @return void. Results to be written on the hash table
+ *
+ */
+void recursion(MemoizationTable *memo, const Matrix *probabilities)
 {
 #pragma omp parallel for
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    {
+    { // ---- For each ballot box
         for (uint16_t f = 0; f < TOTAL_GROUPS; f++)
-        {
+        { // ---- For each group, given a ballot box
+            // #pragma omp parallel for collapse(2) It actually worsened the performance
             for (size_t k = 0; k < KSETS[b][f].size; k++)
-            {
+            { // ---- For each element from the K_bf set
+                // ---- If there's no existing combination, skip the loop ----
                 if (!KSETS[b][f].data || !KSETS[b][f].data[k])
                 {
                     continue;
                 }
 
+                // ---- Define the current element from the K set ----
                 size_t *currentK = KSETS[b][f].data[k];
+
                 for (size_t h = 0; h < HSETS[b][f].size; h++)
-                {
+                { // ---- For each element from the H_bf set
                     size_t *currentH = HSETS[b][f].data[h];
+                    // ---- If the element from h isn't smaller than the one from k ----
+                    // ---- Note that, when generating the H set, the restriction from candidate votes was also imposed,
+                    // so it excluded "trivial" cases ----
                     if (!ifAllElements(currentH, currentK))
-                    { // Maybe could be optimized
+                    { // ---- Maybe could be optimized
                         continue;
                     }
 
                     // ---- Compute the values that are independent from c and g ---- //
+                    // ---- The value `a` from the pseudocode. Check `computeA` for more information ----
                     double a = computeA(b, f, currentH, probabilities);
+                    // ---- Initialize the variable that will store the past iteration ----
                     double valueBefore;
-                    size_t *substractionVector = malloc((size_t)TOTAL_CANDIDATES * sizeof(size_t));
+                    // ---- Substract the Kth element with the Hth element (k-h) ----
+                    size_t *substractionVector =
+                        malloc((size_t)TOTAL_CANDIDATES * sizeof(size_t)); // ---- Allocates memory
                     vectorDiff(currentK, currentH, substractionVector);
                     // --- ... --- //
 
-                    // ---- Get the value from u_b,g-1,g,c(k-h) ---- //
+                    // ---- Retrieve the initial and current values  ---- //
                     for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-                    {
+                    { // ----  For each candidate
                         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-                        {
+                        { // ---- For each group given a candidate
 
                             // ---- Get the value from the last iteration ---- //
+
+                            // ---- Border case, if f = 0 we assume that it's initialized as 1 if the substracting
+                            // vector is one ----
                             if (f == 0 && checkNull(substractionVector, TOTAL_CANDIDATES))
                             {
                                 valueBefore = 1.0;
                             }
+                            // ---- Another border case, if the substracting vector isn't 0 and f = 0, then the
+                            // initialized value is zero ----
                             else if (f == 0)
                             {
                                 valueBefore = 0.0;
                             }
+                            // ---- No more border cases, at this point, every past value should had been defined ----
                             else
                             {
                                 valueBefore = getMemoValue(memo, b, f - 1, g, c, substractionVector, TOTAL_CANDIDATES);
@@ -409,14 +436,21 @@ void recursion2(MemoizationTable *memo, const Matrix *probabilities)
 
                             // ---- Get the current value ---- //
                             double valueNow = getMemoValue(memo, b, f, g, c, currentK, TOTAL_CANDIDATES);
-                            if (valueNow == INVALID) // ---- If there's not a value created, set it as zero. ----
+                            // ---- If there's not a value created, set it as zero. ----
+                            if (valueNow == INVALID)
                                 valueNow = 0.0;
+                            // --- ... --- //
+
+                            // ---- Calculate the new value ---- //
+
                             if (f == g)
                             {
-                                if (MATRIX_AT_PTR(W, b, f) == 0)
+                                // ---- Precompute the denominator to avoid divitions by zero. ----
+                                double den = MATRIX_AT_PTR(probabilities, f, c) * MATRIX_AT_PTR(W, b, f);
+                                if (den == 0)
                                     continue;
-                                valueNow += valueBefore * a * currentH[c] /
-                                            (MATRIX_AT_PTR(probabilities, f, c) * MATRIX_AT_PTR(W, b, f));
+                                // ---- Add the new value ----
+                                valueNow += valueBefore * a * currentH[c] / den;
                             }
                             else
                             {
@@ -425,22 +459,21 @@ void recursion2(MemoizationTable *memo, const Matrix *probabilities)
                             // --- ... --- //
 
                             // ---- Store the value ---- //
+                            // ---- We set a critical point in case there's an error when inserting two values at the
+                            // same time. Remember that this loop is parallelized ----
 #pragma omp critical
                             {
                                 setMemoValue(memo, b, f, g, c, currentK, TOTAL_CANDIDATES, valueNow);
                             }
                             // --- ... --- //
-                        }
-                    }
+                        } // ---- End g loop
+                    } // ---- End c loop
                     free(substractionVector);
-
                     // ---...--- //
-
-                    // ---...--- //
-                }
-            }
-        }
-    }
+                } // ---- End H set loop
+            } // ---- End K set loop
+        } // ---- End `f` loop
+    } // ---- End ballot boxes loop
 }
 
 /**
@@ -459,43 +492,51 @@ void recursion2(MemoizationTable *memo, const Matrix *probabilities)
 double *computeQExact(const Matrix *probabilities)
 {
 
-    // ---- Initialize CANDIDATEARRAYS, which corresponds as a copy of `X` but in size_t.
+    // ---- Initialize CANDIDATEARRAYS, which corresponds as a copy of `X` but in size_t. ---- //
     if (CANDIDATEARRAYS == NULL)
     {
-        // ---- Define the memory for the matrix and its parameters
+        // ---- Define the memory for the matrix and its parameters ----
         CANDIDATEARRAYS = malloc(TOTAL_BALLOTS * sizeof(size_t *));
-        // ---- Parallelization will consider the two inner loops as only one
+// ---- Parallelize the loop over the ballot boxes ----
+#pragma omp parallel for
         for (uint16_t b = 0; b < TOTAL_BALLOTS; b++)
-        {
+        { // ---- For all ballot boxes
+            // ---- Allocate memory for the candidate array ----
             CANDIDATEARRAYS[b] = malloc(TOTAL_CANDIDATES * sizeof(size_t));
             for (uint32_t c = 0; c < TOTAL_CANDIDATES; c++)
-            {
+            { // ---- For each candidate given a ballot box
+                // ---- Add the result to the array ----
                 CANDIDATEARRAYS[b][c] = (size_t)MATRIX_AT_PTR(X, c, b);
             }
         }
     }
-    // ---- Initialize the `H` set, for recicling its values
+    // --- ... --- //
+
+    // ---- Initialize the sets, to avoid unnecesary computations ---- //
     if (HSETS == NULL && KSETS == NULL)
     {
-        printf("Starting the heavy precomputation\n");
+        // ---- Note: both sets could had been created on the same loop at cost of code legibility. The reward is really
+        // small, arguably, doesn't make any difference. It was preffered to not sacrifice legibility ----
+        // ---- Create the H sets ----
         generateHSets();
-        printf("\nHSETS is generated.\n");
+        // ---- Create the K sets ----
         generateKSets();
-        printf("\nKSETS is generated.\n");
-        // printSets();
-        printf("The heavy precomputation is finished\n");
     }
+    // --- ... --- //
 
-    printf("Starting the recursion\n");
-    // ---- Initialize the hash table
+    // ---- Initialize the dictionary variables ---- //
+    // ---- Initialize the hash table ----
     MemoizationTable *table = initMemo();
     // ---- Initialize the array to return
     double *array2 = (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double));
-    recursion2(table, probabilities);
-    printf("Finished the recursion\n");
-    // ---- The parallelization would be made on the outer loops. It might cause a problem if the recursion tries to
-    // write at the same location, to be checked.
-    // #pragma omp parallel for schedule(dynamic) collapse(2)
+    // --- ... --- //
+
+    // ---- Start the main computation ---- //
+    recursion(table, probabilities);
+    // --- ... --- //
+
+    // ---- Store the results ---- //
+#pragma omp parallel for schedule(dynamic) collapse(2)
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For each ballot box
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
@@ -510,41 +551,45 @@ double *computeQExact(const Matrix *probabilities)
                     den += getMemoValue(table, b, TOTAL_GROUPS - 1, g, c, CANDIDATEARRAYS[b], TOTAL_CANDIDATES) *
                            MATRIX_AT_PTR(probabilities, g, c);
                 }
-            }
+            } // ---- End loop on candidates
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // ---- For each candidate
-              // ---- Compute the numerator; the recursion shouldn't be ran since the denominator initialized the
-              // hashed values.
+              // ---- Compute the numerator ----
 #pragma omp critical
                 {
                     double num = getMemoValue(table, b, TOTAL_GROUPS - 1, g, c, CANDIDATEARRAYS[b], TOTAL_CANDIDATES) *
                                  MATRIX_AT_PTR(probabilities, g, c);
-                    // ---- Store the resulting values as q_{bgc}
+                    // ---- Store the resulting values as q_{bgc} ----
                     Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num / den;
                 }
-            }
-        }
-    }
+            } // ---- End loop on candidates
+        } // ---- End loop on groups
+    } // ---- End loop on ballot boxes
     freeMemo(table);
     return array2;
+    // ---...--- //
 }
 
+/**
+ * @brief Frees al the memory allocated on the H set.
+ *
+ */
 void freeHSet()
 {
-    // Free HSETS
+    // ---- If the set was created ----
     if (HSETS != NULL)
     {
         for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-        {
+        { // ---- For each ballot box
             if (HSETS[b] != NULL)
-            {
+            { // ---- If the value was created ----
                 for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-                {
+                { // ---- For each group given a ballot box
                     if (HSETS[b][g].data != NULL)
-                    {
-                        // Free each configuration in the Hset
+                    { // ---- If the array was created ----
+                        // ---- Free each configuration in the H set ----
                         for (size_t i = 0; i < HSETS[b][g].size; i++)
-                        {
+                        { // ---- For each combination in the bth and gth configuration ----
                             free(HSETS[b][g].data[i]);
                         }
                         free(HSETS[b][g].data); // Free the array of configurations
@@ -558,28 +603,32 @@ void freeHSet()
     }
 }
 
+/**
+ * @brief Frees al the memory allocated on the K set.
+ *
+ */
 void freeKSet()
 {
-    // Free KSETS
+    // ---- If the set was created ----
     if (KSETS != NULL)
     {
         for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-        {
+        { // ---- For each ballot box
             if (KSETS[b] != NULL)
-            {
+            { // ---- If the value was created ----
                 for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-                {
+                { // ---- For each group given a ballot box
                     if (KSETS[b][g].data != NULL)
-                    {
-                        // Free each configuration in the Bset
+                    { // ---- If the array was created ----
+                        // ---- Free each configuration in the K set ----
                         for (size_t i = 0; i < KSETS[b][g].size; i++)
-                        {
+                        { // ---- For each combination in the bth and gth configuration ----
                             free(KSETS[b][g].data[i]);
                         }
                         free(KSETS[b][g].data); // Free the array of configurations
                     }
                 }
-                free(KSETS[b]); // Free the array of Bsets for this ballot
+                free(KSETS[b]); // Free the array of K sets for this ballot
             }
         }
         free(KSETS); // Free the global array
@@ -589,16 +638,22 @@ void freeKSet()
 
 __attribute__((destructor)) void cleanUp()
 {
-    // ---- Destroy the candidate array of size_t
+    // ---- Destroy the candidate array of size_t ---- //
+    // ---- If the array was created ----
     if (CANDIDATEARRAYS != NULL)
     {
         for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-        {
+        { // ---- For each ballot box
             free(CANDIDATEARRAYS[b]);
         }
         free(CANDIDATEARRAYS);
     }
-    // ---- Destroy the array of precomputed H
+    // ---...--- //
+
+    // ---- Destroy every set ---- //
+    // ---- Destroy the array of precomputed H ----
     freeHSet();
+    // ---- Destroy the array of precomputed H ----
     freeKSet();
+    // ---...--- //
 }

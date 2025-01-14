@@ -306,8 +306,6 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
      *
      */
 
-    printf("The input matrix is:\n");
-    printMatrix(currentP);
     if (strcmp(q_method, "Hit and Run") != 0 && strcmp(q_method, "Multinomial") != 0 &&
         strcmp(q_method, "MVN CDF") != 0 && strcmp(q_method, "MVN PDF") != 0 && strcmp(q_method, "Exact") != 0)
     {
@@ -369,10 +367,6 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         }
 
         Matrix newProbability = getP(q);
-        printf("The new matrix is\n");
-        printMatrix(&newProbability);
-        printf("The old matrix is\n");
-        printMatrix(currentP);
         free(q);
         if (convergeMatrix(&newProbability, currentP, convergence))
         {
@@ -478,8 +472,8 @@ int main()
 
     // Start timer
     clock_gettime(CLOCK_MONOTONIC, &start);
-    Matrix P = getInitialP("uniform");
-    Matrix Pnew = EMAlgoritm(&P, "Exact", 0.0001, 200, true);
+    Matrix P = getInitialP("group proportional");
+    Matrix Pnew = EMAlgoritm(&P, "Exact", 0.0001, 1, false);
 
     clock_gettime(CLOCK_MONOTONIC, &end);
     double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
