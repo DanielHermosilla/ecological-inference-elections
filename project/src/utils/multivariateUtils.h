@@ -25,6 +25,24 @@
 void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *sigma);
 
 /**
+ * @brief Computes the parameters of the unconditional probability WITH the last candidate
+ *
+ * Computes the first and second moments of an approximated Multivariate Normal distribution.
+ *
+ * @param[in] b The index of the ballot box
+ * @param[in] g The index of the group
+ * @param[in] *probabilitiesNotReduced Matrix of dimension (gxc) with the probabilities of each group and candidate,
+ * @param[in, out] *mu An array of size c to store the results of the average.
+ * @param[in, out] *sigma A matrix of size (c, c) to store the sigma matrix.
+ *
+ *
+ * @return void. Results to be written on mu and sigma.
+ *
+ */
+
+void getParamsFull(int b, const Matrix *probabilitiesNotReduced, double *mu, Matrix *sigma);
+
+/**
  * @brief Computes the parameters of the conditional probability
  *
  * Computes the first and second moments of an approximated Multivariate Normal distribution conditional to the results
@@ -44,5 +62,24 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
  *
  */
 void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *conditionalMu, Matrix **conditionalSigma);
+
+/**
+ * @brief Computes the parameters of the conditional probability WITH the last candidate
+ *
+ * Computes the first and second moments of an approximated Multivariate Normal distribution conditional to the results
+ * of a group.
+ *
+ * @param[in] b The index of the ballot box
+ * @param[in] g The index of the group
+ * @param[in] *probabilitiesNotReduced Matrix of dimension (gxc) with the probabilities of each group and candidate,
+ * @param[in, out] *newMu An array of size c to store the results of the average.
+ * @param[in, out] *newSigma A matrix of size (c, c) to store the sigma matrix.
+ *
+ * @return void. Results to be written on mu and sigma.
+ *
+ */
+
+void getAverageConditionalFull(int b, const Matrix *probabilitiesNotReduced, Matrix *conditionalMu,
+                               Matrix **conditionalSigma);
 
 #endif

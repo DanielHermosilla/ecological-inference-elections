@@ -1,3 +1,4 @@
+#include "multivariate-pdf.h"
 #include <globals.h>
 #include <gsl/gsl_cdf.h>
 #include <gsl/gsl_monte.h>
@@ -8,6 +9,8 @@
 #include <gsl/gsl_rng.h> // Random numbers
 #include <matrixUtils.h>
 #include <multivariateUtils.h>
+#include <stdint.h>
+#include <string.h>
 
 typedef struct
 {
@@ -19,8 +22,10 @@ typedef struct
     int mvnDim;               // Dimension of the MVN
 } IntegrationParams;
 
+Matrix *featureMatrix = NULL;
+
 // Function to evaluate the integrand
-double mvn_integrand(double *x, size_t dim, void *params)
+double integral(double *x, size_t dim, void *params)
 {
     IntegrationParams *p = (IntegrationParams *)params;
     const Matrix *chol = p->chol;
@@ -42,8 +47,9 @@ double mvn_integrand(double *x, size_t dim, void *params)
 }
 
 // Monte Carlo CDF approximation
-double Montecarlo(const Matrix *chol, int ballotIndex, int candidateIndex, const double *a, const double *b, int mvnDim,
-                  double epsilon, int maxSamples)
+// Refer to https://www.gnu.org/software/gsl/doc/html/montecarlo.html
+double Montecarlo(const Matrix *chol, int ballotIndex, int candidateIndex, const double *lowerLimits,
+                  const double *upperLimits, int mvnDim, int maxSamples)
 {
     // Define integration limits
     double xl[mvnDim], xu[mvnDim];
@@ -55,12 +61,11 @@ double Montecarlo(const Matrix *chol, int ballotIndex, int candidateIndex, const
 
     // Set up the parameters for the integrand
     IntegrationParams params = {
-        chol, ballotIndex, candidateIndex, a, b, mvnDim,
+        chol, ballotIndex, candidateIndex, lowerLimits, upperLimits, mvnDim,
     };
 
     // Initialize GSL Monte Carlo integration
-    gsl_monte_function G = {&mvn_integrand, (size_t)mvnDim, &params};
-    // {&mvn_integrand, (size_t)mvnDim, &params};
+    gsl_monte_function G = {&integral, (size_t)mvnDim, &params};
     gsl_rng *rng = gsl_rng_alloc(gsl_rng_default);
     gsl_monte_plain_state *s = gsl_monte_plain_alloc(mvnDim);
 
@@ -75,29 +80,93 @@ double Montecarlo(const Matrix *chol, int ballotIndex, int candidateIndex, const
     return result;
 }
 
-void getMainParameters(int b, Matrix const probabilitiesReduced)
+void getMainParameters(int b, Matrix const probabilitiesReduced, Matrix **cholesky, Matrix *mu)
 {
     // --- Get the mu and sigma --- //
-    Matrix muR = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES - 1);
-    Matrix **sigma = (Matrix **)malloc(TOTAL_GROUPS * sizeof(Matrix *));
 
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     { // ---- For each group ----
-        sigma[g] = (Matrix *)malloc(sizeof(Matrix));
-        *sigma[g] = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1); // Initialize
+        cholesky[g] = (Matrix *)malloc(sizeof(Matrix));
+        *cholesky[g] = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1); // Initialize
     }
 
-    getAverageConditional(b, &probabilitiesReduced, &muR, sigma);
+    getAverageConditionalFull(b, &probabilitiesReduced, mu, cholesky);
     // ---- ... ----
 
     // ---- Get the inverse matrix for each sigma ---- //
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     { // ---- For each group ----
         // ---- Calculates the Cholensky matrix ---- //
-        inverseSymmetricPositiveMatrix(sigma[g]);
+        inverseSymmetricPositiveMatrix(cholesky[g]);
     }
 }
+/*
+void getFeatureMatrix(){
+    *featureMatrix = createMatrix(X->rows, X->cols); // c, b
+    memcpy(featureMatrix->data, X->data, X->rows * X->cols * sizeof(double));
+    for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++){
+        for (uint32_t b = 0; b < TOTAL_BALLOTS; b++){
 
+        }
+    }
+    double *returningArray = (double *)malloc(TOTAL_CANDIDATES-1 * sizeof(double));
+    returningArray = getColumn(XwithoutLast, b);
+    return returningArray;
+}
+*/
+double *computeQMultivariateCDF(Matrix const probabilities, int monteCarloSamples)
+{
+
+    Matrix probabilitiesReduced = removeLastColumn(&probabilities);
+    double *array2 =
+        (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double)); // Array to return
+                                                                                           // --- ... --- //
+
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+        {
+
+            // ---- Get the values of the Multivariate ---- //
+            Matrix mu = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES);
+            Matrix **choleskyVals = (Matrix **)malloc(TOTAL_GROUPS * sizeof(Matrix *));
+            getMainParameters(b, probabilitiesReduced, choleskyVals, &mu);
+            // ---...--- //
+            // ---- Define the feature vector, the same for every group
+            double *feature = getColumn(X, b);
+
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            {
+                // ---- Define the borders of the hypercube ---- //
+                // ---- First, make a copy of the feature vector ----
+                double *featureCopyA = (double *)malloc(TOTAL_CANDIDATES * sizeof(double));
+                double *featureCopyB = (double *)malloc(TOTAL_CANDIDATES * sizeof(double));
+
+                memcpy(featureCopyA, feature, TOTAL_CANDIDATES * sizeof(double));
+                memcpy(featureCopyA, feature, TOTAL_CANDIDATES * sizeof(double));
+
+                // ---- Substract/add and normalize ----
+                for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+                {
+                    featureCopyA[c] -= 0.5 - MATRIX_AT(mu, g, c);
+                    featureCopyB[c] += 0.5 - MATRIX_AT(mu, g, c);
+                }
+
+                // ---- Substract the candidate index if it's from the `C-1` candidates
+                if (c < TOTAL_CANDIDATES - 1)
+                {
+                    featureCopyA[c] -= 1;
+                    featureCopyB[c] -= 1;
+                }
+                // ---...--- //
+
+                Matrix *currentCholesky = choleskyVals[g];
+                double monteCarloResult = Montecarlo(currentCholesky, b, c, featureCopyA, featureCopyB,
+                                                     (int)TOTAL_CANDIDATES, monteCarloSamples);
+            }
+        }
+    }
+}
 /**
  * @brief Calculates the CDF integral with Monte Carlo simulation.
  *
@@ -112,6 +181,7 @@ void getMainParameters(int b, Matrix const probabilitiesReduced)
  *
  * @return: An approximation of the CDF integral
  */
+/*
 double Montecarlo(const Matrix *chol, const double *a, const double *b, int mvnDim, double epsilon, int interations)
 {
     // Initialize RNG
@@ -132,3 +202,4 @@ double Montecarlo(const Matrix *chol, const double *a, const double *b, int mvnD
     e[0] = gsl_cdf_gaussian_P(b[0] / MATRIX_AT_PTR(chol, 0, 0), 1.0);
     f[0] = e[0] - d[0];
 }
+*/

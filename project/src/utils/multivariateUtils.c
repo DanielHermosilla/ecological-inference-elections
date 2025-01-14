@@ -5,7 +5,7 @@
 #include <stdlib.h>
 
 /**
- * @brief Computes the parameters of the unconditional probability
+ * @brief Computes the parameters of the unconditional probability without the last candidate
  *
  * Computes the first and second moments of an approximated Multivariate Normal distribution.
  *
@@ -124,7 +124,119 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
 }
 
 /**
- * @brief Computes the parameters of the conditional probability
+ * @brief Computes the parameters of the unconditional probability WITH the last candidate
+ *
+ * Computes the first and second moments of an approximated Multivariate Normal distribution.
+ *
+ * @param[in] b The index of the ballot box
+ * @param[in] g The index of the group
+ * @param[in] *probabilitiesNotReduced Matrix of dimension (gxc) with the probabilities of each group and candidate,
+ * @param[in, out] *mu An array of size c to store the results of the average.
+ * @param[in, out] *sigma A matrix of size (c, c) to store the sigma matrix.
+ *
+ *
+ * @return void. Results to be written on mu and sigma.
+ *
+ */
+
+void getParamsFull(int b, const Matrix *probabilitiesNotReduced, double *mu, Matrix *sigma)
+{
+
+    // ---- Check parameters ---- //
+    if (probabilitiesNotReduced->cols != TOTAL_CANDIDATES)
+    {
+        fprintf(stderr, "The probability matrix handed should consider the C candidates, but it has %d columns.\n",
+                probabilitiesNotReduced->cols);
+        exit(EXIT_FAILURE);
+    }
+    if (W == NULL && X == NULL)
+    {
+        fprintf(stderr, "The `w` and `x` matrices aren't defined.\n");
+        exit(EXIT_FAILURE);
+    }
+    // --- ... --- //
+
+    // --- Calculations --- //
+    // ---- The votes that a group has made on a given ballot ----
+    double *groupVotesPerBallot = getRow(W, b);
+
+    // ---- Computation of mu ----
+    // ---- Performing the matrix multiplication of p^T * w_b
+    cblas_dgemv(CblasRowMajor,                 // Row-major order
+                CblasTrans,                    // Transpose the matrix (p^T)
+                TOTAL_GROUPS,                  // Rows of original matrix (G)
+                TOTAL_CANDIDATES,              // Columns of original matrix (C)
+                1.0,                           // alpha
+                probabilitiesNotReduced->data, // Matrix p
+                TOTAL_CANDIDATES,              // Leading dimension (rows in original p)
+                groupVotesPerBallot,           // Vector w_b
+                1,                             // Increment for x
+                0.0,                           // beta
+                mu,                            // Output vector μ
+                1                              // Increment for y
+    );
+
+    // ---- Computation of sigma ----
+    // ---- Get a diagonal matrix with the group votes on a given ballot ----
+    Matrix diagonalVotesPerBallot = createDiagonalMatrix(groupVotesPerBallot, TOTAL_GROUPS);
+    // ---- Temporary matrix to store results ----
+    Matrix temp = createMatrix(TOTAL_CANDIDATES, TOTAL_GROUPS);
+    // ---- Calculates the matrix multiplication of p^T * diag(w_b); result must be (C-1 x G) ----
+    cblas_dgemm(CblasRowMajor,                 // Row-major order
+                CblasTrans,                    // No transpose (Matrix A => p^T)
+                CblasNoTrans,                  // No transpose
+                TOTAL_CANDIDATES,              // Rows
+                TOTAL_GROUPS,                  // Columns
+                TOTAL_GROUPS,                  // Inner dimension
+                1.0,                           // alpha
+                probabilitiesNotReduced->data, // Matrix p
+                TOTAL_CANDIDATES,              // Leading dimension
+                diagonalVotesPerBallot.data,   // Matrix diag(w_b)
+                TOTAL_GROUPS,                  // Leading dimension
+                0.0,                           // beta
+                temp.data,                     // Output matrix
+                TOTAL_GROUPS);                 // Leading dimension
+
+    // ---- Calculates the matrix multiplication of (p^T * diag(w_b)) * p; result must be (C x C) ----
+    cblas_dgemm(CblasRowMajor,                 // Row-major order
+                CblasNoTrans,                  // No transpose
+                CblasNoTrans,                  // No transpose
+                TOTAL_CANDIDATES,              // Rows
+                TOTAL_CANDIDATES,              // Columns
+                TOTAL_GROUPS,                  // Inner dimension
+                1.0,                           // alpha
+                temp.data,                     // Matrix (p^T * diag(w_b))
+                TOTAL_GROUPS,                  // Leading dimension
+                probabilitiesNotReduced->data, // Matrix p
+                TOTAL_CANDIDATES,              // Leading dimension
+                0.0,                           // beta
+                sigma->data,                   // Output Σ_b
+                TOTAL_CANDIDATES);             // Leading dimension
+
+    // ---- Substract the diagonal with the average ----
+    // ---- Note: This could be optimized with a cBLAS call too ----
+
+    for (int j = 0; j < TOTAL_CANDIDATES; j++)
+    { // ---- For each candidate
+        for (int i = 0; i < TOTAL_CANDIDATES; i++)
+        { // ---- For each candidate given another candidate
+            if (i == j)
+            { // ---- If it corresponds to a diagonal, substract diagonal
+                MATRIX_AT_PTR(sigma, i, j) = mu[i] - MATRIX_AT_PTR(sigma, i, j);
+                continue;
+            }
+            MATRIX_AT_PTR(sigma, i, j) = -MATRIX_AT_PTR(sigma, i, j);
+        }
+    }
+    //  ---- Free alocated memory ----
+    freeMatrix(&temp);
+    freeMatrix(&diagonalVotesPerBallot);
+    free(groupVotesPerBallot);
+    // --- ... --- //
+}
+
+/**
+ * @brief Computes the parameters of the conditional probability WITHOUT the last candidate
  *
  * Computes the first and second moments of an approximated Multivariate Normal distribution conditional to the results
  * of a group.
@@ -198,6 +310,101 @@ void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *co
         for (uint16_t i = 0; i < TOTAL_CANDIDATES - 1; i++)
         { // ---- For each candidate given a group
             for (uint16_t j = 0; j < TOTAL_CANDIDATES - 1; j++)
+            { // ---- For each candidate given a group and a candidate
+                // ---- Add the multiplication of probabilities ----
+                MATRIX_AT_PTR(conditionalSigma[g], i, j) =
+                    MATRIX_AT(newSigma, i, j) + MATRIX_AT(matrixMultiplications[g], i, j);
+                if (i == j)
+                { // ---- If it's a diagonal
+                    // ---- Substract the diagonal probabilities ----
+                    MATRIX_AT_PTR(conditionalSigma[g], i, j) -= MATRIX_AT(diagonalProbabilities[g], i, j);
+                }
+            }
+        }
+        // ---- Free unnecesary space ----
+        freeMatrix(&matrixMultiplications[g]);
+        freeMatrix(&diagonalProbabilities[g]);
+    }
+    // ---- Free space ----
+    free(matrixMultiplications);
+    free(probabilitiesForG);
+    freeMatrix(&newSigma);
+
+    // --- ... --- //
+}
+
+/**
+ * @brief Computes the parameters of the conditional probability WITH the last candidate
+ *
+ * Computes the first and second moments of an approximated Multivariate Normal distribution conditional to the results
+ * of a group.
+ *
+ * @param[in] b The index of the ballot box
+ * @param[in] g The index of the group
+ * @param[in] *probabilitiesNotReduced Matrix of dimension (gxc) with the probabilities of each group and candidate,
+ * @param[in, out] *newMu An array of size c to store the results of the average.
+ * @param[in, out] *newSigma A matrix of size (c, c) to store the sigma matrix.
+ *
+ * @return void. Results to be written on mu and sigma.
+ *
+ */
+
+void getAverageConditionalFull(int b, const Matrix *probabilitiesNotReduced, Matrix *conditionalMu,
+                               Matrix **conditionalSigma)
+{
+    // ---- Get the parameters of the unconditional probability ---- //
+    double *newMu = (double *)malloc((TOTAL_CANDIDATES) * sizeof(double));
+    Matrix newSigma = createMatrix(TOTAL_CANDIDATES, TOTAL_CANDIDATES);
+    getParamsFull(b, probabilitiesNotReduced, newMu, &newSigma);
+    // ---- ... ----
+
+    // ---- Computation for mu ---- //
+    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+    { // ---- For each group
+        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+        { // ---- For each candidate given a group
+            MATRIX_AT_PTR(conditionalMu, g, c) = newMu[c] - MATRIX_AT_PTR(probabilitiesNotReduced, g, c);
+        }
+    }
+    // ---- The original mu isn't needed anymore ---- //
+    free(newMu);
+    //  ---- ... ---- //
+
+    // ---- Get the parameters for the conditional sigma ---- //
+
+    // ---- Get the diagonal probabilities ----
+    // ---- Create an array of size `TOTAL_GROUPS` that will store the probabilities for a given group ----
+    double **probabilitiesForG = (double **)malloc(TOTAL_GROUPS * sizeof(double *));
+    // ---- Create an array of size `TOTAL_GROUPS` that will store diagonal matrices with the probabilities ----
+    Matrix *diagonalProbabilities = (Matrix *)malloc((TOTAL_GROUPS) * sizeof(Matrix));
+    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+    { // ---- For each group
+        probabilitiesForG[g] = getRow(probabilitiesNotReduced, g);
+        diagonalProbabilities[g] = createDiagonalMatrix(probabilitiesForG[g], TOTAL_CANDIDATES);
+    }
+    // --- ... --- //
+
+    // ---- Get the matrix multiplications ---- //
+    // ---- This multiplications are esentially outer products ----
+    // ---- Create an array of size `TOTAL_GROUPS` that will store each outer product ----
+    Matrix *matrixMultiplications = (Matrix *)malloc((TOTAL_GROUPS) * sizeof(Matrix));
+    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+    { // ---- For each group
+        // ---- Do the outer product and store it in the array ----
+        Matrix mult = createMatrix(TOTAL_CANDIDATES, TOTAL_CANDIDATES);
+        cblas_dger(CblasRowMajor, TOTAL_CANDIDATES, TOTAL_CANDIDATES, 1.0, probabilitiesForG[g], 1,
+                   probabilitiesForG[g], 1, mult.data, TOTAL_CANDIDATES);
+        matrixMultiplications[g] = mult;
+    }
+    // --- ... --- //
+
+    // ---- Add the results to the final array of matrices ----
+    // ---- Esentially computes: $$\sigma_b = diag(p_{g}^{t})-p^{t}_{g}p_{g}$$ ----
+    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+    { // ---- For each group
+        for (uint16_t i = 0; i < TOTAL_CANDIDATES; i++)
+        { // ---- For each candidate given a group
+            for (uint16_t j = 0; j < TOTAL_CANDIDATES; j++)
             { // ---- For each candidate given a group and a candidate
                 // ---- Add the multiplication of probabilities ----
                 MATRIX_AT_PTR(conditionalSigma[g], i, j) =
