@@ -1,4 +1,5 @@
 #include "multivariate-pdf.h"
+#include <cblas.h>
 #include <globals.h>
 #include <gsl/gsl_cdf.h>
 #include <gsl/gsl_monte.h>
@@ -20,6 +21,7 @@ typedef struct
     const double *a;          // Lower bounds of the hypercube
     const double *b;          // Upper bounds of the hypercube
     int mvnDim;               // Dimension of the MVN
+    const double *feature;    // The feature vector
 } IntegrationParams;
 
 Matrix *featureMatrix = NULL;
@@ -46,11 +48,43 @@ double integral(double *x, size_t dim, void *params)
     return value;
 }
 
+// Function to evaluate the integrand
+double integral(double *x, size_t dim, void *params)
+{
+    IntegrationParams *p = (IntegrationParams *)params;
+    const Matrix *chol = p->chol;
+    const double *a = p->a;
+    const double *b = p->b;
+    const int ballotIndex = p->ballotIndex;
+    const int candidateIndex = p->candidateIndex;
+    int mvnDim = p->mvnDim;
+
+    // ---- Obtain the PDF of the multivariate ---- //
+    double *cholDotProduct = (double *)malloc(TOTAL_CANDIDATES * sizeof(double));
+    cblas_dgemm(CblasRowMajor, // Matrix storage order
+                CblasNoTrans,  // Chol is not transposed
+                CblasNoTrans,  // Y is not transposed
+                chol->rows,    // Number of rows in Chol
+                feature->cols, // Number of columns in Y
+                k,             // Shared dimension (columns of Chol, rows of Y)
+                1.0,           // Alpha (scaling factor for Chol * Y)
+                chol, k,       // Chol matrix and leading dimension
+                y, n,          // Y matrix and leading dimension
+                0.0,           // Beta (scaling factor for Chol_cum)
+                chol_cum, n);  // Output matrix and leading dimension
+
+    for (size_t c = 0; c < dim; c++)
+    {
+    }
+
+    return value;
+}
 // Monte Carlo CDF approximation
 // Refer to https://www.gnu.org/software/gsl/doc/html/montecarlo.html
-double Montecarlo(const Matrix *chol, int ballotIndex, int candidateIndex, const double *lowerLimits,
+double Montecarlo(const Matrix *chol, int ballotIndex, int candidateIndex, double *feature, const double *lowerLimits,
                   const double *upperLimits, int mvnDim, int maxSamples)
 {
+    /*
     // Define integration limits
     double xl[mvnDim], xu[mvnDim];
     for (int i = 0; i < mvnDim; i++)
@@ -58,11 +92,10 @@ double Montecarlo(const Matrix *chol, int ballotIndex, int candidateIndex, const
         xl[i] = 0.0; // Lower bound for Monte Carlo sampling
         xu[i] = 1.0; // Upper bound for Monte Carlo sampling
     }
+    */
 
     // Set up the parameters for the integrand
-    IntegrationParams params = {
-        chol, ballotIndex, candidateIndex, lowerLimits, upperLimits, mvnDim,
-    };
+    IntegrationParams params = {chol, ballotIndex, candidateIndex, lowerLimits, upperLimits, mvnDim, feature};
 
     // Initialize GSL Monte Carlo integration
     gsl_monte_function G = {&integral, (size_t)mvnDim, &params};
@@ -71,7 +104,7 @@ double Montecarlo(const Matrix *chol, int ballotIndex, int candidateIndex, const
 
     // Perform integration
     double result, error;
-    gsl_monte_plain_integrate(&G, xl, xu, mvnDim, maxSamples, rng, s, &result, &error);
+    gsl_monte_plain_integrate(&G, lowerLimits, upperLimits, mvnDim, maxSamples, rng, s, &result, &error);
 
     // Free memory
     gsl_monte_plain_free(s);
@@ -137,19 +170,30 @@ double *computeQMultivariateCDF(Matrix const probabilities, int monteCarloSample
 
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             {
+                Matrix *currentCholesky = choleskyVals[g];
                 // ---- Define the borders of the hypercube ---- //
                 // ---- First, make a copy of the feature vector ----
+                double *featureCopy = (double *)malloc(TOTAL_CANDIDATES * sizeof(double));
                 double *featureCopyA = (double *)malloc(TOTAL_CANDIDATES * sizeof(double));
                 double *featureCopyB = (double *)malloc(TOTAL_CANDIDATES * sizeof(double));
 
+                memcpy(featureCopy, feature, TOTAL_CANDIDATES * sizeof(double));
                 memcpy(featureCopyA, feature, TOTAL_CANDIDATES * sizeof(double));
                 memcpy(featureCopyA, feature, TOTAL_CANDIDATES * sizeof(double));
 
                 // ---- Substract/add and normalize ----
-                for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+                // ---- Note that the bounds NEEDS to be standarized ----
+                for (uint16_t k = 0; k < TOTAL_CANDIDATES; k++)
                 {
-                    featureCopyA[c] -= 0.5 - MATRIX_AT(mu, g, c);
-                    featureCopyB[c] += 0.5 - MATRIX_AT(mu, g, c);
+                    featureCopyA[k] -= 0.5 - MATRIX_AT(mu, g, k);
+                    featureCopyB[k] += 0.5 - MATRIX_AT(mu, g, k);
+                    if (k == c)
+                    {
+                        featureCopyA[k] -= 1.0;
+                        featureCopyB[k] -= 1.0;
+                    }
+                    featureCopyA[k] *= MATRIX_AT_PTR(currentCholesky, k, k);
+                    featureCopyB[k] *= MATRIX_AT_PTR(currentCholesky, k, k);
                 }
 
                 // ---- Substract the candidate index if it's from the `C-1` candidates
@@ -161,7 +205,7 @@ double *computeQMultivariateCDF(Matrix const probabilities, int monteCarloSample
                 // ---...--- //
 
                 Matrix *currentCholesky = choleskyVals[g];
-                double monteCarloResult = Montecarlo(currentCholesky, b, c, featureCopyA, featureCopyB,
+                double monteCarloResult = Montecarlo(currentCholesky, b, c, featureCopy, featureCopyA, featureCopyB,
                                                      (int)TOTAL_CANDIDATES, monteCarloSamples);
             }
         }
