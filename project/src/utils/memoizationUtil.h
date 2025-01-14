@@ -10,26 +10,18 @@
 
 #define INVALID -1.0
 
-// Structure for vector keys
+// Entry structure: stores the hash and the associated value
 typedef struct
 {
-    int indices[4];  // The 4 existing indices
-    size_t *vector;  // Pointer to the vector `K`
-    int vector_size; // Size of the vector
-} MemoizationKey;
-
-// Structure for the memoization table
-typedef struct
-{
-    MemoizationKey key;
-    double value;
-    UT_hash_handle hh; // The hash handle
+    uint64_t hash;     // Hash of the MemoizationKey
+    double value;      // Value associated with the key
+    UT_hash_handle hh; // Hash table handle
 } MemoizationEntry;
 
-// Memoization table (A simple dynamic array)
+// Hash table structure
 typedef struct
 {
-    MemoizationEntry *hashmap;
+    MemoizationEntry *hashmap; // Pointer to the hash table
 } MemoizationTable;
 
 /**
@@ -42,7 +34,7 @@ typedef struct
  * @return A 64-bit hash.
  *
  */
-uint64_t hashKey(MemoizationKey *key);
+uint64_t generateHash(int a, int b, int c, int d, const size_t *vector, int vector_size);
 
 /**
  * @brief Initializes a hash table.
