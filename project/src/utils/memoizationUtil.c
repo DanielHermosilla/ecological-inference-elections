@@ -15,20 +15,28 @@
  * @return A 64-bit hash.
  *
  */
-uint64_t hashKey(MemoizationKey *key)
+
+uint64_t generateHash(int a, int b, int c, int d, const size_t *vector, int vector_size)
 {
-    // ---- Initialize the hash as cero
-    uint64_t hash = 0;
-    for (int i = 0; i < 4; i++)
-    { // ---- Associate the hash with indices via a pseudo-random assignation.
-        hash ^= key->indices[i] + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+    uint64_t hash = 0xcbf29ce484222325; // FNV offset basis
+
+    // Hash the 4 indices
+    hash ^= (uint64_t)a;
+    hash *= 0x100000001b3;
+    hash ^= (uint64_t)b;
+    hash *= 0x100000001b3;
+    hash ^= (uint64_t)c;
+    hash *= 0x100000001b3;
+    hash ^= (uint64_t)d;
+    hash *= 0x100000001b3;
+
+    // Hash the vector contents
+    for (int i = 0; i < vector_size; i++)
+    {
+        hash ^= (uint64_t)vector[i];
+        hash *= 0x100000001b3;
     }
-    for (int i = 0; i < key->vector_size; i++)
-    { // ---- Associate the hash with the elements of the vector used as a key.
-        hash ^= (uint64_t)(key->vector[i] * 1e6) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
-    }
-    // ---- Include vector_size for uniqueness, this isn't really necessary for our use case
-    hash ^= key->vector_size;
+
     return hash;
 }
 
@@ -69,25 +77,18 @@ MemoizationTable *initMemo()
  */
 double getMemoValue(MemoizationTable *table, int a, int b, int c, int d, size_t *vector, int vector_size)
 {
+    uint64_t hash = generateHash(a, b, c, d, vector, vector_size);
+
+    // Find the entry
     MemoizationEntry *entry;
-
-    // Fill the temporary key structure
-    MemoizationKey tempKey;
-    tempKey.indices[0] = a;
-    tempKey.indices[1] = b;
-    tempKey.indices[2] = c;
-    tempKey.indices[3] = d;
-    tempKey.vector = vector;
-    tempKey.vector_size = vector_size;
-
-    // Find using the entire key
-    HASH_FIND(hh, table->hashmap, &tempKey, sizeof(MemoizationKey), entry);
+    HASH_FIND(hh, table->hashmap, &hash, sizeof(uint64_t), entry);
 
     if (entry)
     {
         return entry->value;
     }
-    return -1.0; // INVALID
+
+    return -1.0; // Not found
 }
 
 /**
@@ -109,27 +110,41 @@ double getMemoValue(MemoizationTable *table, int a, int b, int c, int d, size_t 
  */
 void setMemoValue(MemoizationTable *table, int a, int b, int c, int d, size_t *vector, int vector_size, double value)
 {
-    // ---- Initialize the instance for the new entry
-    MemoizationEntry *entry = (MemoizationEntry *)malloc(sizeof(MemoizationEntry));
+    uint64_t hash = generateHash(a, b, c, d, vector, vector_size);
 
-    // ---- Define each element of the entry structure
-    entry->key.indices[0] = a;
-    entry->key.indices[1] = b;
-    entry->key.indices[2] = c;
-    entry->key.indices[3] = d;
-    entry->key.vector_size = vector_size;
+    // Check if the hash already exists
+    MemoizationEntry *entry;
+    HASH_FIND(hh, table->hashmap, &hash, sizeof(uint64_t), entry);
 
-    // ---- Define the vector used as a key
-    entry->key.vector = (size_t *)malloc(vector_size * sizeof(size_t));
-    memcpy(entry->key.vector, vector, vector_size * sizeof(size_t));
-    // ---- Define the value of the entry
+    if (entry)
+    {
+        // Update the existing value
+        entry->value = value;
+        return;
+    }
+
+    // Create a new entry
+    entry = malloc(sizeof(MemoizationEntry));
+    entry->hash = hash;
     entry->value = value;
 
-    // ---- Generate the hash key.
-    uint64_t keyHash = hashKey(&entry->key);
+    // Add to the hash table
+    HASH_ADD(hh, table->hashmap, hash, sizeof(uint64_t), entry);
+}
 
-    // ---- Dinamically add the element with the hash key using HASH_ADD_KEYPTR.
-    HASH_ADD_KEYPTR(hh, table->hashmap, &keyHash, sizeof(uint64_t), entry);
+void deleteEntry(MemoizationTable *table, int a, int b, int c, int d, size_t *vector, int vector_size)
+{
+    uint64_t hash = generateHash(a, b, c, d, vector, vector_size);
+
+    // Find and delete the entry
+    MemoizationEntry *entry;
+    HASH_FIND(hh, table->hashmap, &hash, sizeof(uint64_t), entry);
+
+    if (entry)
+    {
+        HASH_DEL(table->hashmap, entry);
+        free(entry); // Free the entry memory
+    }
 }
 
 /**
@@ -144,14 +159,11 @@ void setMemoValue(MemoizationTable *table, int a, int b, int c, int d, size_t *v
  */
 void freeMemo(MemoizationTable *table)
 {
-    MemoizationEntry *current_entry, *tmp;
-
-    HASH_ITER(hh, table->hashmap, current_entry, tmp)
-    {                                            // ---- For each element from the hash table
-        free(current_entry->key.vector);         // ---- Free vector memory
-        HASH_DEL(table->hashmap, current_entry); // ---- Remove from hash table
-        free(current_entry);                     // ---- Free entry memory
+    MemoizationEntry *entry, *tmp;
+    HASH_ITER(hh, table->hashmap, entry, tmp)
+    {
+        HASH_DEL(table->hashmap, entry); // Remove from the hash table
+        free(entry);                     // Free the entry
     }
-
-    free(table);
+    free(table); // Free the table structure itself
 }
