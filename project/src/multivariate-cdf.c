@@ -8,6 +8,7 @@
 #include <gsl/gsl_monte_vegas.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_rng.h> // Random numbers
+#include <math.h>
 #include <matrixUtils.h>
 #include <multivariateUtils.h>
 #include <stdint.h>
@@ -15,17 +16,13 @@
 
 typedef struct
 {
-    const Matrix *chol;       // Cholesky decomposition, equivalent of the inverse matrix
-    const int ballotIndex;    // Index from the ballot
-    const int candidateIndex; // Index from the candidate
-    const double *a;          // Lower bounds of the hypercube
-    const double *b;          // Upper bounds of the hypercube
-    int mvnDim;               // Dimension of the MVN
-    const double *feature;    // The feature vector
+    Matrix *chol; // Cholesky decomposition, equivalent of the inverse matrix
+    double *mu;   // The mu array
 } IntegrationParams;
 
 Matrix *featureMatrix = NULL;
 
+/*
 // Function to evaluate the integrand
 double integral(double *x, size_t dim, void *params)
 {
@@ -47,55 +44,39 @@ double integral(double *x, size_t dim, void *params)
     }
     return value;
 }
-
+*/
 // Function to evaluate the integrand
+// void getMahanalobisDist(double *x, double *mu, Matrix *inverseSigma, double *maha, int size);
+
 double integral(double *x, size_t dim, void *params)
 {
     IntegrationParams *p = (IntegrationParams *)params;
-    const Matrix *chol = p->chol;
-    const double *a = p->a;
-    const double *b = p->b;
-    const int ballotIndex = p->ballotIndex;
-    const int candidateIndex = p->candidateIndex;
-    int mvnDim = p->mvnDim;
+    Matrix *chol = p->chol;
+    double *currentMu = p->mu;
 
-    // ---- Obtain the PDF of the multivariate ---- //
-    double *cholDotProduct = (double *)malloc(TOTAL_CANDIDATES * sizeof(double));
-    cblas_dgemm(CblasRowMajor, // Matrix storage order
-                CblasNoTrans,  // Chol is not transposed
-                CblasNoTrans,  // Y is not transposed
-                chol->rows,    // Number of rows in Chol
-                feature->cols, // Number of columns in Y
-                k,             // Shared dimension (columns of Chol, rows of Y)
-                1.0,           // Alpha (scaling factor for Chol * Y)
-                chol, k,       // Chol matrix and leading dimension
-                y, n,          // Y matrix and leading dimension
-                0.0,           // Beta (scaling factor for Chol_cum)
-                chol_cum, n);  // Output matrix and leading dimension
+    // ---- Obtain the mahanalobis of the multivariate ---- //
+    double maha[dim];
+    getMahanalobisDist(x, currentMu, chol, maha, dim, true);
+    // ---...--- //
 
-    for (size_t c = 0; c < dim; c++)
+    // ---- Return the PDF ---- //
+    // ---- exp(-0.5 * maha) ----
+    // ---- To get the scalar mahanalobis we need to sum over all contributions ----
+    double totalMahanobis = 0;
+    for (uint16_t c = 0; c < dim; c++)
     {
+        totalMahanobis += maha[c];
     }
-
-    return value;
+    return exp(-0.5 * totalMahanobis);
+    // ---...--- //
 }
 // Monte Carlo CDF approximation
 // Refer to https://www.gnu.org/software/gsl/doc/html/montecarlo.html
-double Montecarlo(const Matrix *chol, int ballotIndex, int candidateIndex, double *feature, const double *lowerLimits,
-                  const double *upperLimits, int mvnDim, int maxSamples)
+double Montecarlo(Matrix *chol, double *mu, const double *lowerLimits, const double *upperLimits, int mvnDim,
+                  int maxSamples)
 {
-    /*
-    // Define integration limits
-    double xl[mvnDim], xu[mvnDim];
-    for (int i = 0; i < mvnDim; i++)
-    {
-        xl[i] = 0.0; // Lower bound for Monte Carlo sampling
-        xu[i] = 1.0; // Upper bound for Monte Carlo sampling
-    }
-    */
-
     // Set up the parameters for the integrand
-    IntegrationParams params = {chol, ballotIndex, candidateIndex, lowerLimits, upperLimits, mvnDim, feature};
+    IntegrationParams params = {chol, mu};
 
     // Initialize GSL Monte Carlo integration
     gsl_monte_function G = {&integral, (size_t)mvnDim, &params};
@@ -110,6 +91,14 @@ double Montecarlo(const Matrix *chol, int ballotIndex, int candidateIndex, doubl
     gsl_monte_plain_free(s);
     gsl_rng_free(rng);
 
+    // ---- Obtain the normalization values ---- //
+    // ---- We'll get the determinant of the cholesky by multiplying its diagonals ----
+    double det = 1;
+    for (uint16_t c = 0; c < mvnDim; c++)
+    {
+        det *= MATRIX_AT_PTR(chol, c, c);
+    }
+
     return result;
 }
 
@@ -123,8 +112,9 @@ void getMainParameters(int b, Matrix const probabilitiesReduced, Matrix **choles
         *cholesky[g] = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1); // Initialize
     }
 
-    getAverageConditionalFull(b, &probabilitiesReduced, mu, cholesky);
+    getAverageConditional(b, &probabilitiesReduced, mu, cholesky);
     // ---- ... ----
+    // Missing sigma is
 
     // ---- Get the inverse matrix for each sigma ---- //
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
@@ -133,20 +123,11 @@ void getMainParameters(int b, Matrix const probabilitiesReduced, Matrix **choles
         inverseSymmetricPositiveMatrix(cholesky[g]);
     }
 }
-/*
-void getFeatureMatrix(){
-    *featureMatrix = createMatrix(X->rows, X->cols); // c, b
-    memcpy(featureMatrix->data, X->data, X->rows * X->cols * sizeof(double));
-    for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++){
-        for (uint32_t b = 0; b < TOTAL_BALLOTS; b++){
-
-        }
-    }
-    double *returningArray = (double *)malloc(TOTAL_CANDIDATES-1 * sizeof(double));
-    returningArray = getColumn(XwithoutLast, b);
-    return returningArray;
+void getFeatureMatrix()
+{
+    *featureMatrix = removeLastColumn(X); // c, b
 }
-*/
+
 double *computeQMultivariateCDF(Matrix const probabilities, int monteCarloSamples)
 {
 
@@ -157,36 +138,39 @@ double *computeQMultivariateCDF(Matrix const probabilities, int monteCarloSample
 
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
+        // ---- Get the values of the Multivariate that only depends on `b` ---- //
+        Matrix mu = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES);
+        Matrix **choleskyVals = (Matrix **)malloc(TOTAL_GROUPS * sizeof(Matrix *));
+        getMainParameters(b, probabilitiesReduced, choleskyVals,
+                          &mu); // TODO: FIX THIS, IT0S NOT POSSIBLE TO GET A INVERSE MATRIX IF ITS PERFECTLY LINEAL,
+                                // NEED TO FIX THIS.
+                                // ---...--- //
+
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         {
-
-            // ---- Get the values of the Multivariate ---- //
-            Matrix mu = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES);
-            Matrix **choleskyVals = (Matrix **)malloc(TOTAL_GROUPS * sizeof(Matrix *));
-            getMainParameters(b, probabilitiesReduced, choleskyVals, &mu);
-            // ---...--- //
-            // ---- Define the feature vector, the same for every group
-            double *feature = getColumn(X, b);
+            // ---- Define the current values to use ---- //
+            Matrix *currentCholesky = choleskyVals[g];
+            double *currentMu = getRow(&mu, TOTAL_GROUPS);
+            double *feature = getColumn(featureMatrix, b); // Of size C-1
+                                                           // ---...--- //
 
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             {
-                Matrix *currentCholesky = choleskyVals[g];
                 // ---- Define the borders of the hypercube ---- //
                 // ---- First, make a copy of the feature vector ----
-                double *featureCopy = (double *)malloc(TOTAL_CANDIDATES * sizeof(double));
                 double *featureCopyA = (double *)malloc(TOTAL_CANDIDATES * sizeof(double));
                 double *featureCopyB = (double *)malloc(TOTAL_CANDIDATES * sizeof(double));
 
-                memcpy(featureCopy, feature, TOTAL_CANDIDATES * sizeof(double));
                 memcpy(featureCopyA, feature, TOTAL_CANDIDATES * sizeof(double));
                 memcpy(featureCopyA, feature, TOTAL_CANDIDATES * sizeof(double));
 
                 // ---- Substract/add and normalize ----
                 // ---- Note that the bounds NEEDS to be standarized ----
-                for (uint16_t k = 0; k < TOTAL_CANDIDATES; k++)
+                // ---- $$a=\sigma^{-1}(a-\mu)$$ ----
+                for (uint16_t k = 0; k < TOTAL_CANDIDATES - 1; k++)
                 {
-                    featureCopyA[k] -= 0.5 - MATRIX_AT(mu, g, k);
-                    featureCopyB[k] += 0.5 - MATRIX_AT(mu, g, k);
+                    featureCopyA[k] -= 0.5 - currentMu[k];
+                    featureCopyB[k] += 0.5 - currentMu[k];
                     if (k == c)
                     {
                         featureCopyA[k] -= 1.0;
@@ -196,17 +180,10 @@ double *computeQMultivariateCDF(Matrix const probabilities, int monteCarloSample
                     featureCopyB[k] *= MATRIX_AT_PTR(currentCholesky, k, k);
                 }
 
-                // ---- Substract the candidate index if it's from the `C-1` candidates
-                if (c < TOTAL_CANDIDATES - 1)
-                {
-                    featureCopyA[c] -= 1;
-                    featureCopyB[c] -= 1;
-                }
                 // ---...--- //
 
-                Matrix *currentCholesky = choleskyVals[g];
-                double monteCarloResult = Montecarlo(currentCholesky, b, c, featureCopy, featureCopyA, featureCopyB,
-                                                     (int)TOTAL_CANDIDATES, monteCarloSamples);
+                double monteCarloResult = Montecarlo(currentCholesky, currentMu, featureCopyA, featureCopyB,
+                                                     (int)TOTAL_CANDIDATES - 1, monteCarloSamples);
             }
         }
     }
