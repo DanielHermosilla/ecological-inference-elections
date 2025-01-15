@@ -82,4 +82,6 @@ void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *co
 void getAverageConditionalFull(int b, const Matrix *probabilitiesNotReduced, Matrix *conditionalMu,
                                Matrix **conditionalSigma);
 
+Matrix getBallotPDF(int b, const Matrix *probabilitiesReduced);
+
 #endif
