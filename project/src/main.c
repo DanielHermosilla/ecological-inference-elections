@@ -4,6 +4,7 @@
 #include "instanceGenerator.h"
 #include "matrixUtils.h"
 #include "multinomial.h"
+#include "multivariate-cdf.h"
 #include "multivariate-pdf.h"
 #include <R.h>
 #include <R_ext/Rdynload.h>
@@ -356,8 +357,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         // MVN CDF
         else if (strcmp(q_method, "MVN CDF") == 0)
         {
-            printf("Executing 'MVN CDF' method.\n");
-            break;
+            q = computeQMultivariateCDF(currentP, 1000);
         }
         // MVN PDF
         else
@@ -473,7 +473,7 @@ int main()
     // Start timer
     clock_gettime(CLOCK_MONOTONIC, &start);
     Matrix P = getInitialP("group proportional");
-    Matrix Pnew = EMAlgoritm(&P, "Exact", 0.0001, 1, false);
+    Matrix Pnew = EMAlgoritm(&P, "MVN CDF", 0.0001, 1000, true);
 
     clock_gettime(CLOCK_MONOTONIC, &end);
     double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;

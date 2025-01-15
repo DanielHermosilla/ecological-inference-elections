@@ -1,7 +1,7 @@
 build/main.o: main.c exact.h globals.h utils/matrixUtils.h \
   utils/memoizationUtil.h utils/uthash.h utils/fileutils.h \
-  utils/instanceGenerator.h multinomial.h multivariate-pdf.h \
-  utils/multivariateUtils.h \
+  utils/instanceGenerator.h multinomial.h multivariate-cdf.h \
+  utils/multivariateUtils.h multivariate-pdf.h \
   /usr/local/Cellar/r/4.4.2_2/lib/R/include/R.h \
   /usr/local/Cellar/r/4.4.2_2/lib/R/include/Rconfig.h \
   /usr/local/Cellar/r/4.4.2_2/lib/R/include/R_ext/Arith.h \

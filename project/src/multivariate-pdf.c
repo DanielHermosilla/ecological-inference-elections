@@ -4,6 +4,7 @@
 #include <cblas.h>
 #include <lapacke.h>
 #include <math.h>
+#include <unistd.h>
 
 /**
  * @brief Computes the Mahalanobis distance with last candidate adjustment.
@@ -59,6 +60,7 @@ void mahanalobis(double *x, double *mu, Matrix *inverseSigma, double *maha, int 
     { // ---- For each candidate (considers the last one too)
         maha[c] = mahanobisTruncated - 2 * temp[c] + MATRIX_AT_PTR(inverseSigma, c, c);
     }
+    // ---...--- //
 }
 
 /**
