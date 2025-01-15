@@ -1,16 +1,11 @@
-#include "multivariate-pdf.h"
+#include "multivariate-cdf.h"
 #include <cblas.h>
-#include <globals.h>
-#include <gsl/gsl_cdf.h>
 #include <gsl/gsl_monte.h>
 #include <gsl/gsl_monte_miser.h>
 #include <gsl/gsl_monte_plain.h>
 #include <gsl/gsl_monte_vegas.h>
-#include <gsl/gsl_randist.h>
 #include <gsl/gsl_rng.h> // Random numbers
 #include <math.h>
-#include <matrixUtils.h>
-#include <multivariateUtils.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -21,32 +16,6 @@ typedef struct
 } IntegrationParams;
 
 Matrix *featureMatrix = NULL;
-
-/*
-// Function to evaluate the integrand
-double integral(double *x, size_t dim, void *params)
-{
-    IntegrationParams *p = (IntegrationParams *)params;
-    const Matrix *chol = p->chol;
-    const double *a = p->a;
-    const double *b = p->b;
-    const int ballotIndex = p->ballotIndex;
-    const int candidateIndex = p->candidateIndex;
-    int mvnDim = p->mvnDim;
-
-    double value = 1.0;
-    for (size_t i = 0; i < dim; i++)
-    {
-        // Transform sample x[i] to the scaled and shifted normal space
-        double transformed = a[i] + MATRIX_AT_PTR(X, candidateIndex, ballotIndex) * (b[i] - a[i]);
-        double cumulative = gsl_cdf_gaussian_P(transformed / MATRIX_AT_PTR(chol, i, i), 1.0);
-        value *= cumulative;
-    }
-    return value;
-}
-*/
-// Function to evaluate the integrand
-// void getMahanalobisDist(double *x, double *mu, Matrix *inverseSigma, double *maha, int size);
 
 double integral(double *x, size_t dim, void *params)
 {
@@ -70,6 +39,7 @@ double integral(double *x, size_t dim, void *params)
     return exp(-0.5 * totalMahanobis);
     // ---...--- //
 }
+
 // Monte Carlo CDF approximation
 // Refer to https://www.gnu.org/software/gsl/doc/html/montecarlo.html
 double Montecarlo(Matrix *chol, double *mu, const double *lowerLimits, const double *upperLimits, int mvnDim,
@@ -93,13 +63,17 @@ double Montecarlo(Matrix *chol, double *mu, const double *lowerLimits, const dou
 
     // ---- Obtain the normalization values ---- //
     // ---- We'll get the determinant of the cholesky by multiplying its diagonals ----
-    double det = 1;
+    double determinant = 1;
     for (uint16_t c = 0; c < mvnDim; c++)
     {
-        det *= MATRIX_AT_PTR(chol, c, c);
+        determinant *= MATRIX_AT_PTR(chol, c, c);
     }
+    double denominator = sqrt(pow(2 * M_PI, mvnDim) * determinant);
+    if (denominator == 0)
+        return 0; // Early exit
+                  // ---...--- //
 
-    return result;
+    return (1 / denominator) * result;
 }
 
 void getMainParameters(int b, Matrix const probabilitiesReduced, Matrix **cholesky, Matrix *mu)
@@ -123,14 +97,14 @@ void getMainParameters(int b, Matrix const probabilitiesReduced, Matrix **choles
         inverseSymmetricPositiveMatrix(cholesky[g]);
     }
 }
-void getFeatureMatrix()
-{
-    *featureMatrix = removeLastColumn(X); // c, b
-}
 
 double *computeQMultivariateCDF(Matrix const probabilities, int monteCarloSamples)
 {
 
+    if (featureMatrix == NULL)
+    {
+        *featureMatrix = removeLastColumn(X); // c, b
+    }
     Matrix probabilitiesReduced = removeLastColumn(&probabilities);
     double *array2 =
         (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double)); // Array to return
@@ -184,43 +158,18 @@ double *computeQMultivariateCDF(Matrix const probabilities, int monteCarloSample
 
                 double monteCarloResult = Montecarlo(currentCholesky, currentMu, featureCopyA, featureCopyB,
                                                      (int)TOTAL_CANDIDATES - 1, monteCarloSamples);
-            }
-        }
-    }
+                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = monteCarloResult;
+
+                free(featureCopyA);
+                free(featureCopyB);
+            } // --- End c loop
+            free(feature);
+            free(currentMu);
+            freeMatrix(currentCholesky);
+        } // --- End g loop
+        freeMatrix(&mu);
+        free(choleskyVals);
+    } // --- End b loop
+    freeMatrix(&probabilitiesReduced);
+    return array2;
 }
-/**
- * @brief Calculates the CDF integral with Monte Carlo simulation.
- *
- * Given the hypercube parameters, it computes an approximation of the integral.
- *
- * @param[in] *chol Matrix of dimension (cxc) with the probabilities of each group and candidate.
- * @param[in] a First component of the unitary hypercube.
- * @param[in] b Second component of the unitary hypercube.
- * @param[in] mvnDim Dimension of the Multivariate Normal.
- * @param[in] epsilon Error threshold.
- * @param[in] iterations Maximum amount of iterations in the Monte Carlo method
- *
- * @return: An approximation of the CDF integral
- */
-/*
-double Montecarlo(const Matrix *chol, const double *a, const double *b, int mvnDim, double epsilon, int interations)
-{
-    // Initialize RNG
-    gsl_rng *rng = gsl_rng_alloc(gsl_rng_default);
-    gsl_rng_set(rng, 42); // seed
-
-    size_t intsum = 0;
-    size_t varsum = 0;
-    size_t totalSim = 0;
-
-    double *d = (double *)malloc(mvnDim * sizeof(double));
-    double *e = (double *)malloc(mvnDim * sizeof(double));
-    double *f = (double *)malloc(mvnDim * sizeof(double));
-    double *y = (double *)malloc(mvnDim * sizeof(double));
-
-    // Initialize d, e, and f for the first dimension
-    d[0] = gsl_cdf_gaussian_P(a[0] / MATRIX_AT_PTR(chol, 0, 0), 1.0); // Standard normal CDF
-    e[0] = gsl_cdf_gaussian_P(b[0] / MATRIX_AT_PTR(chol, 0, 0), 1.0);
-    f[0] = e[0] - d[0];
-}
-*/
