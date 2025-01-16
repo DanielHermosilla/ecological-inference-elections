@@ -7,63 +7,6 @@
 #include <unistd.h>
 
 /**
- * @brief Computes the Mahalanobis distance with last candidate adjustment.
- *
- * @param[in] x Pointer to the input feature vector (size C).
- * @param[in] mu Pointer to the mean vector (size C-1).
- * @param[in] inverseSigma Pointer to the inverse covariance matrix (size (C-1) x (C-1)).
- * @param[out] maha Pointer to the resulting Mahalanobis distances (size C).
- * @param[in] size Size of the truncated candidate space (C-1).
- */
-void mahanalobis(double *x, double *mu, Matrix *inverseSigma, double *maha, int size)
-{
-    // ---- Initialize temporary arrays ----
-    double diff[size];
-    double temp[size];
-    double invs_devs[size];
-
-    // ---- Compute the difference vector ---- //
-    for (int i = 0; i < size; i++)
-    { // ---- For each truncated element
-        diff[i] = x[i] - mu[i];
-    }
-    // --- ... --- //
-
-    // ---- Compute the multiplication  ---- //
-    // ---- inverseSigma * diff
-
-    // ---- Note: The upper triangle is filled on the inverse sigma aswell for the Cholensky method.
-    cblas_dsymv(CblasRowMajor, CblasLower, size, 1.0, inverseSigma->data, size, diff, 1, 0.0, temp, 1);
-    // --- ... --- //
-
-    // ---- Compute Mahalanobis distance (truncated) ---- //
-    double mahanobisTruncated = 0.0;
-    for (int i = 0; i < size; i++)
-    { // ---- For each truncated element
-        // ---- The first parenthesis ----
-        mahanobisTruncated += diff[i] * temp[i];
-        invs_devs[i] = temp[i]; // Store intermediate results
-    }
-    // --- ... ---//
-
-    // ---- Compute the Mahanalobis distance with the last candidate ---- //
-    /*
-     * The updated mahanalobis distance for "C" candidates can be written as:
-     *
-     * $$D_{i}^{2}=D^{2}_{baseline}-\sigma^{-1}(x_i-\mu_i)+diag(\sigma^{-1})$$
-     *
-     * The baseline would be the mahanobis distance for the "C-1" candidate (mahanobisTruncated)
-     * */
-
-    maha[size] = mahanobisTruncated; // Last element is used as a reference
-    for (int c = 0; c < size; c++)
-    { // ---- For each candidate (considers the last one too)
-        maha[c] = mahanobisTruncated - 2 * temp[c] + MATRIX_AT_PTR(inverseSigma, c, c);
-    }
-    // ---...--- //
-}
-
-/**
  * @brief Computes the `q` values for a given ballot box.
  *
  * Given a ballot box index, probabilities and the reduced version (with C-1 candidates) of the probabilities matrix, it
@@ -112,9 +55,10 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
         // ---- Get the average values for the candidate results ----
         double *muG = getRow(&muR, g);
         // ---- Call the mahanalobis function ----
-        mahanalobis(feature, muG, sigma[g], mahanalobisDistances[g], TOTAL_CANDIDATES - 1);
+        getMahanalobisDist(feature, muG, sigma[g], mahanalobisDistances[g], TOTAL_CANDIDATES - 1, false);
         // ---- Free allocated and temporary values ----
         freeMatrix(sigma[g]);
+        free(sigma[g]);
         free(feature);
         free(muG);
     }
