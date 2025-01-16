@@ -101,9 +101,6 @@ void setParameters(Matrix *x, Matrix *w)
     *W = createMatrix(w->rows, w->cols);
     memcpy(W->data, w->data, sizeof(double) * w->rows * w->cols);
 
-    //#pragma omp parallel for reduction(+ : CANDIDATES_VOTES[ : TOTAL_CANDIDATES])                                          \
-    reduction(+ : GROUP_VOTES[ : TOTAL_GROUPS]) reduction(+ : TOTAL_VOTES)                                             \
-    reduction(+ : BALLOTS_VOTES[ : TOTAL_BALLOTS])
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
         for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
@@ -333,9 +330,10 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     clock_gettime(CLOCK_MONOTONIC, &start);
     for (int i = 0; i < maxIter; i++)
     {
-        if (i % 1 == 0 && verbose)
+        if (verbose)
         {
-            printf("%.0f%% of iterations have been done.\n", (i / (double)maxIter) * 100);
+            printf("\n%d of iterations have been done.\nThe current probability matrix is:\n", i);
+            printMatrix(currentP);
         }
 
         // Exact method
@@ -357,7 +355,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         // MVN CDF
         else if (strcmp(q_method, "MVN CDF") == 0)
         {
-            q = computeQMultivariateCDF(currentP, 1000);
+            q = computeQMultivariateCDF(currentP, 50000);
         }
         // MVN PDF
         else
@@ -473,7 +471,7 @@ int main()
     // Start timer
     clock_gettime(CLOCK_MONOTONIC, &start);
     Matrix P = getInitialP("group proportional");
-    Matrix Pnew = EMAlgoritm(&P, "MVN CDF", 0.0001, 1000, true);
+    Matrix Pnew = EMAlgoritm(&P, "MVN PDF", 0.001, 18, false);
 
     clock_gettime(CLOCK_MONOTONIC, &end);
     double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;

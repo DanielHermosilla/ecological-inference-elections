@@ -1,4 +1,5 @@
 #include "multivariate-cdf.h"
+#include "globals.h"
 #include <cblas.h>
 #include <gsl/gsl_monte.h>
 #include <gsl/gsl_monte_miser.h>
@@ -8,6 +9,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <string.h>
+#include <unistd.h>
 
 typedef struct
 {
@@ -17,6 +19,7 @@ typedef struct
 
 Matrix *featureMatrix = NULL;
 
+// double getLimits(double *a, double *b)
 double integral(double *x, size_t dim, void *params)
 {
     IntegrationParams *p = (IntegrationParams *)params;
@@ -28,7 +31,7 @@ double integral(double *x, size_t dim, void *params)
     getMahanalobisDist(x, currentMu, chol, maha, dim, true);
     // ---...--- //
 
-    // ---- Return the PDF ---- //
+    // ---- the PDF ---- //
     // ---- exp(-0.5 * maha) ----
     // ---- To get the scalar mahanalobis we need to sum over all contributions ----
     double totalMahanobis = 0;
@@ -52,11 +55,11 @@ double Montecarlo(Matrix *chol, double *mu, const double *lowerLimits, const dou
     gsl_monte_function G = {&integral, (size_t)mvnDim, &params};
     gsl_rng *rng = gsl_rng_alloc(gsl_rng_default);
     gsl_monte_plain_state *s = gsl_monte_plain_alloc(mvnDim);
-
+    gsl_rng_set(rng, 42);
     // Perform integration
     double result, error;
+    // sleep(5);
     gsl_monte_plain_integrate(&G, lowerLimits, upperLimits, mvnDim, maxSamples, rng, s, &result, &error);
-
     // Free memory
     gsl_monte_plain_free(s);
     gsl_rng_free(rng);
@@ -78,7 +81,6 @@ double Montecarlo(Matrix *chol, double *mu, const double *lowerLimits, const dou
 
 void getMainParameters(int b, Matrix const probabilitiesReduced, Matrix **cholesky, Matrix *mu)
 {
-    printf("\nStarting to compute main parameters\n");
 
     // --- Get the mu and sigma --- //
 
@@ -98,7 +100,6 @@ void getMainParameters(int b, Matrix const probabilitiesReduced, Matrix **choles
         // ---- Calculates the Cholensky matrix ---- //
         inverseSymmetricPositiveMatrix(cholesky[g]);
     }
-    printf("\nComputed main parameters\n");
 }
 
 double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSamples)
@@ -126,17 +127,22 @@ double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSampl
                           &mu); // TODO: FIX THIS, IT0S NOT POSSIBLE TO GET A INVERSE MATRIX IF ITS PERFECTLY LINEAL,
                                 // NEED TO FIX THIS.
                                 // ---...--- //
+        double *feature = getColumn(X, b); // Of size C-1
 
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         {
             // ---- Define the current values to use ---- //
             Matrix *currentCholesky = choleskyVals[g];
             double *currentMu = getRow(&mu, g);
-            double *feature = getColumn(X, b); // Of size C-1
-                                               // ---...--- //
+            // ---...--- //
 
+            double montecarloResults[TOTAL_CANDIDATES];
+            double denominator = 0;
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             {
+
+                // Define the integral
+
                 // ---- Define the borders of the hypercube ---- //
                 // ---- First, make a copy of the feature vector ----
                 double *featureCopyA = (double *)malloc((TOTAL_CANDIDATES - 1) * sizeof(double));
@@ -150,30 +156,40 @@ double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSampl
                 // ---- $$a=\sigma^{-1}(a-\mu)$$ ----
                 for (uint16_t k = 0; k < TOTAL_CANDIDATES - 1; k++)
                 {
-                    featureCopyA[k] -= 0.5 - currentMu[k];
-                    featureCopyB[k] += 0.5 - currentMu[k];
+                    featureCopyA[k] -= 0.5;
+                    featureCopyB[k] += 0.5;
+                    // featureCopyA[k] -= currentMu[k];
+                    // featureCopyB[k] -= currentMu[k];
                     if (k == c)
                     {
                         featureCopyA[k] -= 1.0;
                         featureCopyB[k] -= 1.0;
                     }
-                    featureCopyA[k] *= MATRIX_AT_PTR(currentCholesky, k, k);
-                    featureCopyB[k] *= MATRIX_AT_PTR(currentCholesky, k, k);
+                    // featureCopyA[k] *= MATRIX_AT_PTR(currentCholesky, k, k);
+                    // featureCopyB[k] *= MATRIX_AT_PTR(currentCholesky, k, k);
                 }
 
                 // ---...--- //
+                montecarloResults[c] = Montecarlo(currentCholesky, currentMu, featureCopyA, featureCopyB,
+                                                  (int)TOTAL_CANDIDATES - 1, monteCarloSamples) *
+                                       MATRIX_AT_PTR(probabilities, g, c);
 
-                double monteCarloResult = Montecarlo(currentCholesky, currentMu, featureCopyA, featureCopyB,
-                                                     (int)TOTAL_CANDIDATES - 1, monteCarloSamples);
-                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = monteCarloResult;
+                denominator += montecarloResults[c];
 
                 free(featureCopyA);
                 free(featureCopyB);
             } // --- End c loop
-            free(feature);
             free(currentMu);
             freeMatrix(currentCholesky);
+
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            {
+                if (denominator == 0) // Edge case
+                    Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = 0;
+                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = montecarloResults[c] / denominator;
+            } // --- End c loop
         } // --- End g loop
+        free(feature);
         freeMatrix(&mu);
         free(choleskyVals);
     } // --- End b loop
