@@ -10,9 +10,11 @@
  *
  * @param[in] probabilities Matrix (g x c) - probabilities of each group and candidate.
  * @param[in] monteCarloSamples Amount of samples to use in the Montecarlo simulation
- *
+ * @param[in] *method The method for calculating the Montecarlo simulation. Currently available methods are `Plain`,
+ * `Miser` and `Vegas`.
+
  * @return A pointer to a flattened 3D array (b x g x c) representing the probabilities.
  */
-double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSamples);
+double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSamples, const char *method);
 
 #endif

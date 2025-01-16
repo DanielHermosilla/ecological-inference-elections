@@ -118,9 +118,9 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
         }
     }
     //  ---- Free alocated memory ----
+    free(groupVotesPerBallot);
     freeMatrix(&temp);
     freeMatrix(&diagonalVotesPerBallot);
-    free(groupVotesPerBallot);
     // --- ... --- //
 }
 
@@ -185,10 +185,10 @@ void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *co
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     { // ---- For each group
         // ---- Do the outer product and store it in the array ----
-        Matrix mult = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1);
+        matrixMultiplications[g] = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1);
         cblas_dger(CblasRowMajor, TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1, 1.0, probabilitiesForG[g], 1,
-                   probabilitiesForG[g], 1, mult.data, TOTAL_CANDIDATES - 1);
-        matrixMultiplications[g] = mult;
+                   probabilitiesForG[g], 1, matrixMultiplications[g].data, TOTAL_CANDIDATES - 1);
+        free(probabilitiesForG[g]);
     }
     // --- ... --- //
 
@@ -216,6 +216,7 @@ void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *co
     }
     // ---- Free space ----
     free(matrixMultiplications);
+    free(diagonalProbabilities);
     free(probabilitiesForG);
     freeMatrix(&newSigma);
 
@@ -353,8 +354,8 @@ void getMahanalobisDist(double *x, double *mu, Matrix *inverseSigma, double *mah
     for (int i = 0; i < size; i++)
     { // ---- For each truncated element
         // ---- The first parenthesis ----
-        mahanobisTruncated += diff[i] * temp[i];
         maha[i] = diff[i] * temp[i]; // Store intermediate results
+        mahanobisTruncated += maha[i];
     }
     // --- ... ---//
     if (!reduced)

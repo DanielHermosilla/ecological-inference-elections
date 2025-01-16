@@ -8,6 +8,7 @@
 #include <gsl/gsl_rng.h> // Random numbers
 #include <math.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -61,6 +62,8 @@ double integral(double *x, size_t dim, void *params)
  * @param[in] *upperLimits An array with the upper bounds of the integral (defined by the hypercube)
  * @param[in] mvnDim The dimensions of the multivariate normal. Usually it's C-1.
  * @param[in] maxSamples Amount of samples for the Montecarlo simulation.
+ * @param[in] *method The method for calculating the Montecarlo simulation. Currently available methods are `Plain`,
+ * `Miser` and `Vegas`.
  *
  * @note Refer to https://www.gnu.org/software/gsl/doc/html/montecarlo.html
  *
@@ -68,7 +71,7 @@ double integral(double *x, size_t dim, void *params)
  */
 
 double Montecarlo(Matrix *chol, double *mu, const double *lowerLimits, const double *upperLimits, int mvnDim,
-                  int maxSamples)
+                  int maxSamples, const char *method)
 {
     // ---- Set up the initial parameters ---- //
     // ---- Parameters for the integral ----
@@ -77,14 +80,41 @@ double Montecarlo(Matrix *chol, double *mu, const double *lowerLimits, const dou
     // ---- Initialize GSL Monte Carlo integration ----
     gsl_monte_function G = {&integral, (size_t)mvnDim, &params};
     gsl_rng *rng = gsl_rng_alloc(gsl_rng_default);
-    gsl_monte_plain_state *s = gsl_monte_plain_alloc(mvnDim);
+    double result, error;
     // ---...--- //
 
     // ---- Perform integration ---- //
-    double result, error;
-    gsl_monte_plain_integrate(&G, lowerLimits, upperLimits, mvnDim, maxSamples, rng, s, &result, &error);
-    gsl_monte_plain_free(s);
-    gsl_rng_free(rng);
+    if (strcmp(method, "Plain") != 0)
+    {
+
+        gsl_monte_plain_state *s = gsl_monte_plain_alloc(mvnDim);
+        gsl_monte_plain_integrate(&G, lowerLimits, upperLimits, mvnDim, maxSamples, rng, s, &result, &error);
+        gsl_monte_plain_free(s);
+        gsl_rng_free(rng);
+    }
+    else if (strcmp(method, "Miser") != 0)
+    {
+        gsl_monte_miser_state *s = gsl_monte_miser_alloc(mvnDim);
+        gsl_monte_miser_integrate(&G, lowerLimits, upperLimits, mvnDim, maxSamples, rng, s, &result, &error);
+        gsl_monte_miser_free(s);
+        gsl_rng_free(rng);
+    }
+    else if (strcmp(method, "Vegas") != 0)
+    {
+        gsl_monte_vegas_state *s = gsl_monte_vegas_alloc(mvnDim);
+        gsl_monte_vegas_integrate(&G, lowerLimits, upperLimits, mvnDim, maxSamples, rng, s, &result, &error);
+        gsl_monte_vegas_free(s);
+        gsl_rng_free(rng);
+    }
+    else
+    {
+        fprintf(
+            stderr,
+            "\nAn invalid method was handed to the Montecarlo simulation for calculating the Multivariate CDF "
+            "integral.\nThe method handed is:\t%s\nThe current available methods are `Plain`, `Miser` and `Vegas`.\n",
+            method);
+        exit(EXIT_FAILURE);
+    }
     // ---...--- //
 
     // ---- Obtain the normalization values ---- //
@@ -147,10 +177,12 @@ void getMainParameters(int b, Matrix const probabilitiesReduced, Matrix **choles
  *
  * @param[in] *probabilities A pointer towards the current probabilities matrix.
  * @param[in] monteCarloSamples The amount of samples to use in the Monte Carlo simulation
+ * @param[in] *method The method for calculating the Montecarlo simulation. Currently available methods are `Plain`,
+ * `Miser` and `Vegas`.
  *
  * @return A contiguos array with all the new probabilities
  */
-double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSamples)
+double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSamples, const char *method)
 {
 
     // ---- Define initial variables ---- //
@@ -158,7 +190,7 @@ double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSampl
     double *array2 =
         (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double)); // Array to return
                                                                                            // --- ... --- //
-
+#pragma omp parallel for
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // --- For each ballot box
         // ---- Get the values of the Multivariate CDF that only depends on `b` ---- //
@@ -207,7 +239,7 @@ double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSampl
                 // ---...--- //
                 // ---- Save the results and add them to the denominator ---- //
                 montecarloResults[c] = Montecarlo(currentCholesky, currentMu, featureCopyA, featureCopyB,
-                                                  (int)TOTAL_CANDIDATES - 1, monteCarloSamples) *
+                                                  (int)TOTAL_CANDIDATES - 1, monteCarloSamples, method) *
                                        MATRIX_AT_PTR(probabilities, g, c);
 
                 denominator += montecarloResults[c];
@@ -217,6 +249,8 @@ double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSampl
             } // --- End c loop
             free(currentMu);
             freeMatrix(currentCholesky);
+            freeMatrix(choleskyVals[g]);
+            free(choleskyVals[g]);
 
             // ---- Add the final results to the array ----//
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
