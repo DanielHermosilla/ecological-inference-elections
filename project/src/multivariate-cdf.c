@@ -79,20 +79,33 @@ double Montecarlo(Matrix *chol, double *mu, const double *lowerLimits, const dou
     return (1 / denominator) * result;
 }
 
+/*
+ * @brief Gets the a matrix of mu values and the inverse sigma for a given ballot box
+ *
+ * @param[in] b The ballot box index.
+ * @param[in] *probabilitiesReduced Probabilities matrix without the last candidate.
+ * @param[in, out] **cholesky An array of `g` matrices that stores (`c-1`X`c-1`) matrices with the cholesky values. The
+ * cholesky matrix is filled on the upper and lower triangle with the same values since it's simmetric.
+ * @param[in, out] *mu A matrix of size (`g`x`c-1`) with the averages per group.
+ *
+ * @return void. Results to be written on cholesky and mu
+ */
+
 void getMainParameters(int b, Matrix const probabilitiesReduced, Matrix **cholesky, Matrix *mu)
 {
 
-    // --- Get the mu and sigma --- //
+    // --- Initialize empty array --- //
 
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     { // ---- For each group ----
         cholesky[g] = (Matrix *)malloc(sizeof(Matrix));
         *cholesky[g] = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1); // Initialize
     }
+    // ---...--- //
 
+    // ---- Get mu and sigma ---- //
     getAverageConditional(b, &probabilitiesReduced, mu, cholesky);
     // ---- ... ----
-    // Missing sigma is
 
     // ---- Get the inverse matrix for each sigma ---- //
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
@@ -100,48 +113,48 @@ void getMainParameters(int b, Matrix const probabilitiesReduced, Matrix **choles
         // ---- Calculates the Cholensky matrix ---- //
         inverseSymmetricPositiveMatrix(cholesky[g]);
     }
+    // ---...--- //
 }
-
+/*
+ * @brief Computes the `q` values from the multivariate CDF method
+ *
+ * @param[in] *probabilities A pointer towards the current probabilities matrix.
+ * @param[in] monteCarloSamples The amount of samples to use in the Monte Carlo simulation
+ *
+ * @return A contiguos array with all the new probabilities
+ */
 double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSamples)
 {
 
-    /*
-    if (featureMatrix == NULL)
-    {
-        printf("Creating feature matrix...\n");
-        featureMatrix = removeLastColumn(X); // c, b
-        printf("Matrix created\n");
-    }
-    */
+    // ---- Define initial variables ---- //
     Matrix probabilitiesReduced = removeLastColumn(probabilities);
     double *array2 =
         (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double)); // Array to return
                                                                                            // --- ... --- //
 
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    {
-        // ---- Get the values of the Multivariate that only depends on `b` ---- //
+    { // --- For each ballot box
+        // ---- Get the values of the Multivariate CDF that only depends on `b` ---- //
+        // ---- Mu and inverse Sigma matrix ----
         Matrix mu = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES - 1);
         Matrix **choleskyVals = (Matrix **)malloc(TOTAL_GROUPS * sizeof(Matrix *));
-        getMainParameters(b, probabilitiesReduced, choleskyVals,
-                          &mu); // TODO: FIX THIS, IT0S NOT POSSIBLE TO GET A INVERSE MATRIX IF ITS PERFECTLY LINEAL,
-                                // NEED TO FIX THIS.
-                                // ---...--- //
+        getMainParameters(b, probabilitiesReduced, choleskyVals, &mu);
+        // ---- Array with the results of the Xth candidate on ballot B ----
         double *feature = getColumn(X, b); // Of size C-1
+                                           // ---...--- //
 
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-        {
-            // ---- Define the current values to use ---- //
+        { // --- For each group given a ballot box
+            // ---- Define the current values to use that only depends on `g` ---- //
             Matrix *currentCholesky = choleskyVals[g];
             double *currentMu = getRow(&mu, g);
-            // ---...--- //
-
+            // ---- Initialize empty variables to be filled ----
             double montecarloResults[TOTAL_CANDIDATES];
             double denominator = 0;
-            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-            {
+            // ---...--- //
 
-                // Define the integral
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            { // --- For each candidate given a group and a ballot box
 
                 // ---- Define the borders of the hypercube ---- //
                 // ---- First, make a copy of the feature vector ----
@@ -155,39 +168,37 @@ double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSampl
                 // ---- Note that the bounds NEEDS to be standarized ----
                 // ---- $$a=\sigma^{-1}(a-\mu)$$ ----
                 for (uint16_t k = 0; k < TOTAL_CANDIDATES - 1; k++)
-                {
+                { // --- For each candidate coordinate that is going to be integrated
                     featureCopyA[k] -= 0.5;
                     featureCopyB[k] += 0.5;
-                    // featureCopyA[k] -= currentMu[k];
-                    // featureCopyB[k] -= currentMu[k];
                     if (k == c)
                     {
                         featureCopyA[k] -= 1.0;
                         featureCopyB[k] -= 1.0;
                     }
-                    // featureCopyA[k] *= MATRIX_AT_PTR(currentCholesky, k, k);
-                    // featureCopyB[k] *= MATRIX_AT_PTR(currentCholesky, k, k);
                 }
-
                 // ---...--- //
+                // ---- Save the results and add them to the denominator ---- //
                 montecarloResults[c] = Montecarlo(currentCholesky, currentMu, featureCopyA, featureCopyB,
                                                   (int)TOTAL_CANDIDATES - 1, monteCarloSamples) *
                                        MATRIX_AT_PTR(probabilities, g, c);
 
                 denominator += montecarloResults[c];
-
                 free(featureCopyA);
                 free(featureCopyB);
+                // ---...--- //
             } // --- End c loop
             free(currentMu);
             freeMatrix(currentCholesky);
 
+            // ---- Add the final results to the array ----//
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-            {
+            {                         // --- For each candidate
                 if (denominator == 0) // Edge case
                     Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = 0;
                 Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = montecarloResults[c] / denominator;
             } // --- End c loop
+            // ---...--- //
         } // --- End g loop
         free(feature);
         freeMatrix(&mu);
@@ -195,9 +206,4 @@ double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSampl
     } // --- End b loop
     freeMatrix(&probabilitiesReduced);
     return array2;
-}
-
-__attribute__((destructor)) void freeFeatures()
-{
-    freeMatrix(featureMatrix);
 }
