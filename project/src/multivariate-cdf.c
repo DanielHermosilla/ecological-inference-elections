@@ -17,66 +17,93 @@ typedef struct
     double *mu;   // The mu array
 } IntegrationParams;
 
-Matrix *featureMatrix = NULL;
-
-// double getLimits(double *a, double *b)
+/*
+ * @brief Evaluates a given x vector towards the PDF function
+ *
+ * @param[in] *x A vector with the values to be evaluated. Must be of the same dimension of the multivariate.
+ * @param[in] dim The dimension of the multivariate variable
+ * @param[in] *params Pointer to the structure with the parameters used to integrate
+ *
+ * @note Refer to https://www.gnu.org/software/gsl/doc/html/montecarlo.html
+ *
+ * @return The value of the function. Note that it is a scalar
+ */
 double integral(double *x, size_t dim, void *params)
 {
+    // ---- Unpack the integration parameters ---- //
     IntegrationParams *p = (IntegrationParams *)params;
     Matrix *chol = p->chol;
     double *currentMu = p->mu;
+    // ---...--- //
 
     // ---- Obtain the mahanalobis of the multivariate ---- //
     double maha[dim];
     getMahanalobisDist(x, currentMu, chol, maha, dim, true);
-    // ---...--- //
 
-    // ---- the PDF ---- //
-    // ---- exp(-0.5 * maha) ----
     // ---- To get the scalar mahanalobis we need to sum over all contributions ----
     double totalMahanobis = 0;
     for (uint16_t c = 0; c < dim; c++)
-    {
+    { // --- For each dimension of the multivariate
         totalMahanobis += maha[c];
     }
-    return exp(-0.5 * totalMahanobis);
     // ---...--- //
+    return exp(-0.5 * totalMahanobis);
 }
 
-// Monte Carlo CDF approximation
-// Refer to https://www.gnu.org/software/gsl/doc/html/montecarlo.html
+/*
+ * @brief Calls the main function to start all of the Montecarlo process
+ *
+ * Calls the function with all of the parameters needed to get the Montecarlo simulation of the Multivariate CDF.
+ *
+ * @param[in] *chol A matrix with the cholenksy values of the current group
+ * @param[in] *mu An array with the average values of the current feature vector
+ * @param[in] *lowerLimits An array with the lower bounds of the integral (defined by the hypercube)
+ * @param[in] *upperLimits An array with the upper bounds of the integral (defined by the hypercube)
+ * @param[in] mvnDim The dimensions of the multivariate normal. Usually it's C-1.
+ * @param[in] maxSamples Amount of samples for the Montecarlo simulation.
+ *
+ * @note Refer to https://www.gnu.org/software/gsl/doc/html/montecarlo.html
+ *
+ * @return The result of the approximated integral
+ */
+
 double Montecarlo(Matrix *chol, double *mu, const double *lowerLimits, const double *upperLimits, int mvnDim,
                   int maxSamples)
 {
-    // Set up the parameters for the integrand
+    // ---- Set up the initial parameters ---- //
+    // ---- Parameters for the integral ----
     IntegrationParams params = {chol, mu};
 
-    // Initialize GSL Monte Carlo integration
+    // ---- Initialize GSL Monte Carlo integration ----
     gsl_monte_function G = {&integral, (size_t)mvnDim, &params};
     gsl_rng *rng = gsl_rng_alloc(gsl_rng_default);
     gsl_monte_plain_state *s = gsl_monte_plain_alloc(mvnDim);
-    gsl_rng_set(rng, 42);
-    // Perform integration
+    // ---...--- //
+
+    // ---- Perform integration ---- //
     double result, error;
-    // sleep(5);
     gsl_monte_plain_integrate(&G, lowerLimits, upperLimits, mvnDim, maxSamples, rng, s, &result, &error);
-    // Free memory
     gsl_monte_plain_free(s);
     gsl_rng_free(rng);
+    // ---...--- //
 
     // ---- Obtain the normalization values ---- //
     // ---- We'll get the determinant of the cholesky by multiplying its diagonals ----
     double determinant = 1;
     for (uint16_t c = 0; c < mvnDim; c++)
-    {
-        determinant *= MATRIX_AT_PTR(chol, c, c);
+    {                                             // --- For each dimension of the multivariate
+        determinant *= MATRIX_AT_PTR(chol, c, c); // Diagonal of the Cholensky
     }
+    // ---...--- //
+
+    // ---- Return the final value, normalized ---- //
     double denominator = sqrt(pow(2 * M_PI, mvnDim) * determinant);
     if (denominator == 0)
         return 0; // Early exit
                   // ---...--- //
 
     return (1 / denominator) * result;
+    // ---...--- //
 }
 
 /*
@@ -90,7 +117,6 @@ double Montecarlo(Matrix *chol, double *mu, const double *lowerLimits, const dou
  *
  * @return void. Results to be written on cholesky and mu
  */
-
 void getMainParameters(int b, Matrix const probabilitiesReduced, Matrix **cholesky, Matrix *mu)
 {
 
@@ -115,6 +141,7 @@ void getMainParameters(int b, Matrix const probabilitiesReduced, Matrix **choles
     }
     // ---...--- //
 }
+
 /*
  * @brief Computes the `q` values from the multivariate CDF method
  *
