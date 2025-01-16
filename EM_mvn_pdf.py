@@ -143,7 +143,7 @@ def EM_mvn_pdf(
 if __name__ == "__main__":
     print("Running the multivariate PDF algorithm")
     matrixList = readMatrixFromC(
-        "project/src/matricesTest3.bin"
+        "project/src/matricesTest5.bin"
     )  # First one is X, second one is W/b
 
     start_iteration2 = (
