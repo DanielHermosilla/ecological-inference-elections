@@ -1,6 +1,7 @@
 #include "multivariate-cdf.h"
 #include "globals.h"
 #include <cblas.h>
+#include <gsl/gsl_cdf.h>
 #include <gsl/gsl_monte.h>
 #include <gsl/gsl_monte_miser.h>
 #include <gsl/gsl_monte_plain.h>
@@ -17,6 +18,63 @@ typedef struct
     Matrix *chol; // Cholesky decomposition, equivalent of the inverse matrix
     double *mu;   // The mu array
 } IntegrationParams;
+
+// All of the conventions used are from genz paper
+double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const double *upperBounds, double epsilon,
+                      int iterations, int mvnDim)
+{
+
+    // ---- Initialize randomizer ---- //
+    const gsl_rng_type *T;
+    gsl_rng *rng;
+
+    gsl_rng_env_setup();    // Set up the GSL RNG environment (optional)
+    T = gsl_rng_default;    // Use the default random number generator type
+    rng = gsl_rng_alloc(T); // Allocate the RNG
+                            // ---...--- //
+
+    // ---- Initialize Montecarlo variables ---- //
+    double intsum = 0;
+    double varsum = 0;
+    int currentIterations = 0;
+    double currentError;
+    double d[mvnDim], e[mvnDim], f[mvnDim];
+    d[0] = gsl_cdf_gaussian_P(lowerBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 1);
+    e[0] = gsl_cdf_gaussian_P(upperBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 1);
+    f[0] = e[0] - d[0];
+
+    do
+    {
+        double y[mvnDim];
+        double randomVector[mvnDim - 1];
+        for (int i = 0; i < mvnDim - 1; i++)
+        { // --- For each dimension
+            // ---- Generate random values in [0,1) ----
+            randomVector[i] = gsl_rng_uniform(rng);
+        }
+
+        double summatory = 0;
+        for (int i = 1; i < mvnDim; i++)
+        {
+            y[i - 1] = gsl_cdf_gaussian_Pinv(d[i - 1] + randomVector[i - 1] * (e[i - 1] - d[i - 1]), 1);
+
+            summatory += MATRIX_AT_PTR(cholesky, i - 1, i - 1) * y[i - 1]; // c_{ij}*y_j
+            d[i] = gsl_cdf_gaussian_P((lowerBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 1);
+            e[i] = gsl_cdf_gaussian_P((upperBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 1);
+            f[i] = (e[i] - d[i]) * f[i - 1];
+        }
+        intsum += f[mvnDim];
+        varsum += pow(f[mvnDim], 2);
+        currentIterations += 1;
+        currentError =
+            epsilon * sqrt((varsum / (currentIterations - pow(intsum / currentIterations, 2))) / currentIterations);
+
+    } while (currentError < epsilon || currentIterations == iterations);
+
+    gsl_rng_free(rng);
+
+    return intsum / currentIterations;
+}
 
 /*
  * @brief Evaluates a given x vector towards the PDF function
@@ -62,6 +120,7 @@ double integral(double *x, size_t dim, void *params)
  * @param[in] *upperLimits An array with the upper bounds of the integral (defined by the hypercube)
  * @param[in] mvnDim The dimensions of the multivariate normal. Usually it's C-1.
  * @param[in] maxSamples Amount of samples for the Montecarlo simulation.
+ * @param[in] epsilon The error threshold used for the Genz Montecarlo.
  * @param[in] *method The method for calculating the Montecarlo simulation. Currently available methods are `Plain`,
  * `Miser` and `Vegas`.
  *
@@ -71,7 +130,7 @@ double integral(double *x, size_t dim, void *params)
  */
 
 double Montecarlo(Matrix *chol, double *mu, const double *lowerLimits, const double *upperLimits, int mvnDim,
-                  int maxSamples, const char *method)
+                  int maxSamples, double epsilon, const char *method)
 {
     // ---- Set up the initial parameters ---- //
     // ---- Parameters for the integral ----
@@ -106,13 +165,17 @@ double Montecarlo(Matrix *chol, double *mu, const double *lowerLimits, const dou
         gsl_monte_vegas_free(s);
         gsl_rng_free(rng);
     }
+    else if (strcmp(method, "Genz") != 0)
+    {
+        result = genzMontecarlo(chol, lowerLimits, upperLimits, epsilon, maxSamples, mvnDim);
+    }
     else
     {
-        fprintf(
-            stderr,
-            "\nAn invalid method was handed to the Montecarlo simulation for calculating the Multivariate CDF "
-            "integral.\nThe method handed is:\t%s\nThe current available methods are `Plain`, `Miser` and `Vegas`.\n",
-            method);
+        fprintf(stderr,
+                "\nAn invalid method was handed to the Montecarlo simulation for calculating the Multivariate CDF "
+                "integral.\nThe method handed is:\t%s\nThe current available methods are `Plain`, `Miser`, `Vegas` and "
+                "`Genz`.\n",
+                method);
         exit(EXIT_FAILURE);
     }
     // ---...--- //
