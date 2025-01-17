@@ -1,5 +1,8 @@
 import numpy as np
+import time
 from scipy.stats import multivariate_normal, multinomial
+from helper_functions import *
+from time import perf_counter
 
 # from model_elections import compute_qm_list
 from multiprocessing import Pool
@@ -24,6 +27,7 @@ from scipy.stats import norm
 # from EM_full import EM_full, compute_q_list
 # from EM_mvn_pdf import EM_mvn_pdf, compute_q_mvn_pdf
 # from EM_mult import EM_mult, compute_q_multinomial
+np.random.seed(42)
 
 
 def compute_q_mvn_cdf(n, p, b, parallel=False, R=False):
@@ -53,7 +57,9 @@ def compute_q_mvn_cdf(n, p, b, parallel=False, R=False):
     #     with Pool() as pool:
     #         q = pool.starmap(compute_qm_mvn, q_args)
     #     return np.array(q)
-    for m in range(M_size):  # Note that M_size is b.shape[0], use pointer in C.
+    for m in range(
+        M_size
+    ):  # Note that M_size is b.shape[0], use pointer in C. M are ballots aparrently
         q_m = compute_qm_mvn_cdf(
             n[m], n_trunc[m], p, p_trunc, b[m], I_size, G_size, diag_p, p_g_squared
         )
@@ -95,23 +101,34 @@ def compute_qm_mvn_cdf(
 
     qm = np.zeros(shape=(G_size, I_size))
     for i in range(I_size):
-        n_i = n_m_trunc.copy()
-        if i < I_size - 1:
-            n_i[i] -= 1
+        n_i = (
+            n_m_trunc.copy()
+        )  # Corresponds to the X[b] vector without the last candidate
+        if i < I_size - 1:  # If it's from the `c-1` candidates..
+            n_i[i] -= 1  # Substract one at the candidate position
         for g in range(G_size):
+
             if I_size == 2:
                 qm[g, i] = norm.cdf(n_i + 0.5, mus_U[g], np.sqrt(covs_U[g])) - norm.cdf(
                     n_i - 0.5, mus_U[g], np.sqrt(covs_U[g])
                 )
             else:
-                n_i_center = n_i - mus_U[g]
+                n_i_center = (
+                    n_i - mus_U[g]
+                )  # Substracts the average from the multinomial according to the group
+                # print("If I normalize them")
+                # print("The lower limit is:")
+                # print(Chols_U[g].diagonal(i) * (n_i_center - 0.5))
+                # print("The upper limit is:")
+                # print(Chols_U[g].diagonal(i) * (n_i_center + 0.5))
+
                 qm[g, i] = (
                     MonteCarlo_cdf_matrix(  # Cada combinación G,I tiene su propio \sigma, cov cambia => propio hipercubo => se debe calcular GxI
                         Chols_U[g],
                         n_i_center - 0.5,
                         n_i_center + 0.5,
                         I_size - 1,
-                        0.0001,
+                        0.00001,
                     )
                 )
     if np.all(qm == 0):
@@ -185,49 +202,6 @@ def MonteCarlo_cdf(Chol, a, b, mvn_dim, epsilon, alpha, Nmax):
     return intsum / N
 
 
-def MonteCarlo_cdf(Chol, a, b, mvn_dim, epsilon, Nmax):
-    """
-    Calculates the CDF integral with Monte Carlo simulation.
-
-    Parameters:
-        Chol (numpy.ndarray): Cholesky decomposition of the variance.
-        a (numpy.ndarray): First component of the unitary hypercube.
-        b (numpy.ndarray): Second component of the unitary hipercube.
-        mvn_dim (int): Dimension of the Multivariate Normal.
-        epsilon (float): Error threshold.
-        Nmax (int): Maximum amount of iterations in the Monte Carlo method.
-
-    Returns:
-        float: An approximation of the CDF integral
-
-    """
-    intsum = 0
-    N = 1
-    varsum = 0
-    d = np.zeros(mvn_dim)
-    e = np.zeros(mvn_dim)
-    f = np.zeros(mvn_dim)
-    y = np.zeros(mvn_dim)
-    d[0] = norm.cdf(a[0] / Chol[0, 0])
-    e[0] = norm.cdf(b[0] / Chol[0, 0])
-    f[0] = e[0] - d[0]
-    error = 1
-    while error > epsilon and N < Nmax:
-        w = np.random.uniform(0, 1, mvn_dim - 1)
-        for i in range(1, mvn_dim):  #
-            y[i - 1] = norm.ppf(d[i - 1] + w[i - 1] * (e[i - 1] - d[i - 1]))
-            Chol_cum = np.dot(Chol[i, :i], y[:i])
-            d[i] = norm.cdf((a[i] - Chol_cum) / Chol[i, i])
-            e[i] = norm.cdf((b[i] - Chol_cum) / Chol[i, i])
-            f[i] = (e[i] - d[i]) * f[i - 1]
-        N = N + 1
-        # print(f[mvn_dim-1])
-        varsum = varsum + f[mvn_dim - 1] ** 2
-        intsum = intsum + f[mvn_dim - 1]
-        error = np.sqrt((varsum / N - (intsum / N) ** 2) / N)
-    return intsum / N
-
-
 def MonteCarlo_cdf_matrix(Chol, a, b, mvn_dim, epsilon, min_order=2, max_order=5):
     """
     Computes the CDF integral with Monte Carlo simulation over one demographic group within a ballot box. It approximates to the conditional distribution of the votation outcomes given a certain group preference.
@@ -240,7 +214,7 @@ def MonteCarlo_cdf_matrix(Chol, a, b, mvn_dim, epsilon, min_order=2, max_order=5
         epsilon (float): Error threshold.
         min_order (int, optional): Minimum amount of samples for the simulation, expressed as exponents of base 10.
             default value: 2
-        max_order (int, optional): Minimum amount of samples for the simulation, expressed as exponents of base 10.
+        max_order (int, optional): Maximum amount of samples for the simulation, expressed as exponents of base 10.
             default value: 5
 
     Returns:
@@ -251,22 +225,27 @@ def MonteCarlo_cdf_matrix(Chol, a, b, mvn_dim, epsilon, min_order=2, max_order=5
     varsum = 0
     total_sim = 0
     N = [10**i for i in range(min_order, max_order + 1)]
-    d_0 = norm.cdf(a[0] / Chol[0, 0])
-    e_0 = norm.cdf(b[0] / Chol[0, 0])
+    d_0 = norm.cdf(a[0] / Chol[0, 0])  # La probabilidad de obtener el primer intervalo
+    e_0 = norm.cdf(b[0] / Chol[0, 0])  # La probabilidad de obtener el segundo intervalo
     f_0 = e_0 - d_0
     for n in N:
         d = np.zeros((mvn_dim, n))
         e = np.zeros((mvn_dim, n))
-        f = np.zeros((mvn_dim, n))
-        y = np.zeros((mvn_dim, n))
+        f = np.zeros((mvn_dim, n))  # Should be a scalar, only the last value is used
+        y = np.zeros(
+            (mvn_dim, n)
+        )  # Y es una matriz donde la fila es la dimension de la multivariada y "n" es la n-esima simulacion
         d[0, :] = d_0
         e[0, :] = e_0
-        f[0, :] = f_0
+        f[0, :] = f_0  # e_0 - d_0 => espacio entre intervalo
         w = np.random.uniform(0, 1, (mvn_dim - 1, n))
-        for i in range(1, mvn_dim):  #
+        for i in range(1, mvn_dim):  # Por cada dimension
             y[i - 1, :] = norm.ppf(
                 d[i - 1, :] + w[i - 1, :] * (e[i - 1, :] - d[i - 1, :])
-            )
+            )  # Cota inferior + w * (espacio entre intervalo), la primera coordenada es la dimension de la mvn, las columnas el num de simulación
+            # Por lo tanto, selecciona TODA la fila "i-1"
+
+            # Así, y[i-1, simulacion]() recibe como argumento puros intervalos con espacios random. Luego, los evalua en Z^{-1} para saber el valor (i.e 1.96) de ese intervalo
             Chol_cum = np.einsum("j,js->s", Chol[i, :i], y[:i, :])
             d[i, :] = norm.cdf((a[i] - Chol_cum) / Chol[i, i])
             e[i, :] = norm.cdf((b[i] - Chol_cum) / Chol[i, i])
@@ -361,6 +340,7 @@ if __name__ == "__main__":
     # load instance json
     import json
 
+    """
     with open("instances\J200_M50_G4_I2_L50_seed12.json") as f:
         instance = json.load(f)
     X = np.array(instance["n"])
@@ -370,16 +350,30 @@ if __name__ == "__main__":
     print("")
     print("b ", b[-1])
     print("")
-    # compute_q_mvn_cdf(X[[0]], p, b[[0]])
-    em = EM_mvn_cdf(
-        X,
-        b,
+    """
+    matrixList = readMatrixFromC(
+        "project/src/matricesTest5.bin"
+    )  # First one is X, second one is W/b
+
+    start_iteration2 = (
+        perf_counter()
+    )  # This iteration starts before the loop NOW, to compare it against C.
+
+    answer = EM_mvn_cdf(
+        matrixList[0].T,
+        matrixList[1],
         convergence_value=0.001,
-        p_method="uniform",
-        max_iterations=100,
-        verbose=True,
+        p_method="group_proportional",
+        max_iterations=250,
+        verbose=False,
         load_bar=False,
     )
+
+    end_time = perf_counter()
+    run_time = end_time - start_iteration2
+    print("El tiempo de ejecución es {}".format(run_time))
+    print(answer[0], answer[1], answer[2])
+    # compute_q_mvn_cdf(X[[0]], p, b[[0]])
 
     # p_full = EM_full(X, b, convergence_value = 0.001, max_iterations = 100, verbose = False, load_bar = False)[0]
     # print abs error
