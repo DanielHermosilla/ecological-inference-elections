@@ -20,6 +20,26 @@ typedef struct
 } IntegrationParams;
 
 // All of the conventions used are from genz paper
+/*
+ * @brief Compute the Montecarlo approximation proposed by Alan Genz
+ *
+ * Compute a `manual` Montecarlo simulation, proposed by Dr. Alan Genz book "Computation of Multivariate Normal and t
+ * Probabilities". All of the variable names and conventions are adopted towards his proposed algorithm aswell. Refer to
+ * https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities for more
+ * information.
+ *
+ * Note that this method gives the option to impose an error threshold. So, it stops iterating if, either the maximum
+ * iterations are accomplished or the error threshold is passed.
+ *
+ * @param[in] *cholesky. The cholesky matrix of the current iteration.
+ * @param[in] *lowerBounds. An array with the initial lower bounds.
+ * @param[in] *upperBounds. An array with the initial upper bounds.
+ * @param[in] epsilon. The minimum error threshold accepted.
+ * @param[in] iterations. The maximum iterations
+ * @param[in] mvnDim. The dimension of the multivariate normal.
+ *
+ * @return The value of the estimated integral
+ */
 double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const double *upperBounds, double epsilon,
                       int iterations, int mvnDim)
 {
@@ -28,10 +48,13 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
     const gsl_rng_type *T;
     gsl_rng *rng;
 
-    gsl_rng_env_setup();    // Set up the GSL RNG environment (optional)
-    T = gsl_rng_default;    // Use the default random number generator type
-    rng = gsl_rng_alloc(T); // Allocate the RNG
-                            // ---...--- //
+    // ---- Set up the GSL RNG environment ----
+    gsl_rng_env_setup();
+    // ---- Use the default random number generator type
+    T = gsl_rng_default;
+    // ---- Alocate the random number generator
+    rng = gsl_rng_alloc(T);
+    // ---...--- //
 
     // ---- Initialize Montecarlo variables ---- //
     double intsum = 0;
@@ -42,34 +65,48 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
     d[0] = gsl_cdf_gaussian_P(lowerBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 1);
     e[0] = gsl_cdf_gaussian_P(upperBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 1);
     f[0] = e[0] - d[0];
+    // ---...--- //
 
+    // ---- Compute the main while loop ---- //
     do
     {
+        // ---- Initialize the loop variables ---- //
         double y[mvnDim];
         double randomVector[mvnDim - 1];
         for (int i = 0; i < mvnDim - 1; i++)
+        // ---...--- //
+
+        // ---- Generate the random vector ---- //
         { // --- For each dimension
             // ---- Generate random values in [0,1) ----
             randomVector[i] = gsl_rng_uniform(rng);
         }
+        // ---...--- //
 
+        // ---- Calculate the integral with their new bounds ---- //
         double summatory = 0;
         for (int i = 1; i < mvnDim; i++)
         {
             y[i - 1] = gsl_cdf_gaussian_Pinv(d[i - 1] + randomVector[i - 1] * (e[i - 1] - d[i - 1]), 1);
 
-            summatory += MATRIX_AT_PTR(cholesky, i - 1, i - 1) * y[i - 1]; // c_{ij}*y_j
+            // ---- Note that the summatory is equivalent to $\sum_{j=1}^{i-1}c_{ij}*y_{j}$.
+            summatory += MATRIX_AT_PTR(cholesky, i - 1, i - 1) * y[i - 1];
             d[i] = gsl_cdf_gaussian_P((lowerBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 1);
             e[i] = gsl_cdf_gaussian_P((upperBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 1);
             f[i] = (e[i] - d[i]) * f[i - 1];
         }
+        // ---...--- //
+
+        // ---- Compute the final indicators from the current loop ---- //
         intsum += f[mvnDim];
         varsum += pow(f[mvnDim], 2);
         currentIterations += 1;
         currentError =
             epsilon * sqrt((varsum / (currentIterations - pow(intsum / currentIterations, 2))) / currentIterations);
+        // ---...--- //
 
     } while (currentError < epsilon || currentIterations == iterations);
+    // ---...--- //
 
     gsl_rng_free(rng);
 
@@ -240,12 +277,13 @@ void getMainParameters(int b, Matrix const probabilitiesReduced, Matrix **choles
  *
  * @param[in] *probabilities A pointer towards the current probabilities matrix.
  * @param[in] monteCarloSamples The amount of samples to use in the Monte Carlo simulation
+ * @param[in] epsilon The error threshold used for the Genz Montecarlo method.
  * @param[in] *method The method for calculating the Montecarlo simulation. Currently available methods are `Plain`,
  * `Miser` and `Vegas`.
  *
  * @return A contiguos array with all the new probabilities
  */
-double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSamples, const char *method)
+double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSamples, double epsilon, const char *method)
 {
 
     // ---- Define initial variables ---- //
@@ -302,7 +340,7 @@ double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSampl
                 // ---...--- //
                 // ---- Save the results and add them to the denominator ---- //
                 montecarloResults[c] = Montecarlo(currentCholesky, currentMu, featureCopyA, featureCopyB,
-                                                  (int)TOTAL_CANDIDATES - 1, monteCarloSamples, method) *
+                                                  (int)TOTAL_CANDIDATES - 1, monteCarloSamples, epsilon, method) *
                                        MATRIX_AT_PTR(probabilities, g, c);
 
                 denominator += montecarloResults[c];
