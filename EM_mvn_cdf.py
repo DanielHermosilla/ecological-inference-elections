@@ -362,7 +362,11 @@ if __name__ == "__main__":
     answer = EM_mvn_cdf(
         matrixList[0].T,
         matrixList[1],
+<<<<<<< HEAD
         convergence_value=0.0001,
+=======
+        convergence_value=0.001,
+>>>>>>> feature/library
         p_method="group_proportional",
         max_iterations=250,
         verbose=False,
