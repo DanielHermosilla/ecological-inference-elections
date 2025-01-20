@@ -12,10 +12,12 @@
  * array can be accesed with the macro `Q_3D` (it's a flattened tensor).
  *
  * @param[in] *probabilities. A pointer towards the probabilities matrix.
+ * @param[in] M. The step size used for the creation of samples.
+ * @param[in] S. The total amount of samples
  *
  * @return A pointer towards the flattened tensor.
  *
  */
-double *computeQHitAndRun(Matrix const *probabilities);
+double *computeQHitAndRun(Matrix const *probabilities, int M, int S);
 
 #endif
