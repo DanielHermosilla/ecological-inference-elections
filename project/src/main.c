@@ -345,7 +345,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
 
         else if (strcmp(q_method, "Hit and Run") == 0)
         {
-            q = computeQHitAndRun(currentP, 1000, 2);
+            q = computeQHitAndRun(currentP, 10000, 100);
         }
         // Multinomial
         else if (strcmp(q_method, "Multinomial") == 0)

@@ -47,7 +47,6 @@ Matrix startingPoint(int b)
     }
     free(groupVotes);
     free(candidateVotes);
-    printMatrix(&toReturn);
     return toReturn;
 }
 
@@ -61,7 +60,6 @@ void generateOmegaSet(int M, int S)
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For every ballot box
 
-        printf("\nIteration b=%d\n", b);
         // ---- Allocate memory for the set ---- //
         OMEGASET[b] = malloc(sizeof(Set));
         OMEGASET[b]->b = b;
@@ -73,11 +71,9 @@ void generateOmegaSet(int M, int S)
         for (int s = 0; s < S; s++)
         {
             Matrix steppingZ = copyMatrix(&startingZ);
-            printf("Before update:\n");
-            printMatrix(&steppingZ);
             for (int m = 0; m < M; m++)
             {
-
+                srand(42);
                 // ---- Sample random indexes ---- //
                 int groupIndex1 = rand() % TOTAL_GROUPS;
                 int groupIndex2;
@@ -105,17 +101,10 @@ void generateOmegaSet(int M, int S)
                 MATRIX_AT(steppingZ, groupIndex2, candidateIndex2) -= 1;
                 MATRIX_AT(steppingZ, groupIndex2, candidateIndex1) += 1;
                 MATRIX_AT(steppingZ, groupIndex1, candidateIndex2) += 1;
-
-                printf("After update:\n");
-                printMatrix(&steppingZ);
             }
             // ---- Add the combination to the set ---- //
             Matrix *append = malloc(sizeof(Matrix));
             *append = copyMatrix(&steppingZ);
-#pragma omp critical
-            {
-                printMatrix(append);
-            }
             OMEGASET[b]->data[s] = append;
             freeMatrix(&steppingZ);
             // ---...--- //
@@ -245,8 +234,9 @@ double *computeQHitAndRun(Matrix const *probabilities, int M, int S)
                     firstTerm += multiplications;
                     secondTerm += multiplications * (MATRIX_AT_PTR(currentMatrix, g, c) / MATRIX_AT_PTR(W, b, g));
                 }
-                printf("\nAdding the element %.4f on iteration b=%d, c=%d and g=%d\n", (1 / firstTerm) * secondTerm, b,
-                       c, g);
+                // printf("\nAdding the element %.4f on iteration b=%d, c=%d and g=%d\n", (1 / firstTerm) * secondTerm,
+                // b,
+                //     c, g);
                 Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = (1 / firstTerm) * secondTerm;
             }
         }
