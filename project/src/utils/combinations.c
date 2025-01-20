@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 /**
  * @brief Calculate the possible configurations via a recursion.
@@ -98,55 +99,141 @@ size_t **generateAllConfigurationsPerGroup(int b, int totalVotes, int numCandida
     return results;
 }
 
-Matrix *copyMatrix2(const Matrix *src)
+double *substractVectors(double *a, double *b, size_t size)
 {
-    Matrix *dest = malloc(sizeof(Matrix));
-    dest->rows = src->rows;
-    dest->cols = src->cols;
 
-    // Allocate memory for the data
-    dest->data = malloc(src->rows * src->cols * sizeof(size_t));
-
-    // Copy the data
-    memcpy(dest->data, src->data, src->rows * src->cols * sizeof(size_t));
-
-    return dest;
+    double *toReturn = calloc(size, sizeof(double));
+    for (size_t i = 0; i < size; i++)
+    {
+        toReturn[i] = a[i] - b[i];
+    }
+    return toReturn;
 }
 
+void generateConfigurationsRecursion2(int b, Matrix *votes, double *restriction, int cPosition, int gPosition,
+                                      double remainingVotes, int numCandidates, int numGroups, Matrix ***results,
+                                      size_t *count)
+{
+    // sleep(1);
+    //  ---- Base case: we're on the last candidate ---- //
+    if (cPosition == numCandidates - 1)
+    {
+        // ---- Assign remaining votes to the last candidate ----
+        MATRIX_AT_PTR(votes, gPosition, cPosition) = remainingVotes;
+
+        // ---- If the last candidate actually had less votes, ditch that combination ----
+        if (MATRIX_AT_PTR(votes, gPosition, cPosition) > restriction[cPosition])
+        {
+            // ---- Exit the recursion and don't save anything
+            return;
+        }
+        double rowSum = 0;
+        for (int i = 0; i < numCandidates; i++)
+        {
+            rowSum += MATRIX_AT_PTR(votes, gPosition, i);
+        }
+        if (rowSum != MATRIX_AT_PTR(W, b, gPosition))
+        {
+            return; // Invalid row configuration
+        }
+
+        // ---- Store the result ---- //
+        // ---- Up to this point, the matrix should be valid, hence, the results will be stored.
+        if (gPosition == numGroups - 1)
+        {
+
+            for (int k = 0; k < numCandidates; k++)
+            {
+                double colSum = 0;
+                for (int i = 0; i < numGroups; i++)
+                {
+                    colSum += MATRIX_AT_PTR(votes, i, k);
+                }
+                if (colSum != MATRIX_AT_PTR(X, k, b))
+                    return;
+            }
+            (*results) = realloc(*results, (*count + 1) * sizeof(Matrix *));
+            (*results)[*count] = votes;
+            (*count)++;
+            return;
+        }
+        else
+        {
+            double *newColumnRestriction = calloc(numCandidates, sizeof(double));
+            for (int i = 0; i < numCandidates; i++)
+            {
+                newColumnRestriction[i] = restriction[i] - MATRIX_AT_PTR(votes, gPosition, i);
+            }
+            generateConfigurationsRecursion2(b, votes, newColumnRestriction, 0, gPosition + 1,
+                                             MATRIX_AT_PTR(W, b, gPosition + 1), numCandidates, numGroups, results,
+                                             count);
+            free(newColumnRestriction);
+            return;
+        }
+        // ---...--- //
+    }
+    // ---...--- //
+
+    // ---- Loop over all the remaining votes ---- //
+
+    for (double i = 0; i <= remainingVotes; i++)
+    { // ---- For each remaining vote
+        // ---- Assing that amount of votes to the candidate in the given position ----
+        MATRIX_AT_PTR(votes, gPosition, cPosition) = i;
+
+        // ---- If the candidate actually had less votes, ditch that combination ----
+        if (MATRIX_AT_PTR(votes, gPosition, cPosition) > restriction[cPosition])
+        {
+            // ---- Exit the recursion and dont save anything
+            return;
+        }
+        // ---- Call the recursion ----
+        generateConfigurationsRecursion2(b, votes, restriction, cPosition + 1, gPosition, remainingVotes - i,
+                                         numCandidates, numGroups, results, count);
+    }
+    // ---...--- //
+}
+
+/*
 void generateConfigurationsPerBallotRecursion2(int b, Matrix *votes, int cPosition, int gPosition, int remainingVotes,
                                                int numCandidates, int numGroups, Matrix ***results, size_t *count,
                                                size_t *acumulatedGroupVotes)
 {
-    size_t *acumulatedCandidateVotes = calloc(numCandidates, sizeof(size_t));
-    for (uint16_t g = 0; g < numGroups; g++)
+
+    double **overallResults = NULL;
+    size_t *overallCounter = 0;
+
+    double *pastRestriction = getColumn(X, b);
+    double **groupResults = NULL;
+    double *initialArray = malloc(numCandidates * sizeof(double));
+    double *currentCombination = calloc(numCandidates, sizeof(double));
+    size_t *amountOfCombinations = 0;
+    double *groupRestriction = substractVectors(pastRestriction, currentCombination, numCandidates);
+
+    generateConfigurationsRecursion2(b, initialArray, pastRestriction, 0, MATRIX_AT_PTR(W, b, 0), numCandidates,
+                                     &groupResults, amountOfCombinations);
+
+    for (size_t k = 0; k < *amountOfCombinations; k++)
     {
-        // Remaining votes must be the total votes that a group did
-        size_t **results2 = NULL;
-        *count = 0;
-        size_t *votes2 = malloc(numCandidates * sizeof(size_t));
-
-        generateConfigurationsRecursion(b, votes2, 0, remainingVotes, numCandidates, &results2, count);
-
-        for (size_t comb = 0; comb < *count; comb++)
+        currentCombination = groupResults[k];
+        for (uint16_t g = 1; g < numGroups; g++)
         {
-            size_t ***validResults = NULL;
-            size_t *validCount = 0;
-            bool valid = true;
-            for (size_t r = 0; r < TOTAL_CANDIDATES; r++)
-            {
-                if (*results2[r] > (size_t)MATRIX_AT_PTR(X, r, b))
-                {
-                    valid = false;
-                    break;
-                }
-            }
-            if (valid)
-            {
-                (*validResults) = realloc(*validResults, (*validCount + 1) * sizeof(size_t *));
-                (*validResults)[*validCount] = malloc(numCandidates * sizeof(size_t));
-                memcpy((*validResults)[*validCount], results2, numCandidates * sizeof(size_t));
-                (*validCount)++;
-            }
+            groupRestriction = substractVectors(pastRestriction, currentCombination, numCandidates);
+        }
+    }
+
+    double *acumulatedCandidateVotes = calloc(numCandidates, sizeof(double));
+    double **results2 = NULL;
+    double *votes2 = malloc(numCandidates * sizeof(double));
+    *count = 0;
+    double *firstRestriction = getColumn(X, b);
+    generateConfigurationsRecursion2(b, votes2, firstRestriction, 0, MATRIX_AT_PTR(W, b, 0), numCandidates, &results2,
+                                     count);
+    for (size_t k = 0; k < *count; k++)
+    {
+        double *currentCombination = results2[k];
+        double *currentConstraint = substractVectors() for (uint16_t g = 1; g < numGroups; g++)
+        {
         }
     }
 }
@@ -238,7 +325,7 @@ void generateConfigurationsPerBallotRecursion(int b, Matrix *votes, int cPositio
     }
     // ---...--- //
 }
-
+*/
 Matrix **generateAllConfigurationsPerBallot(int b, int totalBallotVotes, int numCandidates, int numGroups,
                                             size_t *count)
 {
@@ -246,16 +333,14 @@ Matrix **generateAllConfigurationsPerBallot(int b, int totalBallotVotes, int num
     Matrix **results = NULL;
     *count = 0;
     Matrix votes = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES);
-    size_t *acumulatedCandidateVotes = calloc(numCandidates, sizeof(size_t));
-    size_t *acumulatedGroupVotes = calloc(numGroups, sizeof(size_t));
+    double *initialRestriction = getColumn(X, b);
     // --- ... --- //
 
     // ---- Call the recursion ---- //
-    generateConfigurationsPerBallotRecursion(b, &votes, 0, 0, totalBallotVotes, numCandidates, numGroups, &results,
-                                             count, acumulatedCandidateVotes, acumulatedGroupVotes);
+    generateConfigurationsRecursion2(b, &votes, initialRestriction, 0, 0, MATRIX_AT_PTR(W, b, 0), numCandidates,
+                                     numGroups, &results, count);
+
     // --- ... --- //
     freeMatrix(&votes);
-    free(acumulatedCandidateVotes);
-    free(acumulatedGroupVotes);
     return results;
 }
