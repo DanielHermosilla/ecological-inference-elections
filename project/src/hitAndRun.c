@@ -73,7 +73,6 @@ void generateOmegaSet(int M, int S)
             Matrix steppingZ = copyMatrix(&startingZ);
             for (int m = 0; m < M; m++)
             {
-                srand(42);
                 // ---- Sample random indexes ---- //
                 int groupIndex1 = rand() % TOTAL_GROUPS;
                 int groupIndex2;
@@ -203,6 +202,8 @@ void preComputeMultinomial()
  */
 double *computeQHitAndRun(Matrix const *probabilities, int M, int S)
 {
+    srand(42);
+
     if (OMEGASET == NULL)
         generateOmegaSet(M, S);
     if (multinomialVals == NULL)
