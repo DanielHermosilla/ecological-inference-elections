@@ -855,3 +855,56 @@ double *getColumn(const Matrix *matrix, int colIndex)
 
     return column;
 }
+
+/**
+ * @brief Adds a new row to a given matrix by reallocating its memory.
+ *
+ * The new row is appended to the end of the matrix. The function modifies the
+ * input matrix struct in-place.
+ *
+ * @param[in, out] matrix Pointer to the matrix to which the row will be added.
+ * @param[in] newRow Pointer to the array containing the elements of the new row.
+ *
+ * @return void
+ *
+ * @note
+ * - The newRow must have the same number of elements as the matrix's columns.
+ * - The matrix must be valid and well-defined.
+ *
+ * @example
+ * Example usage:
+ * @code
+ * Matrix m = createMatrix(2, 3); // 2x3 matrix
+ * double newRow[3] = {4.0, 5.0, 6.0};
+ * addRowToMatrix(&m, newRow);
+ * // m is now a 3x3 matrix
+ * @endcode
+ */
+void addRowToMatrix(Matrix *matrix, const double *newRow)
+{
+    checkMatrix(matrix); // Ensure the matrix is valid
+
+    if (!newRow)
+    {
+        fprintf(stderr, "addRowToMatrix: The new row pointer is NULL.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Reallocate memory for the new row
+    size_t newSize = (matrix->rows + 1) * matrix->cols * sizeof(double);
+    double *newData = realloc(matrix->data, newSize);
+
+    if (!newData)
+    {
+        fprintf(stderr, "addRowToMatrix: Failed to reallocate memory for the matrix.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    matrix->data = newData;
+
+    // Append the new row to the matrix
+    memcpy(&matrix->data[matrix->rows * matrix->cols], newRow, matrix->cols * sizeof(double));
+
+    // Update the matrix dimensions
+    matrix->rows++;
+}

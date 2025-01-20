@@ -401,4 +401,30 @@ double *getRow(const Matrix *matrix, int rowIndex);
  */
 double *getColumn(const Matrix *matrix, int colIndex);
 
+/**
+ * @brief Adds a new row to a given matrix by reallocating its memory.
+ *
+ * The new row is appended to the end of the matrix. The function modifies the
+ * input matrix struct in-place.
+ *
+ * @param[in, out] matrix Pointer to the matrix to which the row will be added.
+ * @param[in] newRow Pointer to the array containing the elements of the new row.
+ *
+ * @return void
+ *
+ * @note
+ * - The newRow must have the same number of elements as the matrix's columns.
+ * - The matrix must be valid and well-defined.
+ *
+ * @example
+ * Example usage:
+ * @code
+ * Matrix m = createMatrix(2, 3); // 2x3 matrix
+ * double newRow[3] = {4.0, 5.0, 6.0};
+ * addRowToMatrix(&m, newRow);
+ * // m is now a 3x3 matrix
+ * @endcode
+ */
+void addRowToMatrix(Matrix *matrix, const double *newRow);
+
 #endif // MATRIX_UTILS_H

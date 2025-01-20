@@ -18,3 +18,6 @@
  *
  */
 size_t **generateAllConfigurationsPerGroup(int b, int totalVotes, int numCandidates, size_t *count);
+
+Matrix **generateAllConfigurationsPerBallot(int b, int totalBallotVotes, int numCandidates, int numGroups,
+                                            size_t *count);

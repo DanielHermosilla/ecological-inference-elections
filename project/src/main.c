@@ -1,6 +1,7 @@
 #include "exact.h"
 #include "fileutils.h"
 #include "globals.h"
+#include "hitAndRun.h"
 #include "instanceGenerator.h"
 #include "matrixUtils.h"
 #include "multinomial.h"
@@ -345,6 +346,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         else if (strcmp(q_method, "Hit and Run") == 0)
         {
             printf("Executing 'Hit and Run' method.\n");
+            q = computeQHitAndRun(currentP);
             break;
         }
         // Multinomial
@@ -471,7 +473,7 @@ int main()
     // Start timer
     clock_gettime(CLOCK_MONOTONIC, &start);
     Matrix P = getInitialP("group proportional");
-    Matrix Pnew = EMAlgoritm(&P, "MVN CDF", 0.001, 18, false);
+    Matrix Pnew = EMAlgoritm(&P, "Hit and Run", 0.001, 18, false);
 
     clock_gettime(CLOCK_MONOTONIC, &end);
     double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;

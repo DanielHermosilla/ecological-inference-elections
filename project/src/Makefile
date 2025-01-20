@@ -41,11 +41,13 @@ SRCS = \
   multivariate-pdf.c \
   multinomial.c \
   multivariate-cdf.c \
+  hitAndRun.c \
   utils/matrixUtils.c \
   utils/instanceGenerator.c \
   utils/fileutils.c \
   utils/memoizationUtil.c \
   utils/multivariateUtils.c \
+  utils/combinations.c \
 
 # Convert each .c to a .o in build/ mirrored subdirs
 OBJS = $(SRCS:%.c=$(BUILDDIR)/%.o)
