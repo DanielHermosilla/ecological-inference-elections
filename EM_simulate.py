@@ -8,6 +8,8 @@ from tqdm import tqdm
 from EM_algorithm import EM_algorithm, get_p_est
 from instance_maker import gen_instance_v3
 import json
+from helper_functions import *
+from time import perf_counter
 
 """ Creation of samples for the Hit and Run method """
 
@@ -60,6 +62,8 @@ def generate_z_m_v2(n_m, b_m, G_size, I_size):
             z_m[g, i] = min(b_m_copy[g], n_m_copy[i])
             b_m_copy[g] -= z_m[g, i]
             n_m_copy[i] -= z_m[g, i]
+    print("Generated initial matrix is")
+    print(z_m)
     return z_m
 
 
@@ -175,8 +179,11 @@ def hit_and_run_matrix(
     Z = generate_z_m_v2(n_m, b_m, G_size, I_size)
     dir_samples = samples * step_size
     f1 = np.random.randint(0, G_size, size=dir_samples)  # fila casilla 1
+    # Hace un array de tamaño dir_samples con indices de grupos al azar
     f2 = np.random.randint(0, G_size - 1, size=dir_samples)  # fila casilla 2
-    f2[f2 >= f1] += 1
+    f2[
+        f2 >= f1
+    ] += 1  # Compara coordenada a coordenada; si el indice elegido por f2 es mas grande, sumar 1
     c1 = np.random.randint(0, I_size, size=dir_samples)  # columna casilla 1
     c2 = np.random.randint(0, I_size - 1, size=dir_samples)  # columna casilla 2
     c2[c2 >= c1] += 1
@@ -210,7 +217,7 @@ def simulate_Z(
     p_distribution=False,
     save=False,
     name=None,
-    parallel=True,
+    parallel=False,
     load_bar=False,
     verbose=False,
     unique=True,
@@ -550,6 +557,7 @@ def EM_simulate(
     )
 
 
+"""
 if __name__ == "__main__":
     # generate instance to test Z
     G_list = [2, 4]
@@ -627,3 +635,45 @@ if __name__ == "__main__":
     # print(f"Time elapsed: {time.time() - time_start} seconds")
 
     pass
+"""
+
+
+if __name__ == "__main__":
+    # load instance json
+    import json
+
+    """
+    with open("instances\J200_M50_G4_I2_L50_seed12.json") as f:
+        instance = json.load(f)
+    X = np.array(instance["n"])
+    b = np.array(instance["b"])
+    p = np.array(instance["p"])
+    print("X ", X[-1])
+    print("")
+    print("b ", b[-1])
+    print("")
+    """
+    matrixList = readMatrixFromC(
+        "project/src/matricesTest5.bin"
+    )  # First one is X, second one is W/b
+
+    start_iteration2 = (
+        perf_counter()
+    )  # This iteration starts before the loop NOW, to compare it against C.
+
+    answer = EM_simulate(
+        matrixList[0].T.astype(int),
+        matrixList[1].astype(int),
+        convergence_value=0.00001,
+        p_method="group_proportional",
+        max_iterations=1000,
+        verbose=True,
+        load_bar=True,
+        simulate=True,
+        samples=100000,
+        step_size=100,
+    )
+    end_time = perf_counter()
+    run_time = end_time - start_iteration2
+    print("El tiempo de ejecución es {}".format(run_time))
+    print(answer[0], answer[1], answer[2])
