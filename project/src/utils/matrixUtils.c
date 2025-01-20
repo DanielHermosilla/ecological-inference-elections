@@ -771,7 +771,15 @@ Matrix copyMatrix(const Matrix *original)
 
     // Create a new matrix with the same dimensions
     Matrix copy = createMatrix(original->rows, original->cols);
-    memcpy(copy.data, original->data, original->rows * original->cols);
+
+    // Copy the data from the original matrix
+    for (int i = 0; i < original->rows; i++)
+    {
+        for (int j = 0; j < original->cols; j++)
+        {
+            MATRIX_AT(copy, i, j) = MATRIX_AT_PTR(original, i, j);
+        }
+    }
 
     return copy;
 }

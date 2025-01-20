@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <sys/_types/_size_t.h>
+#include <unistd.h>
 
 // ---- Define a structure to store the Omega sets ---- //
 typedef struct
@@ -46,6 +47,7 @@ Matrix startingPoint(int b)
     }
     free(groupVotes);
     free(candidateVotes);
+    printMatrix(&toReturn);
     return toReturn;
 }
 
@@ -55,10 +57,11 @@ void generateOmegaSet(int M, int S)
     // ---- Allocate memory for the `b` index ----
     OMEGASET = malloc(TOTAL_BALLOTS * sizeof(Set *));
 
-#pragma omp parallel for
+    // #pragma omp parallel for
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For every ballot box
 
+        printf("\nIteration b=%d\n", b);
         // ---- Allocate memory for the set ---- //
         OMEGASET[b] = malloc(sizeof(Set));
         OMEGASET[b]->b = b;
@@ -69,20 +72,26 @@ void generateOmegaSet(int M, int S)
 
         for (int s = 0; s < S; s++)
         {
-            Matrix steppingZ = startingZ;
+            Matrix steppingZ = copyMatrix(&startingZ);
+            printf("Before update:\n");
+            printMatrix(&steppingZ);
             for (int m = 0; m < M; m++)
             {
 
                 // ---- Sample random indexes ---- //
                 int groupIndex1 = rand() % TOTAL_GROUPS;
-                int groupIndex2 = rand() % (TOTAL_GROUPS - 1);
-                if (groupIndex2 >= groupIndex1)
-                    groupIndex2++;
+                int groupIndex2;
+                do
+                {
+                    groupIndex2 = rand() % TOTAL_GROUPS;
+                } while (groupIndex2 == groupIndex1);
 
                 int candidateIndex1 = rand() % TOTAL_CANDIDATES;
-                int candidateIndex2 = rand() % (TOTAL_CANDIDATES - 1);
-                if (candidateIndex2 >= candidateIndex1)
-                    candidateIndex2++;
+                int candidateIndex2;
+                do
+                {
+                    candidateIndex2 = rand() % TOTAL_CANDIDATES;
+                } while (candidateIndex2 == candidateIndex1);
                 // ---...--- //
 
                 // ---- Check non negativity condition ---- //
@@ -96,11 +105,19 @@ void generateOmegaSet(int M, int S)
                 MATRIX_AT(steppingZ, groupIndex2, candidateIndex2) -= 1;
                 MATRIX_AT(steppingZ, groupIndex2, candidateIndex1) += 1;
                 MATRIX_AT(steppingZ, groupIndex1, candidateIndex2) += 1;
+
+                printf("After update:\n");
+                printMatrix(&steppingZ);
             }
             // ---- Add the combination to the set ---- //
             Matrix *append = malloc(sizeof(Matrix));
             *append = copyMatrix(&steppingZ);
+#pragma omp critical
+            {
+                printMatrix(append);
+            }
             OMEGASET[b]->data[s] = append;
+            freeMatrix(&steppingZ);
             // ---...--- //
         }
     }
@@ -118,7 +135,7 @@ void generateOmegaSet(int M, int S)
  *
  * double The result of the calculation.
  */
-double multinomialCoeff(const int b, Matrix *currentMatrix)
+double preMultinomialCoeff(const int b, Matrix *currentMatrix)
 {
     double result = 0;
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
@@ -137,49 +154,34 @@ double multinomialCoeff(const int b, Matrix *currentMatrix)
 }
 
 /**
- * @brief Calculate the chained product between probabilities as defined in `a`:
+ * @brief Calculates the last term of the multiplication set
  *
- * Given an `H` element and the `f` index it computes the chained product. It will use logarithmics for reducing
- * complexity.
+ * Given a probability matrix, a ballot index and a set index, it calculates:
+ *
+ * $$\Prod_{g\in G}\Prod_{c\in C}p_{gc}^{z_{bgc}}$$
  *
  * @param[in] *probabilities A pointer toward the probabilities Matrix.
  * @param[in] b The index of the ballot box
- * @param[in] g The index of the group
  * @param[in] setIndex The index of the set
  *
  * @return double: The result of the product
  *
  *
  */
-double prod(const Matrix *probabilities, const int b, const int g, const int setIndex)
+double logarithmicProduct(const Matrix *probabilities, const int b, const int setIndex)
 {
     double log_result = 0;
+    Matrix *currentMatrix = OMEGASET[b]->data[setIndex];
+
     // ---- Main computation ---- //
     for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
     { // ---- For each candidate
-
-        double currentElement = MATRIX_AT_PTR(OMEGASET[b]->data[setIndex], g, c);
-        // ---- Get the matrix value at `f` and `c` ----
-        double prob = MATRIX_AT_PTR(probabilities, g, c);
-
-        // ---- If the multiplication gets to be zero, it would be undefined in the logarithm (and zero for all of the
-        // chain). Do an early stop if that happens ----
-        if (prob == 0.0 && currentElement > 0)
+        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         {
-            return 0.0; // ---- Early stop ----
-        }
-
-        // ---- Ensures the probability is greater than zero for not getting a undefined logarithm. Anyways, that
-        // shouldn't happen. ----
-        if (prob > 0)
-        {
-            // ---- Add the result to the logarithm. Remember that by logarithm properties, the multiplication of the
-            // arguments goes as a summatory ----
-            log_result += currentElement * log(prob);
+            log_result += MATRIX_AT_PTR(currentMatrix, g, c) * log(MATRIX_AT_PTR(probabilities, g, c));
         }
     }
     // --- ... --- //
-
     // ---- Exponetiate the final result ----
     return exp(log_result);
 }
@@ -194,7 +196,7 @@ void preComputeMultinomial()
         multinomialVals[b] = malloc(currentSet->size * sizeof(double));
         for (size_t s = 0; s < currentSet->size; s++)
         {
-            multinomialVals[b][s] = multinomialCoeff(b, currentSet->data[s]);
+            multinomialVals[b][s] = preMultinomialCoeff(b, currentSet->data[s]);
         }
     }
 }
@@ -212,8 +214,10 @@ void preComputeMultinomial()
  */
 double *computeQHitAndRun(Matrix const *probabilities, int M, int S)
 {
-    generateOmegaSet(M, S);
-    double *a = malloc(TOTAL_BALLOTS * sizeof(double *));
+    if (OMEGASET == NULL)
+        generateOmegaSet(M, S);
+    if (multinomialVals == NULL)
+        preComputeMultinomial();
 
     double *array2 =
         (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double)); // Array to return
@@ -223,22 +227,31 @@ double *computeQHitAndRun(Matrix const *probabilities, int M, int S)
         Set *currentSet = OMEGASET[b];
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         {
+
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             {
+
+                if (MATRIX_AT_PTR(W, b, g) == 0) // Handle division by zero.
+                {
+                    Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = 0;
+                    continue;
+                }
+                double firstTerm = 0;
+                double secondTerm = 0;
                 for (size_t s = 0; s < currentSet->size; s++)
                 {
                     Matrix *currentMatrix = currentSet->data[s];
-                    double log_product = 1;
-                    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-                    {
-                    }
+                    double multiplications = logarithmicProduct(probabilities, b, s) * multinomialVals[b][s];
+                    firstTerm += multiplications;
+                    secondTerm += multiplications * (MATRIX_AT_PTR(currentMatrix, g, c) / MATRIX_AT_PTR(W, b, g));
                 }
-
-                // ---- Exponetiate the final result ----
+                printf("\nAdding the element %.4f on iteration b=%d, c=%d and g=%d\n", (1 / firstTerm) * secondTerm, b,
+                       c, g);
+                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = (1 / firstTerm) * secondTerm;
             }
         }
     }
-    return a;
+    return array2;
 }
 
 __attribute__((destructor)) void cleanOmega()
@@ -249,9 +262,12 @@ __attribute__((destructor)) void cleanOmega()
         {
             freeMatrix(OMEGASET[b]->data[s]); // Free individual matrices
             free(OMEGASET[b]->data[s]);       // Free the pointers to matrices
+            ;
         }
         free(OMEGASET[b]->data); // Free the data array
         free(OMEGASET[b]);       // Free the Set struct
+        free(multinomialVals[b]);
     }
+    free(multinomialVals);
     free(OMEGASET); // Free the OMEGASET array
 }
