@@ -3,6 +3,7 @@
 #include <gsl/gsl_sf_gamma.h>
 #include <math.h>
 #include <stdio.h>
+#include <sys/_types/_size_t.h>
 
 // ---- Define a structure to store the Omega sets ---- //
 typedef struct
@@ -16,7 +17,7 @@ typedef struct
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 Set **OMEGASET = NULL; // Global pointer to store all H sets
-double ***multinomialVals = NULL;
+double **multinomialVals = NULL;
 
 /**
  *  @brief Yields an initial point of the polytope given a ballot
@@ -105,15 +106,31 @@ void generateOmegaSet(int M, int S)
     }
 }
 
-double multinomialCoeff(const int b, const int g, double *hElement)
-{ // gxc
-    // --- Compute ln(w_bf!). When adding by one, it considers the last element too ---
-    double result = gsl_sf_lngamma((int)MATRIX_AT_PTR(W, b, g) + 1);
+/**
+ * @brief Computes the pre-computable values of the expression that doesn't depend on EM iterations
+ *
+ * Given a ballot box index and a matrix represent an element from the Hit and Run set, it computes the following:
+ *
+ * $$\Prod_{g'\in G}\binom{w_{bg'}}{z_{bg'1}\cdots z_{bg'C}}$$
+ *
+ * @param[in] b The ballot box index
+ * @param[in] *currentMatrix A pointer towards the current matricial element, of size GxC.
+ *
+ * double The result of the calculation.
+ */
+double multinomialCoeff(const int b, Matrix *currentMatrix)
+{
+    double result = 0;
+    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+    {
+        // --- Compute ln(w_bf!). When adding by one, it considers the last element too ---
+        result += gsl_sf_lngamma((int)MATRIX_AT_PTR(W, b, g) + 1);
 
-    for (uint16_t i = 0; i < TOTAL_CANDIDATES; i++)
-    { // ---- For each candidate
-        // ---- Divide by each h_i! ----
-        result -= gsl_sf_lngamma(hElement[i] + 1);
+        for (uint16_t i = 0; i < TOTAL_CANDIDATES; i++)
+        { // ---- For each candidate
+            // ---- Divide by each h_i! ----
+            result -= gsl_sf_lngamma(MATRIX_AT_PTR(currentMatrix, g, i) + 1);
+        }
     }
     // ---- Return the original result by exponentiating ----
     return exp(result);
@@ -125,28 +142,29 @@ double multinomialCoeff(const int b, const int g, double *hElement)
  * Given an `H` element and the `f` index it computes the chained product. It will use logarithmics for reducing
  * complexity.
  *
- * @param[in] *hElement A pointer towards the Z_{bgc} element as an array
  * @param[in] *probabilities A pointer toward the probabilities Matrix.
- * @param[in] f The index of `f`
+ * @param[in] b The index of the ballot box
+ * @param[in] g The index of the group
+ * @param[in] setIndex The index of the set
  *
  * @return double: The result of the product
  *
- * $$\prod_{forall c}p_{fc}^{hc}$$
  *
  */
-double prod(const size_t *hElement, const Matrix *probabilities, const int g)
+double prod(const Matrix *probabilities, const int b, const int g, const int setIndex)
 {
     double log_result = 0;
     // ---- Main computation ---- //
     for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
     { // ---- For each candidate
 
+        double currentElement = MATRIX_AT_PTR(OMEGASET[b]->data[setIndex], g, c);
         // ---- Get the matrix value at `f` and `c` ----
         double prob = MATRIX_AT_PTR(probabilities, g, c);
 
         // ---- If the multiplication gets to be zero, it would be undefined in the logarithm (and zero for all of the
         // chain). Do an early stop if that happens ----
-        if (prob == 0.0 && hElement[c] > 0)
+        if (prob == 0.0 && currentElement > 0)
         {
             return 0.0; // ---- Early stop ----
         }
@@ -157,7 +175,7 @@ double prod(const size_t *hElement, const Matrix *probabilities, const int g)
         {
             // ---- Add the result to the logarithm. Remember that by logarithm properties, the multiplication of the
             // arguments goes as a summatory ----
-            log_result += hElement[c] * log(prob);
+            log_result += currentElement * log(prob);
         }
     }
     // --- ... --- //
@@ -173,18 +191,10 @@ void preComputeMultinomial()
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
         Set *currentSet = OMEGASET[b];
-        multinomialVals[b] = malloc(TOTAL_GROUPS * sizeof(double *));
-        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+        multinomialVals[b] = malloc(currentSet->size * sizeof(double));
+        for (size_t s = 0; s < currentSet->size; s++)
         {
-            multinomialVals[b][g] = malloc(currentSet->size * sizeof(double));
-            for (size_t s = 0; s < currentSet->size; s++)
-            {
-                // cxb, para obtener los c`s, getColumn(b)
-                // gxc,
-                double *flattenedElement = getRow(currentSet->data[s], g);
-                multinomialVals[b][g][s] = multinomialCoeff(b, g, flattenedElement);
-                free(flattenedElement);
-            }
+            multinomialVals[b][s] = multinomialCoeff(b, currentSet->data[s]);
         }
     }
 }
@@ -210,11 +220,19 @@ double *computeQHitAndRun(Matrix const *probabilities, int M, int S)
 
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
+        Set *currentSet = OMEGASET[b];
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         {
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             {
-                double logProduct = 0;
+                for (size_t s = 0; s < currentSet->size; s++)
+                {
+                    Matrix *currentMatrix = currentSet->data[s];
+                    double log_product = 1;
+                    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+                    {
+                    }
+                }
 
                 // ---- Exponetiate the final result ----
             }
