@@ -5,6 +5,19 @@
 #include "globals.h"
 #include "matrixUtils.h"
 
+// ---- Define a structure to store the Omega sets ---- //
+typedef struct
+{
+    uint32_t b;
+    Matrix **data;
+    size_t size;
+} OmegaSet;
+// ---...--- //
+
+// ---- Macro for finding the minimum ---- //
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+// ---...--- //
+
 /**
  * @brief Computes the `q` values for all the ballot boxes given a probability matrix. Uses the Hit and Run method.
  *

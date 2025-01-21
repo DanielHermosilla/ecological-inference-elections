@@ -1,24 +1,11 @@
 #include "hitAndRun.h"
-#include "globals.h"
 #include <gsl/gsl_sf_gamma.h>
 #include <math.h>
 #include <omp.h>
 #include <stdio.h>
-#include <sys/_types/_size_t.h>
 #include <unistd.h>
 
-// ---- Define a structure to store the Omega sets ---- //
-typedef struct
-{
-    uint32_t b;
-    Matrix **data;
-    size_t size;
-} Set;
-
-// Macro for finding the minimum
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
-
-Set **OMEGASET = NULL; // Global pointer to store all H sets
+OmegaSet **OMEGASET = NULL; // Global pointer to store all H sets
 double **multinomialVals = NULL;
 
 /**
@@ -71,7 +58,7 @@ void generateOmegaSet(int M, int S, unsigned int seedNum)
 {
 
     // ---- Allocate memory for the `b` index ----
-    OMEGASET = malloc(TOTAL_BALLOTS * sizeof(Set *));
+    OMEGASET = malloc(TOTAL_BALLOTS * sizeof(OmegaSet *));
 
     // ---- Use schedule(static) instead of schedule(dynamic) for ensuring reproducibility ----
 #pragma omp parallel for schedule(static)
@@ -80,8 +67,8 @@ void generateOmegaSet(int M, int S, unsigned int seedNum)
     { // ---- For every ballot box
         // ---- Define a seed, that will be unique per thread ----
         unsigned int seed = omp_get_thread_num() + seedNum;
-        // ---- Allocate memory for the set ---- //
-        OMEGASET[b] = malloc(sizeof(Set));
+        // ---- Allocate memory for the OmegaSet ---- //
+        OMEGASET[b] = malloc(sizeof(OmegaSet));
         OMEGASET[b]->b = b;
         OMEGASET[b]->size = S;
         OMEGASET[b]->data = malloc(S * sizeof(Matrix *));
@@ -126,7 +113,7 @@ void generateOmegaSet(int M, int S, unsigned int seedNum)
                 MATRIX_AT(steppingZ, groupIndex2, candidateIndex1) += 1;
                 // ---...--- //
             } // --- End the step size loop
-            // ---- Add the combination to the set ---- //
+            // ---- Add the combination to the OmegaSet ---- //
             Matrix *append = malloc(sizeof(Matrix));
             *append = copyMatrix(&steppingZ);
             OMEGASET[b]->data[s] = append;
@@ -140,7 +127,7 @@ void generateOmegaSet(int M, int S, unsigned int seedNum)
 /**
  * @brief Computes the pre-computable values of the expression that doesn't depend on EM iterations
  *
- * Given a ballot box index and a matrix represent an element from the Hit and Run set, it computes the following:
+ * Given a ballot box index and a matrix represent an element from the Hit and Run OmegaSet, it computes the following:
  *
  * $$\Prod_{g'\in G}\binom{w_{bg'}}{z_{bg'1}\cdots z_{bg'C}}$$
  *
@@ -168,15 +155,15 @@ double preMultinomialCoeff(const int b, Matrix *currentMatrix)
 }
 
 /**
- * @brief Calculates the last term of the multiplication set
+ * @brief Calculates the last term of the multiplication OmegaSet
  *
- * Given a probability matrix, a ballot index and a set index, it calculates:
+ * Given a probability matrix, a ballot index and a OmegaSet index, it calculates:
  *
  * $$\Prod_{g\in G}\Prod_{c\in C}p_{gc}^{z_{bgc}}$$
  *
  * @param[in] *probabilities A pointer toward the probabilities Matrix.
  * @param[in] b The index of the ballot box
- * @param[in] setIndex The index of the set
+ * @param[in] setIndex The index of the OmegaSet
  *
  * @return double: The result of the product
  *
@@ -217,11 +204,11 @@ void preComputeMultinomial()
     // ---- Initialize space for storing all of the simulations ---- //
     multinomialVals = malloc(TOTAL_BALLOTS * sizeof(double **));
     // ---...--- //
-    // ---- Compute the simulated combinations for each set ---- //
+    // ---- Compute the simulated combinations for each OmegaSet ---- //
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // --- For each ballot box
-        // ---- Define the current set and allocate memory for saving its size ----
-        Set *currentSet = OMEGASET[b];
+        // ---- Define the current OmegaSet and allocate memory for saving its size ----
+        OmegaSet *currentSet = OMEGASET[b];
         multinomialVals[b] = malloc(currentSet->size * sizeof(double));
         for (size_t s = 0; s < currentSet->size; s++)
         { // --- For each simulation given a balot box
@@ -260,11 +247,11 @@ double *computeQHitAndRun(Matrix const *probabilities, int M, int S)
 #pragma omp parallel for collapse(3) schedule(static)
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // --- For each ballot box
-        Set *currentSet = OMEGASET[b];
+        OmegaSet *currentSet = OMEGASET[b];
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         { // --- For each group given a ballot box
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-            {   // --- For each candidate given a group and a ballot box
+            { // --- For each candidate given a group and a ballot box
                 // ---- If there's a division by zero, assign probability 0 and skip the iteration ----
                 if (MATRIX_AT_PTR(W, b, g) == 0)
                 {
@@ -275,7 +262,7 @@ double *computeQHitAndRun(Matrix const *probabilities, int M, int S)
                 double firstTerm = 0;
                 double secondTerm = 0;
                 for (size_t s = 0; s < currentSet->size; s++)
-                {   // --- For each sample given a ballot box, group and candidate
+                { // --- For each sample given a ballot box, group and candidate
                     // ---- Perform the summatory ---- //
                     Matrix *currentMatrix = currentSet->data[s];
                     double multiplications = logarithmicProduct(probabilities, b, s) * multinomialVals[b][s];
@@ -301,7 +288,7 @@ __attribute__((destructor)) void cleanHitAndRun()
             free(OMEGASET[b]->data[s]);       // Free the pointers to matrices
         }
         free(OMEGASET[b]->data); // Free the data array
-        free(OMEGASET[b]);       // Free the Set struct
+        free(OMEGASET[b]);       // Free the OmegaSet struct
         free(multinomialVals[b]);
     }
     free(multinomialVals); // Free the precomputed multinomial values
