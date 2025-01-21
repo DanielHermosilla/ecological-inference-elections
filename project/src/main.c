@@ -18,22 +18,7 @@
 #include <string.h>
 #include <time.h>
 
-// note: THIS IS THE STRUCT DEFINED IN THE matrixUtils.h file, this comment is just for clarity
-// typedef struct
-//{
-//  double *data; // Pointer to matrix data array (row-major order)
-//  int rows;     // Number of rows
-//  int cols;     // Number of columns
-//} Matrix;
-//
-
-// Macro for accessing a 3D flattened array (b x g x c)
-#define Q_3D(q, bIdx, gIdx, cIdx, G, C) ((q)[((bIdx) * (G) * (C)) + ((gIdx) * (C)) + (cIdx)])
-
-// Macro for making an easier indexation.
-#define MATRIX_AT(matrix, i, j) (matrix.data[(i) * (matrix.cols) + (j)])
-#define MATRIX_AT_PTR(matrix, i, j) (matrix->data[(i) * (matrix->cols) + (j)])
-
+// ---- Inititalize global variables ---- //
 uint32_t TOTAL_VOTES = 0;
 uint32_t TOTAL_BALLOTS = 0;
 uint16_t TOTAL_CANDIDATES = 0;
@@ -44,48 +29,52 @@ uint32_t *GROUP_VOTES = NULL;      // Total votes per group
 double *inv_BALLOTS_VOTES = NULL;  // BALLOTS_VOTES^{-1}
 Matrix *X = NULL;
 Matrix *W = NULL;
+// ---...--- //
 
+/**
+ * @brief Yields the global parameters of the process. Usually this should be done once for avoiding
+ * computing a loop over ballots. It also changes the parameters in case it's called with other `x` and `w` matrix.
+ *
+ * Gets the total amount of votes in the process. This should only be donce once for avoiding computing loops
+ * over ballots.
+ *
+ * @param[in] x Matrix of dimension (cxb) that stores the results of candidate "c" on ballot box "b".
+ * @param[in] w Matrix of dimension (bxg) that stores the amount of votes from the demographic group "g".
+ *
+ * @return void. Will edit the static values in the file
+ *
+ * @note This should only be used once, later to be declared as a static value in the program.
+ *
+ * @warning
+ * - Pointers shouldn't be NULL.
+ * - `x` and `w` dimensions must be coherent.
+ *
+ */
 void setParameters(Matrix *x, Matrix *w)
 {
-    /**
-     * @brief Yields the global parameters of the process. Usually this should be done once for avoiding
-     * computing a loop over ballots. It also changes the parameters in case it's called with other `x` and `w` matrix.
-     *
-     * Gets the total amount of votes in the process. This should only be donce once for avoiding computing loops
-     * over ballots.
-     *
-     * @param[in] x Matrix of dimension (cxb) that stores the results of candidate "c" on ballot box "b".
-     * @param[in] w Matrix of dimension (bxg) that stores the amount of votes from the demographic group "g".
-     *
-     * @return void. Will edit the static values in the file
-     *
-     * @note This should only be used once, later to be declared as a static value in the program.
-     *
-     * @warning
-     * - Pointers shouldn't be NULL.
-     * - `x` and `w` dimensions must be coherent.
-     *
-     */
 
-    // Validation, checks NULL pointer
+    // ---- Validation checks ---- //
+    // ---- Check if there's a NULL pointer ----
     if (!x->data || !w->data)
     {
-        fprintf(stderr, "A NULL pointer was handed to getInitialP.\n");
+        fprintf(stderr, "setParameters: A NULL pointer was handed.\n");
         exit(EXIT_FAILURE); // Frees used memory
     }
 
-    // Validation, checks dimentional coherence
+    // ---- Check for dimentional coherence ----
     if (x->cols != w->rows && x->cols > 0)
     {
         fprintf(stderr,
-                "The dimensions of the matrices handed to countVotes are incorrect; `x` columns and `w` rows length "
+                "setParameters: The dimensions of the matrices handed to countVotes are incorrect; `x` columns and `w` "
+                "rows length "
                 "must be the same, but they're %d and %d respectivately.\n",
                 x->cols, w->rows);
         exit(EXIT_FAILURE);
     }
 
-    // Since they're integers it will be better to operate with integers rather than a cBLAS operations (since it
-    // receives doubles).
+    // ---- Allocate memory for the global variables ---- //
+    // ---- Since they're integers it will be better to operate with integers rather than a cBLAS operations (since it
+    // receives doubles) ----
     TOTAL_CANDIDATES = x->rows;
     TOTAL_GROUPS = w->cols;
     TOTAL_BALLOTS = w->rows;
@@ -94,6 +83,7 @@ void setParameters(Matrix *x, Matrix *w)
     BALLOTS_VOTES = (uint16_t *)calloc(TOTAL_BALLOTS, sizeof(uint16_t));
     inv_BALLOTS_VOTES = (double *)calloc(TOTAL_BALLOTS, sizeof(double));
 
+    // ---- Allocate memory for the matrices
     X = malloc(sizeof(Matrix));
     *X = createMatrix(x->rows, x->cols);
     memcpy(X->data, x->data, sizeof(double) * x->rows * x->cols);
@@ -101,129 +91,133 @@ void setParameters(Matrix *x, Matrix *w)
     W = malloc(sizeof(Matrix));
     *W = createMatrix(w->rows, w->cols);
     memcpy(W->data, w->data, sizeof(double) * w->rows * w->cols);
+    // ---...--- //
 
+    // ---- Fill the variables ---- //
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    {
+    { // --- For each ballot box
+
         for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-        {
+        { // --- For each candidate given a ballot box
+            // ---- Add the candidate votes, ballot votes and total votes ----
             CANDIDATES_VOTES[c] += (uint32_t)MATRIX_AT_PTR(X, c, b);
             TOTAL_VOTES += (uint32_t)MATRIX_AT_PTR(
-                X, c, b); // Usually it's always the candidate with lesser dimension, preferible to not
-                          // compromise legibility over a really small and unprobable gain in efficiency
+                X, c, b); // Usually, TOTAL_CANDIDATES < TOTAL_GROUPS, hence, it's better to make less sums.
             BALLOTS_VOTES[b] += (uint16_t)MATRIX_AT_PTR(X, c, b);
-        }
-        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-        {
-            GROUP_VOTES[g] += (uint32_t)MATRIX_AT_PTR(W, b, g);
-        }
-    }
+        } // --- End candidate loop
 
-    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    {
+        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+        { // --- For each group given a ballot box
+            // ---- Add the group votes ----
+            GROUP_VOTES[g] += (uint32_t)MATRIX_AT_PTR(W, b, g);
+        } // --- End group loop
+
+        // ---- Compute the inverse of the ballot votes, at this point the `b` votes are ready ----
         inv_BALLOTS_VOTES[b] = 1.0 / (double)BALLOTS_VOTES[b];
-    }
+    } // --- End ballot box loop
 }
 
+/**
+ * @brief Computes the initial probability of the EM algoritm.
+ *
+ * Given the observables results, it computes a convenient initial "p" value for initiating the
+ * algorithm. Currently it supports the "uniform", "group_proportional" and "proportional" methods.
+ *
+ * @param[in] p_method The method for calculating the initial parameter. Currently it supports "uniform",
+ * "group_proportional" and "proportional" methods.
+ *
+ * @return Matrix of dimension (gxc) with the initial probability for each demographic group "g" voting for a given
+ * candidate "c".
+ * @note This should be used only that the first iteration of the EM-algorithm.
+ * @warning
+ * - Pointers shouldn't be NULL.
+ * - `x` and `w` dimensions must be coherent.
+ *
+ */
 Matrix getInitialP(const char *p_method)
 {
 
-    /**
-     * @brief Computes the initial probability of the EM algoritm.
-     *
-     * Given the observables results, it computes a convenient initial "p" value for initiating the
-     * algorithm. Currently it supports the "uniform", "group_proportional" and "proportional" methods.
-     *
-     * @param[in] p_method The method for calculating the initial parameter. Currently it supports "uniform",
-     * "group_proportional" and "proportional" methods.
-     *
-     * @return Matrix of dimension (gxc) with the initial probability for each demographic group "g" voting for a given
-     * candidate "c".
-     * @note This should be used only that the first iteration of the EM-algorithm.
-     * @warning
-     * - Pointers shouldn't be NULL.
-     * - `x` and `w` dimensions must be coherent.
-     *
-     */
-
-    // Validation, checks the method string
+    // ---- Validation: check the method input ----//
     if (strcmp(p_method, "uniform") != 0 && strcmp(p_method, "proportional") != 0 &&
         strcmp(p_method, "group proportional") != 0)
     {
-        fprintf(stderr, "The method `%s` passed to getInitialP doesn't exist.\n", p_method);
+        fprintf(stderr, "getInitialP: The method `%s` passed to getInitialP doesn't exist.\n", p_method);
         exit(EXIT_FAILURE);
     }
+    // ---...--- //
 
-    Matrix probabilities;
-    probabilities = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES);
+    Matrix probabilities = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES);
 
-    // Asumes a Uniform distribution among candidates
+    // ---- Compute the uniform method ---- //
+    // ---- It assumes a uniform distribution among candidates ----
     if (strcmp(p_method, "uniform") == 0)
     {
         fillMatrix(&probabilities, 1.0 / (double)TOTAL_CANDIDATES);
     }
-    // The proportional method calculates the proportion of votes of each candidate, and assigns that probability to
-    // every demographic group;
+    // ---...--- //
 
+    // ---- Compute the proportional method ---- //
+    // ---- It calculates the proportion of votes of each candidate, and assigns that probability to every demographic
+    // group ----
     else if (strcmp(p_method, "proportional") == 0)
     {
         for (int c = 0; c < TOTAL_CANDIDATES; c++)
-        {
+        { // --- For each candidate
             double ratio =
                 (double)CANDIDATES_VOTES[c] / (double)TOTAL_VOTES; // Proportion of candidates votes per total votes.
             for (int g = 0; g < TOTAL_GROUPS; g++)
-            {
+            { // --- For each group, given a candidate
                 MATRIX_AT(probabilities, g, c) = ratio;
-            }
-        }
+            } // --- End group loop
+        } // --- End candidate loop
     }
+    // ---...--- //
 
-    else // group proportional
-         // Now it considers the proportion of candidates votes AND demographic groups, it's an extension of the
-         // past method
+    // ---- Compute the group proportional method ---- //
+    // ---- Considers the proportion of candidates votes and demographic groups aswell ----
+    else
     {
-        double numerator = 0.0;                 // Note that the denominator is already known
-        uint32_t temp = 0;                      // Will be used to cast multiplications on integers and add efficiency.
-        double *prob_data = probabilities.data; // For OpenMP because they don't accept structs for reduction clauses
-                                                // even though it's dereferenced
-#pragma omp parallel for reduction(+ : prob_data[ : TOTAL_GROUPS * TOTAL_CANDIDATES])
+        double numerator = 0.0; // Note that the denominator is already known
+        uint16_t temp = 0;      // Will be used to cast multiplications on integers and add efficiency.
+
         for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-        {
+        { // --- For each ballot vote
             if (BALLOTS_VOTES[b] == 0)
                 continue; // Division by zero, even though it's very unlikely (a ballot doesn't have any vote).
 
             for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-            {
+            { // --- For each group given a ballot box
                 if (MATRIX_AT_PTR(W, b, g) == 0.0)
                     continue; // Division by zero, case where a group doesn't vote in a ballot.
                 for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-                {
-                    temp = (uint32_t)MATRIX_AT_PTR(X, c, b) * (uint32_t)MATRIX_AT_PTR(W, b, g); // w_bg * x_bg = a
-                    numerator = (double)temp * inv_BALLOTS_VOTES[b];                            // (a/I_b)
-                    prob_data[g * TOTAL_CANDIDATES + c] += numerator; // Equivalent to MATRIX_AT(probabilities, g, c)
+                { // --- For each candidate given a group and a ballot box.
+                    temp = (uint16_t)MATRIX_AT_PTR(X, c, b) * (uint16_t)MATRIX_AT_PTR(W, b, g); // w_bg * x_bg = a
+                    numerator = temp * inv_BALLOTS_VOTES[b];                                    // (a/I_b)
+                    MATRIX_AT(probabilities, g, c) += numerator;
                 }
             }
         }
 
-        // Now do the division once per (g,c), this reduces roughly 2 millions divisions to 50
+        // ---- Now do the division once per (g,c), this reduces roughly 2 millions divisions to 50 ----
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-        {
+        { // --- For each group
+            // ---- Error handling ----
             if (GROUP_VOTES[g] == 0)
             {
-                fprintf(stderr, "The %dth group does not have any vote assigned.", g);
+                fprintf(stderr, "getInitialP: The %dth group does not have any vote assigned.", g);
                 exit(EXIT_FAILURE);
             }
 
-            double inv_gvotes = 1.0 / (double)GROUP_VOTES[g];
+            double inv_gvotes = 1.0 / GROUP_VOTES[g];
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-            {
-                prob_data[g * TOTAL_CANDIDATES + c] *= inv_gvotes;
+            { // --- For each candidate given a group
+                MATRIX_AT(probabilities, g, c) *= inv_gvotes;
             }
         }
     }
+    // ---...--- //
     return probabilities;
 }
-
-Matrix getP(const double *q)
 
 /*
  * @brief Computes the optimal solution for the `M` step
@@ -241,17 +235,20 @@ Matrix getP(const double *q)
  *
  */
 
+Matrix getP(const double *q)
 {
+    // ---- Inititalize variables ---- //
     Matrix toReturn = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES);
     double *ptrReturn = toReturn.data; // For OpenMP because they don't accept structs for reduction clauses
                                        // even though it's dereferenced
 
-#pragma omp parallel for collapse(2)
+    // ---- Compute the dot products ---- //
+    // ---- Due to the dot product, the parallelization is worth it ----
+#pragma omp parallel for collapse(2) schedule(static)
     for (int g = 0; g < TOTAL_GROUPS; g++)
-    {
+    { // --- For each group
         for (int c = 0; c < TOTAL_CANDIDATES; c++)
-        {
-
+        { // --- For each candidate given a group
             // Dot product over b=0..B-1 of W_{b,g} * Q_{b,g,c}
             double val = cblas_ddot(TOTAL_BALLOTS,
                                     &W->data[g],                    // points to W_{0,g}
@@ -263,47 +260,51 @@ Matrix getP(const double *q)
         }
     }
 
-    // Now divide by GROUP_VOTES[g] just once per (g,c) instead of doing it `b` times (note that the division is
-    // usually expensive). Approximately reduces 400.000 double divisions to 50.
+    // ---...--- //
+
+    // ---- Perform the divisions apart ---- //
+    // ---- Now divide by GROUP_VOTES[g] just once per (g,c) instead of doing it `b` times (note that the division is
+    // usually expensive). Approximately reduces 400.000 double divisions to 50. ----
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-    {
+    { // --- For each group
         for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-        {
+        { // --- For each candidate given a group
             ptrReturn[g * TOTAL_CANDIDATES + c] /= GROUP_VOTES[g];
         }
     }
+    // ---...--- //
+
     return toReturn;
 }
 
+/**
+ * @brief Implements the whole EM algorithm.
+ *
+ * Given a method for estimating "q", it calculates the EM until it converges to arbitrary parameters. As of in the
+ * paper, it currently supports Hit and Run, Multinomial, MVN CDF and MVN PDF methods.
+ *
+ * @param[in] currentP Matrix of dimension (cxg) with the initial probabilities for the first iteration.
+ * @param[in] q_method Pointer to a string that indicates the method or calculating "q". Currently it supports "Hit
+ * and Run", "Multinomial", "MVN CDF", "MVN PDF" and "Exact" methods.
+ * @param[in] convergence Threshold value for convergence. Usually it's set to 0.001.
+ * @param[in] maxIter Integer with a threshold of maximum iterations. Usually it's set to 100.
+ * @param[in] verbose Wether to verbose useful outputs.
+ *
+ * @return Matrix: A matrix with the final probabilities. In case it doesn't converges, it returns the last
+ * probability that was computed
+ *
+ * @note This is the main function that calls every other function for "q"
+ *
+ * @see getInitialP() for getting initial probabilities. Group proportional method is recommended.
+ *
+ * @warning
+ * - Pointers shouldn't be NULL.
+ * - `x` and `w` dimensions must be coherent.
+ *
+ */
 Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
                   const bool verbose)
 {
-
-    /**
-     * @brief Implements the whole EM algorithm.
-     *
-     * Given a method for estimating "q", it calculates the EM until it converges to arbitrary parameters. As of in the
-     * paper, it currently supports Hit and Run, Multinomial, MVN CDF and MVN PDF methods.
-     *
-     * @param[in] currentP Matrix of dimension (cxg) with the initial probabilities for the first iteration.
-     * @param[in] q_method Pointer to a string that indicates the method or calculating "q". Currently it supports "Hit
-     * and Run", "Multinomial", "MVN CDF", "MVN PDF" and "Exact" methods.
-     * @param[in] convergence Threshold value for convergence. Usually it's set to 0.001.
-     * @param[in] maxIter Integer with a threshold of maximum iterations. Usually it's set to 100.
-     * @param[in] verbose Wether to verbose useful outputs.
-     *
-     * @return Matrix: A matrix with the final probabilities. In case it doesn't converges, it returns the last
-     * probability that was computed
-     *
-     * @note This is the main function that calls every other function for "q"
-     *
-     * @see getInitialP() for getting initial probabilities. Group proportional method is recommended.
-     *
-     * @warning
-     * - Pointers shouldn't be NULL.
-     * - `x` and `w` dimensions must be coherent.
-     *
-     */
 
     if (strcmp(q_method, "Hit and Run") != 0 && strcmp(q_method, "Multinomial") != 0 &&
         strcmp(q_method, "MVN CDF") != 0 && strcmp(q_method, "MVN PDF") != 0 && strcmp(q_method, "Exact") != 0)
@@ -464,18 +465,19 @@ int main()
     readMatrices("matricesTest5.bin", matrixArray, 2);
     Matrix XX = matrixArray[0];
     Matrix G = matrixArray[1];
-    setParameters(&XX, &G);
-    struct timespec start, end; // Start time
 
     // Start timer
+    struct timespec start, end; // Start time
     clock_gettime(CLOCK_MONOTONIC, &start);
-    Matrix P = getInitialP("group proportional");
-    Matrix Pnew = EMAlgoritm(&P, "Hit and Run", 0.000001, 10000, true);
 
+    setParameters(&XX, &G);
+    Matrix P = getInitialP("group proportional");
+
+    Matrix Pnew = EMAlgoritm(&P, "Hit and Run", 0.000001, 10000, true);
     clock_gettime(CLOCK_MONOTONIC, &end);
     double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+    printf("The whole algorithm calculation took %.16f seconds!\n", elapsed);
 
-    printf("The algorithm took %.16f seconds!\n", elapsed);
     printMatrix(&Pnew);
     freeMatrix(&Pnew);
     freeMatrix(&XX);
