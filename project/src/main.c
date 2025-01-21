@@ -306,12 +306,15 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
                   const bool verbose)
 {
 
+    // ---- Error handling ---- //
+    // ---- Check the method parameter ----
     if (strcmp(q_method, "Hit and Run") != 0 && strcmp(q_method, "Multinomial") != 0 &&
         strcmp(q_method, "MVN CDF") != 0 && strcmp(q_method, "MVN PDF") != 0 && strcmp(q_method, "Exact") != 0)
     {
-        fprintf(stderr, "The method `%s` passed to EMAlgorithm doesn't exist.\n", q_method);
+        fprintf(stderr, "EMAlgorithm: The method `%s` passed to EMAlgorithm doesn't exist.\n", q_method);
         exit(EXIT_FAILURE);
     }
+    // ---...--- //
 
     if (verbose)
     {
@@ -330,45 +333,51 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
 
     // Start timer
     clock_gettime(CLOCK_MONOTONIC, &start);
+    // ---- Execute the EM-iterations ---- //
     for (int i = 0; i < maxIter; i++)
     {
         if (verbose)
         {
-            printf("\n%d of iterations have been done.\nThe current probability matrix is:\n", i);
+            printf("\nThe current probability matrix at the %dth iteration is:\n", i);
             printMatrix(currentP);
         }
 
-        // Exact method
+        // ---- Execute the method for obtaining `q` ---- //
+        // ---- Exact method ----
         if (strcmp(q_method, "Exact") == 0)
         {
             q = computeQExact(currentP);
         }
-
+        // ---- Hit and Run method ----
         else if (strcmp(q_method, "Hit and Run") == 0)
         {
+            // ---- This function also takes the parameters of amount of samples (S) and step size (M) ----
             q = computeQHitAndRun(currentP, 10000, 1000);
         }
-        // Multinomial
+        // ---- Multinomial method ----
         else if (strcmp(q_method, "Multinomial") == 0)
         {
             q = computeQMultinomial(currentP);
         }
-        // MVN CDF
+        // ---- Multivariate CDF method ----
         else if (strcmp(q_method, "MVN CDF") == 0)
         {
+            // ---- This function also takes the parameters of Montecarlo iterations, error threshold and the method for
+            // simulating ----
             q = computeQMultivariateCDF(currentP, 10000, 0.00001, "Genz");
         }
-        // MVN PDF
+        // ---- Multivariate PDF method ----
         else
         {
             q = computeQMultivariatePDF(currentP);
         }
+        // ---...--- //
 
+        // ---- Check convergence ---- //
         Matrix newProbability = getP(q);
         free(q);
         if (convergeMatrix(&newProbability, currentP, convergence))
         {
-
             // End timer
             clock_gettime(CLOCK_MONOTONIC, &end);
             double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
@@ -380,7 +389,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             freeMatrix(currentP);
             return newProbability;
         }
-
+        // ---- Convergence wasn't found ----
         freeMatrix(currentP);
         *currentP = createMatrix(newProbability.rows, newProbability.cols);
         memcpy(currentP->data, newProbability.data, sizeof(double) * newProbability.rows * newProbability.cols);
@@ -410,6 +419,7 @@ void testProb()
     freeMatrix(&prob3);
 }
 
+// ---- Clean all of the global variables ---- //
 __attribute__((destructor)) // Executes when the library is ready
 void cleanup()
 {
@@ -447,7 +457,7 @@ void cleanup()
         W = NULL;
     }
 }
-
+// ---...--- //
 int main()
 {
     printf("The program is running\n");
