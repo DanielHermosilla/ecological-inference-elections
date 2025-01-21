@@ -458,6 +458,7 @@ void cleanup()
     }
 }
 // ---...--- //
+
 int main()
 {
     printf("The program is running\n");
@@ -471,16 +472,19 @@ int main()
 */
     /*
      */
-    Matrix matrixArray[2];
-    readMatrices("matricesTest5.bin", matrixArray, 2);
-    Matrix XX = matrixArray[0];
-    Matrix G = matrixArray[1];
+    Matrix XX1, GG1, PP1;
+    readJSONAndStoreMatrices("/Users/daniel/ecological-inference-elections/instances/J100_M50_G2_I2_L50_seed1.json",
+                             &GG1, &XX1, &PP1);
+    // Matrix matrixArray[2];
+    // readMatrices("matricesTest5.bin", matrixArray, 2);
+    // Matrix XX = matrixArray[0];
+    // Matrix G = matrixArray[1];
 
     // Start timer
     struct timespec start, end; // Start time
     clock_gettime(CLOCK_MONOTONIC, &start);
 
-    setParameters(&XX, &G);
+    setParameters(&XX1, &GG1);
     Matrix P = getInitialP("group proportional");
 
     Matrix Pnew = EMAlgoritm(&P, "Hit and Run", 0.000001, 10000, true);
@@ -490,10 +494,10 @@ int main()
 
     printMatrix(&Pnew);
     freeMatrix(&Pnew);
-    freeMatrix(&XX);
-    freeMatrix(&G);
-    free(XX.data);
-    free(G.data);
+    freeMatrix(&XX1);
+    freeMatrix(&GG1);
+    free(XX1.data);
+    free(GG1.data);
 
     return 1;
 }

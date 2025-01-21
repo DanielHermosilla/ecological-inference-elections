@@ -6,7 +6,7 @@ CompileFlags:
     - -fsanitize=address
     - -fsanitize=leak
     - -O3
-    - -I$(shell R RHOME)/include
+    #- -I$(shell R RHOME)/include
     - -I/usr/local/opt/openblas/include
     - -I/usr/local/Cellar/gsl/2.8/include
     - -I/usr/local/opt/libomp/include
@@ -15,7 +15,7 @@ CompileFlags:
     - -I/usr/local/opt/llvm/include
     - -Iutils
     - -I.
-    - -L$(shell R RHOME)/lib
+    #- -L$(shell R RHOME)/lib
     - -L/usr/local/opt/openblas/lib
     - -L/usr/local/Cellar/gsl/2.8/lib
     - -L/usr/local/opt/libomp/lib
@@ -28,6 +28,9 @@ CompileFlags:
     - -lgslcblas
     - -lomp
     - -Wl,-rpath,/usr/local/opt/libomp/lib
+    - -I/usr/local/Cellar/cjson/1.7.18/include
+    - -L/usr/local/Cellar/cjson/1.7.18/lib
+    - -lcjson
 
 FallbackFlags:
   # Default flags for files not in compile_commands.json

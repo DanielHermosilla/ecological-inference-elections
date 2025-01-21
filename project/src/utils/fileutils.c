@@ -1,7 +1,7 @@
 #include "fileutils.h"
+#include <cjson/cJSON.h>
 #include <stdio.h>
 #include <stdlib.h>
-
 /**
  * @brief Writes an array of matrices to a binary file, including their metadata.
  *
@@ -115,4 +115,172 @@ void readMatrices(const char *filename, Matrix *matrices, int count)
     }
 
     fclose(file);
+}
+
+void readJSONAndStoreMatrices(const char *filename, Matrix *w, Matrix *x, Matrix *p)
+{
+    // Open the JSON file
+    FILE *file = fopen(filename, "r");
+    if (!file)
+    {
+        perror("Unable to open the JSON file");
+        exit(EXIT_FAILURE);
+    }
+
+    // Get the file size and read its content
+    fseek(file, 0, SEEK_END);
+    long fileSize = ftell(file);
+    rewind(file);
+
+    char *jsonContent = malloc(fileSize + 1);
+    if (!jsonContent)
+    {
+        perror("Memory allocation for JSON content failed");
+        fclose(file);
+        exit(EXIT_FAILURE);
+    }
+    fread(jsonContent, 1, fileSize, file);
+    jsonContent[fileSize] = '\0'; // Null-terminate the JSON string
+    fclose(file);
+
+    // Parse the JSON content
+    cJSON *json = cJSON_Parse(jsonContent);
+    if (!json)
+    {
+        fprintf(stderr, "JSON parsing error: %s\n", cJSON_GetErrorPtr());
+        free(jsonContent);
+        exit(EXIT_FAILURE);
+    }
+
+    // Extract arrays "p", "r", "n", and "b", "n" is candidates, "b" is group
+    cJSON *pArray = cJSON_GetObjectItem(json, "p");
+    cJSON *rOuterArray = cJSON_GetObjectItem(json, "r");
+    cJSON *rArray = cJSON_GetArrayItem(rOuterArray, 0); // Move into the first sub-array
+    cJSON *nArray = cJSON_GetObjectItem(json, "n");
+    cJSON *bArray = cJSON_GetObjectItem(json, "b");
+
+    if (!cJSON_IsArray(pArray) || !cJSON_IsArray(rArray) || !cJSON_IsArray(nArray) || !cJSON_IsArray(bArray))
+    {
+        fprintf(stderr, "One or more required arrays are missing or invalid in the JSON.\n");
+        cJSON_Delete(json);
+        free(jsonContent);
+        exit(EXIT_FAILURE);
+    }
+
+    // Create and populate Matrix structs
+    *p = createMatrix(cJSON_GetArraySize(pArray), cJSON_GetArraySize(cJSON_GetArrayItem(pArray, 0)));
+    for (int i = 0; i < p->rows; i++)
+    {
+        cJSON *row = cJSON_GetArrayItem(pArray, i);
+        for (int j = 0; j < p->cols; j++)
+        {
+            MATRIX_AT_PTR(p, i, j) = cJSON_GetArrayItem(row, j)->valuedouble;
+        }
+    }
+
+    Matrix rMatrix = createMatrix(cJSON_GetArraySize(rArray), cJSON_GetArraySize(cJSON_GetArrayItem(rArray, 0)));
+    for (int i = 0; i < rMatrix.rows; i++)
+    {
+        cJSON *row = cJSON_GetArrayItem(rArray, i);
+        for (int j = 0; j < rMatrix.cols; j++)
+        {
+            MATRIX_AT(rMatrix, i, j) = cJSON_GetArrayItem(row, j)->valuedouble;
+        }
+    }
+
+    *x = createMatrix(cJSON_GetArraySize(cJSON_GetArrayItem(nArray, 0)), cJSON_GetArraySize(nArray));
+    for (int i = 0; i < x->cols; i++)
+    {
+        cJSON *row = cJSON_GetArrayItem(nArray, i);
+        for (int j = 0; j < x->rows; j++)
+        {
+            MATRIX_AT_PTR(x, j, i) = cJSON_GetArrayItem(row, j)->valuedouble;
+        }
+    }
+
+    *w = createMatrix(cJSON_GetArraySize(bArray), cJSON_GetArraySize(cJSON_GetArrayItem(bArray, 0)));
+    for (int i = 0; i < w->rows; i++)
+    {
+        cJSON *row = cJSON_GetArrayItem(bArray, i);
+        for (int j = 0; j < w->cols; j++)
+        {
+            MATRIX_AT_PTR(w, i, j) = cJSON_GetArrayItem(row, j)->valuedouble;
+        }
+    }
+
+    // Print or use matrices as needed
+    printf("Real probabilities matrix:\n");
+    printMatrix(p);
+    // printf("Matrix r:\n");
+    // printMatrix(&rMatrix);
+    printf("Candidate matrix:\n");
+    printMatrix(x);
+    printf("Groups matrix:\n");
+    printMatrix(w);
+
+    // Clean up
+    // freeMatrix(&p);
+    // freeMatrix(&rMatrix);
+    // freeMatrix(&x);
+    // freeMatrix(&w);
+    cJSON_Delete(json);
+    free(jsonContent);
+}
+
+/**
+ * @brief Write the results to a .txt file.
+ *
+ * This function writes the name of the input JSON file and the contents of the
+ * matrix `p` to a specified output text file.
+ *
+ * @param outputFileName Name of the output .txt file.
+ * @param inputFileName Name of the input .json file.
+ * @param p The matrix to write to the file.
+ */
+void writeResults(const char *outputFileName, const char *inputFileName, const char *methodUsed,
+                  const double convergence, const double iterations, const double time, const Matrix *pReal,
+                  const Matrix *pCalculated)
+{
+    // Open the output file for writing
+    FILE *file = fopen(outputFileName, "w");
+    if (!file)
+    {
+        perror("Unable to open the output file");
+        exit(EXIT_FAILURE);
+    }
+
+    // Write the input file name
+    fprintf(file, "Input JSON File: %s\n", inputFileName);
+    fprintf(file,
+            "Estimated with the %s method and the following parameters:\nConvergence threshold:\t%.5f\nAmount of "
+            "iterations taken:\t%.5f\nTime taken:\t%.5f\n",
+            methodUsed, convergence, iterations, time);
+    // Write the matrix dimensions
+    fprintf(file, "The ground truth probability matrix (%dx%d) is:\n", pReal->rows, pReal->cols);
+
+    // Write the matrix data
+    for (size_t i = 0; i < pReal->rows; i++)
+    {
+        for (size_t j = 0; j < pReal->cols; j++)
+        {
+            fprintf(file, "%.6f ", MATRIX_AT_PTR(pReal, i, j)); // Write with 6 decimal precision
+        }
+        fprintf(file, "\n");
+    }
+
+    fprintf(file, "\nThe estimated probability matrix (%dx%d) is:\n", pCalculated->rows, pCalculated->cols);
+    // Write the matrix data
+    for (size_t i = 0; i < pCalculated->rows; i++)
+    {
+        for (size_t j = 0; j < pCalculated->cols; j++)
+        {
+            fprintf(file, "%.6f ", MATRIX_AT_PTR(pCalculated, i, j)); // Write with 6 decimal precision
+        }
+        fprintf(file, "\n");
+    }
+
+    // Close the file
+    fclose(file);
+
+    printf("Results successfully written to %s\n", outputFileName);
 }

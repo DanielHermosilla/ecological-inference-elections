@@ -23,4 +23,6 @@ void writeMatrices(const char *filename, Matrix *matrices, int count);
  */
 void readMatrices(const char *filename, Matrix *matrices, int count);
 
+void readJSONAndStoreMatrices(const char *filename, Matrix *w, Matrix *x, Matrix *p);
+
 #endif

@@ -10,7 +10,8 @@ CFLAGS = -Wall -Wextra -g -fsanitize=address -fsanitize=leak -O3 \
     -I/usr/local/Cellar/gsl/2.8/include \
     -I/usr/local/opt/libomp/include \
     -Xpreprocessor -fopenmp \
-    -I/usr/local/opt/llvm/include -Iutils -I.
+    -I/usr/local/opt/llvm/include -Iutils \
+	-I/usr/local/Cellar/cjson/1.7.18/include -I.
 
 LDFLAGS_LIB = -L$(shell R RHOME)/lib \
     -L/usr/local/opt/openblas/lib \
@@ -18,14 +19,18 @@ LDFLAGS_LIB = -L$(shell R RHOME)/lib \
     -L/usr/local/opt/libomp/lib \
     -shared -dynamiclib -fPIC \
     -lR -lopenblas -lgsl -lgslcblas -lomp \
-    -Wl,-rpath,/usr/local/opt/libomp/lib
+    -Wl,-rpath,/usr/local/opt/libomp/lib \
+	-L/usr/local/Cellar/cjson/1.7.18/lib \
+	-lcjson
 
 LDFLAGS_EXEC = -L$(shell R RHOME)/lib \
     -L/usr/local/opt/openblas/lib \
     -L/usr/local/Cellar/gsl/2.8/lib \
     -L/usr/local/opt/libomp/lib \
     -lR -lopenblas -lgsl -lgslcblas -lomp \
-    -Wl,-rpath,/usr/local/opt/libomp/lib
+    -Wl,-rpath,/usr/local/opt/libomp/lib \
+	-L/usr/local/Cellar/cjson/1.7.18/lib \
+	-lcjson
 
 # Directory for build artifacts
 BUILDDIR = build
