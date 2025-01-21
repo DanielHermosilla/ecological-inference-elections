@@ -152,6 +152,19 @@ void generateConfigurationsRecursion2(int b, Matrix *votes, double *restriction,
                 if (colSum != MATRIX_AT_PTR(X, k, b))
                     return;
             }
+            printf("Adding, for the following restrictions:\nCandidates:\t[ ");
+            for (uint16_t c = 0; c < numCandidates; c++)
+            {
+                printf("%d, ", (int)MATRIX_AT_PTR(X, c, b));
+            }
+            printf("]\nGroup votes:\t[ ");
+            for (uint16_t c = 0; c < numGroups; c++)
+            {
+                printf("%d, ", (int)MATRIX_AT_PTR(W, b, c));
+            }
+            printf("]\nAnd the matrix is:\n");
+            printMatrix(votes);
+            sleep(5);
             (*results) = realloc(*results, (*count + 1) * sizeof(Matrix *));
             (*results)[*count] = votes;
             (*count)++;
@@ -331,7 +344,8 @@ Matrix **generateAllConfigurationsPerBallot(int b, int totalBallotVotes, int num
 {
     // ---- Initialize parameters ---- //
     Matrix **results = NULL;
-    *count = 0;
+    size_t initialCount = 0;
+    count = &initialCount;
     Matrix votes = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES);
     double *initialRestriction = getColumn(X, b);
     // --- ... --- //
