@@ -10,4 +10,5 @@ build/multivariate-cdf.o: multivariate-cdf.c multivariate-cdf.h globals.h \
   /usr/local/Cellar/gsl/2.8/include/gsl/gsl_errno.h \
   /usr/local/Cellar/gsl/2.8/include/gsl/gsl_inline.h \
   /usr/local/Cellar/gsl/2.8/include/gsl/gsl_monte_plain.h \
-  /usr/local/Cellar/gsl/2.8/include/gsl/gsl_monte_vegas.h
+  /usr/local/Cellar/gsl/2.8/include/gsl/gsl_monte_vegas.h \
+  /usr/local/Cellar/gsl/2.8/include/gsl/gsl_qrng.h

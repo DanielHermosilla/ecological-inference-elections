@@ -48,29 +48,35 @@ double *computeQMultinomial(Matrix const *probabilities)
                 1.0, W->data, (int)TOTAL_GROUPS, probabilities->data, (int)TOTAL_CANDIDATES, 0.0, WP.data,
                 (int)TOTAL_CANDIDATES);
 
-    Matrix temp = createMatrix((int)TOTAL_BALLOTS, (int)TOTAL_GROUPS);
-#pragma omp parallel for
+    // Matrix temp = createMatrix((int)TOTAL_BALLOTS, (int)TOTAL_GROUPS);
+    // #pragma omp parallel for collapse(2) schedule(static)
     for (int b = 0; b < (int)TOTAL_BALLOTS; b++)
     {
         for (int g = 0; g < (int)TOTAL_GROUPS; g++)
         {
+            double tempSum = 0.0;
             for (int c = 0; c < (int)TOTAL_CANDIDATES; c++)
             {
-
-                double result = (1.0 / computeR(probabilities, &WP, b, c, g)) * MATRIX_AT_PTR(probabilities, g, c) *
-                                MATRIX_AT_PTR(X, c, b);
-                MATRIX_AT(temp, b, g) += result;
+                double numerator = MATRIX_AT_PTR(probabilities, g, c) * MATRIX_AT_PTR(X, c, b);
+                double denominator = computeR(probabilities, &WP, b, c, g);
+                tempSum += numerator / denominator;
+                // double result = (1.0 / computeR(probabilities, &WP, b, c, g)) * MATRIX_AT_PTR(probabilities, g, c) *
+                // MATRIX_AT_PTR(X, c, b);
+                // MATRIX_AT(temp, b, g) += result;
             }
             for (int c = 0; c < (int)TOTAL_CANDIDATES; c++)
             {
-                double result2 = (1.0 / computeR(probabilities, &WP, b, c, g)) * MATRIX_AT_PTR(probabilities, g, c) *
-                                 MATRIX_AT_PTR(X, c, b);
-                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = result2 / MATRIX_AT(temp, b, g);
+                double numerator = MATRIX_AT_PTR(probabilities, g, c) * MATRIX_AT_PTR(X, c, b);
+                double denominator = computeR(probabilities, &WP, b, c, g);
+                Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = (numerator / denominator) / tempSum;
+                // double result2 = (1.0 / computeR(probabilities, &WP, b, c, g)) * MATRIX_AT_PTR(probabilities, g, c) *
+                //                 MATRIX_AT_PTR(X, c, b);
+                // Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = result2 / MATRIX_AT(temp, b, g);
             }
         }
     }
 
     freeMatrix(&WP);
-    freeMatrix(&temp);
+    // freeMatrix(&temp);
     return array2;
 }

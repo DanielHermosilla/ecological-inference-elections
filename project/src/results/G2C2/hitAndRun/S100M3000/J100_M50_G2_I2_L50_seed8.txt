@@ -1,0 +1,15 @@
+Input JSON File: /Users/daniel/ecological-inference-elections/instances/J100_M50_G2_I2_L50_seed8.json
+Estimated with the Hit and Run method and the following parameters:
+Samples (S):	1000
+Step size (M):	3000
+Convergence threshold:	0.0010000
+Maximum amount of iterations threshold:	10000
+Time taken:	0.63154 seconds
+
+The ground truth probability matrix (2x2) is:
+0.374041 0.625959 
+0.728816 0.271184 
+
+The estimated probability matrix (2x2) is:
+0.417678 0.582322 
+0.692942 0.307058 

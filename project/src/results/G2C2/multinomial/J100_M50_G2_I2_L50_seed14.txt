@@ -1,0 +1,14 @@
+Input JSON File: /Users/daniel/ecological-inference-elections/instances/J100_M50_G2_I2_L50_seed14.json
+Estimated with the Multinomial method and the following parameters:
+Convergence threshold:	0.0010000
+Total iterations made:	23
+Maximum amount of iterations threshold:	10000
+Time taken:	0.00521 seconds
+
+The ground truth probability matrix (2x2) is:
+0.327185 0.672815 
+0.996062 0.003938 
+
+The estimated probability matrix (2x2) is:
+0.340211 0.659789 
+0.973713 0.026287 

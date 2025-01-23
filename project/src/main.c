@@ -244,7 +244,8 @@ Matrix getP(const double *q)
 
     // ---- Compute the dot products ---- //
     // ---- Due to the dot product, the parallelization is worth it ----
-#pragma omp parallel for collapse(2) schedule(static)
+
+    // #pragma omp parallel for collapse(2) schedule(static)
     for (int g = 0; g < TOTAL_GROUPS; g++)
     { // --- For each group
         for (int c = 0; c < TOTAL_CANDIDATES; c++)
@@ -256,24 +257,11 @@ Matrix getP(const double *q)
                                     &q[g * TOTAL_CANDIDATES + c],   // points to Q_{0,g,c}
                                     TOTAL_GROUPS * TOTAL_CANDIDATES // stride: each next Q_{b+1,g,c} is +(G*C) in memory
             );
-            ptrReturn[g * TOTAL_CANDIDATES + c] = val; // Equivalent to MATRIX_AT(probabilities, g, c)
+            ptrReturn[g * TOTAL_CANDIDATES + c] = val / GROUP_VOTES[g]; // Equivalent to MATRIX_AT(probabilities, g, c)
         }
     }
 
     // ---...--- //
-
-    // ---- Perform the divisions apart ---- //
-    // ---- Now divide by GROUP_VOTES[g] just once per (g,c) instead of doing it `b` times (note that the division is
-    // usually expensive). Approximately reduces 400.000 double divisions to 50. ----
-    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-    { // --- For each group
-        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-        { // --- For each candidate given a group
-            ptrReturn[g * TOTAL_CANDIDATES + c] /= GROUP_VOTES[g];
-        }
-    }
-    // ---...--- //
-
     return toReturn;
 }
 
@@ -303,7 +291,7 @@ Matrix getP(const double *q)
  *
  */
 Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
-                  const bool verbose)
+                  const bool verbose, double *time, int *iterTotal)
 {
 
     // ---- Error handling ---- //
@@ -329,13 +317,16 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
 
     double *q;
 
-    struct timespec start, end; // Start time
-
+    struct timespec start, end, iter_start, iter_end; // Declare timers for overall and per-iteration
     // Start timer
-    clock_gettime(CLOCK_MONOTONIC, &start);
+    clock_gettime(CLOCK_MONOTONIC_RAW, &start);
+    // double elapsed_total = 0;
     // ---- Execute the EM-iterations ---- //
     for (int i = 0; i < maxIter; i++)
     {
+        // Timer for the current iteration
+        clock_gettime(CLOCK_MONOTONIC, &iter_start);
+
         if (verbose)
         {
             printf("\nThe current probability matrix at the %dth iteration is:\n", i);
@@ -352,7 +343,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         else if (strcmp(q_method, "Hit and Run") == 0)
         {
             // ---- This function also takes the parameters of amount of samples (S) and step size (M) ----
-            q = computeQHitAndRun(currentP, 10000, 1000);
+            q = computeQHitAndRun(currentP, 100, 3000);
         }
         // ---- Multinomial method ----
         else if (strcmp(q_method, "Multinomial") == 0)
@@ -364,7 +355,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         {
             // ---- This function also takes the parameters of Montecarlo iterations, error threshold and the method for
             // simulating ----
-            q = computeQMultivariateCDF(currentP, 10000, 0.00001, "Genz");
+            q = computeQMultivariateCDF(currentP, 10000, 0.00001, "Genz2");
         }
         // ---- Multivariate PDF method ----
         else
@@ -379,17 +370,29 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         if (convergeMatrix(&newProbability, currentP, convergence))
         {
             // End timer
-            clock_gettime(CLOCK_MONOTONIC, &end);
-            double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+            clock_gettime(CLOCK_MONOTONIC_RAW, &end);
+            // elapsed_total += (iter_end.tv_sec - iter_start.tv_sec) + (iter_end.tv_nsec - iter_start.tv_nsec) / 1e9;
+            double elapsed_total = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
 
             if (verbose)
             {
-                printf("The convergence was found on iteration %d and took %.5f seconds!\n", i, elapsed);
+                printf("The convergence was found on iteration %d and took %.5f seconds!\n", i, elapsed_total);
             }
+            *time = elapsed_total;
+            *iterTotal = i;
             freeMatrix(currentP);
             return newProbability;
         }
         // ---- Convergence wasn't found ----
+        // clock_gettime(CLOCK_MONOTONIC, &iter_end);
+        // double elapsed_iter = (iter_end.tv_sec - iter_start.tv_sec) + (iter_end.tv_nsec - iter_start.tv_nsec) / 1e9;
+        // elapsed_total += elapsed_iter;
+
+        if (verbose)
+        {
+            // printf("Iteration %d took %.5f seconds.\n", i, elapsed_iter);
+        }
+
         freeMatrix(currentP);
         *currentP = createMatrix(newProbability.rows, newProbability.cols);
         memcpy(currentP->data, newProbability.data, sizeof(double) * newProbability.rows * newProbability.cols);
@@ -458,10 +461,22 @@ void cleanup()
     }
 }
 // ---...--- //
-
-int main()
+int main(int argc, char *argv[])
 {
-    printf("The program is running\n");
+    if (argc != 2)
+    {
+        fprintf(stderr, "Usage: %s <i>\n", argv[0]);
+        return 1;
+    }
+
+    int i = atoi(argv[1]);
+    if (i < 1)
+    {
+        fprintf(stderr, "Invalid value: i must be >= 1.\n");
+        return 1;
+    }
+
+    // printf("\nProcessing instance for i = %d\n", i);
     /*
     Matrix XX = {.data = NULL, .rows = 0, .cols = 0};
     Matrix G = {.data = NULL, .rows = 0, .cols = 0};
@@ -473,8 +488,25 @@ int main()
     /*
      */
     Matrix XX1, GG1, PP1;
-    readJSONAndStoreMatrices("/Users/daniel/ecological-inference-elections/instances/J100_M50_G2_I2_L50_seed1.json",
-                             &GG1, &XX1, &PP1);
+    // Convert the seed number to a string
+    char number[10];
+    sprintf(number, "%d", i); // Convert the number to string
+
+    // Create the instance name
+    char instance[512] = "J100_M50_G3_I3_L50_seed";
+    strcat(instance, number); // Append the number to the base
+
+    // Create the output file path
+    char outputFile[512] = "results/G2C2/pdf/";
+    strcat(outputFile, instance); // Append the instance name
+    strcat(outputFile, ".txt");   // Append the file extension
+
+    // Create the JSON file path
+    char jsonFile[512] = "/Users/daniel/ecological-inference-elections/instances/";
+    strcat(jsonFile, instance); // Append the instance name
+    strcat(jsonFile, ".json");  // Append the file extension
+
+    readJSONAndStoreMatrices(jsonFile, &GG1, &XX1, &PP1);
     // Matrix matrixArray[2];
     // readMatrices("matricesTest5.bin", matrixArray, 2);
     // Matrix XX = matrixArray[0];
@@ -482,22 +514,35 @@ int main()
 
     // Start timer
     struct timespec start, end; // Start time
-    clock_gettime(CLOCK_MONOTONIC, &start);
+    clock_gettime(CLOCK_MONOTONIC_RAW, &start);
 
     setParameters(&XX1, &GG1);
     Matrix P = getInitialP("group proportional");
 
-    Matrix Pnew = EMAlgoritm(&P, "Hit and Run", 0.000001, 10000, true);
-    clock_gettime(CLOCK_MONOTONIC, &end);
+    char method[400] = "MVN CDF";
+    double conv = 0.001;
+    double itr = 10000;
+    double timeIter = 0;
+    int totalIter = 0;
+    Matrix Pnew = EMAlgoritm(&P, method, conv, itr, false, &timeIter, &totalIter);
+    clock_gettime(CLOCK_MONOTONIC_RAW, &end);
     double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
-    printf("The whole algorithm calculation took %.16f seconds!\n", elapsed);
+    // printf("The whole algorithm calculation took %.16f seconds!\n", elapsed);
+    // printf("%.16f, ", elapsed);
+    // printf("%d, ", totalIter);
 
+    printf("\n-------\nCalculated:\n");
     printMatrix(&Pnew);
+    printf("\nReal one\n");
+    printMatrix(&PP1);
+    //  writeResults(outputFile, jsonFile, method, conv, itr, timeIter, totalIter, &PP1, &Pnew, 1000, 3000, false);
+    //  free(&timeIter);
     freeMatrix(&Pnew);
+    freeMatrix(&PP1);
     freeMatrix(&XX1);
     freeMatrix(&GG1);
     free(XX1.data);
     free(GG1.data);
-
+    free(PP1.data);
     return 1;
 }

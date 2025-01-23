@@ -1,0 +1,14 @@
+Input JSON File: /Users/daniel/ecological-inference-elections/instances/J100_M50_G2_I2_L50_seed12.json
+Estimated with the MVN PDF method and the following parameters:
+Convergence threshold:	0.0010000
+Total iterations made:	10
+Maximum amount of iterations threshold:	10000
+Time taken:	0.00988 seconds
+
+The ground truth probability matrix (2x2) is:
+0.110536 0.889464 
+0.285975 0.714025 
+
+The estimated probability matrix (2x2) is:
+0.111312 0.888688 
+0.278164 0.721836 

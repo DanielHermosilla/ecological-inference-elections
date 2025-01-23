@@ -209,6 +209,7 @@ void readJSONAndStoreMatrices(const char *filename, Matrix *w, Matrix *x, Matrix
     }
 
     // Print or use matrices as needed
+    /*
     printf("Real probabilities matrix:\n");
     printMatrix(p);
     // printf("Matrix r:\n");
@@ -217,7 +218,7 @@ void readJSONAndStoreMatrices(const char *filename, Matrix *w, Matrix *x, Matrix
     printMatrix(x);
     printf("Groups matrix:\n");
     printMatrix(w);
-
+*/
     // Clean up
     // freeMatrix(&p);
     // freeMatrix(&rMatrix);
@@ -238,8 +239,8 @@ void readJSONAndStoreMatrices(const char *filename, Matrix *w, Matrix *x, Matrix
  * @param p The matrix to write to the file.
  */
 void writeResults(const char *outputFileName, const char *inputFileName, const char *methodUsed,
-                  const double convergence, const double iterations, const double time, const Matrix *pReal,
-                  const Matrix *pCalculated)
+                  const double convergence, const double iterations, const double time, const int iterationsMade,
+                  const Matrix *pReal, const Matrix *pCalculated, int S, int M, bool hit)
 {
     // Open the output file for writing
     FILE *file = fopen(outputFileName, "w");
@@ -251,17 +252,30 @@ void writeResults(const char *outputFileName, const char *inputFileName, const c
 
     // Write the input file name
     fprintf(file, "Input JSON File: %s\n", inputFileName);
-    fprintf(file,
-            "Estimated with the %s method and the following parameters:\nConvergence threshold:\t%.5f\nAmount of "
-            "iterations taken:\t%.5f\nTime taken:\t%.5f\n",
-            methodUsed, convergence, iterations, time);
+    if (!hit)
+    {
+        fprintf(file,
+                "Estimated with the %s method and the following parameters:\nConvergence threshold:\t%.7f\nTotal "
+                "iterations made:\t%d\nMaximum "
+                "amount of "
+                "iterations threshold:\t%d\nTime taken:\t%.5f seconds\n",
+                methodUsed, convergence, iterationsMade, (int)iterations, time);
+    }
+    else
+    {
+        fprintf(file,
+                "Estimated with the %s method and the following parameters:\nSamples (S):\t%d\nStep size "
+                "(M):\t%d\nConvergence threshold:\t%.7f\nTotal iterations made:\t%d\nMaximum amount of "
+                "iterations threshold:\t%d\nTime taken:\t%.5f seconds\n",
+                methodUsed, S, M, convergence, iterationsMade, (int)iterations, time);
+    }
     // Write the matrix dimensions
-    fprintf(file, "The ground truth probability matrix (%dx%d) is:\n", pReal->rows, pReal->cols);
+    fprintf(file, "\nThe ground truth probability matrix (%dx%d) is:\n", pReal->rows, pReal->cols);
 
     // Write the matrix data
-    for (size_t i = 0; i < pReal->rows; i++)
+    for (int i = 0; i < pReal->rows; i++)
     {
-        for (size_t j = 0; j < pReal->cols; j++)
+        for (int j = 0; j < pReal->cols; j++)
         {
             fprintf(file, "%.6f ", MATRIX_AT_PTR(pReal, i, j)); // Write with 6 decimal precision
         }
@@ -270,9 +284,9 @@ void writeResults(const char *outputFileName, const char *inputFileName, const c
 
     fprintf(file, "\nThe estimated probability matrix (%dx%d) is:\n", pCalculated->rows, pCalculated->cols);
     // Write the matrix data
-    for (size_t i = 0; i < pCalculated->rows; i++)
+    for (int i = 0; i < pCalculated->rows; i++)
     {
-        for (size_t j = 0; j < pCalculated->cols; j++)
+        for (int j = 0; j < pCalculated->cols; j++)
         {
             fprintf(file, "%.6f ", MATRIX_AT_PTR(pCalculated, i, j)); // Write with 6 decimal precision
         }

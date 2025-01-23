@@ -1,0 +1,14 @@
+Input JSON File: /Users/daniel/ecological-inference-elections/instances/J100_M50_G2_I2_L50_seed17.json
+Estimated with the MVN CDF method and the following parameters:
+Convergence threshold:	0.0010000
+Total iterations made:	14
+Maximum amount of iterations threshold:	10000
+Time taken:	5.73074 seconds
+
+The ground truth probability matrix (2x2) is:
+0.315810 0.684190 
+0.751461 0.248539 
+
+The estimated probability matrix (2x2) is:
+0.295867 0.704133 
+0.757015 0.242985 

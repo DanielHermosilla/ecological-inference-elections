@@ -47,6 +47,7 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
     // --- Calculate the mahanalobis distance --- //
     double **mahanalobisDistances = (double **)malloc(TOTAL_GROUPS * sizeof(double *));
 
+#pragma omp parallel for
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     { // ---- For each group ----
         mahanalobisDistances[g] = (double *)malloc(TOTAL_CANDIDATES * sizeof(double));

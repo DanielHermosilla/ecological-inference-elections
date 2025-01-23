@@ -280,17 +280,20 @@ double *computeQHitAndRun(Matrix const *probabilities, int M, int S)
 
 __attribute__((destructor)) void cleanHitAndRun()
 {
-    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    { // --- For each ballot box
-        for (size_t s = 0; s < OMEGASET[b]->size; s++)
-        {                                     // For each sample given a ballot box
-            freeMatrix(OMEGASET[b]->data[s]); // Free individual matrices
-            free(OMEGASET[b]->data[s]);       // Free the pointers to matrices
+    if (OMEGASET != NULL && multinomialVals != NULL)
+    {
+        for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+        { // --- For each ballot box
+            for (size_t s = 0; s < OMEGASET[b]->size; s++)
+            {                                     // For each sample given a ballot box
+                freeMatrix(OMEGASET[b]->data[s]); // Free individual matrices
+                free(OMEGASET[b]->data[s]);       // Free the pointers to matrices
+            }
+            free(OMEGASET[b]->data); // Free the data array
+            free(OMEGASET[b]);       // Free the OmegaSet struct
+            free(multinomialVals[b]);
         }
-        free(OMEGASET[b]->data); // Free the data array
-        free(OMEGASET[b]);       // Free the OmegaSet struct
-        free(multinomialVals[b]);
+        free(multinomialVals); // Free the precomputed multinomial values
+        free(OMEGASET);        // Free the OMEGASET array
     }
-    free(multinomialVals); // Free the precomputed multinomial values
-    free(OMEGASET);        // Free the OMEGASET array
 }

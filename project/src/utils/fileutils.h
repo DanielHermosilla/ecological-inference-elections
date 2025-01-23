@@ -25,4 +25,21 @@ void readMatrices(const char *filename, Matrix *matrices, int count);
 
 void readJSONAndStoreMatrices(const char *filename, Matrix *w, Matrix *x, Matrix *p);
 
+/**
+ * @brief Write the results to a .txt file.
+ *
+ * This function writes the name of the input JSON file and the contents of the
+ * matrix `p` to a specified output text file.
+ *
+ * @param outputFileName Name of the output .txt file.
+ * @param inputFileName Name of the input .json file.
+ * @param *methodUsed The method that was used for the EM algorithm.
+ * @param convergence The convergence value
+ * @param iterations The amount of iterations occupied until the convergence
+ * @param *pReal The ground truth probability matrix
+ * @param *pCalculated The estimated probability matrix
+ */
+void writeResults(const char *outputFileName, const char *inputFileName, const char *methodUsed,
+                  const double convergence, const double iterations, const double time, const int iterationsMade,
+                  const Matrix *pReal, const Matrix *pCalculated, int S, int M, bool hit);
 #endif
