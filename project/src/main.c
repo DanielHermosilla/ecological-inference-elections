@@ -7,17 +7,19 @@
 #include "multinomial.h"
 #include "multivariate-cdf.h"
 #include "multivariate-pdf.h"
-#include <R.h>
-#include <R_ext/Rdynload.h>
-#include <Rinternals.h>
+// #include <R.h>
+// #include <R_ext/Rdynload.h>
+//  #include <Rinternals.h>
 #include <cblas.h>
+#include <dirent.h>
+#include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
+#undef I
 // ---- Inititalize global variables ---- //
 uint32_t TOTAL_VOTES = 0;
 uint32_t TOTAL_BALLOTS = 0;
@@ -317,7 +319,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
 
     double *q;
 
-    struct timespec start, end, iter_start, iter_end; // Declare timers for overall and per-iteration
+    struct timespec start, end, iter_start; // Declare timers for overall and per-iteration
     // Start timer
     clock_gettime(CLOCK_MONOTONIC_RAW, &start);
     // double elapsed_total = 0;
@@ -343,7 +345,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         else if (strcmp(q_method, "Hit and Run") == 0)
         {
             // ---- This function also takes the parameters of amount of samples (S) and step size (M) ----
-            q = computeQHitAndRun(currentP, 100, 3000);
+            q = computeQHitAndRun(currentP, 1000, 3000);
         }
         // ---- Multinomial method ----
         else if (strcmp(q_method, "Multinomial") == 0)
@@ -355,7 +357,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         {
             // ---- This function also takes the parameters of Montecarlo iterations, error threshold and the method for
             // simulating ----
-            q = computeQMultivariateCDF(currentP, 10000, 0.00001, "Genz2");
+            q = computeQMultivariateCDF(currentP, 100000, 0.00001, "Genz2");
         }
         // ---- Multivariate PDF method ----
         else
@@ -463,86 +465,97 @@ void cleanup()
 // ---...--- //
 int main(int argc, char *argv[])
 {
-    if (argc != 2)
+    if (argc < 4)
     {
-        fprintf(stderr, "Usage: %s <i>\n", argv[0]);
-        return 1;
+        fprintf(stderr,
+                "Uso: %s <directorio_instancias> <directorio_resultados> <método>\nLos métodos a utilizar "
+                "son:\tMultinomial, Hit and Run, MVN PDF, MVN CDF, Exact",
+                argv[0]);
+        return EXIT_FAILURE;
+    }
+    // Extract arguments
+    const char *directorio_instancias = argv[1]; // Directory containing instance files
+    const char *directorio_resultados = argv[2]; // Directory for saving results
+    const char *metodo = argv[3];                // Method to use
+
+    DIR *directorio = opendir(directorio_instancias); // Abre el directorio
+    if (directorio == NULL)
+    {
+        perror("No se pudo abrir el directorio");
+        return EXIT_FAILURE;
     }
 
-    int i = atoi(argv[1]);
-    if (i < 1)
+    struct dirent *entrada; // Para iterar sobre cada entrada del directorio
+
+    // readdir(directorio) devuelve un puntero a una estructura dirent
+    // que representa la siguiente entrada en el directorio, o NULL si ya no hay más.
+    int G, CAm, seed;
+    while ((entrada = readdir(directorio)) != NULL)
     {
-        fprintf(stderr, "Invalid value: i must be >= 1.\n");
-        return 1;
+        const char *nombre_archivo = entrada->d_name;
+        // Skip "." and ".." entries
+        if (strcmp(nombre_archivo, ".") == 0 || strcmp(nombre_archivo, "..") == 0)
+        {
+            continue;
+        }
+        sscanf(nombre_archivo, "J%*d_M%*d_G%d_I%d_L%*d_seed%d", &G, &CAm, &seed);
+        // d_name contiene el nombre de la entrada (archivo o subdirectorio)
+        //
+        // Construct the full path to the JSON file
+        char jsonFile[5000];
+        snprintf(jsonFile, sizeof(jsonFile), "%s/%s", directorio_instancias, nombre_archivo);
+        Matrix GG1, XX1, PP1;
+        readJSONAndStoreMatrices(jsonFile, &GG1, &XX1, &PP1);
+
+        // Construct the output file path
+        char outputFile[1023];
+        snprintf(outputFile, sizeof(outputFile), "%s/G%dI%dseed%d.txt", directorio_resultados, G, CAm, seed);
+
+        struct timespec start, end; // Start time
+        clock_gettime(CLOCK_MONOTONIC_RAW, &start);
+
+        setParameters(&XX1, &GG1);
+        Matrix P = getInitialP("group proportional");
+
+        double conv = 0.001;
+        double itr = 10000;
+        double timeIter = 0;
+        int totalIter = 0;
+
+        Matrix Pnew = EMAlgoritm(&P, metodo, conv, itr, false, &timeIter, &totalIter);
+        clock_gettime(CLOCK_MONOTONIC_RAW, &end);
+        double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+        // printf("The whole algorithm calculation took %.16f seconds!\n", elapsed);
+        // printf("%d, ", totalIter);
+
+        // printf("\n-------\nCalculated:\n");
+        // printMatrix(&Pnew);
+        // printf("\nReal one\n");
+        // printMatrix(&PP1);
+        writeResults(outputFile, jsonFile, metodo, conv, itr, timeIter, totalIter, &PP1, &Pnew, 1000, 3000, false);
+        //   free(&timeIter);
+        cleanup();
+        freeMatrix(&Pnew);
+        freeMatrix(&PP1);
+        freeMatrix(&XX1);
+        freeMatrix(&GG1);
+        free(XX1.data);
+        free(GG1.data);
+        free(PP1.data);
+
+        if (strcmp(metodo, "Exact") == 0)
+        {
+            cleanExact();
+        }
+        // ---- Hit and Run method ----
+        else if (strcmp(metodo, "Hit and Run") == 0)
+        {
+            cleanHitAndRun();
+        }
     }
 
-    // printf("\nProcessing instance for i = %d\n", i);
-    /*
-    Matrix XX = {.data = NULL, .rows = 0, .cols = 0};
-    Matrix G = {.data = NULL, .rows = 0, .cols = 0};
-    char *method = "multinomial";
-    // createInstance(&XX, &G, 42, *method); // TODO: Arreglar esto para poder crear una instancia...
-    //Matrix matrices[2] = {XX, G};
-    //writeMatrices("matricesTest5.bin", matrices, 2);
-*/
-    /*
-     */
-    Matrix XX1, GG1, PP1;
-    // Convert the seed number to a string
-    char number[10];
-    sprintf(number, "%d", i); // Convert the number to string
+    // Cerramos el directorio
+    closedir(directorio);
 
-    // Create the instance name
-    char instance[512] = "J100_M50_G3_I3_L50_seed";
-    strcat(instance, number); // Append the number to the base
-
-    // Create the output file path
-    char outputFile[512] = "results/G2C2/pdf/";
-    strcat(outputFile, instance); // Append the instance name
-    strcat(outputFile, ".txt");   // Append the file extension
-
-    // Create the JSON file path
-    char jsonFile[512] = "/Users/daniel/ecological-inference-elections/instances/";
-    strcat(jsonFile, instance); // Append the instance name
-    strcat(jsonFile, ".json");  // Append the file extension
-
-    readJSONAndStoreMatrices(jsonFile, &GG1, &XX1, &PP1);
-    // Matrix matrixArray[2];
-    // readMatrices("matricesTest5.bin", matrixArray, 2);
-    // Matrix XX = matrixArray[0];
-    // Matrix G = matrixArray[1];
-
-    // Start timer
-    struct timespec start, end; // Start time
-    clock_gettime(CLOCK_MONOTONIC_RAW, &start);
-
-    setParameters(&XX1, &GG1);
-    Matrix P = getInitialP("group proportional");
-
-    char method[400] = "MVN CDF";
-    double conv = 0.001;
-    double itr = 10000;
-    double timeIter = 0;
-    int totalIter = 0;
-    Matrix Pnew = EMAlgoritm(&P, method, conv, itr, false, &timeIter, &totalIter);
-    clock_gettime(CLOCK_MONOTONIC_RAW, &end);
-    double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
-    // printf("The whole algorithm calculation took %.16f seconds!\n", elapsed);
-    // printf("%.16f, ", elapsed);
-    // printf("%d, ", totalIter);
-
-    printf("\n-------\nCalculated:\n");
-    printMatrix(&Pnew);
-    printf("\nReal one\n");
-    printMatrix(&PP1);
-    //  writeResults(outputFile, jsonFile, method, conv, itr, timeIter, totalIter, &PP1, &Pnew, 1000, 3000, false);
-    //  free(&timeIter);
-    freeMatrix(&Pnew);
-    freeMatrix(&PP1);
-    freeMatrix(&XX1);
-    freeMatrix(&GG1);
-    free(XX1.data);
-    free(GG1.data);
-    free(PP1.data);
     return 1;
 }

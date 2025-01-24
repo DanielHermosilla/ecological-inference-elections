@@ -33,4 +33,5 @@ typedef struct
  */
 double *computeQHitAndRun(Matrix const *probabilities, int M, int S);
 
+void cleanHitAndRun();
 #endif

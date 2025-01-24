@@ -636,7 +636,7 @@ void freeKSet()
     }
 }
 
-__attribute__((destructor)) void cleanUp()
+__attribute__((destructor)) void cleanExact()
 {
     // ---- Destroy the candidate array of size_t ---- //
     // ---- If the array was created ----
@@ -647,6 +647,7 @@ __attribute__((destructor)) void cleanUp()
             free(CANDIDATEARRAYS[b]);
         }
         free(CANDIDATEARRAYS);
+        CANDIDATEARRAYS = NULL;
     }
     // ---...--- //
 

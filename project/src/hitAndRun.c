@@ -278,7 +278,7 @@ double *computeQHitAndRun(Matrix const *probabilities, int M, int S)
     return array2;
 }
 
-__attribute__((destructor)) void cleanHitAndRun()
+void cleanHitAndRun()
 {
     if (OMEGASET != NULL && multinomialVals != NULL)
     {
@@ -295,5 +295,12 @@ __attribute__((destructor)) void cleanHitAndRun()
         }
         free(multinomialVals); // Free the precomputed multinomial values
         free(OMEGASET);        // Free the OMEGASET array
+        OMEGASET = NULL;
+        multinomialVals = NULL;
     }
 }
+//__attribute__((destructor)) void cleanEverything()
+//{
+
+//   cleanHitAndRun();
+//}

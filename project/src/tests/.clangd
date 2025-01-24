@@ -1,0 +1,49 @@
+CompileFlags:
+  Add:
+    - -I../src/utils
+    - -Wall
+    - -Wextra
+    - -g
+    - -fsanitize=address
+    - -fsanitize=leak
+    - -O3
+    - -I/usr/local/lib/R/include                 # Replace $(shell R RHOME)/include with actual path
+    - -I/usr/local/opt/openblas/include
+    - -I/usr/local/Cellar/gsl/2.8/include
+    - -I/usr/local/opt/libomp/include
+    - -Xpreprocessor
+    - -fopenmp
+    - -I/usr/local/opt/llvm/include
+    - -Iutils
+    - -I.
+    - -I/usr/local/Cellar/check/0.15.2/include # Check include path
+    - -L/usr/local/lib/R/lib                    # Replace $(shell R RHOME)/lib with actual path
+    - -L/usr/local/opt/openblas/lib
+    - -L/usr/local/Cellar/gsl/2.8/lib
+    - -L/usr/local/opt/libomp/lib
+    - -L/usr/local/Cellar/check/0.15.2/lib     # Check library path
+    - -shared
+    - -dynamiclib
+    - -fPIC
+    - -lR
+    - -lopenblas
+    - -lgsl
+    - -lgslcblas
+    - -lomp
+    - -Wl,-rpath,/usr/local/opt/libomp/lib
+    - -I/usr/local/Cellar/cjson/1.7.18/include
+    - -L/usr/local/Cellar/cjson/1.7.18/lib
+    - -lcjson
+    - -lcheck                                 # Link with Check library
+
+FallbackFlags:
+  # Default flags for files not in compile_commands.json
+  Add:   
+    - -Wall
+    - -Wextra
+    - -I../src/utils
+    - -I/usr/local/Cellar/check/0.15.2/include
+
+Diagnostics:
+  Suppress: []
+  ClangTidy: []

@@ -290,12 +290,12 @@ double Montecarlo(Matrix *chol, double *mu, double *lowerLimits, double *upperLi
     }
     else if (strcmp(method, "Genz") == 0)
     {
-        result = genzMontecarlo(chol, lowerLimits, upperLimits, epsilon, 100000, mvnDim);
+        result = genzMontecarlo(chol, lowerLimits, upperLimits, epsilon, maxSamples, mvnDim);
         return result;
     }
     else if (strcmp(method, "Genz2") == 0)
     {
-        result = genzMontecarloNew(chol, lowerLimits, upperLimits, epsilon, 100000, mvnDim);
+        result = genzMontecarloNew(chol, lowerLimits, upperLimits, epsilon, maxSamples, mvnDim);
         return result;
     }
     else

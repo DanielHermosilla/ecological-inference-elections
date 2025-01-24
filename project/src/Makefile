@@ -1,10 +1,11 @@
-.PHONY: all clean debug release
+
+.PHONY: all clean debug release bundle_libraries
 
 # Compiler
 CC = clang
 
 # Base Compiler Flags
-CFLAGS_BASE = -Wall -Wextra -I$(shell R RHOME)/include \
+CFLAGS_BASE = -Wall -Wextra \
     -I/usr/local/opt/openblas/include \
     -I/usr/local/Cellar/gsl/2.8/include \
     -I/usr/local/opt/libomp/include \
@@ -13,38 +14,31 @@ CFLAGS_BASE = -Wall -Wextra -I$(shell R RHOME)/include \
     -I/usr/local/Cellar/cjson/1.7.18/include -I.
 
 # Linker Flags
-LDFLAGS_LIB_BASE = -L$(shell R RHOME)/lib \
-    -L/usr/local/opt/openblas/lib \
+LDFLAGS_LIB_BASE = -L/usr/local/opt/openblas/lib \
     -L/usr/local/Cellar/gsl/2.8/lib \
     -L/usr/local/opt/libomp/lib \
     -fPIC \
-    -lR -lopenblas -lgsl -lgslcblas -lomp \
-    -Wl,-rpath,/usr/local/opt/libomp/lib \
+    -lopenblas -lgsl -lgslcblas -lomp \
+    -Wl,-rpath,@executable_path/libs \
     -L/usr/local/Cellar/cjson/1.7.18/lib \
     -lcjson
 
-LDFLAGS_EXEC_BASE = -L$(shell R RHOME)/lib \
-    -L/usr/local/opt/openblas/lib \
-    -L/usr/local/Cellar/gsl/2.8/lib \
-    -L/usr/local/opt/libomp/lib \
-    -lR -lopenblas -lgsl -lgslcblas -lomp \
-    -Wl,-rpath,/usr/local/opt/libomp/lib \
-    -L/usr/local/Cellar/cjson/1.7.18/lib \
-    -lcjson
+LDFLAGS_EXEC_BASE = $(LDFLAGS_LIB_BASE)
 
 # Debug-specific Flags
 CFLAGS_DEBUG = -g -fsanitize=address -fsanitize=leak
-LDFLAGS_DEBUG = $(LDFLAGS_LIB_BASE)
+LDFLAGS_DEBUG = $(LDFLAGS_EXEC_BASE)
 
 # Release-specific Flags
 CFLAGS_RELEASE = -O3 -march=native -DNDEBUG -ffast-math -mtune=native
-LDFLAGS_RELEASE = $(LDFLAGS_LIB_BASE)
+LDFLAGS_RELEASE = $(LDFLAGS_EXEC_BASE)
 
 # Directory for build artifacts
 BUILDDIR = build
+LIBSDIR = $(BUILDDIR)/libs
 
 # Targets
-LIB_TARGET  = libutil.dylib    # (on Linux, could be libutil.so)
+LIB_TARGET  = libutil.dylib
 EXEC_TARGET = util_exec
 
 # List *all* .c files
@@ -69,7 +63,7 @@ OBJS = $(SRCS:%.c=$(BUILDDIR)/%.o)
 DEPS = $(OBJS:.o=.d)
 
 # Default rule: build both debug and release
-all: debug release
+all: debug release bundle_libraries
 
 # Debug build
 debug: CFLAGS = $(CFLAGS_BASE) $(CFLAGS_DEBUG)
@@ -91,14 +85,24 @@ $(BUILDDIR)/$(EXEC_TARGET): $(OBJS)
 	@mkdir -p $(BUILDDIR)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
 
-# Pattern rule: build build/something.o from something.c 
+# Pattern rule: build build/something.o from something.c
 # This also handles subdirs: e.g., utils/matrixUtils.c -> build/utils/matrixUtils.o
 $(BUILDDIR)/%.o: %.c
-	@mkdir -p $(dir $@)   # create build/utils/ if needed
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -MMD -c $< -o $@
 
 # Include dependency files
 -include $(DEPS)
 
+# Clean build artifacts
 clean:
 	rm -rf $(BUILDDIR)
+
+# Copy libraries into build/libs
+bundle_libraries:
+	@mkdir -p $(LIBSDIR)
+	@echo "Bundling required libraries..."
+	@otool -L $(BUILDDIR)/$(EXEC_TARGET) | awk '/\/usr\/local/ { print $$1 }' | while read lib; do \
+	    cp "$$lib" $(LIBSDIR); \
+	done
+	@echo "Libraries bundled into $(LIBSDIR)"

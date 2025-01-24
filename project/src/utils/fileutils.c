@@ -1,7 +1,13 @@
 #include "fileutils.h"
 #include <cjson/cJSON.h>
+#include <errno.h>
+#include <libgen.h> // For dirname
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
 /**
  * @brief Writes an array of matrices to a binary file, including their metadata.
  *
@@ -119,6 +125,7 @@ void readMatrices(const char *filename, Matrix *matrices, int count)
 
 void readJSONAndStoreMatrices(const char *filename, Matrix *w, Matrix *x, Matrix *p)
 {
+    printf("Filename is %s\n", filename);
     // Open the JSON file
     FILE *file = fopen(filename, "r");
     if (!file)
@@ -242,6 +249,22 @@ void writeResults(const char *outputFileName, const char *inputFileName, const c
                   const double convergence, const double iterations, const double time, const int iterationsMade,
                   const Matrix *pReal, const Matrix *pCalculated, int S, int M, bool hit)
 {
+    // Ensure the directory for the output file exists
+    char *pathCopy = strdup(outputFileName); // Make a copy of the file path
+    char *directory = dirname(pathCopy);     // Extract the directory part of the path
+
+    struct stat st = {0};
+    if (stat(directory, &st) == -1) // Check if directory exists
+    {
+        if (mkdir(directory, 0755) != 0 && errno != EEXIST) // Create directory if it doesn't exist
+        {
+            perror("Unable to create the output directory");
+            free(pathCopy);
+            exit(EXIT_FAILURE);
+        }
+    }
+    free(pathCopy); // Free the allocated copy
+
     // Open the output file for writing
     FILE *file = fopen(outputFileName, "w");
     if (!file)

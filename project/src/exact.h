@@ -30,4 +30,6 @@ typedef struct
 
 double *computeQExact(const Matrix *probabilities);
 
+void cleanExact();
+
 #endif
