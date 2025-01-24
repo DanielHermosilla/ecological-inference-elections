@@ -42,4 +42,28 @@ void readJSONAndStoreMatrices(const char *filename, Matrix *w, Matrix *x, Matrix
 void writeResults(const char *outputFileName, const char *inputFileName, const char *methodUsed,
                   const double convergence, const double iterations, const double time, const int iterationsMade,
                   const Matrix *pReal, const Matrix *pCalculated, int S, int M, bool hit);
+
+/**
+ * @brief Write the results to a .json file.
+ *
+ * This function writes the name of the input JSON file, the method used, parameters, and the matrices
+ * `pReal` and `pCalculated` to a specified output JSON file.
+ *
+ * @param outputFileName Name of the output .json file.
+ * @param inputFileName Name of the input .json file.
+ * @param methodUsed Name of the method used for calculations.
+ * @param convergence Convergence threshold used.
+ * @param iterations Maximum number of iterations allowed.
+ * @param time Time taken to compute the results.
+ * @param iterationsMade Actual number of iterations performed.
+ * @param pReal Ground truth probability matrix.
+ * @param pCalculated Estimated probability matrix.
+ * @param S Samples (used in Hit and Run).
+ * @param M Step size (used in Hit and Run).
+ * @param hit Whether the method used was Hit and Run.
+ */
+void writeResultsJSON(const char *outputFileName, const char *inputFileName, const char *methodUsed,
+                      const double convergence, const double iterations, const double time, const int iterationsMade,
+                      const Matrix *pReal, const Matrix *pCalculated, int S, int M, bool hit);
+
 #endif

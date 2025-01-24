@@ -468,52 +468,53 @@ int main(int argc, char *argv[])
     if (argc < 4)
     {
         fprintf(stderr,
-                "Uso: %s <directorio_instancias> <directorio_resultados> <método>\nLos métodos a utilizar "
-                "son:\tMultinomial, Hit and Run, MVN PDF, MVN CDF, Exact",
+                "Use: %s <Instance directory> <Results directory (must be previously created)> <Method>\nThe supported "
+                "methods are:"
+                "\tMultinomial, Hit and Run, MVN PDF, MVN CDF, Exact",
                 argv[0]);
         return EXIT_FAILURE;
     }
     // Extract arguments
-    const char *directorio_instancias = argv[1]; // Directory containing instance files
-    const char *directorio_resultados = argv[2]; // Directory for saving results
-    const char *metodo = argv[3];                // Method to use
+    const char *instanceDirectory = argv[1]; // Directory containing instance files
+    const char *resultDirectory = argv[2];   // Directory for saving results
+    const char *inputMethod = argv[3];       // Method to use
 
-    DIR *directorio = opendir(directorio_instancias); // Abre el directorio
-    if (directorio == NULL)
+    DIR *directory = opendir(instanceDirectory); // Open directory
+    if (directory == NULL)
     {
-        perror("No se pudo abrir el directorio");
+        perror("Couldn't open the directory");
         return EXIT_FAILURE;
     }
 
-    struct dirent *entrada; // Para iterar sobre cada entrada del directorio
+    struct dirent *entry; // For iterating between each directory
 
-    // readdir(directorio) devuelve un puntero a una estructura dirent
-    // que representa la siguiente entrada en el directorio, o NULL si ya no hay más.
     int G, CAm, seed;
-    while ((entrada = readdir(directorio)) != NULL)
+    while ((entry = readdir(directory)) != NULL)
     {
-        const char *nombre_archivo = entrada->d_name;
-        // Skip "." and ".." entries
-        if (strcmp(nombre_archivo, ".") == 0 || strcmp(nombre_archivo, "..") == 0)
+        const char *fileName = entry->d_name;
+
+        // ---- Skip cases where it iterates through itself or other directories ----
+        if (strcmp(fileName, ".") == 0 || strcmp(fileName, "..") == 0)
         {
             continue;
         }
-        sscanf(nombre_archivo, "J%*d_M%*d_G%d_I%d_L%*d_seed%d", &G, &CAm, &seed);
-        // d_name contiene el nombre de la entrada (archivo o subdirectorio)
-        //
-        // Construct the full path to the JSON file
+
+        // ---- Get the candidate and group size ----
+        sscanf(fileName, "J%*d_M%*d_G%d_I%d_L%*d_seed%d", &G, &CAm, &seed);
+
+        // ---- Construct the full path to the JSON file ---- //
         char jsonFile[5000];
-        snprintf(jsonFile, sizeof(jsonFile), "%s/%s", directorio_instancias, nombre_archivo);
+        snprintf(jsonFile, sizeof(jsonFile), "%s/%s", instanceDirectory, fileName);
         Matrix GG1, XX1, PP1;
         readJSONAndStoreMatrices(jsonFile, &GG1, &XX1, &PP1);
+        // ---...--- //
 
-        // Construct the output file path
+        // ---- Construct the output file path ---- //
         char outputFile[1023];
-        snprintf(outputFile, sizeof(outputFile), "%s/G%dI%dseed%d.txt", directorio_resultados, G, CAm, seed);
+        snprintf(outputFile, sizeof(outputFile), "%s/%s/G%dC%dseed%d.json", resultDirectory, inputMethod, G, CAm, seed);
+        // ---...--- //
 
-        struct timespec start, end; // Start time
-        clock_gettime(CLOCK_MONOTONIC_RAW, &start);
-
+        // ---- Start the main algorithm ---- //
         setParameters(&XX1, &GG1);
         Matrix P = getInitialP("group proportional");
 
@@ -522,18 +523,12 @@ int main(int argc, char *argv[])
         double timeIter = 0;
         int totalIter = 0;
 
-        Matrix Pnew = EMAlgoritm(&P, metodo, conv, itr, false, &timeIter, &totalIter);
-        clock_gettime(CLOCK_MONOTONIC_RAW, &end);
-        double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
-        // printf("The whole algorithm calculation took %.16f seconds!\n", elapsed);
-        // printf("%d, ", totalIter);
+        Matrix Pnew = EMAlgoritm(&P, inputMethod, conv, itr, false, &timeIter, &totalIter);
+        writeResultsJSON(outputFile, jsonFile, inputMethod, conv, itr, timeIter, totalIter, &PP1, &Pnew, 1000, 3000,
+                         false);
+        // ---...--- //
 
-        // printf("\n-------\nCalculated:\n");
-        // printMatrix(&Pnew);
-        // printf("\nReal one\n");
-        // printMatrix(&PP1);
-        writeResults(outputFile, jsonFile, metodo, conv, itr, timeIter, totalIter, &PP1, &Pnew, 1000, 3000, false);
-        //   free(&timeIter);
+        // ---- Free the memory ---- //
         cleanup();
         freeMatrix(&Pnew);
         freeMatrix(&PP1);
@@ -542,20 +537,22 @@ int main(int argc, char *argv[])
         free(XX1.data);
         free(GG1.data);
         free(PP1.data);
+        // ---...--- //
 
-        if (strcmp(metodo, "Exact") == 0)
+        // ---- Clean precomputed variables for a given iteration ---- //
+        if (strcmp(inputMethod, "Exact") == 0)
         {
             cleanExact();
         }
         // ---- Hit and Run method ----
-        else if (strcmp(metodo, "Hit and Run") == 0)
+        else if (strcmp(inputMethod, "Hit and Run") == 0)
         {
             cleanHitAndRun();
         }
     }
 
-    // Cerramos el directorio
-    closedir(directorio);
+    // ---- Close the directory ---- //
+    closedir(directory);
 
     return 1;
 }

@@ -215,22 +215,6 @@ void readJSONAndStoreMatrices(const char *filename, Matrix *w, Matrix *x, Matrix
         }
     }
 
-    // Print or use matrices as needed
-    /*
-    printf("Real probabilities matrix:\n");
-    printMatrix(p);
-    // printf("Matrix r:\n");
-    // printMatrix(&rMatrix);
-    printf("Candidate matrix:\n");
-    printMatrix(x);
-    printf("Groups matrix:\n");
-    printMatrix(w);
-*/
-    // Clean up
-    // freeMatrix(&p);
-    // freeMatrix(&rMatrix);
-    // freeMatrix(&x);
-    // freeMatrix(&w);
     cJSON_Delete(json);
     free(jsonContent);
 }
@@ -318,6 +302,116 @@ void writeResults(const char *outputFileName, const char *inputFileName, const c
 
     // Close the file
     fclose(file);
+
+    printf("Results successfully written to %s\n", outputFileName);
+}
+
+/**
+ * @brief Write the results to a .json file.
+ *
+ * This function writes the name of the input JSON file, the method used, parameters, and the matrices
+ * `pReal` and `pCalculated` to a specified output JSON file.
+ *
+ * @param outputFileName Name of the output .json file.
+ * @param inputFileName Name of the input .json file.
+ * @param methodUsed Name of the method used for calculations.
+ * @param convergence Convergence threshold used.
+ * @param iterations Maximum number of iterations allowed.
+ * @param time Time taken to compute the results.
+ * @param iterationsMade Actual number of iterations performed.
+ * @param pReal Ground truth probability matrix.
+ * @param pCalculated Estimated probability matrix.
+ * @param S Samples (used in Hit and Run).
+ * @param M Step size (used in Hit and Run).
+ * @param hit Whether the method used was Hit and Run.
+ */
+void writeResultsJSON(const char *outputFileName, const char *inputFileName, const char *methodUsed,
+                      const double convergence, const double iterations, const double time, const int iterationsMade,
+                      const Matrix *pReal, const Matrix *pCalculated, int S, int M, bool hit)
+{
+    // Ensure the directory for the output file exists
+    char *pathCopy = strdup(outputFileName);
+    char *directory = dirname(pathCopy);
+
+    struct stat st = {0};
+    if (stat(directory, &st) == -1)
+    {
+        if (mkdir(directory, 0755) != 0 && errno != EEXIST)
+        {
+            perror("Unable to create the output directory");
+            free(pathCopy);
+            exit(EXIT_FAILURE);
+        }
+    }
+    free(pathCopy);
+
+    // Create the root JSON object
+    cJSON *root = cJSON_CreateObject();
+
+    // Add metadata
+    cJSON_AddStringToObject(root, "input_file", inputFileName);
+    cJSON_AddStringToObject(root, "method", methodUsed);
+    if (!hit)
+    {
+        cJSON_AddNumberToObject(root, "convergence_threshold", convergence);
+        cJSON_AddNumberToObject(root, "iterations_made", iterationsMade);
+        cJSON_AddNumberToObject(root, "max_iterations", iterations);
+        cJSON_AddNumberToObject(root, "time_taken", time);
+    }
+    else
+    {
+        cJSON_AddNumberToObject(root, "samples", S);
+        cJSON_AddNumberToObject(root, "step_size", M);
+        cJSON_AddNumberToObject(root, "convergence_threshold", convergence);
+        cJSON_AddNumberToObject(root, "iterations_made", iterationsMade);
+        cJSON_AddNumberToObject(root, "max_iterations", iterations);
+        cJSON_AddNumberToObject(root, "time_taken", time);
+    }
+
+    // Add ground truth matrix
+    cJSON *realMatrix = cJSON_CreateArray();
+    for (int i = 0; i < pReal->rows; i++)
+    {
+        cJSON *row = cJSON_CreateArray();
+        for (int j = 0; j < pReal->cols; j++)
+        {
+            cJSON_AddItemToArray(row, cJSON_CreateNumber(MATRIX_AT_PTR(pReal, i, j)));
+        }
+        cJSON_AddItemToArray(realMatrix, row);
+    }
+    cJSON_AddItemToObject(root, "ground_truth_matrix", realMatrix);
+
+    // Add estimated matrix
+    cJSON *calculatedMatrix = cJSON_CreateArray();
+    for (int i = 0; i < pCalculated->rows; i++)
+    {
+        cJSON *row = cJSON_CreateArray();
+        for (int j = 0; j < pCalculated->cols; j++)
+        {
+            cJSON_AddItemToArray(row, cJSON_CreateNumber(MATRIX_AT_PTR(pCalculated, i, j)));
+        }
+        cJSON_AddItemToArray(calculatedMatrix, row);
+    }
+    cJSON_AddItemToObject(root, "estimated_matrix", calculatedMatrix);
+
+    // Serialize JSON to string
+    char *jsonString = cJSON_Print(root);
+
+    // Write to file
+    FILE *file = fopen(outputFileName, "w");
+    if (!file)
+    {
+        perror("Unable to open the output file");
+        cJSON_Delete(root);
+        free(jsonString);
+        exit(EXIT_FAILURE);
+    }
+    fprintf(file, "%s\n", jsonString);
+    fclose(file);
+
+    // Clean up
+    cJSON_Delete(root);
+    free(jsonString);
 
     printf("Results successfully written to %s\n", outputFileName);
 }

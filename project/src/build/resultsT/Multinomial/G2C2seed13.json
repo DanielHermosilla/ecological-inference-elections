@@ -1,0 +1,10 @@
+{
+	"input_file":	"/Users/daniel/ecological-inference-elections/instances/J100_M50_G2_I2_L50_seed13.json",
+	"method":	"Multinomial",
+	"convergence_threshold":	0.001,
+	"iterations_made":	16,
+	"max_iterations":	10000,
+	"time_taken":	7.3917e-05,
+	"ground_truth_matrix":	[[0.84720269601591158, 0.15279730398408845], [0.34009172295595952, 0.65990827704404054]],
+	"estimated_matrix":	[[0.841196527058286, 0.15880347294171418], [0.33278169737207325, 0.66721830262792681]]
+}
