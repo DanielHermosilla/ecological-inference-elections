@@ -19,6 +19,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
+
 #undef I
 // ---- Inititalize global variables ---- //
 uint32_t TOTAL_VOTES = 0;
@@ -179,43 +181,46 @@ Matrix getInitialP(const char *p_method)
     // ---- Considers the proportion of candidates votes and demographic groups aswell ----
     else
     {
-        double numerator = 0.0; // Note that the denominator is already known
-        uint16_t temp = 0;      // Will be used to cast multiplications on integers and add efficiency.
 
+        Matrix ballotProbability = createMatrix(TOTAL_BALLOTS, TOTAL_CANDIDATES);
         for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
         { // --- For each ballot vote
-            if (BALLOTS_VOTES[b] == 0)
-                continue; // Division by zero, even though it's very unlikely (a ballot doesn't have any vote).
-
-            for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-            { // --- For each group given a ballot box
-                if (MATRIX_AT_PTR(W, b, g) == 0.0)
-                    continue; // Division by zero, case where a group doesn't vote in a ballot.
+            double den = 0;
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            {
+                MATRIX_AT(ballotProbability, b, c) = MATRIX_AT_PTR(X, c, b);
+                den += MATRIX_AT(ballotProbability, b, c);
+            }
+            if (den != 0)
+            {
                 for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-                { // --- For each candidate given a group and a ballot box.
-                    temp = (uint16_t)MATRIX_AT_PTR(X, c, b) * (uint16_t)MATRIX_AT_PTR(W, b, g); // w_bg * x_bg = a
-                    numerator = temp * inv_BALLOTS_VOTES[b];                                    // (a/I_b)
-                    MATRIX_AT(probabilities, g, c) += numerator;
+                {
+                    MATRIX_AT(ballotProbability, b, c) /= den;
                 }
             }
         }
 
-        // ---- Now do the division once per (g,c), this reduces roughly 2 millions divisions to 50 ----
-        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-        { // --- For each group
-            // ---- Error handling ----
-            if (GROUP_VOTES[g] == 0)
+        for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+        {
+            for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
             {
-                fprintf(stderr, "getInitialP: The %dth group does not have any vote assigned.", g);
-                exit(EXIT_FAILURE);
-            }
-
-            double inv_gvotes = 1.0 / GROUP_VOTES[g];
-            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-            { // --- For each candidate given a group
-                MATRIX_AT(probabilities, g, c) *= inv_gvotes;
+                for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+                {
+                    MATRIX_AT(probabilities, g, c) += MATRIX_AT(ballotProbability, b, c) * MATRIX_AT_PTR(W, b, g);
+                }
             }
         }
+        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+        { // --- For each group given a ballot box
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            {
+                if (GROUP_VOTES[g] == 0)
+                    MATRIX_AT(probabilities, g, c) = 0;
+                else
+                    MATRIX_AT(probabilities, g, c) /= GROUP_VOTES[g];
+            }
+        }
+        freeMatrix(&ballotProbability);
     }
     // ---...--- //
     return probabilities;
@@ -424,10 +429,29 @@ void testProb()
     freeMatrix(&prob3);
 }
 
+bool noVotes(int *canArray)
+{
+    bool toReturn = false;
+    for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+    {
+        if (CANDIDATES_VOTES == 0)
+        {
+            toReturn = true;
+            canArray[c] = 1;
+        }
+    }
+    return toReturn;
+}
+
 // ---- Clean all of the global variables ---- //
 __attribute__((destructor)) // Executes when the library is ready
 void cleanup()
 {
+    TOTAL_VOTES = 0;
+    TOTAL_BALLOTS = 0;
+    TOTAL_CANDIDATES = 0;
+    TOTAL_GROUPS = 0;
+
     if (CANDIDATES_VOTES != NULL)
     {
         free(CANDIDATES_VOTES);
@@ -488,7 +512,7 @@ int main(int argc, char *argv[])
 
     struct dirent *entry; // For iterating between each directory
 
-    int G, CAm, seed;
+    int G, CAm, seed, J;
     while ((entry = readdir(directory)) != NULL)
     {
         const char *fileName = entry->d_name;
@@ -500,8 +524,12 @@ int main(int argc, char *argv[])
         }
 
         // ---- Get the candidate and group size ----
-        sscanf(fileName, "J%*d_M%*d_G%d_I%d_L%*d_seed%d", &G, &CAm, &seed);
+        sscanf(fileName, "J%d_M%*d_G%d_I%d_L%*d_seed%d.json", &J, &G, &CAm, &seed);
 
+        if (G != 3 || CAm != 3 || seed != 17)
+        {
+            // continue;
+        }
         // ---- Construct the full path to the JSON file ---- //
         char jsonFile[5000];
         snprintf(jsonFile, sizeof(jsonFile), "%s/%s", instanceDirectory, fileName);
@@ -511,11 +539,28 @@ int main(int argc, char *argv[])
 
         // ---- Construct the output file path ---- //
         char outputFile[1023];
-        snprintf(outputFile, sizeof(outputFile), "%s/%s/G%dC%dseed%d.json", resultDirectory, inputMethod, G, CAm, seed);
+        snprintf(outputFile, sizeof(outputFile), "%s/%s/%dB/G%dC%dseed%d.json", resultDirectory, inputMethod, J, G, CAm,
+                 seed);
         // ---...--- //
 
         // ---- Start the main algorithm ---- //
         setParameters(&XX1, &GG1);
+        int *votingArr = calloc(TOTAL_CANDIDATES, sizeof(int));
+        bool emptyVotes = noVotes(votingArr);
+        int pastCandidates = TOTAL_CANDIDATES;
+        if (emptyVotes)
+        {
+            cleanup();
+            printf("im hereee\n");
+            sleep(5);
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            {
+                if (votingArr[c] == 1)
+                    removeRow(&XX1, c);
+            }
+            setParameters(&XX1, &GG1);
+        }
+
         Matrix P = getInitialP("group proportional");
 
         double conv = 0.001;
@@ -524,6 +569,17 @@ int main(int argc, char *argv[])
         int totalIter = 0;
 
         Matrix Pnew = EMAlgoritm(&P, inputMethod, conv, itr, false, &timeIter, &totalIter);
+
+        if (emptyVotes)
+        {
+            printf("\nThe actual resulting matrix is....\n");
+            for (uint16_t c = 0; c < pastCandidates; c++)
+            {
+                addColumnOfZeros(&Pnew, pastCandidates);
+            }
+            printMatrix(&Pnew);
+            sleep(10);
+        }
         writeResultsJSON(outputFile, jsonFile, inputMethod, conv, itr, timeIter, totalIter, &PP1, &Pnew, 1000, 3000,
                          false);
         // ---...--- //

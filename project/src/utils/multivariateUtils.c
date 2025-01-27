@@ -1,10 +1,10 @@
 #include "multivariateUtils.h"
 #include <cblas.h>
+#include <float.h>
 #include <lapacke.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-
 /**
  * @brief Computes the parameters of the unconditional probability without the last candidate
  *
@@ -273,10 +273,9 @@ void getMahanalobisDist(double *x, double *mu, Matrix *inverseSigma, double *mah
          *
          * The baseline would be the mahanobis distance for the "C-1" candidate (mahanobisTruncated)
          * */
-
         maha[size] = mahanobisTruncated; // Last element is used as a reference
         for (int c = 0; c < size; c++)
-        { // ---- For each candidate (considers the last one too)
+        { // ---- For each candidate (doesn't consider the last one)
             maha[c] = mahanobisTruncated - 2 * temp[c] + MATRIX_AT_PTR(inverseSigma, c, c);
         }
     }

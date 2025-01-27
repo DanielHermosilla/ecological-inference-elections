@@ -22,6 +22,7 @@ CompileFlags:
     - -I/usr/local/Cellar/cjson/1.7.18/include
     - -Iutils
     - -I.
+    - -I..
 
     # Linker flags
     - -L/usr/local/opt/openblas/lib

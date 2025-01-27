@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <unistd.h>
 // Macro for easier matrix indexation
 #define MATRIX_AT(matrix, i, j) (matrix.data[(i) * (matrix.cols) + (j)])
 
@@ -603,23 +603,56 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
         exit(EXIT_FAILURE);
     }
 
+    if (matrix->rows == 1 && matrix->cols == 1)
+    {
+        double currentVal = MATRIX_AT_PTR(matrix, 0, 0);
+        if (currentVal != 0)
+            MATRIX_AT_PTR(matrix, 0, 0) = 1 / currentVal;
+        return;
+    }
+
     int n = matrix->rows;
     int lda = n; // Leading dimension (number of columns in row-major storage)
     int info;
-
+    Matrix emergencyMat = copyMatrix(matrix);
     // Cholesky Decomposition (L * L^T = A)
     info = LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'L', n, matrix->data, lda);
-    if (info != 0)
+    if (info < 0)
     {
-        fprintf(stderr, "Cholesky decomposition failed. Error code: %d\n", info);
+        fprintf(stderr,
+                "Cholesky decomposition failed. The %d argument towards LAPACKE_dpotrf is had an illegal value.\n",
+                info);
         exit(EXIT_FAILURE);
+    }
+    if (info > 0)
+    {
+        fprintf(stderr,
+                "Cholesky decomposition failed. The leading minor of order %d is not positive definite.\nNote: if "
+                "dealing with variance matrices of a Multivariate Normal, remember that there are selected cases where "
+                "the Cholesky decomposition could fail in case of an eigenvalue being zero.\nRetrying by adding a "
+                "small perturbation to the diagonals\n",
+                info);
+
+        for (int i = 0; i < matrix->rows; i++)
+        {
+            for (int j = 0; j < matrix->cols; j++)
+            {
+                MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT(emergencyMat, i, j);
+                if (i == j)
+                    MATRIX_AT_PTR(matrix, i, j) += 1;
+            }
+        }
+        freeMatrix(&emergencyMat);
+        inverseSymmetricPositiveMatrix(matrix);
     }
 
     // Invert the Cholesky Factorization
+
     info = LAPACKE_dpotri(LAPACK_ROW_MAJOR, 'L', n, matrix->data, lda);
     if (info != 0)
     {
         fprintf(stderr, "Matrix inversion failed after Cholesky decomposition. Error code: %d\n", info);
+        printMatrix(matrix);
         exit(EXIT_FAILURE);
     }
 
@@ -631,6 +664,7 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
             MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT_PTR(matrix, j, i);
         }
     }
+    freeMatrix(&emergencyMat);
 }
 
 /**
@@ -907,4 +941,164 @@ void addRowToMatrix(Matrix *matrix, const double *newRow)
 
     // Update the matrix dimensions
     matrix->rows++;
+}
+
+/**
+ * @brief Removes a specific row from a matrix in place.
+ *
+ * This function modifies the input matrix to remove the specified row.
+ *
+ * @param[in,out] matrix Pointer to the matrix to modify.
+ * @param[in] rowIndex The index of the row to remove (0-based).
+ */
+void removeRow(Matrix *matrix, int rowIndex)
+{
+    checkMatrix(matrix); // Validate the input matrix
+
+    if (rowIndex < 0 || rowIndex >= matrix->rows)
+    {
+        fprintf(stderr, "Row index out of bounds: %d\n", rowIndex);
+        exit(EXIT_FAILURE);
+    }
+
+    // Shift rows up to overwrite the specified row
+    for (int i = rowIndex; i < matrix->rows - 1; i++)
+    {
+        for (int j = 0; j < matrix->cols; j++)
+        {
+            MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT_PTR(matrix, i + 1, j);
+        }
+    }
+
+    // Resize the matrix to have one less row
+    matrix->rows -= 1;
+    matrix->data = realloc(matrix->data, matrix->rows * matrix->cols * sizeof(double));
+    if (!matrix->data)
+    {
+        fprintf(stderr, "Memory reallocation failed while resizing the matrix.\n");
+        exit(EXIT_FAILURE);
+    }
+}
+
+/**
+ * @brief Adds a row of zeros at a specific index in a matrix in place.
+ *
+ * This function modifies the input matrix to add a row of zeros at the specified index.
+ *
+ * @param[in,out] matrix Pointer to the matrix to modify.
+ * @param[in] rowIndex The index where the new row should be added (0-based).
+ */
+void addRowOfZeros(Matrix *matrix, int rowIndex)
+{
+    checkMatrix(matrix); // Validate the input matrix
+
+    if (rowIndex < 0 || rowIndex > matrix->rows)
+    {
+        fprintf(stderr, "Row index out of bounds: %d\n", rowIndex);
+        exit(EXIT_FAILURE);
+    }
+
+    // Resize the matrix to have one additional row
+    matrix->rows += 1;
+    matrix->data = realloc(matrix->data, matrix->rows * matrix->cols * sizeof(double));
+    if (!matrix->data)
+    {
+        fprintf(stderr, "Memory reallocation failed while resizing the matrix.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Shift rows down to make space for the new row
+    for (int i = matrix->rows - 1; i > rowIndex; i--)
+    {
+        for (int j = 0; j < matrix->cols; j++)
+        {
+            MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT_PTR(matrix, i - 1, j);
+        }
+    }
+
+    // Fill the new row with zeros
+    for (int j = 0; j < matrix->cols; j++)
+    {
+        MATRIX_AT_PTR(matrix, rowIndex, j) = 0.0;
+    }
+}
+
+/**
+ * @brief Removes a specific column from a matrix in place.
+ *
+ * This function modifies the input matrix to remove the specified column.
+ *
+ * @param[in,out] matrix Pointer to the matrix to modify.
+ * @param[in] colIndex The index of the column to remove (0-based).
+ */
+void removeColumn(Matrix *matrix, int colIndex)
+{
+    checkMatrix(matrix); // Validate the input matrix
+
+    if (colIndex < 0 || colIndex >= matrix->cols)
+    {
+        fprintf(stderr, "Column index out of bounds: %d\n", colIndex);
+        exit(EXIT_FAILURE);
+    }
+
+    // Shift columns left to overwrite the specified column
+    for (int i = 0; i < matrix->rows; i++)
+    {
+        for (int j = colIndex; j < matrix->cols - 1; j++)
+        {
+            MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT_PTR(matrix, i, j + 1);
+        }
+    }
+
+    // Resize the matrix to have one less column
+    matrix->cols -= 1;
+    matrix->data = realloc(matrix->data, matrix->rows * matrix->cols * sizeof(double));
+    if (!matrix->data)
+    {
+        fprintf(stderr, "Memory reallocation failed while resizing the matrix.\n");
+        exit(EXIT_FAILURE);
+    }
+}
+
+/**
+ * @brief Adds a column of zeros at a specific index in a matrix in place.
+ *
+ * This function modifies the input matrix to add a column of zeros at the specified index.
+ *
+ * @param[in,out] matrix Pointer to the matrix to modify.
+ * @param[in] colIndex The index where the new column should be added (0-based).
+ */
+void addColumnOfZeros(Matrix *matrix, int colIndex)
+{
+    checkMatrix(matrix); // Validate the input matrix
+
+    if (colIndex < 0 || colIndex > matrix->cols)
+    {
+        fprintf(stderr, "Column index out of bounds: %d\n", colIndex);
+        exit(EXIT_FAILURE);
+    }
+
+    // Resize the matrix to have one additional column
+    matrix->cols += 1;
+    matrix->data = realloc(matrix->data, matrix->rows * matrix->cols * sizeof(double));
+    if (!matrix->data)
+    {
+        fprintf(stderr, "Memory reallocation failed while resizing the matrix.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Shift columns right to make space for the new column
+    for (int i = 0; i < matrix->rows; i++)
+    {
+        for (int j = matrix->cols - 1; j > colIndex; j--)
+        {
+            MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT_PTR(matrix, i, j - 1);
+        }
+    }
+
+    // Fill the new column with zeros
+    for (int i = 0; i < matrix->rows; i++)
+    {
+        MATRIX_AT_PTR(matrix, i, colIndex) = 0.0;
+    }
 }

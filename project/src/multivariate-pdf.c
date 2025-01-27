@@ -34,12 +34,13 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
     }
 
     getAverageConditional(b, probabilitiesReduced, &muR, sigma);
+
     // ---- ... ----
 
     // ---- Get the inverse matrix for each sigma ---- //
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     { // ---- For each group ----
-        // ---- Calculates the Cholensky matrix ---- //
+      // ---- Calculates the Cholensky matrix TODO, IT DOESN'T DO THAT, FIX ---- //
         inverseSymmetricPositiveMatrix(sigma[g]);
     }
     // ---- ... ----
@@ -86,7 +87,10 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
         for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
         { // ---- For each candidate given a group
             // ---- Store each value, divided by the denominator ----
-            MATRIX_AT(toReturn, g, c) = QC[c] / den;
+            if (den != 0)
+                MATRIX_AT(toReturn, g, c) = QC[c] / den;
+            else
+                MATRIX_AT(toReturn, g, c) = 0;
         }
         // ---- Free allocated memory ----
         free(mahanalobisDistances[g]);
@@ -118,17 +122,18 @@ double *computeQMultivariatePDF(Matrix const *probabilities)
         (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double)); // Array to return
                                                                                            // --- ... --- //
 
-    // ---- Fill the array with the results ---- //
+// ---- Fill the array with the results ---- //
 #pragma omp parallel for
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For each ballot
         // ---- Call the function for calculating the `q` results for a given ballot
         Matrix resultsForB = computeQforABallot((int)b, probabilities, &probabilitiesReduced);
-        // #pragma omp parallel for collapse(2)
+#pragma omp parallel for collapse(2)
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         { // ---- For each group given a ballot box
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // ---- For each candidate given a ballot box and a group
+
                 Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = MATRIX_AT(resultsForB, g, c);
             }
         }

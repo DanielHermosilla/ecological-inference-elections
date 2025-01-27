@@ -1,0 +1,10 @@
+{
+	"input_file":	"/Users/daniel/ecological-inference-elections/instances/J1000_M50_G2_I2_seed4.json",
+	"method":	"MVN PDF",
+	"convergence_threshold":	0.001,
+	"iterations_made":	19,
+	"max_iterations":	10000,
+	"time_taken":	0.007609991,
+	"ground_truth_matrix":	[[0.45403170907593449, 0.54596829092406551], [0.999960733812615, 3.9266187384807764e-05]],
+	"estimated_matrix":	[[0.47022090182721232, 0.52977909817278768], [0.98524990531039036, 0.014750094689609692]]
+}

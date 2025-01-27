@@ -48,35 +48,41 @@ double *computeQMultinomial(Matrix const *probabilities)
                 1.0, W->data, (int)TOTAL_GROUPS, probabilities->data, (int)TOTAL_CANDIDATES, 0.0, WP.data,
                 (int)TOTAL_CANDIDATES);
 
-    // Matrix temp = createMatrix((int)TOTAL_BALLOTS, (int)TOTAL_GROUPS);
     // #pragma omp parallel for collapse(2) schedule(static)
     for (int b = 0; b < (int)TOTAL_BALLOTS; b++)
-    {
+    { // --- For each ballot box
         for (int g = 0; g < (int)TOTAL_GROUPS; g++)
-        {
+        { // --- For each group given a ballot box
+            // ---- Create temporal variables ----
             double tempSum = 0.0;
+            double finalNumerator[TOTAL_CANDIDATES];
+
             for (int c = 0; c < (int)TOTAL_CANDIDATES; c++)
-            {
-                double numerator = MATRIX_AT_PTR(probabilities, g, c) * MATRIX_AT_PTR(X, c, b);
+            { // --- For each candidate given a group and a ballot box
+
+                // ---- Compute x*p*r^{-1} ---- //
+                double numerator = MATRIX_AT_PTR(probabilities, g, c) * (int)MATRIX_AT_PTR(X, c, b);
                 double denominator = computeR(probabilities, &WP, b, c, g);
-                tempSum += numerator / denominator;
-                // double result = (1.0 / computeR(probabilities, &WP, b, c, g)) * MATRIX_AT_PTR(probabilities, g, c) *
-                // MATRIX_AT_PTR(X, c, b);
-                // MATRIX_AT(temp, b, g) += result;
+                if (denominator != 0) // --- Edge case
+                    finalNumerator[c] = numerator / denominator;
+                else
+                    finalNumerator[c] = 0;
+                // ---- Store the value for reusing it later ----
+                tempSum += finalNumerator[c];
+                // ---...--- //
             }
+
             for (int c = 0; c < (int)TOTAL_CANDIDATES; c++)
-            {
-                double numerator = MATRIX_AT_PTR(probabilities, g, c) * MATRIX_AT_PTR(X, c, b);
-                double denominator = computeR(probabilities, &WP, b, c, g);
-                Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = (numerator / denominator) / tempSum;
-                // double result2 = (1.0 / computeR(probabilities, &WP, b, c, g)) * MATRIX_AT_PTR(probabilities, g, c) *
-                //                 MATRIX_AT_PTR(X, c, b);
-                // Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = result2 / MATRIX_AT(temp, b, g);
+            {                     // ---- For each candidate given a group and a ballot box
+                if (tempSum != 0) // --- Edge case
+                    Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = finalNumerator[c] / tempSum;
+                else
+                    Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = 0;
+                // ---- Store the value ----
             }
         }
     }
 
     freeMatrix(&WP);
-    // freeMatrix(&temp);
     return array2;
 }

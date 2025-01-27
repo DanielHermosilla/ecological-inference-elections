@@ -218,7 +218,25 @@ void readJSONAndStoreMatrices(const char *filename, Matrix *w, Matrix *x, Matrix
     cJSON_Delete(json);
     free(jsonContent);
 }
+// Function to create directories recursively
+void makeDirectories(const char *path)
+{
+    char tempPath[1024];
+    snprintf(tempPath, sizeof(tempPath), "%s", path);
+    char *p = tempPath;
 
+    while (*p)
+    {
+        if (*p == '/')
+        {
+            *p = '\0';
+            mkdir(tempPath, 0777); // Ignore errors for existing directories
+            *p = '/';
+        }
+        p++;
+    }
+    mkdir(tempPath, 0777); // Create the final directory
+}
 /**
  * @brief Write the results to a .txt file.
  *
@@ -332,11 +350,12 @@ void writeResultsJSON(const char *outputFileName, const char *inputFileName, con
     // Ensure the directory for the output file exists
     char *pathCopy = strdup(outputFileName);
     char *directory = dirname(pathCopy);
-
+    makeDirectories(directory);
+    printf("the file name is %s", outputFileName);
     struct stat st = {0};
     if (stat(directory, &st) == -1)
     {
-        if (mkdir(directory, 0755) != 0 && errno != EEXIST)
+        if (mkdir(directory, 0777) != 0 && errno != EEXIST)
         {
             perror("Unable to create the output directory");
             free(pathCopy);

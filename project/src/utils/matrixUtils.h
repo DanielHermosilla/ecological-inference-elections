@@ -427,4 +427,44 @@ double *getColumn(const Matrix *matrix, int colIndex);
  */
 void addRowToMatrix(Matrix *matrix, const double *newRow);
 
+/**
+ * @brief Adds a row of zeros at a specific index in a matrix in place.
+ *
+ * This function modifies the input matrix to add a row of zeros at the specified index.
+ *
+ * @param[in,out] matrix Pointer to the matrix to modify.
+ * @param[in] rowIndex The index where the new row should be added (0-based).
+ */
+void addRowOfZeros(Matrix *matrix, int rowIndex);
+
+/**
+ * @brief Removes a specific row from a matrix in place.
+ *
+ * This function modifies the input matrix to remove the specified row.
+ *
+ * @param[in,out] matrix Pointer to the matrix to modify.
+ * @param[in] rowIndex The index of the row to remove (0-based).
+ */
+void removeRow(Matrix *matrix, int rowIndex);
+
+/**
+ * @brief Adds a column of zeros at a specific index in a matrix in place.
+ *
+ * This function modifies the input matrix to add a column of zeros at the specified index.
+ *
+ * @param[in,out] matrix Pointer to the matrix to modify.
+ * @param[in] colIndex The index where the new column should be added (0-based).
+ */
+void addColumnOfZeros(Matrix *matrix, int colIndex);
+
+/**
+ * @brief Removes a specific column from a matrix in place.
+ *
+ * This function modifies the input matrix to remove the specified column.
+ *
+ * @param[in,out] matrix Pointer to the matrix to modify.
+ * @param[in] colIndex The index of the column to remove (0-based).
+ */
+void removeColumn(Matrix *matrix, int colIndex);
+
 #endif // MATRIX_UTILS_H
