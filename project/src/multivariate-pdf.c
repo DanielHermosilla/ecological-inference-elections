@@ -122,8 +122,8 @@ double *computeQMultivariatePDF(Matrix const *probabilities)
         (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double)); // Array to return
                                                                                            // --- ... --- //
 
-    // ---- Fill the array with the results ---- //
-    // #pragma omp parallel for
+// ---- Fill the array with the results ---- //
+#pragma omp parallel for
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For each ballot
         // ---- Call the function for calculating the `q` results for a given ballot

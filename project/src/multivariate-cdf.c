@@ -168,7 +168,7 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
         {
             y[i - 1] = gsl_cdf_gaussian_Pinv(d[i - 1] + randomVector[i - 1] * (e[i - 1] - d[i - 1]), 1);
             // ---- Note that the summatory is equivalent to $\sum_{j=1}^{i-1}c_{ij}*y_{j}$.
-            // summatory += MATRIX_AT_PTR(cholesky, i - 1, i - 1) * y[i - 1];
+
             summatory = 0;
             for (int j = 0; j < i; j++)
             {
@@ -434,13 +434,12 @@ double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSampl
 
                 else
                 {
-                    double lowerScaled = (featureCopyA[0]) * sqrt(MATRIX_AT_PTR(currentCholesky, 0, 0));
-                    double upperScaled = (featureCopyB[0]) * sqrt(MATRIX_AT_PTR(currentCholesky, 0, 0));
                     montecarloResults[c] = (gsl_cdf_gaussian_P(featureCopyA[0], MATRIX_AT_PTR(currentCholesky, 0, 0)) -
                                             gsl_cdf_gaussian_P(featureCopyB[0], MATRIX_AT_PTR(currentCholesky, 0, 0))) *
                                            MATRIX_AT_PTR(probabilities, g, c);
                 }
                 denominator += montecarloResults[c];
+                // TODO: Make an arena for this loop
                 free(featureCopyA);
                 free(featureCopyB);
                 // ---...--- //

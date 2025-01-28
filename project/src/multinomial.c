@@ -48,7 +48,7 @@ double *computeQMultinomial(Matrix const *probabilities)
                 1.0, W->data, (int)TOTAL_GROUPS, probabilities->data, (int)TOTAL_CANDIDATES, 0.0, WP.data,
                 (int)TOTAL_CANDIDATES);
 
-    // #pragma omp parallel for collapse(2) schedule(static)
+    // ---- Do not parallelize ----
     for (int b = 0; b < (int)TOTAL_BALLOTS; b++)
     { // --- For each ballot box
         for (int g = 0; g < (int)TOTAL_GROUPS; g++)

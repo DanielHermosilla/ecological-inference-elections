@@ -181,39 +181,43 @@ Matrix getInitialP(const char *p_method)
     // ---- Considers the proportion of candidates votes and demographic groups aswell ----
     else
     {
-
+        // ---- Create a temporary matrix to store the first results ----
         Matrix ballotProbability = createMatrix(TOTAL_BALLOTS, TOTAL_CANDIDATES);
         for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
         { // --- For each ballot vote
             double den = 0;
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-            {
+            { // --- For each candidate, given a ballot box
                 MATRIX_AT(ballotProbability, b, c) = MATRIX_AT_PTR(X, c, b);
                 den += MATRIX_AT(ballotProbability, b, c);
             }
+            // ---- Handle border case ----
             if (den != 0)
             {
                 for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-                {
+                { // --- For each candidate, given a ballot box
                     MATRIX_AT(ballotProbability, b, c) /= den;
                 }
             }
-        }
+        } // --- End ballot box loop
 
         for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-        {
+        { // --- For each ballot box
             for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-            {
+            { // --- For each group given a ballot box
                 for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-                {
+                { // --- For each candidate, given a ballot box and a group
                     MATRIX_AT(probabilities, g, c) += MATRIX_AT(ballotProbability, b, c) * MATRIX_AT_PTR(W, b, g);
                 }
             }
         }
+
+        // ---- Add the final values to the matrix
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-        { // --- For each group given a ballot box
+        { // --- For each group
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-            {
+            { // --- For each candidate given a group
+                // ---- Handle border case ----
                 if (GROUP_VOTES[g] == 0)
                     MATRIX_AT(probabilities, g, c) = 0;
                 else
@@ -324,10 +328,10 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
 
     double *q;
 
-    struct timespec start, end, iter_start; // Declare timers for overall and per-iteration
     // Start timer
+    struct timespec start, end, iter_start, iter_end; // Declare timers for overall and per-iteration
     clock_gettime(CLOCK_MONOTONIC_RAW, &start);
-    // double elapsed_total = 0;
+    double elapsed_total = 0;
     // ---- Execute the EM-iterations ---- //
     for (int i = 0; i < maxIter; i++)
     {
@@ -378,7 +382,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         {
             // End timer
             clock_gettime(CLOCK_MONOTONIC_RAW, &end);
-            // elapsed_total += (iter_end.tv_sec - iter_start.tv_sec) + (iter_end.tv_nsec - iter_start.tv_nsec) / 1e9;
+            elapsed_total += (iter_end.tv_sec - iter_start.tv_sec) + (iter_end.tv_nsec - iter_start.tv_nsec) / 1e9;
             double elapsed_total = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
 
             if (verbose)
@@ -391,13 +395,13 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             return newProbability;
         }
         // ---- Convergence wasn't found ----
-        // clock_gettime(CLOCK_MONOTONIC, &iter_end);
-        // double elapsed_iter = (iter_end.tv_sec - iter_start.tv_sec) + (iter_end.tv_nsec - iter_start.tv_nsec) / 1e9;
-        // elapsed_total += elapsed_iter;
+        clock_gettime(CLOCK_MONOTONIC, &iter_end);
+        double elapsed_iter = (iter_end.tv_sec - iter_start.tv_sec) + (iter_end.tv_nsec - iter_start.tv_nsec) / 1e9;
+        elapsed_total += elapsed_iter;
 
         if (verbose)
         {
-            // printf("Iteration %d took %.5f seconds.\n", i, elapsed_iter);
+            printf("Iteration %d took %.5f seconds.\n", i, elapsed_iter);
         }
 
         freeMatrix(currentP);
@@ -410,25 +414,18 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     return *currentP;
 }
 
-void testProb()
-{
-
-    Matrix prob = getInitialP("uniform");
-    printf("\nThe probability matrix for `uniform` method is:\n");
-    printMatrix(&prob);
-    freeMatrix(&prob);
-
-    Matrix prob2 = getInitialP("proportional");
-    printf("\nThe probability matrix for `proportional` method is:\n");
-    printMatrix(&prob2);
-    freeMatrix(&prob2);
-
-    Matrix prob3 = getInitialP("group proportional");
-    printf("\nThe probability matrix for `group proportional` method is:\n");
-    printMatrix(&prob3);
-    freeMatrix(&prob3);
-}
-
+/**
+ * @brief Checks if a candidate didn't receive any votes.
+ *
+ * Given an array of size TOTAL_CANDIDATES, it sets to "1" the index where a possible candidate haven't received any
+ * vote. It also returns a boolean indicating whether a candidate hasn't receive any vote
+ *
+ * @param[in,out] *canArray Array of size TOTAL_CANDIDATES full of zeroes, indicating with a "1" on the index where a
+ * given candidate haven't received a vote
+ *
+ * @return bool: A boolean that shows if it exists a candidate with no votes
+ *
+ */
 bool noVotes(int *canArray)
 {
     bool toReturn = false;
@@ -526,10 +523,6 @@ int main(int argc, char *argv[])
         // ---- Get the candidate and group size ----
         sscanf(fileName, "J%d_M%*d_G%d_I%d_L%*d_seed%d.json", &J, &G, &CAm, &seed);
 
-        if (G != 3 || CAm != 3 || seed != 17)
-        {
-            // continue;
-        }
         // ---- Construct the full path to the JSON file ---- //
         char jsonFile[5000];
         snprintf(jsonFile, sizeof(jsonFile), "%s/%s", instanceDirectory, fileName);
