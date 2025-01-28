@@ -178,7 +178,71 @@ void test_getColumn()
     assert(column[0] == 2.0 && column[1] == 4.0);
     free(column);
     freeMatrix(&m);
-    printf("getColumn() test passed.\n");
+}
+
+void test_addRowToMatrix()
+{
+    Matrix m = createMatrix(2, 3); // 2x3 matrix
+    double newRow[3] = {4.0, 5.0, 6.0};
+    addRowToMatrix(&m, newRow);
+    assert(m.rows == 3);
+    for (int j = 0; j < m.cols; j++)
+    {
+        assert(MATRIX_AT(m, 2, j) == newRow[j]);
+    }
+    freeMatrix(&m);
+}
+
+void test_addRowOfZeros()
+{
+    Matrix m = createMatrix(2, 2);
+    fillMatrix(&m, 3.0);
+    addRowOfZeros(&m, 1);
+    for (int j = 0; j < m.cols; j++)
+    {
+        assert(MATRIX_AT(m, 1, j) == 0);
+    }
+    freeMatrix(&m);
+}
+
+void test_removeRow()
+{
+    Matrix m = createMatrix(8, 3); // 2x3 matrix
+    for (int j = 0; j < m.cols; j++)
+    {
+        MATRIX_AT(m, 4, j) = 10;
+    }
+    removeRow(&m, 4);
+    assert(m.rows == 7);
+    for (int j = 0; j < m.cols; j++)
+    {
+        assert(MATRIX_AT(m, 4, j) != 10);
+    }
+    freeMatrix(&m);
+}
+
+void test_addColumnOfZeros()
+{
+    Matrix m = createMatrix(8, 3); // 2x3 matrix
+    addColumnOfZeros(&m, 3);
+    assert(m.cols == 4);
+    freeMatrix(&m);
+}
+
+void test_removeColumn()
+{
+    Matrix m = createMatrix(8, 3); // 2x3 matrix
+    for (int k = 0; k < m.rows; k++)
+    {
+        MATRIX_AT(m, k, 1) = 10;
+    }
+    removeColumn(&m, 1);
+    assert(m.cols == 2);
+    for (int k = 0; k < m.rows; k++)
+    {
+        MATRIX_AT(m, k, 1) = 0;
+    }
+    freeMatrix(&m);
 }
 
 int main()
@@ -198,6 +262,11 @@ int main()
     test_copyMatrix();
     test_getRow();
     test_getColumn();
+    test_addRowToMatrix();
+    test_addRowOfZeros();
+    test_removeRow();
+    test_addColumnOfZeros();
+    test_removeColumn();
     printf("All matrixUtils tests passed.\n");
     return 0;
 }
