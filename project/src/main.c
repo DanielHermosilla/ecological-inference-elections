@@ -434,7 +434,7 @@ bool noVotes(int *canArray)
     bool toReturn = false;
     for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
     {
-        if (CANDIDATES_VOTES == 0)
+        if (CANDIDATES_VOTES[c] == 0)
         {
             toReturn = true;
             canArray[c] = 1;
@@ -550,13 +550,28 @@ int main(int argc, char *argv[])
         int pastCandidates = TOTAL_CANDIDATES;
         if (emptyVotes)
         {
+            if (TOTAL_CANDIDATES == 2)
+            {
+                Matrix Pnew = createMatrix(TOTAL_GROUPS, 2);
+                for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+                {
+                    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+                    {
+                        if (votingArr[c] == 1)
+                            MATRIX_AT(Pnew, g, c) = 1;
+                    }
+                }
+                double *timeIter = 0;
+                int *totalIter = 0;
+                goto results;
+            }
             cleanup();
-            printf("im hereee\n");
-            sleep(5);
-            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            for (uint16_t c = 0; c < pastCandidates; c++)
             {
                 if (votingArr[c] == 1)
+                {
                     removeRow(&XX1, c);
+                }
             }
             setParameters(&XX1, &GG1);
         }
@@ -569,17 +584,16 @@ int main(int argc, char *argv[])
         int totalIter = 0;
 
         Matrix Pnew = EMAlgoritm(&P, inputMethod, conv, itr, false, &timeIter, &totalIter);
-
         if (emptyVotes)
         {
-            printf("\nThe actual resulting matrix is....\n");
             for (uint16_t c = 0; c < pastCandidates; c++)
             {
-                addColumnOfZeros(&Pnew, pastCandidates);
+                if (votingArr[c] == 1)
+                    addColumnOfZeros(&Pnew, c);
             }
-            printMatrix(&Pnew);
-            sleep(10);
         }
+
+    results:
         writeResultsJSON(outputFile, jsonFile, inputMethod, conv, itr, timeIter, totalIter, &PP1, &Pnew, 1000, 3000,
                          false);
         // ---...--- //

@@ -434,9 +434,10 @@ double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSampl
 
                 else
                 {
-                    double lowerScaled = (featureCopyA[0]) / sqrt(MATRIX_AT_PTR(currentCholesky, 0, 0));
-                    double upperScaled = (featureCopyB[0]) / sqrt(MATRIX_AT_PTR(currentCholesky, 0, 0));
-                    montecarloResults[c] = (gsl_cdf_gaussian_P(upperScaled, 1) - gsl_cdf_gaussian_P(lowerScaled, 1)) *
+                    double lowerScaled = (featureCopyA[0]) * sqrt(MATRIX_AT_PTR(currentCholesky, 0, 0));
+                    double upperScaled = (featureCopyB[0]) * sqrt(MATRIX_AT_PTR(currentCholesky, 0, 0));
+                    montecarloResults[c] = (gsl_cdf_gaussian_P(featureCopyA[0], MATRIX_AT_PTR(currentCholesky, 0, 0)) -
+                                            gsl_cdf_gaussian_P(featureCopyB[0], MATRIX_AT_PTR(currentCholesky, 0, 0))) *
                                            MATRIX_AT_PTR(probabilities, g, c);
                 }
                 denominator += montecarloResults[c];

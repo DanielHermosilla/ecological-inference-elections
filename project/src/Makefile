@@ -1,5 +1,4 @@
-
-.PHONY: all clean debug release bundle_libraries
+.PHONY: all clean debug release bundle_libraries test
 
 # Compiler
 CC = clang
@@ -40,6 +39,7 @@ LIBSDIR = $(BUILDDIR)/libs
 # Targets
 LIB_TARGET  = libutil.dylib
 EXEC_TARGET = util_exec
+TEST_EXEC = $(BUILDDIR)/test-matrixUtils
 
 # List *all* .c files
 SRCS = \
@@ -84,6 +84,17 @@ $(BUILDDIR)/$(LIB_TARGET): $(OBJS)
 $(BUILDDIR)/$(EXEC_TARGET): $(OBJS)
 	@mkdir -p $(BUILDDIR)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDFLAGS)
+
+# Test Target for matrixUtils
+test: CFLAGS = $(CFLAGS_BASE) $(CFLAGS_DEBUG)
+test: LDFLAGS = $(LDFLAGS_DEBUG)
+test: $(TEST_EXEC)
+	@echo "Running matrix tests..."
+	$(TEST_EXEC)
+
+$(TEST_EXEC): tests/test-matrixUtils.c $(BUILDDIR)/utils/matrixUtils.o
+	@mkdir -p $(BUILDDIR)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Pattern rule: build build/something.o from something.c
 # This also handles subdirs: e.g., utils/matrixUtils.c -> build/utils/matrixUtils.o

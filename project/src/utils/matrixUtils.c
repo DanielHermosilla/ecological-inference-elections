@@ -173,11 +173,12 @@ void printMatrix(const Matrix *matrix)
 
     for (int i = 0; i < matrix->rows; i++)
     {
+        printf("| ");
         for (int j = 0; j < matrix->cols; j++)
         {
-            printf("%.5f ", matrix->data[(i) * (matrix->cols) + (j)]);
+            printf("%.5f\t ", matrix->data[(i) * (matrix->cols) + (j)]);
         }
-        printf("\n");
+        printf(" |\n");
     }
 }
 
@@ -619,9 +620,9 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
     info = LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'L', n, matrix->data, lda);
     if (info < 0)
     {
-        fprintf(stderr,
-                "Cholesky decomposition failed. The %d argument towards LAPACKE_dpotrf is had an illegal value.\n",
+        fprintf(stderr, "Cholesky decomposition failed. The %d argument towards LAPACKE_dpotrf had an illegal value.\n",
                 info);
+        printMatrix(matrix);
         exit(EXIT_FAILURE);
     }
     if (info > 0)
@@ -642,6 +643,7 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
                     MATRIX_AT_PTR(matrix, i, j) += 1;
             }
         }
+        printMatrix(matrix);
         freeMatrix(&emergencyMat);
         inverseSymmetricPositiveMatrix(matrix);
     }
@@ -1078,6 +1080,7 @@ void addColumnOfZeros(Matrix *matrix, int colIndex)
         exit(EXIT_FAILURE);
     }
 
+    Matrix aCopy = copyMatrix(matrix);
     // Resize the matrix to have one additional column
     matrix->cols += 1;
     matrix->data = realloc(matrix->data, matrix->rows * matrix->cols * sizeof(double));
@@ -1087,18 +1090,15 @@ void addColumnOfZeros(Matrix *matrix, int colIndex)
         exit(EXIT_FAILURE);
     }
 
-    // Shift columns right to make space for the new column
     for (int i = 0; i < matrix->rows; i++)
     {
-        for (int j = matrix->cols - 1; j > colIndex; j--)
+        for (int j = 0; j < matrix->cols; j++)
         {
-            MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT_PTR(matrix, i, j - 1);
+            if (j == colIndex)
+                MATRIX_AT_PTR(matrix, i, j) = 0;
+            else
+                MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT(aCopy, i, j);
         }
     }
-
-    // Fill the new column with zeros
-    for (int i = 0; i < matrix->rows; i++)
-    {
-        MATRIX_AT_PTR(matrix, i, colIndex) = 0.0;
-    }
+    freeMatrix(&aCopy);
 }
