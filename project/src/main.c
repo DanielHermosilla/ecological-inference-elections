@@ -1,15 +1,7 @@
-#include "exact.h"
-#include "fileutils.h"
-#include "globals.h"
-#include "hitAndRun.h"
-#include "instanceGenerator.h"
-#include "matrixUtils.h"
-#include "multinomial.h"
-#include "multivariate-cdf.h"
-#include "multivariate-pdf.h"
 // #include <R.h>
 // #include <R_ext/Rdynload.h>
 //  #include <Rinternals.h>
+#include "main.h"
 #include <cblas.h>
 #include <dirent.h>
 #include <errno.h>

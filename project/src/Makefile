@@ -9,8 +9,9 @@ CFLAGS_BASE = -Wall -Wextra \
     -I/usr/local/Cellar/gsl/2.8/include \
     -I/usr/local/opt/libomp/include \
     -Xpreprocessor -fopenmp \
-    -I/usr/local/opt/llvm/include -Iutils \
-    -I/usr/local/Cellar/cjson/1.7.18/include -I.
+    -I/usr/local/opt/llvm/include \
+    -I/usr/local/Cellar/cjson/1.7.18/include \
+	-I/Library/Frameworks/R.framework/Versions/4.2/PrivateHeaders -I. -Iutils
 
 # Linker Flags
 LDFLAGS_LIB_BASE = -L/usr/local/opt/openblas/lib \
@@ -20,7 +21,8 @@ LDFLAGS_LIB_BASE = -L/usr/local/opt/openblas/lib \
     -lopenblas -lgsl -lgslcblas -lomp \
     -Wl,-rpath,@executable_path/libs \
     -L/usr/local/Cellar/cjson/1.7.18/lib \
-    -lcjson
+	-L/Library/Frameworks/R.framework/Versions/4.2/Resources/lib \
+    -lcjson -lR
 
 LDFLAGS_EXEC_BASE = $(LDFLAGS_LIB_BASE)
 
@@ -105,6 +107,18 @@ $(BUILDDIR)/%.o: %.c
 # Include dependency files
 -include $(DEPS)
 
+r:
+	R CMD SHLIB -o util.so -I. -Iutils -I/usr/local/opt/openblas/include \
+		-I/usr/local/Cellar/gsl/2.8/include -I/usr/local/opt/libomp/include \
+		-Xpreprocessor -fopenmp -I/usr/local/opt/llvm/include \
+		-I/usr/local/Cellar/cjson/1.7.18/include \
+		-I/Library/Frameworks/R.framework/Versions/4.2/PrivateHeaders \
+		main.c exact.c multivariate-pdf.c multinomial.c \
+		multivariate-cdf.c hitAndRun.c utils/matrixUtils.c \
+		utils/instanceGenerator.c utils/fileutils.c \
+		utils/memoizationUtil.c utils/multivariateUtils.c \
+		utils/combinations.c R_interface.c
+	
 # Clean build artifacts
 clean:
 	rm -rf $(BUILDDIR)

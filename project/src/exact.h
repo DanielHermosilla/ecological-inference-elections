@@ -2,8 +2,8 @@
 #define COMPUTE_EXACT_H
 
 #include "globals.h"
-#include "matrixUtils.h"
-#include "memoizationUtil.h"
+#include "utils/matrixUtils.h"
+#include "utils/memoizationUtil.h"
 
 // ---- Define a structure to store the sets ---- //
 typedef struct
