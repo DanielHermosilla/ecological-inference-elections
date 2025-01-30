@@ -213,6 +213,8 @@ void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *co
         // ---- Free unnecesary space ----
         freeMatrix(&matrixMultiplications[g]);
         freeMatrix(&diagonalProbabilities[g]);
+        // free(&diagonalProbabilities[g]);
+        // free(&matrixMultiplications[g]);
     }
     // ---- Free space ----
     free(matrixMultiplications);

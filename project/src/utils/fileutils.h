@@ -64,6 +64,6 @@ void writeResults(const char *outputFileName, const char *inputFileName, const c
  */
 void writeResultsJSON(const char *outputFileName, const char *inputFileName, const char *methodUsed,
                       const double convergence, const double iterations, const double time, const int iterationsMade,
-                      const Matrix *pReal, const Matrix *pCalculated, int S, int M, bool hit);
+                      const Matrix *pReal, const Matrix *pCalculated, const double *logLL, int S, int M, bool hit);
 
 #endif

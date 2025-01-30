@@ -176,7 +176,7 @@ void printMatrix(const Matrix *matrix)
         printf("| ");
         for (int j = 0; j < matrix->cols; j++)
         {
-            printf("%.5f\t ", matrix->data[(i) * (matrix->cols) + (j)]);
+            printf("%.10f  ", matrix->data[(i) * (matrix->cols) + (j)]);
         }
         printf(" |\n");
     }

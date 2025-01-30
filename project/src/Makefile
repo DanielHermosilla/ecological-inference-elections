@@ -25,7 +25,7 @@ LDFLAGS_LIB_BASE = -L/usr/local/opt/openblas/lib \
 LDFLAGS_EXEC_BASE = $(LDFLAGS_LIB_BASE)
 
 # Debug-specific Flags
-CFLAGS_DEBUG = -g -fsanitize=address -fsanitize=leak
+CFLAGS_DEBUG = -O1 -g -fsanitize=address -fsanitize=leak -fno-omit-frame-pointer
 LDFLAGS_DEBUG = $(LDFLAGS_EXEC_BASE)
 
 # Release-specific Flags

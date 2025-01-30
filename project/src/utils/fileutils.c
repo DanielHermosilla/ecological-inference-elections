@@ -215,6 +215,8 @@ void readJSONAndStoreMatrices(const char *filename, Matrix *w, Matrix *x, Matrix
         }
     }
 
+    freeMatrix(&rMatrix);
+
     cJSON_Delete(json);
     free(jsonContent);
 }
@@ -345,13 +347,13 @@ void writeResults(const char *outputFileName, const char *inputFileName, const c
  */
 void writeResultsJSON(const char *outputFileName, const char *inputFileName, const char *methodUsed,
                       const double convergence, const double iterations, const double time, const int iterationsMade,
-                      const Matrix *pReal, const Matrix *pCalculated, int S, int M, bool hit)
+                      const Matrix *pReal, const Matrix *pCalculated, const double *LL, int S, int M, bool hit)
 {
     // Ensure the directory for the output file exists
     char *pathCopy = strdup(outputFileName);
     char *directory = dirname(pathCopy);
     makeDirectories(directory);
-    printf("the file name is %s", outputFileName);
+    // printf("the file name is %s", outputFileName);
     struct stat st = {0};
     if (stat(directory, &st) == -1)
     {
@@ -413,6 +415,15 @@ void writeResultsJSON(const char *outputFileName, const char *inputFileName, con
     }
     cJSON_AddItemToObject(root, "estimated_matrix", calculatedMatrix);
 
+    // Add loglikelihood array
+    cJSON *logLikelihoodArray = cJSON_CreateArray();
+
+    for (int i = 0; i < iterationsMade + 1; i++)
+    {
+        cJSON_AddItemToArray(logLikelihoodArray, cJSON_CreateNumber(LL[i]));
+    }
+    cJSON_AddItemToObject(root, "log_likelihood", logLikelihoodArray);
+
     // Serialize JSON to string
     char *jsonString = cJSON_Print(root);
 
@@ -429,7 +440,7 @@ void writeResultsJSON(const char *outputFileName, const char *inputFileName, con
     fclose(file);
 
     // Clean up
-    cJSON_Delete(root);
+    cJSON_Delete(root); // It frees child objects too
     free(jsonString);
 
     printf("Results successfully written to %s\n", outputFileName);

@@ -13,6 +13,7 @@
 #include <cblas.h>
 #include <dirent.h>
 #include <errno.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -230,6 +231,34 @@ Matrix getInitialP(const char *p_method)
     return probabilities;
 }
 
+double logLikelihood(Matrix *prob, double *q)
+{
+    // ---- Define the summatory for the log-likelihood ---- //
+    double logLL = 0;
+    // ---- Outer summatory ----
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    { // --- For each ballot box
+        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+        { // --- For each group, given a ballot box
+            // ---- Inner summatory
+            double cSummatory = 0;
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            { // --- For each candidate, given a group and a ballot box
+                double num = MATRIX_AT_PTR(prob, g, c);
+                double den = Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES);
+                if (den == 0)
+                    den = 1e-9;
+                if (num == 0)
+                    num = 1e-9;
+                double qval = den;
+                cSummatory += qval * log(num / den);
+            } // --- End c loop
+            logLL += MATRIX_AT_PTR(W, b, g) * cSummatory;
+        } // --- End g loop
+    } // --- End b loop
+    // ---...--- //
+    return logLL;
+}
 /*
  * @brief Computes the optimal solution for the `M` step
  *
@@ -302,7 +331,7 @@ Matrix getP(const double *q)
  *
  */
 Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
-                  const bool verbose, double *time, int *iterTotal)
+                  const bool verbose, double *time, int *iterTotal, double **logLLarr)
 {
 
     // ---- Error handling ---- //
@@ -327,6 +356,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     }
 
     double *q;
+    *logLLarr = (double *)malloc(maxIter * sizeof(double));
 
     // Start timer
     struct timespec start, end, iter_start, iter_end; // Declare timers for overall and per-iteration
@@ -377,7 +407,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
 
         // ---- Check convergence ---- //
         Matrix newProbability = getP(q);
-        free(q);
+
         if (convergeMatrix(&newProbability, currentP, convergence))
         {
             // End timer
@@ -385,13 +415,19 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             elapsed_total += (iter_end.tv_sec - iter_start.tv_sec) + (iter_end.tv_nsec - iter_start.tv_nsec) / 1e9;
             double elapsed_total = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
 
+            (*logLLarr)[i] = logLikelihood(&newProbability, q);
             if (verbose)
             {
-                printf("The convergence was found on iteration %d and took %.5f seconds!\n", i, elapsed_total);
+                printf("The convergence was found on iteration %d, with a log-likelihood of %.4f  and took %.5f "
+                       "seconds!\n",
+                       i, *logLLarr[i], elapsed_total);
             }
+            double *resizedLog = (double *)realloc(*logLLarr, (i + 1) * sizeof(double));
+            *logLLarr = resizedLog;
             *time = elapsed_total;
             *iterTotal = i;
             freeMatrix(currentP);
+            free(q);
             return newProbability;
         }
         // ---- Convergence wasn't found ----
@@ -404,13 +440,28 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             printf("Iteration %d took %.5f seconds.\n", i, elapsed_iter);
         }
 
+        (*logLLarr)[i] = logLikelihood(currentP, q);
+        free(q);
         freeMatrix(currentP);
+
         *currentP = createMatrix(newProbability.rows, newProbability.cols);
         memcpy(currentP->data, newProbability.data, sizeof(double) * newProbability.rows * newProbability.cols);
         freeMatrix(&newProbability);
+
+        if (i != 0 && (*logLLarr)[i] < (*logLLarr)[i - 1])
+        {
+            printf("Early exit; log-likelihood decreased\n");
+            *iterTotal = i;
+            *time = elapsed_total;
+            double *resizedLog = (double *)realloc(*logLLarr, (i + 1) * sizeof(double));
+            *logLLarr = resizedLog;
+            return *currentP;
+        }
     }
     printf("Maximum iterations reached without convergence.\n"); // Print even if there's not verbose, might change
-    // later.
+                                                                 // later.
+    *iterTotal = maxIter;
+    *time = elapsed_total;
     return *currentP;
 }
 
@@ -441,7 +492,7 @@ bool noVotes(int *canArray)
 }
 
 // ---- Clean all of the global variables ---- //
-__attribute__((destructor)) // Executes when the library is ready
+// __attribute__((destructor)) // Executes when the library is ready
 void cleanup()
 {
     TOTAL_VOTES = 0;
@@ -522,7 +573,10 @@ int main(int argc, char *argv[])
 
         // ---- Get the candidate and group size ----
         sscanf(fileName, "J%d_M%*d_G%d_I%d_L%*d_seed%d.json", &J, &G, &CAm, &seed);
+        printf("\n----- Groups: %d\t Candidates: %d\t Seed: %d -----\n", G, CAm, seed);
 
+        // if (G != 2 || CAm != 10 || seed != 12)
+        //    continue;
         // ---- Construct the full path to the JSON file ---- //
         char jsonFile[5000];
         snprintf(jsonFile, sizeof(jsonFile), "%s/%s", instanceDirectory, fileName);
@@ -538,6 +592,8 @@ int main(int argc, char *argv[])
 
         // ---- Start the main algorithm ---- //
         setParameters(&XX1, &GG1);
+        // printMatrix(&XX1);
+        // printMatrix(&GG1);
         int *votingArr = calloc(TOTAL_CANDIDATES, sizeof(int));
         bool emptyVotes = noVotes(votingArr);
         int pastCandidates = TOTAL_CANDIDATES;
@@ -575,8 +631,9 @@ int main(int argc, char *argv[])
         double itr = 10000;
         double timeIter = 0;
         int totalIter = 0;
+        double *logLLresults = NULL;
 
-        Matrix Pnew = EMAlgoritm(&P, inputMethod, conv, itr, false, &timeIter, &totalIter);
+        Matrix Pnew = EMAlgoritm(&P, inputMethod, conv, itr, false, &timeIter, &totalIter, &logLLresults);
         if (emptyVotes)
         {
             for (uint16_t c = 0; c < pastCandidates; c++)
@@ -585,14 +642,16 @@ int main(int argc, char *argv[])
                     addColumnOfZeros(&Pnew, c);
             }
         }
+        free(votingArr);
 
     results:
-        writeResultsJSON(outputFile, jsonFile, inputMethod, conv, itr, timeIter, totalIter, &PP1, &Pnew, 1000, 3000,
-                         false);
+        writeResultsJSON(outputFile, jsonFile, inputMethod, conv, itr, timeIter, totalIter, &PP1, &Pnew, logLLresults,
+                         1000, 3000, false);
         // ---...--- //
 
         // ---- Free the memory ---- //
         cleanup();
+        free(logLLresults);
         freeMatrix(&Pnew);
         freeMatrix(&PP1);
         freeMatrix(&XX1);
