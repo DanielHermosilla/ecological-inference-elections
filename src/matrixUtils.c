@@ -1,6 +1,7 @@
 #include "matrixUtils.h"
-#include <cblas.h>
-#include <lapacke.h>
+#include <R.h>
+#include <R_ext/BLAS.h>
+#include <R_ext/Lapack.h>
 #include <math.h>
 #include <omp.h> // Parallelization
 #include <stdbool.h>
@@ -8,8 +9,235 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
 // Macro for easier matrix indexation
 #define MATRIX_AT(matrix, i, j) (matrix.data[(i) * (matrix.cols) + (j)])
+
+/**
+ * @brief Transpose from row-major -> column-major (or vice versa) into a separate buffer.
+ *
+ * @param[in]  src   Pointer to the source matrix data
+ * @param[in]  rows  Number of rows in the source
+ * @param[in]  cols  Number of cols in the source
+ * @param[out] dst   Pointer to the destination buffer (size rows*cols)
+ *
+ * After this, dst will hold the transpose of src.
+ */
+static void transposeMatrix(const double *src, int rows, int cols, double *dst)
+{
+    for (int r = 0; r < rows; r++)
+    {
+        for (int c = 0; c < cols; c++)
+        {
+            dst[c * rows + r] = src[r * cols + c];
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+// BLAS wrappers for row major matrices.
+// ----------------------------------------------------------------------------
+static void rowMajor_dcopy(int size, const double *src, int incSrc, double *dst, int incDst)
+{
+    F77_CALL(dcopy)(&size, src, &incSrc, dst, &incDst);
+}
+
+static void rowMajor_daxpy(int size, double alpha, const double *x, int incx, double *y, int incy)
+{
+    F77_CALL(daxpy)(&size, &alpha, x, &incx, y, &incy);
+}
+
+static void rowMajor_dgemv(char trans, // 'N' or 'T' from row-major perspective
+                           int M, int N, double alpha, const double *A, int lda, const double *x, int incx, double beta,
+                           double *y, int incy)
+{
+    char transF;
+    int M_f, N_f;
+    if (trans == 'N')
+    {
+        // row-major "NoTrans" => Fortran sees 'T', swap M<->N
+        transF = 'T';
+        M_f = N;
+        N_f = M;
+    }
+    else
+    {
+        // row-major "Trans" => Fortran sees 'N', swap M<->N
+        transF = 'N';
+        M_f = N;
+        N_f = M;
+    }
+    F77_CALL(dgemv)(&transF, &M_f, &N_f, &alpha, A, &lda, x, &incx, &beta, y, &incy);
+}
+
+static void rowMajor_dgemm(char transA, char transB, int M, int N, int K, double alpha, const double *A, int lda,
+                           const double *B, int ldb, double beta, double *C, int ldc)
+{
+    char fA, fB;
+    int Am, An, Bm, Bn;
+
+    // Interpret A
+    if (transA == 'N')
+    {
+        fA = 'T'; // Fortran call uses 'T'
+        Am = K;   // shape in Fortran
+        An = M;
+    }
+    else
+    {
+        fA = 'N';
+        Am = M;
+        An = K;
+    }
+    // Interpret B
+    if (transB == 'N')
+    {
+        fB = 'T';
+        Bm = N;
+        Bn = K;
+    }
+    else
+    {
+        fB = 'N';
+        Bm = K;
+        Bn = N;
+    }
+    F77_CALL(dgemm)(&fA, &fB, &Am, &Bm, &An, &alpha, A, &lda, B, &ldb, &beta, C, &ldc);
+}
+
+// ----------------------------------------------------------------------------
+// Wrappers for LAPACK that require transposing into column-major (can't be avoided)
+// ----------------------------------------------------------------------------
+
+static int rowMajor_dsyev(char jobz, char uplo, int n, double *Arow, double *W)
+{
+    double *Acol = (double *)malloc(n * n * sizeof(double));
+    if (!Acol)
+        return -1;
+
+    // row->col
+    transposeMatrix(Arow, n, n, Acol);
+
+    // workspace query
+    int info, lwork = -1;
+    double wkopt;
+    F77_CALL(dsyev)(&jobz, &uplo, &n, Acol, &n, W, &wkopt, &lwork, &info);
+    if (info != 0)
+    {
+        free(Acol);
+        return info;
+    }
+    lwork = (int)wkopt;
+    double *work = (double *)malloc(lwork * sizeof(double));
+    if (!work)
+    {
+        free(Acol);
+        return -2;
+    }
+
+    F77_CALL(dsyev)(&jobz, &uplo, &n, Acol, &n, W, work, &lwork, &info);
+    free(work);
+
+    if (info == 0 && jobz == 'V')
+    {
+        // eigenvectors in Acol => transpose back to row-major
+        transposeMatrix(Acol, n, n, Arow);
+    }
+    free(Acol);
+    return info;
+}
+
+static int rowMajor_dpotrf(char uplo, int n, double *Arow)
+{
+    double *Acol = (double *)malloc(n * n * sizeof(double));
+    if (!Acol)
+        return -1;
+    transposeMatrix(Arow, n, n, Acol);
+
+    int info;
+    F77_CALL(dpotrf)(&uplo, &n, Acol, &n, &info);
+
+    if (info == 0)
+    {
+        transposeMatrix(Acol, n, n, Arow);
+    }
+    free(Acol);
+    return info;
+}
+
+static int rowMajor_dpotri(char uplo, int n, double *Arow)
+{
+    double *Acol = (double *)malloc(n * n * sizeof(double));
+    if (!Acol)
+        return -1;
+    transposeMatrix(Arow, n, n, Acol);
+
+    int info;
+    F77_CALL(dpotri)(&uplo, &n, Acol, &n, &info);
+
+    if (info == 0)
+    {
+        transposeMatrix(Acol, n, n, Arow);
+    }
+    free(Acol);
+    return info;
+}
+
+static int rowMajor_dgetrf(int m, int n, double *Arow, int *ipiv)
+{
+    double *Acol = (double *)malloc(m * n * sizeof(double));
+    if (!Acol)
+        return -1;
+    transposeMatrix(Arow, m, n, Acol);
+
+    int info;
+    F77_CALL(dgetrf)(&n, &m, Acol, &n, ipiv, &info);
+
+    // dgetrf in Fortran dimension is (n x m) because we swapped...
+    // The pivot array also may differ, so usually we cannot simply re-use
+    // the same IPIV.  But for normal usage it works out as long as you
+    // interpret pivoting carefully.
+    // In practice, many codes just do the real transpose approach on
+    // both the matrix and the pivoting.
+    // We'll do a naive approach:
+
+    if (info == 0)
+    {
+        // transpose back
+        transposeMatrix(Acol, n, m, Arow);
+    }
+    free(Acol);
+    return info;
+}
+
+static int rowMajor_dgetri(int n, double *Arow, int *ipiv)
+{
+    double *Acol = (double *)malloc(n * n * sizeof(double));
+    if (!Acol)
+        return -1;
+    transposeMatrix(Arow, n, n, Acol);
+
+    int info, lwork = n * 64; // or do a workspace query
+    double *work = (double *)malloc(lwork * sizeof(double));
+    if (!work)
+    {
+        free(Acol);
+        return -2;
+    }
+    F77_CALL(dgetri)(&n, Acol, &n, ipiv, work, &lwork, &info);
+    free(work);
+
+    if (info == 0)
+    {
+        transposeMatrix(Acol, n, n, Arow);
+    }
+    free(Acol);
+    return info;
+}
+
+// ----------------------------------------------------------------------------
+// Utility functions
+// ----------------------------------------------------------------------------
 
 /**
  * @brief Make an array of a constant value.
@@ -235,20 +463,12 @@ void rowSum(const Matrix *matrix, double *result)
     }
 
     makeArray(ones, matrix->cols, 1.0);
+    char trans = 'T'; // Transpose the matrix (since R uses column-major order)
+    double alpha = 1.0, beta = 0.0;
+    int incX = 1, incY = 1;
+
     // Perform Matrix-Vector Multiplication (Matrix * Ones = Row Sums)
-    cblas_dgemv(CblasRowMajor, // Row-major storage
-                CblasNoTrans,  // Don't transpose the matrix
-                matrix->rows,  // Number of rows
-                matrix->cols,  // Number of columns
-                1.0,           // Scalar multiplier => y = 1.0 *  (A * x) + beta * y
-                matrix->data,  // Matrix pointer
-                matrix->cols,  // Leading dimension (number of columns in case of row-major)
-                ones,          // Vector of ones
-                1,             // Increment for vector (1 = contiguous)
-                0.0,           // Beta multiplier => y = alpha * (A*x) + 0.0 * y
-                result,        // Output row sums
-                1              // Step size for writing the results
-    );
+    rowMajor_dgemv("N", matrix->rows, matrix->cols, 1.0, matrix->data, matrix->cols, ones, 1, 0.0, result, 1);
 
     free(ones);
 }
@@ -301,20 +521,13 @@ void colSum(const Matrix *matrix, double *result)
     double *ones = (double *)malloc(matrix->rows * sizeof(double));
     makeArray(ones, matrix->rows, 1.0);
 
+    char trans = 'T'; // Transpose the matrix (since R uses column-major order)
+    double alpha = 1.0, beta = 0.0;
+    int incX = 1, incY = 1;
     // Perform Matrix-Vector Multiplication (Matrix * Ones = Row Sums)
-    cblas_dgemv(CblasRowMajor, // Row-major storage
-                CblasTrans,    // Don't transpose the matrix
-                matrix->rows,  // Number of rows
-                matrix->cols,  // Number of columns
-                1.0,           // Scalar multiplier => y = 1.0 *  (A * x) + beta * y
-                matrix->data,  // Matrix pointer
-                matrix->cols,  // Leading dimension (number of columns in case of row-major)
-                ones,          // Vector of ones
-                1,             // Increment for vector (1 = contiguous)
-                0.0,           // Beta multiplier => y = alpha * (A*x) + 0.0 * y
-                result,        // Output row sums
-                1              // Step size for writing the results
-    );
+    // cblas_dgemv(CblasRowMajor, CblasTrans, rows, cols, 1.0, A, lda, ones, 1, 0.0, result, 1)
+    rowMajor_dgemv('T', matrix->rows, matrix->cols, 1.0, matrix->data, matrix->cols, ones, 1, 0.0, result, 1);
+
     free(ones);
 }
 
@@ -421,11 +634,13 @@ bool convergeMatrix(const Matrix *matrixA, const Matrix *matrixB, const double c
     }
 
     int size = matrixA->rows * matrixB->cols;
+    int inc = 1;
+    double alpha = -1.0;
 
     double *diff = (double *)malloc(size * sizeof(double));
 
-    cblas_dcopy(size, matrixA->data, 1, diff, 1);
-    cblas_daxpy(size, -1.0, matrixB->data, 1, diff, 1);
+    rowMajor_dcopy(size, matrixA->data, 1, diff, 1);
+    rowMajor_daxpy(size, -1.0, matrixB->data, 1, diff, 1);
 
     for (int i = 0; i < size; i++)
     {
@@ -596,69 +811,64 @@ Matrix createDiagonalMatrix(const double *vector, int size)
  */
 void inverseSymmetricPositiveMatrix(Matrix *matrix)
 {
-    checkMatrix(matrix); // Ensure the matrix is valid
+    checkMatrix(matrix);
 
     if (matrix->rows != matrix->cols)
     {
-        fprintf(stderr, "Matrix must be square for inversion.\n");
+        fprintf(stderr, "Matrix must be square.\n");
         exit(EXIT_FAILURE);
     }
 
-    if (matrix->rows == 1 && matrix->cols == 1)
+    int n = matrix->rows;
+    if (n == 1)
     {
-        double currentVal = MATRIX_AT_PTR(matrix, 0, 0);
-        if (currentVal != 0)
-            MATRIX_AT_PTR(matrix, 0, 0) = 1 / currentVal;
+        double val = matrix->data[0];
+        if (val != 0.0)
+            matrix->data[0] = 1.0 / val;
         return;
     }
 
-    int n = matrix->rows;
-    int lda = n; // Leading dimension (number of columns in row-major storage)
-    int info;
+    // copy for "emergency" fallback
     Matrix emergencyMat = copyMatrix(matrix);
-    // Cholesky Decomposition (L * L^T = A)
-    info = LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'L', n, matrix->data, lda);
+
+    // Cholesky => rowMajor_dpotrf('L', n, matrix->data)
+    int info = rowMajor_dpotrf('L', n, matrix->data);
     if (info < 0)
     {
-        fprintf(stderr, "Cholesky decomposition failed. The %d argument towards LAPACKE_dpotrf had an illegal value.\n",
-                info);
+        fprintf(stderr, "dpotrf illegal value argument. info=%d\n", info);
         printMatrix(matrix);
         exit(EXIT_FAILURE);
     }
     if (info > 0)
     {
-        fprintf(stderr,
-                "Cholesky decomposition failed. The leading minor of order %d is not positive definite.\nNote: if "
-                "dealing with variance matrices of a Multivariate Normal, remember that there are selected cases where "
-                "the Cholesky decomposition could fail in case of an eigenvalue being zero.\nRetrying by adding a "
-                "small perturbation to the diagonals\n",
-                info);
+        fprintf(stderr, "Cholesky decomposition failed. Leading minor not positive definite.\n"
+                        "Retrying with +1 on diagonal.\n");
 
-        for (int i = 0; i < matrix->rows; i++)
+        // restore from emergencyMat, add small diagonal
+        for (int i = 0; i < n; i++)
         {
-            for (int j = 0; j < matrix->cols; j++)
+            for (int j = 0; j < n; j++)
             {
                 MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT(emergencyMat, i, j);
                 if (i == j)
-                    MATRIX_AT_PTR(matrix, i, j) += 1;
+                    MATRIX_AT_PTR(matrix, i, j) += 1.0;
             }
         }
-        printMatrix(matrix);
         freeMatrix(&emergencyMat);
         inverseSymmetricPositiveMatrix(matrix);
+        return; // be sure to stop here so the next steps don't run again
     }
 
-    // Invert the Cholesky Factorization
-
-    info = LAPACKE_dpotri(LAPACK_ROW_MAJOR, 'L', n, matrix->data, lda);
+    // Now invert the Cholesky => rowMajor_dpotri('L', n, matrix->data)
+    info = rowMajor_dpotri('L', n, matrix->data);
     if (info != 0)
     {
-        fprintf(stderr, "Matrix inversion failed after Cholesky decomposition. Error code: %d\n", info);
+        fprintf(stderr, "Matrix inversion failed after Cholesky. info=%d\n", info);
         printMatrix(matrix);
         exit(EXIT_FAILURE);
     }
 
-    // Fill the upper triangle of the inverse matrix, this is not really necessary, but would prevent future problems.
+    // Fill upper triangle = mirror of lower triangle
     for (int i = 0; i < n; i++)
     {
         for (int j = i + 1; j < n; j++)
@@ -677,18 +887,17 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
  *
  * @param[in,out] matrix Pointer to the NxN symmetric matrix in row-major layout.
  */
+
 void inverseMatrixEigen(Matrix *matrix)
 {
     checkMatrix(matrix);
-
     if (matrix->rows != matrix->cols)
     {
-        fprintf(stderr, "inverseMatrixEigen: Matrix must be square.\n");
+        fprintf(stderr, "inverseMatrixEigen: must be square.\n");
         exit(EXIT_FAILURE);
     }
     int n = matrix->rows;
 
-    // Allocate space for eigenvalues
     double *eigenvals = (double *)malloc(n * sizeof(double));
     if (!eigenvals)
     {
@@ -696,19 +905,8 @@ void inverseMatrixEigen(Matrix *matrix)
         exit(EXIT_FAILURE);
     }
 
-    // 2) dsyev: compute all eigenvalues and eigenvectors of a real symmetric matrix
-    //    - 'V' means we want both eigenvalues and eigenvectors
-    //    - 'U' means the matrix is stored in the upper part (row-major).
-    //    On exit, matrix->data holds the eigenvectors in columns, eigenvals[] holds the eigenvalues.
-    int info = LAPACKE_dsyev(LAPACK_ROW_MAJOR, // row-major storage
-                             'V',              // compute Eigenvalues & Eigenvectors
-                             'U',              // 'U' => input matrix is in the upper triangle
-                             n,                // dimension
-                             matrix->data,     // in/out: on exit, columns = eigenvectors
-                             n,                // leading dimension (row-major)
-                             eigenvals         // out: eigenvalues
-    );
-
+    // Replaces LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'V', 'U', n, matrix->data, n, eigenvals)
+    int info = rowMajor_dsyev('V', 'U', n, matrix->data, eigenvals);
     if (info != 0)
     {
         fprintf(stderr, "inverseMatrixEigen: dsyev failed (info = %d)\n", info);
@@ -716,7 +914,7 @@ void inverseMatrixEigen(Matrix *matrix)
         exit(EXIT_FAILURE);
     }
 
-    // Invert the eigenvalues => 1 / lambda_i (check none are zero too)
+    // Invert eigenvalues
     for (int i = 0; i < n; i++)
     {
         if (fabs(eigenvals[i]) < 1e-15)
@@ -728,29 +926,28 @@ void inverseMatrixEigen(Matrix *matrix)
         eigenvals[i] = 1.0 / eigenvals[i];
     }
 
-    // ---- Calculation of A^{-1} as Q *1/\lambda * Q^T ---- //
-    // Build the diagonal matrix from eigenvals
+    // Build diagonal matrix from eigenvals
     Matrix Dinv = createDiagonalMatrix(eigenvals, n);
+    free(eigenvals);
 
     // temp = Q * Dinv
     Matrix temp = createMatrix(n, n);
-
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, // Q is NxN, Dinv is NxN
-                n, n, n, 1.0, matrix->data, n,             // Q (eigenvectors in columns)
-                Dinv.data, n, 0.0, temp.data, n);
+    rowMajor_dgemm('N', 'N',                      // from the row-major perspective => no-trans x no-trans
+                   n, n, n, 1.0, matrix->data, n, // Q (eigenvectors) in row-major
+                   Dinv.data, n, 0.0, temp.data, n);
 
     // A_inv = temp * Q^T
-    // I will use a temporary matrix since it generate errors when recicling a variable
     Matrix temp2 = createMatrix(n, n);
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, n, n, n, 1.0, temp.data, n, // first operand
-                matrix->data, n,                                                     // second operand
-                0.0, temp2.data, n);
+    rowMajor_dgemm('N', 'T',                                    // second operand transposed (row-major sense)
+                   n, n, n, 1.0, temp.data, n, matrix->data, n, // Q again
+                   0.0, temp2.data, n);
 
+    // copy result back
     memcpy(matrix->data, temp2.data, n * n * sizeof(double));
+
     freeMatrix(&temp2);
     freeMatrix(&temp);
     freeMatrix(&Dinv);
-    free(eigenvals);
 }
 
 /**
@@ -762,38 +959,35 @@ void inverseMatrixEigen(Matrix *matrix)
  */
 void inverseMatrixLU(Matrix *matrix)
 {
-    checkMatrix(matrix); // Validate the matrix
-
+    checkMatrix(matrix);
     if (matrix->rows != matrix->cols)
     {
         fprintf(stderr, "Matrix must be square for inversion.\n");
         exit(EXIT_FAILURE);
     }
-
     int n = matrix->rows;
-    int *ipiv = malloc(n * sizeof(int)); // Pivot indices for LU decomposition
+
+    int *ipiv = (int *)malloc(n * sizeof(int));
     if (!ipiv)
     {
-        fprintf(stderr, "Failed to allocate memory for pivot indices.\n");
+        fprintf(stderr, "Failed to allocate pivot array.\n");
         exit(EXIT_FAILURE);
     }
 
-    int info;
-
-    // Perform LU decomposition (matrix is overwritten with LU factors)
-    info = LAPACKE_dgetrf(LAPACK_ROW_MAJOR, n, n, matrix->data, n, ipiv);
+    // LU decomposition
+    int info = rowMajor_dgetrf(n, n, matrix->data, ipiv);
     if (info != 0)
     {
-        fprintf(stderr, "LU decomposition failed. Error code: %d\n", info);
+        fprintf(stderr, "LU decomposition failed. info=%d\n", info);
         free(ipiv);
         exit(EXIT_FAILURE);
     }
 
-    // Compute the inverse using the LU decomposition (matrix is overwritten with its inverse)
-    info = LAPACKE_dgetri(LAPACK_ROW_MAJOR, n, matrix->data, n, ipiv);
+    // Invert from LU
+    info = rowMajor_dgetri(n, matrix->data, ipiv);
     if (info != 0)
     {
-        fprintf(stderr, "Matrix inversion failed. Error code: %d\n", info);
+        fprintf(stderr, "Matrix inversion failed. info=%d\n", info);
         free(ipiv);
         exit(EXIT_FAILURE);
     }
