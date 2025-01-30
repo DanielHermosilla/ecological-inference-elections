@@ -231,6 +231,19 @@ Matrix getInitialP(const char *p_method)
     return probabilities;
 }
 
+/*
+ * @brief Computes the log-likelihood for a given probability and `q` array
+ *
+ * Given the conditional probability and the array, it computes the log-likelihood as defined in the paper.
+ *
+ * @param[in] q Array of matrices of dimension (bxgxc) that represents the probability that a voter of group "g" in
+ * ballot box "b" voted for candidate "c" conditional on the observed result.
+ * @param[in] prob A matrix of the calculated probabilities
+ *
+ * @return The value of the log-likelihood.
+ *
+ */
+
 double logLikelihood(Matrix *prob, double *q)
 {
     // ---- Define the summatory for the log-likelihood ---- //
@@ -259,6 +272,7 @@ double logLikelihood(Matrix *prob, double *q)
     // ---...--- //
     return logLL;
 }
+
 /*
  * @brief Computes the optimal solution for the `M` step
  *
@@ -422,15 +436,19 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
                        "seconds!\n",
                        i, *logLLarr[i], elapsed_total);
             }
+
+            // ---- Calculate the final values ---- //
             double *resizedLog = (double *)realloc(*logLLarr, (i + 1) * sizeof(double));
             *logLLarr = resizedLog;
             *time = elapsed_total;
             *iterTotal = i;
+            // ---...--- //
             freeMatrix(currentP);
             free(q);
             return newProbability;
         }
         // ---- Convergence wasn't found ----
+        // ---- Stop the timer for external calculations that aren't related to the algorithm ----
         clock_gettime(CLOCK_MONOTONIC, &iter_end);
         double elapsed_iter = (iter_end.tv_sec - iter_start.tv_sec) + (iter_end.tv_nsec - iter_start.tv_nsec) / 1e9;
         elapsed_total += elapsed_iter;
@@ -440,17 +458,21 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             printf("Iteration %d took %.5f seconds.\n", i, elapsed_iter);
         }
 
+        // ---- Calculate the log-likelihood before freeing the array ----
         (*logLLarr)[i] = logLikelihood(currentP, q);
         free(q);
         freeMatrix(currentP);
 
+        // ---- Redefine the current probability matrix ----
         *currentP = createMatrix(newProbability.rows, newProbability.cols);
         memcpy(currentP->data, newProbability.data, sizeof(double) * newProbability.rows * newProbability.cols);
         freeMatrix(&newProbability);
 
+        // ---- Handle the case where the log-likelihood decreases ----
         if (i != 0 && (*logLLarr)[i] < (*logLLarr)[i - 1])
         {
             printf("Early exit; log-likelihood decreased\n");
+            // ---- Save values ----
             *iterTotal = i;
             *time = elapsed_total;
             double *resizedLog = (double *)realloc(*logLLarr, (i + 1) * sizeof(double));

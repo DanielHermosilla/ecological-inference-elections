@@ -37,7 +37,7 @@ def readFilesAndWrite(input, output):
 
                 # Process each (G, C) group
     for (G, C), json_list in groupedData.items():
-        mean_results = computeMeans(json_list)
+        mean_results = computeMeans(json_list, int(G), int(C))
         outputFilename = f"G{G}C{C}.json"
         outputPath = os.path.join(output, outputFilename)
 
@@ -47,7 +47,7 @@ def readFilesAndWrite(input, output):
         print(f"Processed Group {G}, Candidates {C} -> Saved to {outputPath}")
 
 
-def computeMeans(json_list):
+def computeMeans(json_list, G, C):
     """
     Computes mean for:
     - The last element of 'log_likelihood' across multiple JSONs in a group.
@@ -57,6 +57,9 @@ def computeMeans(json_list):
     logLikelihoodLastVal = []
     timeTakenLastVal = []
     iterationsMadeLastVal = []
+    groundTruth = []
+    estimated = []
+    mean_abs_differences = []
 
     for data in json_list:
         try:
@@ -75,8 +78,31 @@ def computeMeans(json_list):
                 data["iterations_made"], (int, float)
             ):
                 iterationsMadeLastVal.append(data["iterations_made"])
+
+            if "ground_truth_matrix" in data:
+                groundTruth.append(np.array(data["ground_truth_matrix"]))
+
+            if "estimated_matrix" in data:
+                estimated.append(np.array(data["estimated_matrix"]))
+
+            if "ground_truth_matrix" in data and "estimated_matrix" in data:
+                gt_matrix = np.array(data["ground_truth_matrix"])
+                est_matrix = np.array(data["estimated_matrix"])
+
+                # Ensure both matrices have the same shape
+                if gt_matrix.shape == est_matrix.shape:
+                    abs_diff_matrix = np.abs(
+                        gt_matrix - est_matrix
+                    )  # Element-wise absolute difference
+                    mean_abs_diff = np.mean(
+                        abs_diff_matrix
+                    )  # Single mean absolute difference for this JSON
+                    mean_abs_differences.append(mean_abs_diff)
+                else:
+                    print(f"Skipping mismatched matrices in JSON: {data}")
+
         except:
-            print(f"There's an error in {data}")
+            print(f"There's an error in {data['input_file']}")
 
     # Compute means
     mean_results = {
@@ -86,6 +112,12 @@ def computeMeans(json_list):
         "time_taken_mean": np.mean(timeTakenLastVal) if timeTakenLastVal else None,
         "iterations_made_mean": (
             np.mean(iterationsMadeLastVal) if iterationsMadeLastVal else None
+        ),
+        "absolute_difference": (
+            np.mean(mean_abs_differences) if mean_abs_differences else None
+        ),
+        "MAE": (
+            np.mean(mean_abs_differences) / G * C if mean_abs_differences else None
         ),
     }
 
@@ -123,4 +155,4 @@ if __name__ == "__main__":
     inputAppended = args.input + "/" + args.method + "/100B"
     outputAppended = args.output + "/" + args.method
 
-    readFilesAndWrite(inputAppended, args.output)
+    readFilesAndWrite(inputAppended, outputAppended)
