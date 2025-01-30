@@ -1,2 +1,3 @@
-useDynLib(infPackage, .registration=TRUE)
+useDynLib(infPackage, .registration = TRUE)
+importFrom(Rcpp, evalCpp)
 export(RsetParameters)
