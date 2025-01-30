@@ -2,7 +2,7 @@
 *
 
 # Exclude the "project/" directory from being ignored
-!project/
 
 # Exclude files inside the "project/" directory
 !project/**
+.Rproj.user
