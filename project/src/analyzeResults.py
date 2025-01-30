@@ -113,12 +113,7 @@ def computeMeans(json_list, G, C):
         "iterations_made_mean": (
             np.mean(iterationsMadeLastVal) if iterationsMadeLastVal else None
         ),
-        "absolute_difference": (
-            np.mean(mean_abs_differences) if mean_abs_differences else None
-        ),
-        "MAE": (
-            np.mean(mean_abs_differences) / G * C if mean_abs_differences else None
-        ),
+        "MAE": (np.mean(mean_abs_differences) if mean_abs_differences else None),
     }
 
     return mean_results
