@@ -2,7 +2,15 @@
 *
 
 # Exclude the "project/" directory from being ignored
-!project/
 
 # Exclude files inside the "project/" directory
-!project/**
+!README.md 
+!instances/
+!instances/**
+!R/
+!R/**
+!NAMESPACE
+!DESCRIPTION
+!src/
+!src/**
+.Rproj.user
