@@ -6,6 +6,8 @@ extern "C"
 {
 #endif
 
+#include "globals.h"
+#include "main.h"
 #include "matrixUtils.h"
 
 #ifdef __cplusplus

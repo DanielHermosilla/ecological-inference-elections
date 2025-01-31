@@ -2,7 +2,6 @@
 // #include <R_ext/Rdynload.h>
 //  #include <Rinternals.h>
 #include "main.h"
-#include <cblas.h>
 #include <dirent.h>
 #include <errno.h>
 #include <math.h>
@@ -131,6 +130,7 @@ void setParameters(Matrix *x, Matrix *w)
  * - `x` and `w` dimensions must be coherent.
  *
  */
+/*
 Matrix getInitialP(const char *p_method)
 {
 
@@ -222,7 +222,7 @@ Matrix getInitialP(const char *p_method)
     // ---...--- //
     return probabilities;
 }
-
+*/
 /*
  * @brief Computes the log-likelihood for a given probability and `q` array
  *
@@ -235,7 +235,7 @@ Matrix getInitialP(const char *p_method)
  * @return The value of the log-likelihood.
  *
  */
-
+/*
 double logLikelihood(Matrix *prob, double *q)
 {
     // ---- Define the summatory for the log-likelihood ---- //
@@ -264,7 +264,7 @@ double logLikelihood(Matrix *prob, double *q)
     // ---...--- //
     return logLL;
 }
-
+*/
 /*
  * @brief Computes the optimal solution for the `M` step
  *
@@ -280,7 +280,7 @@ double logLikelihood(Matrix *prob, double *q)
  * Algorithm, unless there's a starting "q" to start with.
  *
  */
-
+/*
 Matrix getP(const double *q)
 {
     // ---- Inititalize variables ---- //
@@ -310,7 +310,7 @@ Matrix getP(const double *q)
     // ---...--- //
     return toReturn;
 }
-
+*/
 /**
  * @brief Implements the whole EM algorithm.
  *
@@ -336,6 +336,7 @@ Matrix getP(const double *q)
  * - `x` and `w` dimensions must be coherent.
  *
  */
+/*
 Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
                   const bool verbose, double *time, int *iterTotal, double **logLLarr)
 {
@@ -478,7 +479,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     *time = elapsed_total;
     return *currentP;
 }
-
+*/
 /**
  * @brief Checks if a candidate didn't receive any votes.
  *
@@ -491,6 +492,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
  * @return bool: A boolean that shows if it exists a candidate with no votes
  *
  */
+/*
 bool noVotes(int *canArray)
 {
     bool toReturn = false;
@@ -504,7 +506,7 @@ bool noVotes(int *canArray)
     }
     return toReturn;
 }
-
+*/
 // ---- Clean all of the global variables ---- //
 // __attribute__((destructor)) // Executes when the library is ready
 void cleanup()
@@ -548,6 +550,7 @@ void cleanup()
         W = NULL;
     }
 }
+/*
 // ---...--- //
 int main(int argc, char *argv[])
 {
@@ -692,3 +695,4 @@ int main(int argc, char *argv[])
 
     return 1;
 }
+*/

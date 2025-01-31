@@ -47,9 +47,9 @@ void RsetParameters(Rcpp::NumericMatrix x, Rcpp::NumericMatrix w)
     std::cout << "Calling C function..." << std::endl;
     std::cout << "A matrix for X is" << std::endl;
     printMatrix(&XR);
-    std::cout << "Now adding a column of zeroes" << std::endl;
-    addColumnOfZeros(&XR, 0);
-    printMatrix(&XR);
+    std::cout << "This is a trial for setting parameters:\t" << std::endl;
+    setParameters(&XR, &WR);
+    printf("The total votes are %d", TOTAL_VOTES);
     freeMatrix(&XR);
     freeMatrix(&WR);
 
