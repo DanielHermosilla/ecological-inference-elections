@@ -1,5 +1,6 @@
 #include "exact.h"
-#include <cblas.h>
+// #include <cblas.h>
+#include <Accelerate/Accelerate.h>
 #include <gsl/gsl_sf_gamma.h>
 #include <math.h>
 #include <stdint.h>

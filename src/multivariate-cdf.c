@@ -1,7 +1,8 @@
 #include "multivariate-cdf.h"
 #include "globals.h"
 #include "utils/matrixUtils.h"
-#include <cblas.h>
+// #include <cblas.h>
+#include <Accelerate/Accelerate.h>
 #include <gsl/gsl_cdf.h>
 #include <gsl/gsl_monte.h>
 #include <gsl/gsl_monte_miser.h>

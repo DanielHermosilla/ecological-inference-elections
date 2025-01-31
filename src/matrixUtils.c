@@ -1,6 +1,7 @@
 #include "matrixUtils.h"
-#include <cblas.h>
-#include <lapacke.h>
+#include <Accelerate/Accelerate.h>
+// #include <cblas.h>
+// #include <lapacke.h>
 #include <math.h>
 #include <omp.h> // Parallelization
 #include <stdbool.h>

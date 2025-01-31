@@ -1,8 +1,9 @@
 #include "multivariate-pdf.h"
 #include "globals.h"
 #include "matrixUtils.h"
-#include <cblas.h>
-#include <lapacke.h>
+// #include <cblas.h>
+// #include <lapacke.h>
+#include <Accelerate/Accelerate.h>
 #include <math.h>
 #include <unistd.h>
 

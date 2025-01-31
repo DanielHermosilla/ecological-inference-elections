@@ -1,5 +1,6 @@
 #include "multinomial.h"
-#include <cblas.h>
+// #include <cblas.h>
+#include <Accelerate/Accelerate.h>
 
 /**
  * @brief Computes the value of `r` without the denominator.

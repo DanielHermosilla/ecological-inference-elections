@@ -10,7 +10,8 @@
 // #include <R.h>
 // #include <R_ext/Rdynload.h>
 //  #include <Rinternals.h>
-#include <cblas.h>
+// #include <cblas.h>
+#include <Accelerate/Accelerate.h>
 #include <dirent.h>
 #include <errno.h>
 #include <math.h>

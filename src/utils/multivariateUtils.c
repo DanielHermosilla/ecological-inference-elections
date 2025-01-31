@@ -1,7 +1,9 @@
 #include "multivariateUtils.h"
-#include <cblas.h>
+#include <Accelerate/Accelerate.h>
+
+// #include <cblas.h>
 #include <float.h>
-#include <lapacke.h>
+// #include <lapacke.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
