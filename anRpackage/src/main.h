@@ -56,7 +56,7 @@ extern "C"
      * - `x` and `w` dimensions must be coherent.
      *
      */
-    // Matrix getInitialP(const char *p_method);
+    Matrix getInitialP(const char *p_method);
 
     /*
      * @brief Computes the optimal solution for the `M` step

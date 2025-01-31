@@ -47,6 +47,19 @@ void RsetParameters(Rcpp::NumericMatrix x, Rcpp::NumericMatrix w)
     setParameters(&XR, &WR);
     // freeMatrix(&XR);
     // freeMatrix(&WR);
+    printf("The X matrix is:\n");
+    printMatrix(&XR);
+    printf("The W matrix is:\n");
+    printMatrix(&WR);
+    printf("\nGroup proportional method:\n");
+    Matrix p = getInitialP("group proportional");
+    printMatrix(&p);
+    printf("\nProportional method:\n");
+    p = getInitialP("proportional");
+    printMatrix(&p);
+    printf("\nUniform method:\n");
+    p = getInitialP("uniform");
+    printMatrix(&p);
 
     // setParameters(&XR, &WR);
 }
