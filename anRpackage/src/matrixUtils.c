@@ -276,8 +276,7 @@ void makeArray(double *array, int N, double value)
         exit(EXIT_FAILURE);
     }
 
-// Fill the array with the specified constant value
-#pragma omp parallel for
+    // Fill the array with the specified constant value
     for (int i = 0; i < N; i++)
     {
         array[i] = value;
@@ -404,7 +403,7 @@ void printMatrix(const Matrix *matrix)
         printf("| ");
         for (int j = 0; j < matrix->cols; j++)
         {
-            printf("%.5f\t ", matrix->data[(i) * (matrix->cols) + (j)]);
+            printf("%.5f\t", MATRIX_AT_PTR(matrix, i, j));
         }
         printf(" |\n");
     }
@@ -463,12 +462,17 @@ void rowSum(const Matrix *matrix, double *result)
     }
 
     makeArray(ones, matrix->cols, 1.0);
-    char trans = 'T'; // Transpose the matrix (since R uses column-major order)
+    // BLAS parameters
+    char trans = 'T'; // No transpose needed (matrix already column-major)
     double alpha = 1.0, beta = 0.0;
     int incX = 1, incY = 1;
 
     // Perform Matrix-Vector Multiplication (Matrix * Ones = Row Sums)
-    rowMajor_dgemv('N', matrix->rows, matrix->cols, 1.0, matrix->data, matrix->cols, ones, 1, 0.0, result, 1);
+    F77_CALL(dgemv)
+    (&trans, &(matrix->rows), &(matrix->cols), // Matrix dimensions (M, N)
+     &alpha, matrix->data, &(matrix->rows),    // Matrix and leading dimension
+     ones, &incX,                              // Vector of ones
+     &beta, result, &incY, (BLAS_INT)1);       // Output row sum
 
     free(ones);
 }
@@ -519,14 +523,25 @@ void colSum(const Matrix *matrix, double *result)
     checkMatrix(matrix); // Assertion
 
     double *ones = (double *)malloc(matrix->rows * sizeof(double));
+    if (!ones)
+    {
+        fprintf(stderr, "Failed to allocate memory in colSum function.\n");
+        exit(EXIT_FAILURE);
+    }
+
     makeArray(ones, matrix->rows, 1.0);
 
-    char trans = 'T'; // Transpose the matrix (since R uses column-major order)
+    // BLAS parameters
+    char trans = 'N'; // Transpose to sum columns
     double alpha = 1.0, beta = 0.0;
     int incX = 1, incY = 1;
-    // Perform Matrix-Vector Multiplication (Matrix * Ones = Row Sums)
-    // cblas_dgemv(CblasRowMajor, CblasTrans, rows, cols, 1.0, A, lda, ones, 1, 0.0, result, 1)
-    rowMajor_dgemv('T', matrix->rows, matrix->cols, 1.0, matrix->data, matrix->cols, ones, 1, 0.0, result, 1);
+
+    // Perform Matrix-Vector Multiplication: (Transpose(Matrix) * Ones = Column Sums)
+    F77_CALL(dgemv)
+    (&trans, &(matrix->rows), &(matrix->cols), // (M, N) dimensions
+     &alpha, matrix->data, &(matrix->rows),    // Matrix and leading dimension
+     ones, &incX,                              // Vector of ones
+     &beta, result, &incY, (BLAS_INT)1);       // Output column sum
 
     free(ones);
 }
@@ -634,14 +649,14 @@ bool convergeMatrix(const Matrix *matrixA, const Matrix *matrixB, const double c
     }
 
     int size = matrixA->rows * matrixB->cols;
-    int inc = 1;
+    int incX = 1;
+    int incY = 1;
     double alpha = -1.0;
 
     double *diff = (double *)malloc(size * sizeof(double));
 
-    rowMajor_dcopy(size, matrixA->data, 1, diff, 1);
-    rowMajor_daxpy(size, -1.0, matrixB->data, 1, diff, 1);
-
+    F77_CALL(dcopy)(&(size), matrixA->data, &incX, diff, &incY);
+    F77_CALL(daxpy)(&(size), &alpha, matrixB->data, &incX, diff, &incY);
     for (int i = 0; i < size; i++)
     {
         // If there's a value whom convergence is greater than epsilon, the convergence
@@ -812,7 +827,7 @@ Matrix createDiagonalMatrix(const double *vector, int size)
 void inverseSymmetricPositiveMatrix(Matrix *matrix)
 {
     checkMatrix(matrix);
-
+    char lCh = 'L';
     if (matrix->rows != matrix->cols)
     {
         fprintf(stderr, "Matrix must be square.\n");
@@ -831,8 +846,10 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
     // copy for "emergency" fallback
     Matrix emergencyMat = copyMatrix(matrix);
 
-    // Cholesky => rowMajor_dpotrf('L', n, matrix->data)
-    int info = rowMajor_dpotrf('L', n, matrix->data);
+    int info;
+    F77_CALL(dpotrf)(&lCh, &n, matrix->data, &n, &info, (La_INT)1);
+    // Cholesky => ('L', n, matrix->data)
+
     if (info < 0)
     {
         fprintf(stderr, "dpotrf illegal value argument. info=%d\n", info);
@@ -860,10 +877,11 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
     }
 
     // Now invert the Cholesky => rowMajor_dpotri('L', n, matrix->data)
-    info = rowMajor_dpotri('L', n, matrix->data);
-    if (info != 0)
+    int info2;
+    F77_CALL(dpotri)(&lCh, &n, matrix->data, &n, &info2, (La_INT)1);
+    if (info2 != 0)
     {
-        fprintf(stderr, "Matrix inversion failed after Cholesky. info=%d\n", info);
+        fprintf(stderr, "Matrix inversion failed after Cholesky. info=%d\n", info2);
         printMatrix(matrix);
         exit(EXIT_FAILURE);
     }
@@ -905,12 +923,31 @@ void inverseMatrixEigen(Matrix *matrix)
         exit(EXIT_FAILURE);
     }
 
-    // Replaces LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'V', 'U', n, matrix->data, n, eigenvals)
-    int info = rowMajor_dsyev('V', 'U', n, matrix->data, eigenvals);
+    // First, we query the working array to get the optimal size...
+    int info;
+    double query_work;
+    int lwork = -1; // Query mode
+    char vCh = 'V';
+    char uCh = 'U';
+
+    F77_CALL(dsyev)(&vCh, &uCh, &n, matrix->data, &n, eigenvals, &query_work, &lwork, &info, (La_INT)1, (La_INT)1);
+
     if (info != 0)
     {
-        fprintf(stderr, "inverseMatrixEigen: dsyev failed (info = %d)\n", info);
-        free(eigenvals);
+        fprintf(stderr, "dsyev workspace query failed with info = %d\n", info);
+        exit(EXIT_FAILURE);
+    }
+
+    // Allocate the working array
+    lwork = (int)query_work; // LAPACK returns optimal size in query_work
+    double *work = (double *)malloc(lwork * sizeof(double));
+
+    // Step 3: Compute Eigen decomposition
+    F77_CALL(dsyev)(&vCh, &uCh, &n, matrix->data, &n, eigenvals, work, &lwork, &info, (La_INT)1, (La_INT)1);
+
+    if (info != 0)
+    {
+        fprintf(stderr, "dsyev failed with info = %d\n", info);
         exit(EXIT_FAILURE);
     }
 
@@ -932,15 +969,23 @@ void inverseMatrixEigen(Matrix *matrix)
 
     // temp = Q * Dinv
     Matrix temp = createMatrix(n, n);
-    rowMajor_dgemm('N', 'N',                      // from the row-major perspective => no-trans x no-trans
-                   n, n, n, 1.0, matrix->data, n, // Q (eigenvectors) in row-major
-                   Dinv.data, n, 0.0, temp.data, n);
+    double alpha = 1.0;
+    double beta = 1.0;
+    char noTranspose = 'N';
+    char yTranspose = 'T';
+
+    F77_CALL(dgemm)
+    (&noTranspose, &noTranspose,           // Column-major perspective => No-trans x No-trans
+     &n, &n, &n, &alpha, matrix->data, &n, // Q (eigenvectors) in column-major
+     Dinv.data, &n, &beta, temp.data, &n, (BLAS_INT)1, (BLAS_INT)1);
 
     // A_inv = temp * Q^T
     Matrix temp2 = createMatrix(n, n);
-    rowMajor_dgemm('N', 'T',                                    // second operand transposed (row-major sense)
-                   n, n, n, 1.0, temp.data, n, matrix->data, n, // Q again
-                   0.0, temp2.data, n);
+    F77_CALL(dgemm)
+    (&noTranspose, &yTranspose,         // Column-major perspective => No-trans x Transposed
+     &n, &n, &n, &alpha, temp.data, &n, // `temp` in column-major
+     matrix->data, &n,                  // `Q^T` is achieved by using 'T' (BLAS transposes internally)
+     &beta, temp2.data, &n, (BLAS_INT)1, (BLAS_INT)1);
 
     // copy result back
     memcpy(matrix->data, temp2.data, n * n * sizeof(double));
@@ -975,7 +1020,8 @@ void inverseMatrixLU(Matrix *matrix)
     }
 
     // LU decomposition
-    int info = rowMajor_dgetrf(n, n, matrix->data, ipiv);
+    int info;
+    F77_CALL(dgetrf)(&n, &n, matrix->data, &n, ipiv, &info);
     if (info != 0)
     {
         fprintf(stderr, "LU decomposition failed. info=%d\n", info);
@@ -984,7 +1030,27 @@ void inverseMatrixLU(Matrix *matrix)
     }
 
     // Invert from LU
-    info = rowMajor_dgetri(n, matrix->data, ipiv);
+    // ---- Needs to assign a workspace ----
+    // Query optimal workspace size
+    double query_work;
+    int lwork = -1;
+    F77_CALL(dgetri)(&n, matrix->data, &n, ipiv, &query_work, &lwork, &info);
+
+    // Allocate optimal work array
+    lwork = (int)query_work;
+    double *work = (double *)malloc(lwork * sizeof(double));
+
+    if (!work)
+    {
+        fprintf(stderr, "Failed to allocate workspace for dgetri.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Compute matrix inverse
+    F77_CALL(dgetri)(&n, matrix->data, &n, ipiv, work, &lwork, &info);
+
+    // Free workspace
+    free(work);
     if (info != 0)
     {
         fprintf(stderr, "Matrix inversion failed. info=%d\n", info);
@@ -1121,6 +1187,7 @@ void addRowToMatrix(Matrix *matrix, const double *newRow)
     }
 
     // Reallocate memory for the new row
+    Matrix temp = copyMatrix(matrix);
     size_t newSize = (matrix->rows + 1) * matrix->cols * sizeof(double);
     double *newData = realloc(matrix->data, newSize);
 
@@ -1129,14 +1196,28 @@ void addRowToMatrix(Matrix *matrix, const double *newRow)
         fprintf(stderr, "addRowToMatrix: Failed to reallocate memory for the matrix.\n");
         exit(EXIT_FAILURE);
     }
-
     matrix->data = newData;
 
-    // Append the new row to the matrix
-    memcpy(&matrix->data[matrix->rows * matrix->cols], newRow, matrix->cols * sizeof(double));
+    // Shift existing columns down to make space for the new row
+    for (int j = 0; j < matrix->cols; j++)
+    {
+        matrix->data[j * (matrix->rows + 1) + matrix->rows] = newRow[j];
+    }
+
+    for (int i = 0; i < matrix->rows + 1; i++)
+    {
+        for (int j = 0; j < matrix->cols; j++)
+        {
+            if (i != matrix->rows)
+                MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT(temp, i, j);
+            else
+                MATRIX_AT_PTR(matrix, i, j) = newRow[j];
+        }
+    }
 
     // Update the matrix dimensions
     matrix->rows++;
+    freeMatrix(&temp);
 }
 
 /**
@@ -1158,22 +1239,24 @@ void removeRow(Matrix *matrix, int rowIndex)
     }
 
     // Shift rows up to overwrite the specified row
-    for (int i = rowIndex; i < matrix->rows - 1; i++)
+    Matrix temp = copyMatrix(matrix);
+    matrix->rows -= 1;
+    matrix->data = realloc(matrix->data, matrix->rows * matrix->cols * sizeof(double));
+
+    for (int i = 0; i < matrix->rows; i++)
     {
         for (int j = 0; j < matrix->cols; j++)
         {
-            MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT_PTR(matrix, i + 1, j);
+            if (i < rowIndex)
+                MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT(temp, i, j);
+            else if (i > rowIndex)
+                MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT(temp, i + 1, j);
+            else
+                continue;
         }
     }
 
-    // Resize the matrix to have one less row
-    matrix->rows -= 1;
-    matrix->data = realloc(matrix->data, matrix->rows * matrix->cols * sizeof(double));
-    if (!matrix->data)
-    {
-        fprintf(stderr, "Memory reallocation failed while resizing the matrix.\n");
-        exit(EXIT_FAILURE);
-    }
+    freeMatrix(&temp);
 }
 
 /**
@@ -1195,6 +1278,7 @@ void addRowOfZeros(Matrix *matrix, int rowIndex)
     }
 
     // Resize the matrix to have one additional row
+    Matrix temp = copyMatrix(matrix);
     matrix->rows += 1;
     matrix->data = realloc(matrix->data, matrix->rows * matrix->cols * sizeof(double));
     if (!matrix->data)
@@ -1203,20 +1287,19 @@ void addRowOfZeros(Matrix *matrix, int rowIndex)
         exit(EXIT_FAILURE);
     }
 
-    // Shift rows down to make space for the new row
-    for (int i = matrix->rows - 1; i > rowIndex; i--)
+    for (int i = 0; i < matrix->rows; i++)
     {
         for (int j = 0; j < matrix->cols; j++)
         {
-            MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT_PTR(matrix, i - 1, j);
+            if (i < rowIndex)
+                MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT(temp, i, j);
+            else if (i > rowIndex)
+                MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT(temp, i - 1, j);
+            else
+                MATRIX_AT_PTR(matrix, i, j) = 0.0;
         }
     }
-
-    // Fill the new row with zeros
-    for (int j = 0; j < matrix->cols; j++)
-    {
-        MATRIX_AT_PTR(matrix, rowIndex, j) = 0.0;
-    }
+    freeMatrix(&temp);
 }
 
 /**
@@ -1274,7 +1357,6 @@ void addColumnOfZeros(Matrix *matrix, int colIndex)
         exit(EXIT_FAILURE);
     }
 
-    Matrix aCopy = copyMatrix(matrix);
     // Resize the matrix to have one additional column
     matrix->cols += 1;
     matrix->data = realloc(matrix->data, matrix->rows * matrix->cols * sizeof(double));
@@ -1284,15 +1366,18 @@ void addColumnOfZeros(Matrix *matrix, int colIndex)
         exit(EXIT_FAILURE);
     }
 
-    for (int i = 0; i < matrix->rows; i++)
+    // Shift existing columns right to make space for the new column
+    for (int j = matrix->cols - 1; j > colIndex; j--)
     {
-        for (int j = 0; j < matrix->cols; j++)
+        for (int i = 0; i < matrix->rows; i++)
         {
-            if (j == colIndex)
-                MATRIX_AT_PTR(matrix, i, j) = 0;
-            else
-                MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT(aCopy, i, j);
+            MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT_PTR(matrix, i, j - 1);
         }
     }
-    freeMatrix(&aCopy);
+
+    // Fill the new column with zeros
+    for (int i = 0; i < matrix->rows; i++)
+    {
+        MATRIX_AT_PTR(matrix, i, colIndex) = 0.0;
+    }
 }
