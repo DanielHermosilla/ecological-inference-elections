@@ -693,21 +693,22 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
 
     // Fill the upper triangle of the inverse matrix, this is not really necessary, but would prevent future problems.
     // Fill the upper triangle of the inverse matrix (ensuring symmetry)
+    Matrix fin = transposeMatrix(&transposed);
+    freeMatrix(&transposed);
+
     for (int i = 0; i < n; i++)
     {
-        for (int j = i + 1; j < n; j++)
+        for (int j = 0; j < n; j++)
         {
-            MATRIX_AT(transposed, i, j) = MATRIX_AT(transposed, j, i);
+            if (MATRIX_AT(fin, i, j) == 0.0)
+                MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT(fin, j, i);
+            else
+                MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT(fin, i, j);
         }
     }
 
-    // Free original matrix data before overwriting it
-    free(matrix->data);
-
-    // Assign transposed data to matrix
-    *matrix = transposed;
-
     // Cleanup
+    freeMatrix(&fin);
     freeMatrix(&emergencyMat);
 }
 

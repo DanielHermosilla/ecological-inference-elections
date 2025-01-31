@@ -85,7 +85,6 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
             // ---- Add the values towards the denominator to later divide by it ----
             den += QC[c];
         }
-        printf("%.5f", den);
         for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
         { // ---- For each candidate given a group
             // ---- Store each value, divided by the denominator ----
@@ -135,7 +134,7 @@ double *computeQMultivariatePDF(Matrix const *probabilities)
         { // ---- For each group given a ballot box
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // ---- For each candidate given a ballot box and a group
-                printf("At b=%d, g=%d and c=%d, adding:\t%.5f\n", b, g, c, MATRIX_AT(resultsForB, g, c));
+
                 Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = MATRIX_AT(resultsForB, g, c);
             }
         }
