@@ -13,10 +13,11 @@ extern "C"
 // IT IS COL-MAJOR NOW
 #define MATRIX_AT(matrix, i, j) (matrix.data[(j) * (matrix.rows) + (i)])
 #define MATRIX_AT_PTR(matrix, i, j) (matrix->data[(j) * (matrix->rows) + (i)])
+
     // All of the helper functions are made towards double type matrices
     typedef struct
     {
-        double *data; // Pointer to matrix data array (row-major order)
+        double *data; // Pointer to matrix data array (col-major order)
         int rows;     // Number of rows
         int cols;     // Number of columns
     } Matrix;
@@ -24,7 +25,7 @@ extern "C"
     // The helper functions won't work towards this matrix
     typedef struct
     {
-        size_t *data; // Pointer to matrix data array (row-major order)
+        size_t *data; // Pointer to matrix data array (col-major order)
         int rows;     // Number of rows
         int cols;     // Number of columns
     } SizeTMatrix;
@@ -140,7 +141,7 @@ extern "C"
      * @return void Written on *result
      *
      * @note
-     * - Matrix should be in row-major order
+     * - Matrix should be in col-major order
      *
      * @example
      * Example usage:
@@ -177,7 +178,7 @@ extern "C"
      * @return void Written on *result
      *
      * @note
-     * - Matrix should be in row-major order
+     * - Matrix should be in col-major order
      *
      * @warning
      * - The matrix or array pointer may be NULL.
@@ -217,7 +218,7 @@ extern "C"
      * @return void Written on the input matrix
      *
      * @note
-     * - Matrix should be in row-major order.
+     * - Matrix should be in col-major order.
      *
      * @example
      * Example usage:
@@ -255,7 +256,7 @@ extern "C"
      * @warning:
      * - Both matrices should be from the same dimention.
      * @note
-     * - Matrix should be in row-major order.
+     * - Matrix should be in col-major order.
      *
      * @example
      * Example usage:
@@ -294,7 +295,7 @@ extern "C"
      * @return double The maximum element
      *
      * @note
-     * - Matrix should be in row-major order.
+     * - Matrix should be in col-major order.
      *
      * @example
      * Example usage:
@@ -369,7 +370,7 @@ extern "C"
      * Uses an eigen-decomposition (dsyev) to invert A = Q * diag(vals) * Q^T.
      * The input matrix must be square and invertible (no zero eigenvalues).
      *
-     * @param[in,out] matrix Pointer to the NxN symmetric matrix in row-major layout.
+     * @param[in,out] matrix Pointer to the NxN symmetric matrix in col-major layout.
      */
     void inverseMatrixEigen(Matrix *matrix);
 

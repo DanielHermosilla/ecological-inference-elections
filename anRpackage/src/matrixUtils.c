@@ -10,9 +10,6 @@
 #include <string.h>
 #include <unistd.h>
 
-// Macro for easier matrix indexation
-#define MATRIX_AT(matrix, i, j) (matrix.data[(i) * (matrix.cols) + (j)])
-
 /**
  * @brief Transpose from row-major -> column-major (or vice versa) into a separate buffer.
  *
@@ -419,7 +416,7 @@ void printMatrix(const Matrix *matrix)
  * @return void Written on *result
  *
  * @note
- * - Matrix should be in row-major order
+ * - Matrix should be in col-major order
  * - This function uses cBLAS library, where the operation can be written as a matrix product
  *   of X * 1.
  * - Just support double type
@@ -488,7 +485,7 @@ void rowSum(const Matrix *matrix, double *result)
  * @return void Written on *result
  *
  * @note
- * - Matrix should be in row-major order
+ * - Matrix should be in col-major order
  * - It will use cBLAS for operations, where it will do a matrix product of X * 1^T. It'll use the
  *   already algorithm implemented in rowSum
  * - Just support double as a result due to cBLAS
@@ -557,7 +554,7 @@ void colSum(const Matrix *matrix, double *result)
  * @return void Written on the input matrix
  *
  * @note
- * - Matrix should be in row-major order.
+ * - Matrix should be in col-major order.
  *
  * @example
  * Example usage:
@@ -601,7 +598,7 @@ void fillMatrix(Matrix *matrix, const double value)
  * @warning:
  * - Both matrices should be from the same dimention.
  * @note
- * - Matrix should be in row-major order.
+ * - Matrix should be in col-major order.
  *
  * @example
  * Example usage:
@@ -680,7 +677,7 @@ bool convergeMatrix(const Matrix *matrixA, const Matrix *matrixB, const double c
  * @return double The maximum element
  *
  * @note
- * - Matrix should be in row-major order.
+ * - Matrix should be in col-major order.
  *
  * @example
  * Example usage:
@@ -903,7 +900,7 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
  * Uses an eigen-decomposition (dsyev) to invert A = Q * diag(vals) * Q^T.
  * The input matrix must be square and invertible (no zero eigenvalues).
  *
- * @param[in,out] matrix Pointer to the NxN symmetric matrix in row-major layout.
+ * @param[in,out] matrix Pointer to the NxN symmetric matrix in col-major layout.
  */
 
 void inverseMatrixEigen(Matrix *matrix)

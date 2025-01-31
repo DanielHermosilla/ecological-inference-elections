@@ -2,6 +2,7 @@
 // #include <R_ext/Rdynload.h>
 //  #include <Rinternals.h>
 #include "main.h"
+#include <R_ext/BLAS.h>
 #include <dirent.h>
 #include <errno.h>
 #include <math.h>
@@ -280,37 +281,40 @@ double logLikelihood(Matrix *prob, double *q)
  * Algorithm, unless there's a starting "q" to start with.
  *
  */
-/*
 Matrix getP(const double *q)
 {
     // ---- Inititalize variables ---- //
     Matrix toReturn = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES);
-    double *ptrReturn = toReturn.data; // For OpenMP because they don't accept structs for reduction clauses
-                                       // even though it's dereferenced
+    // double *ptrReturn = toReturn.data; // For OpenMP because they don't accept structs for reduction clauses
+    // even though it's dereferenced
 
     // ---- Compute the dot products ---- //
     // ---- Due to the dot product, the parallelization is worth it ----
 
     // #pragma omp parallel for collapse(2) schedule(static)
+    int stride = TOTAL_GROUPS * TOTAL_CANDIDATES;
+    int gStride = TOTAL_GROUPS;
+    int tBal = TOTAL_BALLOTS;
     for (int g = 0; g < TOTAL_GROUPS; g++)
     { // --- For each group
         for (int c = 0; c < TOTAL_CANDIDATES; c++)
         { // --- For each candidate given a group
             // Dot product over b=0..B-1 of W_{b,g} * Q_{b,g,c}
-            double val = cblas_ddot(TOTAL_BALLOTS,
-                                    &W->data[g],                    // points to W_{0,g}
-                                    TOTAL_GROUPS,                   // stride: each next W_{b+1,g} is +G in memory
-                                    &q[g * TOTAL_CANDIDATES + c],   // points to Q_{0,g,c}
-                                    TOTAL_GROUPS * TOTAL_CANDIDATES // stride: each next Q_{b+1,g,c} is +(G*C) in memory
+            double val;
+            val = F77_CALL(ddot)(&tBal,
+                                 &W->data[g],                  // Points to W_{0,g}
+                                 &gStride,                     // Stride: each next W_{b+1,g} is +G in memory
+                                 &q[g * TOTAL_CANDIDATES + c], // Points to Q_{0,g,c}
+                                 &stride                       // Stride: each next Q_{b+1,g,c} is +(G*C) in memory
             );
-            ptrReturn[g * TOTAL_CANDIDATES + c] = val / GROUP_VOTES[g]; // Equivalent to MATRIX_AT(probabilities, g, c)
+            MATRIX_AT(toReturn, g, c) = val / GROUP_VOTES[g];
         }
     }
 
     // ---...--- //
     return toReturn;
 }
-*/
+
 /**
  * @brief Implements the whole EM algorithm.
  *
@@ -492,7 +496,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
  * @return bool: A boolean that shows if it exists a candidate with no votes
  *
  */
-/*
+
 bool noVotes(int *canArray)
 {
     bool toReturn = false;
@@ -506,7 +510,7 @@ bool noVotes(int *canArray)
     }
     return toReturn;
 }
-*/
+
 // ---- Clean all of the global variables ---- //
 // __attribute__((destructor)) // Executes when the library is ready
 void cleanup()
