@@ -1,0 +1,11 @@
+{
+	"input_file":	"../../instances/J100_M50_G2_I3_L50_seed13.json",
+	"method":	"MVN PDF",
+	"convergence_threshold":	0.001,
+	"iterations_made":	1,
+	"max_iterations":	10000,
+	"time_taken":	0.009015,
+	"ground_truth_matrix":	[[0.42795213106645874, 0.0771833377876456, 0.49486453114589557], [0.44539345432817962, 0.47485814852501324, 0.0797483971468072]],
+	"estimated_matrix":	[[null, null, 0.15039054381732969], [null, null, 0.0497013773155011]],
+	"log_likelihood":	[-4387.3684148129732, null]
+}
