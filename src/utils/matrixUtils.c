@@ -1,5 +1,6 @@
 #include "matrixUtils.h"
 #include <Accelerate/Accelerate.h>
+#include <vecLib/clapack.h>
 // #include <cblas.h>
 // #include <lapacke.h>
 #include <math.h>
@@ -11,6 +12,33 @@
 #include <unistd.h>
 // Macro for easier matrix indexation
 #define MATRIX_AT(matrix, i, j) (matrix.data[(i) * (matrix.cols) + (j)])
+
+// Function to transpose a matrix (row-major ↔ column-major)
+Matrix transposeMatrix(const Matrix *matrix)
+{
+    // Create a new matrix with swapped dimensions
+    Matrix transposed;
+    transposed.rows = matrix->cols;
+    transposed.cols = matrix->rows;
+    transposed.data = (double *)malloc(transposed.rows * transposed.cols * sizeof(double));
+
+    if (!transposed.data)
+    {
+        fprintf(stderr, "Failed to allocate memory for transposed matrix.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Perform the transposition
+    for (int i = 0; i < matrix->rows; i++)
+    {
+        for (int j = 0; j < matrix->cols; j++)
+        {
+            transposed.data[j * transposed.cols + i] = matrix->data[i * matrix->cols + j];
+        }
+    }
+
+    return transposed;
+}
 
 /**
  * @brief Make an array of a constant value.
@@ -177,7 +205,7 @@ void printMatrix(const Matrix *matrix)
         printf("| ");
         for (int j = 0; j < matrix->cols; j++)
         {
-            printf("%.10f  ", matrix->data[(i) * (matrix->cols) + (j)]);
+            printf("%.5f\t ", matrix->data[(i) * (matrix->cols) + (j)]);
         }
         printf(" |\n");
     }
@@ -615,10 +643,12 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
 
     int n = matrix->rows;
     int lda = n; // Leading dimension (number of columns in row-major storage)
-    int info;
     Matrix emergencyMat = copyMatrix(matrix);
     // Cholesky Decomposition (L * L^T = A)
-    info = LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'L', n, matrix->data, lda);
+    Matrix transposed = transposeMatrix(matrix);
+    int info;
+    char lchar = 'L';
+    dpotrf_(&lchar, &n, transposed.data, &lda, &info);
     if (info < 0)
     {
         fprintf(stderr, "Cholesky decomposition failed. The %d argument towards LAPACKE_dpotrf had an illegal value.\n",
@@ -644,14 +674,16 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
                     MATRIX_AT_PTR(matrix, i, j) += 1;
             }
         }
+        sleep(4);
         printMatrix(matrix);
         freeMatrix(&emergencyMat);
+        freeMatrix(&transposed);
         inverseSymmetricPositiveMatrix(matrix);
     }
 
     // Invert the Cholesky Factorization
 
-    info = LAPACKE_dpotri(LAPACK_ROW_MAJOR, 'L', n, matrix->data, lda);
+    dpotri_(&lchar, &n, transposed.data, &lda, &info);
     if (info != 0)
     {
         fprintf(stderr, "Matrix inversion failed after Cholesky decomposition. Error code: %d\n", info);
@@ -660,13 +692,22 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
     }
 
     // Fill the upper triangle of the inverse matrix, this is not really necessary, but would prevent future problems.
+    // Fill the upper triangle of the inverse matrix (ensuring symmetry)
     for (int i = 0; i < n; i++)
     {
         for (int j = i + 1; j < n; j++)
         {
-            MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT_PTR(matrix, j, i);
+            MATRIX_AT(transposed, i, j) = MATRIX_AT(transposed, j, i);
         }
     }
+
+    // Free original matrix data before overwriting it
+    free(matrix->data);
+
+    // Assign transposed data to matrix
+    *matrix = transposed;
+
+    // Cleanup
     freeMatrix(&emergencyMat);
 }
 
@@ -678,6 +719,7 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
  *
  * @param[in,out] matrix Pointer to the NxN symmetric matrix in row-major layout.
  */
+/*
 void inverseMatrixEigen(Matrix *matrix)
 {
     checkMatrix(matrix);
@@ -701,21 +743,46 @@ void inverseMatrixEigen(Matrix *matrix)
     //    - 'V' means we want both eigenvalues and eigenvectors
     //    - 'U' means the matrix is stored in the upper part (row-major).
     //    On exit, matrix->data holds the eigenvectors in columns, eigenvals[] holds the eigenvalues.
-    int info = LAPACKE_dsyev(LAPACK_ROW_MAJOR, // row-major storage
-                             'V',              // compute Eigenvalues & Eigenvectors
-                             'U',              // 'U' => input matrix is in the upper triangle
-                             n,                // dimension
-                             matrix->data,     // in/out: on exit, columns = eigenvectors
-                             n,                // leading dimension (row-major)
-                             eigenvals         // out: eigenvalues
-    );
+    Matrix transposed = transposeMatrix(matrix);
+    int info;
+
+    // Step 2: Query optimal workspace size
+    double query_work;
+    int lwork = -1;
+    char vchar = 'V';
+    char uchar = 'U';
+    dsyev_(&vchar, &uchar, &n, transposed.data, &n, eigenvals, &query_work, &lwork, &info);
 
     if (info != 0)
     {
-        fprintf(stderr, "inverseMatrixEigen: dsyev failed (info = %d)\n", info);
-        free(eigenvals);
+        fprintf(stderr, "dsyev workspace query failed with info = %d\n", info);
         exit(EXIT_FAILURE);
     }
+
+    // Step 3: Allocate workspace
+    lwork = (int)query_work;
+    double *work = (double *)malloc(lwork * sizeof(double));
+    if (!work)
+    {
+        fprintf(stderr, "Failed to allocate workspace for dsyev.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Step 4: Compute Eigen decomposition
+    dsyev_(&vchar, &uchar, &n, transposed.data, &n, eigenvals, work, &lwork, &info);
+
+    if (info != 0)
+    {
+        fprintf(stderr, "dsyev failed with info = %d\n", info);
+        exit(EXIT_FAILURE);
+    }
+
+    // Step 5: Transpose back (Convert column-major back to row-major)
+    *matrix = transposeMatrix(&transposed);
+
+    // Free allocated memory
+    freeMatrix(&transposed);
+    free(work);
 
     // Invert the eigenvalues => 1 / lambda_i (check none are zero too)
     for (int i = 0; i < n; i++)
@@ -753,7 +820,7 @@ void inverseMatrixEigen(Matrix *matrix)
     freeMatrix(&Dinv);
     free(eigenvals);
 }
-
+*/
 /**
  * @brief Computes the inverse of a general square matrix using LU decomposition.
  *
@@ -761,9 +828,10 @@ void inverseMatrixEigen(Matrix *matrix)
  *
  * @note The input matrix must be square and invertible.
  */
+/*
 void inverseMatrixLU(Matrix *matrix)
 {
-    checkMatrix(matrix); // Validate the matrix
+    checkMatrix(matrix); // Ensure matrix is valid
 
     if (matrix->rows != matrix->cols)
     {
@@ -772,36 +840,73 @@ void inverseMatrixLU(Matrix *matrix)
     }
 
     int n = matrix->rows;
-    int *ipiv = malloc(n * sizeof(int)); // Pivot indices for LU decomposition
+    int info;
+
+    // Allocate pivot indices
+    int *ipiv = (int *)malloc(n * sizeof(int));
     if (!ipiv)
     {
         fprintf(stderr, "Failed to allocate memory for pivot indices.\n");
         exit(EXIT_FAILURE);
     }
 
-    int info;
+    // Step 1: Transpose to column-major order (since Accelerate assumes column-major storage)
+    Matrix transposed = transposeMatrix(matrix);
 
-    // Perform LU decomposition (matrix is overwritten with LU factors)
-    info = LAPACKE_dgetrf(LAPACK_ROW_MAJOR, n, n, matrix->data, n, ipiv);
+    // Step 2: Perform LU decomposition (transposed is overwritten with LU factors)
+    dgetrf_(&n, &n, transposed.data, &n, ipiv, &info);
     if (info != 0)
     {
         fprintf(stderr, "LU decomposition failed. Error code: %d\n", info);
         free(ipiv);
+        freeMatrix(&transposed);
         exit(EXIT_FAILURE);
     }
 
-    // Compute the inverse using the LU decomposition (matrix is overwritten with its inverse)
-    info = LAPACKE_dgetri(LAPACK_ROW_MAJOR, n, matrix->data, n, ipiv);
+    // Step 3: Query optimal workspace size for `dgetri_`
+    double query_work;
+    int lwork = -1; // Query mode
+    dgetri_(&n, transposed.data, &n, ipiv, &query_work, &lwork, &info);
+
+    if (info != 0)
+    {
+        fprintf(stderr, "Workspace query for dgetri failed. Error code: %d\n", info);
+        free(ipiv);
+        freeMatrix(&transposed);
+        exit(EXIT_FAILURE);
+    }
+
+    // Step 4: Allocate the required workspace
+    lwork = (int)query_work;
+    double *work = (double *)malloc(lwork * sizeof(double));
+    if (!work)
+    {
+        fprintf(stderr, "Failed to allocate workspace for dgetri.\n");
+        free(ipiv);
+        freeMatrix(&transposed);
+        exit(EXIT_FAILURE);
+    }
+
+    // Step 5: Compute the inverse using LU decomposition (transposed is overwritten with its inverse)
+    dgetri_(&n, transposed.data, &n, ipiv, work, &lwork, &info);
     if (info != 0)
     {
         fprintf(stderr, "Matrix inversion failed. Error code: %d\n", info);
         free(ipiv);
+        free(work);
+        freeMatrix(&transposed);
         exit(EXIT_FAILURE);
     }
 
-    free(ipiv);
-}
+    // Step 6: Transpose back to row-major order
+    free(matrix->data); // Free original data before replacing
+    *matrix = transposeMatrix(&transposed);
 
+    // Cleanup
+    free(ipiv);
+    free(work);
+}
+*/
 Matrix copyMatrix(const Matrix *original)
 {
     checkMatrix(original); // Ensure the original matrix is valid

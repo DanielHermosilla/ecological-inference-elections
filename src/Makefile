@@ -5,19 +5,18 @@ CC = clang
 
 # Base Compiler Flags
 CFLAGS_BASE = -Wall -Wextra \
-    -I/usr/local/opt/openblas/include \
     -I/usr/local/Cellar/gsl/2.8/include \
     -I/usr/local/opt/libomp/include \
     -Xpreprocessor -fopenmp \
     -I/usr/local/opt/llvm/include -Iutils \
-    -I/usr/local/Cellar/cjson/1.7.18/include -I.
+    -I/usr/local/Cellar/cjson/1.7.18/include -I. \
+    -DACCELERATE_NEW_LAPACK
 
 # Linker Flags
-LDFLAGS_LIB_BASE = -L/usr/local/opt/openblas/lib \
-    -L/usr/local/Cellar/gsl/2.8/lib \
+LDFLAGS_LIB_BASE = -L/usr/local/Cellar/gsl/2.8/lib \
     -L/usr/local/opt/libomp/lib \
     -fPIC \
-    -lopenblas -lgsl -lgslcblas -lomp \
+    -lgsl -lgslcblas -lomp -framework Accelerate \
     -Wl,-rpath,@executable_path/libs \
     -L/usr/local/Cellar/cjson/1.7.18/lib \
     -lcjson

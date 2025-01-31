@@ -366,7 +366,7 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix);
  *
  * @param[in,out] matrix Pointer to the NxN symmetric matrix in row-major layout.
  */
-void inverseMatrixEigen(Matrix *matrix);
+// void inverseMatrixEigen(Matrix *matrix);
 
 /**
  * @brief Computes the inverse of a general square matrix using LU decomposition.
@@ -375,7 +375,7 @@ void inverseMatrixEigen(Matrix *matrix);
  *
  * @note The input matrix must be square and invertible.
  */
-void inverseMatrixLU(Matrix *matrix);
+// void inverseMatrixLU(Matrix *matrix);
 
 Matrix copyMatrix(const Matrix *original);
 

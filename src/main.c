@@ -656,7 +656,7 @@ int main(int argc, char *argv[])
         int totalIter = 0;
         double *logLLresults = NULL;
 
-        Matrix Pnew = EMAlgoritm(&P, inputMethod, conv, itr, false, &timeIter, &totalIter, &logLLresults);
+        Matrix Pnew = EMAlgoritm(&P, inputMethod, conv, itr, true, &timeIter, &totalIter, &logLLresults);
         if (emptyVotes)
         {
             for (uint16_t c = 0; c < pastCandidates; c++)
