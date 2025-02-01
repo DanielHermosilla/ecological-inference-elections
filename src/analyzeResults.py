@@ -5,6 +5,8 @@ import os
 import re
 from collections import defaultdict
 
+METHOD = None
+
 
 def getGroupAndCandidate(filename):
     """
@@ -45,6 +47,38 @@ def readFilesAndWrite(input, output):
             json.dump(mean_results, f, indent=4)
 
         print(f"Processed Group {G}, Candidates {C} -> Saved to {outputPath}")
+
+
+def query_json(c_value, g_value, method):
+    """
+    Query the JSON data for a specific C, G, and method.
+    :param data: List of dictionaries (JSON data).
+    :param c_value: The C value to filter by.
+    :param g_value: The G value to filter by.
+    :param method: The method to retrieve (e.g., 'EXACT', 'H&R S=10^2', etc.).
+    :return: The value for the specified method, or None if not found.
+    """
+
+    with open("paperResults.json", "r") as file:
+        data = json.load(file)
+
+    match method:
+        case "Exact":
+            queryM = "EXACT"
+        case "Hit and Run 1000_samples":
+            queryM = "H&R S=10^3"
+        case "Hit and Run 100_samples":
+            queryM = "H&R S=10^2"
+        case "Multinomial":
+            queryM = "MULT"
+        case _:
+            queryM = METHOD
+
+    for row in data:
+        if row.get("C") == c_value and row.get("G") == g_value:
+            return row.get(queryM, None)
+    print("The method used doesn't match to the ones used in the paper")
+    return None
 
 
 def computeMeans(json_list, G, C):
@@ -105,11 +139,19 @@ def computeMeans(json_list, G, C):
             print(f"There's an error in {data['input_file']}")
 
     # Compute means
+    paperTime = query_json(C, G, METHOD)
+    queryTime = np.mean(timeTakenLastVal)
+    percentageInc = 0
+    if paperTime is not None:
+        percentageInc = ((paperTime - queryTime) / (queryTime)) * 100
+
     mean_results = {
         "log_likelihood_mean_(last_iteration_value)": (
             np.mean(logLikelihoodLastVal) if logLikelihoodLastVal else None
         ),
-        "time_taken_mean": np.mean(timeTakenLastVal) if timeTakenLastVal else None,
+        "time_taken_mean": queryTime if timeTakenLastVal else None,
+        "time_from_paper": paperTime,
+        "percentage_improvement(%)": percentageInc,
         "iterations_made_mean": (
             np.mean(iterationsMadeLastVal) if iterationsMadeLastVal else None
         ),
@@ -147,7 +189,14 @@ if __name__ == "__main__":
         os.sys.exit(1)
 
     args = parser.parse_args()
-    inputAppended = args.input + "/" + args.method + "/100B"
-    outputAppended = args.output + "/" + args.method
+    METHOD = args.method
+    inputAppended = args.input + "/" + METHOD + "/100B"
+    outputAppended = args.output + "/" + METHOD
 
-    readFilesAndWrite(inputAppended, outputAppended)
+    if METHOD != "Hit and Run":
+        readFilesAndWrite(inputAppended, outputAppended)
+
+    else:
+        for entry in os.scandir(inputAppended):
+            METHOD = args.method + " " + entry.name
+            readFilesAndWrite(entry, outputAppended + "/" + entry.name)

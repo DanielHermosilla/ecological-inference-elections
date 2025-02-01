@@ -369,7 +369,7 @@ double computeA(const int b, const int f, const size_t *hElement, const Matrix *
  */
 void recursion(MemoizationTable *memo, const Matrix *probabilities)
 {
-#pragma omp parallel for
+    // #pragma omp parallel for
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For each ballot box
         for (uint16_t f = 0; f < TOTAL_GROUPS; f++)
@@ -498,8 +498,8 @@ double *computeQExact(const Matrix *probabilities)
     {
         // ---- Define the memory for the matrix and its parameters ----
         CANDIDATEARRAYS = malloc(TOTAL_BALLOTS * sizeof(size_t *));
-// ---- Parallelize the loop over the ballot boxes ----
-#pragma omp parallel for
+        // ---- Parallelize the loop over the ballot boxes ----
+        // #pragma omp parallel for
         for (uint16_t b = 0; b < TOTAL_BALLOTS; b++)
         { // ---- For all ballot boxes
             // ---- Allocate memory for the candidate array ----

@@ -1,6 +1,5 @@
 #include "matrixUtils.h"
 #include <Accelerate/Accelerate.h>
-#include <vecLib/clapack.h>
 // #include <cblas.h>
 // #include <lapacke.h>
 #include <math.h>

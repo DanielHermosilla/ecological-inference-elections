@@ -345,8 +345,8 @@ Matrix getP(const double *q)
  * - `x` and `w` dimensions must be coherent.
  *
  */
-Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
-                  const bool verbose, double *time, int *iterTotal, double **logLLarr)
+Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter, int samples,
+                  int maxMin, const bool verbose, double *time, int *iterTotal, double **logLLarr)
 {
 
     // ---- Error handling ---- //
@@ -399,7 +399,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         else if (strcmp(q_method, "Hit and Run") == 0)
         {
             // ---- This function also takes the parameters of amount of samples (S) and step size (M) ----
-            q = computeQHitAndRun(currentP, 1000, 3000);
+            q = computeQHitAndRun(currentP, samples, 3000);
         }
         // ---- Multinomial method ----
         else if (strcmp(q_method, "Multinomial") == 0)
@@ -473,6 +473,17 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         if (i != 0 && (*logLLarr)[i] < (*logLLarr)[i - 1])
         {
             printf("Early exit; log-likelihood decreased\n");
+            // ---- Save values ----
+            *iterTotal = i;
+            *time = elapsed_total;
+            double *resizedLog = (double *)realloc(*logLLarr, (i + 1) * sizeof(double));
+            *logLLarr = resizedLog;
+            return *currentP;
+        }
+
+        if (elapsed_total / 60 > maxMin)
+        {
+            printf("Maximum time threshold reached.\n");
             // ---- Save values ----
             *iterTotal = i;
             *time = elapsed_total;
@@ -557,6 +568,33 @@ void cleanup()
         W = NULL;
     }
 }
+
+int getIntegerFromUser(const char *prompt)
+{
+    char input[100]; // Buffer for user input
+    int number;
+    char *endptr;
+
+    while (1)
+    {
+        printf("%s", prompt);
+        fgets(input, sizeof(input), stdin); // Read input safely
+
+        number = strtol(input, &endptr, 10); // Convert to integer
+
+        // Validate conversion
+        if (endptr == input || (*endptr != '\n' && *endptr != '\0'))
+        {
+            printf("Invalid input. Please enter a valid integer.\n");
+        }
+        else
+        {
+            break; // Exit loop if valid
+        }
+    }
+    return number;
+}
+
 // ---...--- //
 int main(int argc, char *argv[])
 {
@@ -573,6 +611,28 @@ int main(int argc, char *argv[])
     const char *instanceDirectory = argv[1]; // Directory containing instance files
     const char *resultDirectory = argv[2];   // Directory for saving results
     const char *inputMethod = argv[3];       // Method to use
+                                             //
+
+    int samplesAmount = 0;
+    bool isHit = false;
+    if (strcmp(inputMethod, "Hit and Run") == 0)
+    {
+        isHit = true;
+        samplesAmount = getIntegerFromUser("How many samples (S) to use?: ");
+    }
+
+    bool exactMet = false;
+    int candRes = 0;
+    int groupRes = 0;
+    int minMax = 9999;
+
+    if (strcmp(inputMethod, "Exact") == 0)
+    {
+        exactMet = true;
+        candRes = getIntegerFromUser("What amount of candidates (C) to use?: ");
+        groupRes = getIntegerFromUser("What amount of groups (G) to use?: ");
+        minMax = getIntegerFromUser("What's the maximum amount of minutes to use per instance?: ");
+    }
 
     DIR *directory = opendir(instanceDirectory); // Open directory
     if (directory == NULL)
@@ -596,9 +656,11 @@ int main(int argc, char *argv[])
 
         // ---- Get the candidate and group size ----
         sscanf(fileName, "J%d_M%*d_G%d_I%d_L%*d_seed%d.json", &J, &G, &CAm, &seed);
+        if (exactMet && (G != groupRes || CAm != candRes))
+            continue;
+
         printf("\n----- Groups: %d\t Candidates: %d\t Seed: %d -----\n", G, CAm, seed);
 
-        // if (G != 2 || CAm != 10 || seed != 12)
         //    continue;
         // ---- Construct the full path to the JSON file ---- //
         char jsonFile[5000];
@@ -609,8 +671,13 @@ int main(int argc, char *argv[])
 
         // ---- Construct the output file path ---- //
         char outputFile[1023];
-        snprintf(outputFile, sizeof(outputFile), "%s/%s/%dB/G%dC%dseed%d.json", resultDirectory, inputMethod, J, G, CAm,
-                 seed);
+        if (!isHit)
+            snprintf(outputFile, sizeof(outputFile), "%s/%s/%dB/G%dC%dseed%d.json", resultDirectory, inputMethod, J, G,
+                     CAm, seed);
+        else
+            snprintf(outputFile, sizeof(outputFile), "%s/%s/%dB/%d_samples/G%dC%dseed%d.json", resultDirectory,
+                     inputMethod, J, samplesAmount, G, CAm, seed);
+
         // ---...--- //
 
         // ---- Start the main algorithm ---- //
@@ -656,7 +723,8 @@ int main(int argc, char *argv[])
         int totalIter = 0;
         double *logLLresults = NULL;
 
-        Matrix Pnew = EMAlgoritm(&P, inputMethod, conv, itr, false, &timeIter, &totalIter, &logLLresults);
+        Matrix Pnew =
+            EMAlgoritm(&P, inputMethod, conv, itr, samplesAmount, minMax, false, &timeIter, &totalIter, &logLLresults);
         if (emptyVotes)
         {
             for (uint16_t c = 0; c < pastCandidates; c++)
@@ -670,6 +738,7 @@ int main(int argc, char *argv[])
     results:
         writeResultsJSON(outputFile, jsonFile, inputMethod, conv, itr, timeIter, totalIter, &PP1, &Pnew, logLLresults,
                          1000, 3000, false);
+        printf("The running time was %.6f\n", timeIter);
         // ---...--- //
 
         // ---- Free the memory ---- //
