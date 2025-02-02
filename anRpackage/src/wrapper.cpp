@@ -82,13 +82,14 @@ void readFilePrint(Rcpp::String filename)
 
     setParameters(&X, &W);
     printf("\nGroup proportional method:\n");
-    Matrix p = getInitialP("group proportional");
-    printMatrix(&p);
     printf("\nProportional method:\n");
-    p = getInitialP("proportional");
-    printMatrix(&p);
+    Matrix pIn = getInitialP("proportional");
+    printMatrix(&pIn);
     printf("\nUniform method:\n");
-    p = getInitialP("uniform");
+    pIn = getInitialP("uniform");
+    printMatrix(&pIn);
+    pIn = getInitialP("group proportional");
+    printMatrix(&pIn);
 
     // It will run multinomial...
     QMethodInput inputParams = {0};
@@ -96,9 +97,12 @@ void readFilePrint(Rcpp::String filename)
     int totalIter = 0;
     double *logLLresults = NULL;
 
-    Matrix Pnew = EMAlgoritm(&P, "Multinomial", 0.001, 1000, true, &timeIter, &totalIter, &logLLresults, inputParams);
+    Matrix Pnew = EMAlgoritm(&pIn, "Multinomial", 0.001, 1000, true, &timeIter, &totalIter, &logLLresults, inputParams);
+    printf("\nThe calculated matrix was\n");
     printMatrix(&Pnew);
-    printMatrix(&p);
+    printf("\nThe real one was:\n");
+    printMatrix(&P);
+    // printMatrix(&p);
     freeMatrix(&W);
     freeMatrix(&X);
     freeMatrix(&P);

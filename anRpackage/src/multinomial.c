@@ -52,8 +52,8 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params)
     double alpha = 1.0;
     double beta = 0.0;
     BLAS_INT m = (BLAS_INT)TOTAL_BALLOTS;
-    BLAS_INT n = (BLAS_INT)TOTAL_CANDIDATES;
-    BLAS_INT k = (BLAS_INT)TOTAL_GROUPS;
+    BLAS_INT k = (BLAS_INT)TOTAL_CANDIDATES;
+    BLAS_INT n = (BLAS_INT)TOTAL_GROUPS;
     char noTranspose = 'N';
 
     // WP = alpha * W * probabilities + beta * WP
@@ -65,6 +65,8 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params)
      &beta, WP.data, &m,         // C, LDC = m
      (BLAS_INT)1, (BLAS_INT)1    // string lengths for 'N', 'N'
     );
+    printf("The resulting matrix after the multiplication is:\n");
+    printMatrix(&WP);
 
     // ---- Do not parallelize ----
     for (int b = 0; b < (int)TOTAL_BALLOTS; b++)

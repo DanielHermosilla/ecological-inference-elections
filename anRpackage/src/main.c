@@ -483,13 +483,15 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         // ---- Calculate the log-likelihood before freeing the array ----
         (*logLLarr)[i] = logLikelihood(currentP, q);
         free(q);
+        freeMatrix(currentP);
 
         // ---- Redefine the current probability matrix ----
-        // free(currentP->data); // This is changed! It is to avoid creating new matrices each time
+        *currentP = createMatrix(newProbability.rows, newProbability.cols);
         memcpy(currentP->data, newProbability.data, sizeof(double) * newProbability.rows * newProbability.cols);
         freeMatrix(&newProbability);
 
         // ---- Handle the case where the log-likelihood decreases ----
+
         if (i != 0 && (*logLLarr)[i] < (*logLLarr)[i - 1])
         {
             printf("Early exit; log-likelihood decreased\n");
