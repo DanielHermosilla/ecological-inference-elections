@@ -8,11 +8,37 @@ extern "C"
 {
 #endif
 
-#include "utils_matrix.h"
 #include <stdint.h>
-
+#include <stdio.h>
 // Macro for accessing a 3D flattened array (b x g x c)
 #define Q_3D(q, bIdx, gIdx, cIdx, G, C) ((q)[((bIdx) * (G) * (C)) + ((gIdx) * (C)) + (cIdx)])
+#define MATRIX_AT(matrix, i, j) (matrix.data[(j) * (matrix.rows) + (i)])
+#define MATRIX_AT_PTR(matrix, i, j) (matrix->data[(j) * (matrix->rows) + (i)])
+
+    // ---- Define the structure to store the input parameters ---- //
+    typedef struct
+    {
+        int S, M;                     // Parameters for ""Hit and Run"
+        int monteCarloIter;           // For "MVN CDF"
+        double errorThreshold;        // For "MVN CDF"
+        const char *simulationMethod; // For "MVN CDF"
+    } QMethodInput;
+
+    // All of the helper functions are made towards double type matrices
+    typedef struct
+    {
+        double *data; // Pointer to matrix data array (col-major order)
+        int rows;     // Number of rows
+        int cols;     // Number of columns
+    } Matrix;
+
+    // The helper functions won't work towards this matrix
+    typedef struct
+    {
+        size_t *data; // Pointer to matrix data array (col-major order)
+        int rows;     // Number of rows
+        int cols;     // Number of columns
+    } SizeTMatrix;
 
     extern uint32_t TOTAL_VOTES;
     extern uint32_t TOTAL_BALLOTS;

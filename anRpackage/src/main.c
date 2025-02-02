@@ -222,6 +222,62 @@ Matrix getInitialP(const char *p_method)
     // ---...--- //
     return probabilities;
 }
+
+/*
+ *
+ * @brief Sets the configuration for the Q method, using a modularized approach.
+ *
+ * Given that different `Q` methods receive different parameters, a modularized approach is given towards each method
+ *
+ * @input[in] q_method A char with the q_method. Currently it supports "Exact", "Hit and Run", "multinomial", "MVN CDF"
+ * and "MVN PDF"
+ * @input[in] inputParams A QMethodInput struct, that should be defined in a main function, with the parameters for the
+ * distinct methods
+ *
+ * return A QMethodConfig struct that defines a function pointer towards the corresponding process for getting the `Q`
+ * parameter according the method given.
+ */
+QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
+{
+    QMethodConfig config = {NULL}; // Initialize everything to NULL/0
+
+    config.computeQ = computeQMultinomial;
+    /*
+    if (strcmp(q_method, "Exact") == 0)
+    {
+        config.computeQ = computeQExact;
+    }
+    else if (strcmp(q_method, "Hit and Run") == 0)
+    {
+        config.computeQ = computeQHitAndRun;
+    }
+    else if (strcmp(q_method, "Multinomial") == 0)
+    {
+        config.computeQ = computeQMultinomial;
+    }
+    else if (strcmp(q_method, "MVN CDF") == 0)
+    {
+        config.computeQ = computeQMultivariateCDF;
+    }
+    else if (strcmp(q_method, "MVN PDF") == 0)
+    {
+        config.computeQ = computeQMultivariatePDF;
+    }
+    else
+    {
+        fprintf(stderr,
+                "getQMethodConfig: An invalid method was provided: `%s`\nThe supported methods are: `Exact`, `Hit and "
+                "Run`, `Multinomial`, `MVN CDF` and `MVN PDF`.\n",
+                q_method);
+        exit(EXIT_FAILURE);
+    }
+    */
+
+    // Directly store the input parameters
+    config.params = inputParams;
+    return config;
+}
+
 /*
  * @brief Computes the log-likelihood for a given probability and `q` array
  *
@@ -293,18 +349,28 @@ Matrix getP(const double *q)
     int stride = TOTAL_GROUPS * TOTAL_CANDIDATES;
     int gStride = TOTAL_GROUPS;
     int tBal = TOTAL_BALLOTS;
+    int newStride = 1;
     for (int g = 0; g < TOTAL_GROUPS; g++)
     { // --- For each group
         for (int c = 0; c < TOTAL_CANDIDATES; c++)
         { // --- For each candidate given a group
             // Dot product over b=0..B-1 of W_{b,g} * Q_{b,g,c}
             double val;
+            /*
             val = F77_CALL(ddot)(&tBal,
                                  &W->data[g],                  // Points to W_{0,g}
                                  &gStride,                     // Stride: each next W_{b+1,g} is +G in memory
                                  &q[g * TOTAL_CANDIDATES + c], // Points to Q_{0,g,c}
                                  &stride                       // Stride: each next Q_{b+1,g,c} is +(G*C) in memory
             );
+            */
+            val = F77_CALL(ddot)(&tBal,
+                                 &W->data[g * TOTAL_BALLOTS], // Now correctly indexing W in column-major
+                                 &newStride,                  // Column-major: stride is 1 for W
+                                 &q[c * TOTAL_GROUPS + g],    // Column-major: index properly
+                                 &newStride                   // Stride: move down rows (1 step per row)
+            );
+
             MATRIX_AT(toReturn, g, c) = val / GROUP_VOTES[g];
         }
     }
@@ -338,33 +404,22 @@ Matrix getP(const double *q)
  * - `x` and `w` dimensions must be coherent.
  *
  */
-/*
+
 Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
-                  const bool verbose, double *time, int *iterTotal, double **logLLarr)
+                  const bool verbose, double *time, double *iterTotal, double **logLLarr, QMethodInput inputParams)
 {
 
-    // ---- Error handling ---- //
-    // ---- Check the method parameter ----
-    if (strcmp(q_method, "Hit and Run") != 0 && strcmp(q_method, "Multinomial") != 0 &&
-        strcmp(q_method, "MVN CDF") != 0 && strcmp(q_method, "MVN PDF") != 0 && strcmp(q_method, "Exact") != 0)
-    {
-        fprintf(stderr, "EMAlgorithm: The method `%s` passed to EMAlgorithm doesn't exist.\n", q_method);
-        exit(EXIT_FAILURE);
-    }
-    // ---...--- //
-
+    // ---- Error handling is done on getQMethodConfig! ---- //
     if (verbose)
     {
-        printf("Starting the EM algorithm.\n The candidates matrix is:\n");
-        printMatrix(X);
-        printf("\nThe matrix with the demographic groups votation is:\n");
-        printMatrix(W);
-        printf("\nThe method to calculate the conditional probability will be %s method with the following "
+        printf("Starting the EM algorithm.\n");
+        printf("The method to calculate the conditional probability will be %s method with the following "
                "parameters:\nConvergence threshold:\t%.6f\nMaximum iterations:\t%d\n",
                q_method, convergence, maxIter);
     }
 
-    double *q;
+    QMethodConfig config = getQMethodConfig(q_method, inputParams);
+
     *logLLarr = (double *)malloc(maxIter * sizeof(double));
 
     // Start timer
@@ -382,38 +437,10 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             printf("\nThe current probability matrix at the %dth iteration is:\n", i);
             printMatrix(currentP);
         }
-
-        // ---- Execute the method for obtaining `q` ---- //
-        // ---- Exact method ----
-        if (strcmp(q_method, "Exact") == 0)
-        {
-            q = computeQExact(currentP);
-        }
-        // ---- Hit and Run method ----
-        else if (strcmp(q_method, "Hit and Run") == 0)
-        {
-            // ---- This function also takes the parameters of amount of samples (S) and step size (M) ----
-            q = computeQHitAndRun(currentP, 1000, 3000);
-        }
-        // ---- Multinomial method ----
-        else if (strcmp(q_method, "Multinomial") == 0)
-        {
-            q = computeQMultinomial(currentP);
-        }
-        // ---- Multivariate CDF method ----
-        else if (strcmp(q_method, "MVN CDF") == 0)
-        {
-            // ---- This function also takes the parameters of Montecarlo iterations, error threshold and the method for
-            // simulating ----
-            q = computeQMultivariateCDF(currentP, 100000, 0.00001, "Genz2");
-        }
-        // ---- Multivariate PDF method ----
-        else
-        {
-            q = computeQMultivariatePDF(currentP);
-        }
         // ---...--- //
 
+        // ---- Compute the `q` value ---- //
+        double *q = config.computeQ(currentP, config.params);
         // ---- Check convergence ---- //
         Matrix newProbability = getP(q);
 
@@ -481,7 +508,6 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     *time = elapsed_total;
     return *currentP;
 }
-*/
 /**
  * @brief Checks if a candidate didn't receive any votes.
  *

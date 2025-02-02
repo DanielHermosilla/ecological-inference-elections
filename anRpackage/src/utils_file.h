@@ -7,8 +7,9 @@ extern "C"
 {
 #endif
 
+#include "globals.h"
 #include "utils_cJSON.h"
-#include "utils_matrix.h"
+#include <stdbool.h>
     /**
      * @brief Writes an array of matrices to a binary file, including their metadata.
      *

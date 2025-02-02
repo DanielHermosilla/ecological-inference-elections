@@ -6,29 +6,9 @@
 extern "C"
 {
 #endif
+#include "globals.h"
 #include <stdbool.h>
 #include <stdlib.h>
-
-// Macro for making an easier indexation.
-// IT IS COL-MAJOR NOW
-#define MATRIX_AT(matrix, i, j) (matrix.data[(j) * (matrix.rows) + (i)])
-#define MATRIX_AT_PTR(matrix, i, j) (matrix->data[(j) * (matrix->rows) + (i)])
-
-    // All of the helper functions are made towards double type matrices
-    typedef struct
-    {
-        double *data; // Pointer to matrix data array (col-major order)
-        int rows;     // Number of rows
-        int cols;     // Number of columns
-    } Matrix;
-
-    // The helper functions won't work towards this matrix
-    typedef struct
-    {
-        size_t *data; // Pointer to matrix data array (col-major order)
-        int rows;     // Number of rows
-        int cols;     // Number of columns
-    } SizeTMatrix;
 
     /**
      * @brief Make an array of a constant value.
