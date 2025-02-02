@@ -11,7 +11,8 @@ extern "C"
 #include <stdint.h>
 #include <stdio.h>
 // Macro for accessing a 3D flattened array (b x g x c)
-#define Q_3D(q, bIdx, gIdx, cIdx, G, C) ((q)[((bIdx) * (G) * (C)) + ((gIdx) * (C)) + (cIdx)])
+// #define Q_3D(q, bIdx, gIdx, cIdx, G, C) ((q)[((bIdx) * (G) * (C)) + ((gIdx) * (C)) + (cIdx)])
+#define Q_3D(q, bIdx, gIdx, cIdx, G, C) ((q)[(bIdx) * (G) * (C) + (cIdx) * (G) + (gIdx)])
 #define MATRIX_AT(matrix, i, j) (matrix.data[(j) * (matrix.rows) + (i)])
 #define MATRIX_AT_PTR(matrix, i, j) (matrix->data[(j) * (matrix->rows) + (i)])
 

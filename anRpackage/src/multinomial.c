@@ -1,4 +1,5 @@
 #include "multinomial.h"
+#include "globals.h"
 #include <R_ext/BLAS.h>
 /**
  * @brief Computes the value of `r` without the denominator.
