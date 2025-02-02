@@ -381,7 +381,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     {
         // Timer for the current iteration
         clock_gettime(CLOCK_MONOTONIC, &iter_start);
-
+        sleep(3);
         if (verbose)
         {
             printf("\nThe current probability matrix at the %dth iteration is:\n", i);
@@ -597,8 +597,8 @@ int main(int argc, char *argv[])
         sscanf(fileName, "J%d_M%*d_G%d_I%d_L%*d_seed%d.json", &J, &G, &CAm, &seed);
         printf("\n----- Groups: %d\t Candidates: %d\t Seed: %d -----\n", G, CAm, seed);
 
-        // if (G != 2 || CAm != 10 || seed != 12)
-        //    continue;
+        if (G != 3 || CAm != 3 || seed != 18)
+            continue;
         // ---- Construct the full path to the JSON file ---- //
         char jsonFile[5000];
         snprintf(jsonFile, sizeof(jsonFile), "%s/%s", instanceDirectory, fileName);
