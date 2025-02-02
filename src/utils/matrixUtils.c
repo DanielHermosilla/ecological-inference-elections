@@ -76,8 +76,8 @@ void makeArray(double *array, int N, double value)
         exit(EXIT_FAILURE);
     }
 
-// Fill the array with the specified constant value
-#pragma omp parallel for
+    // Fill the array with the specified constant value
+    // #pragma omp parallel for
     for (int i = 0; i < N; i++)
     {
         array[i] = value;

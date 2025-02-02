@@ -185,7 +185,7 @@ void generateHSets()
 {
     // ---- Allocate memory for the `b` index ----
     HSETS = malloc(TOTAL_BALLOTS * sizeof(Set *));
-
+    // #pragma omp parallel for collapse(2) schedule(static)
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For every ballot box
 
@@ -229,6 +229,7 @@ void generateKSets()
     // ---- Allocate memory for the `b` index ----
     KSETS = malloc(TOTAL_BALLOTS * sizeof(Set *));
 
+    // #pragma omp parallel for collapse(2) schedule(static)
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For every ballot box
 
