@@ -537,32 +537,26 @@ double *computeQExact(const Matrix *probabilities)
     // --- ... --- //
 
     // ---- Store the results ---- //
-#pragma omp parallel for schedule(dynamic) collapse(2)
+    // #pragma omp parallel for schedule(dynamic) collapse(2)
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For each ballot box
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         { // ---- For each group
             // ---- Initialize the denominator variable to avoid multiple computations
             double den = 0;
+            double num[TOTAL_CANDIDATES];
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // ---- For each candidate
               // ---- Add the values of the denominator
-#pragma omp critical
-                {
-                    den += getMemoValue(table, b, TOTAL_GROUPS - 1, g, c, CANDIDATEARRAYS[b], TOTAL_CANDIDATES) *
-                           MATRIX_AT_PTR(probabilities, g, c);
-                }
+                num[c] = getMemoValue(table, b, TOTAL_GROUPS - 1, g, c, CANDIDATEARRAYS[b], TOTAL_CANDIDATES) *
+                         MATRIX_AT_PTR(probabilities, g, c);
+                den += num[c];
             } // ---- End loop on candidates
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // ---- For each candidate
               // ---- Compute the numerator ----
-#pragma omp critical
-                {
-                    double num = getMemoValue(table, b, TOTAL_GROUPS - 1, g, c, CANDIDATEARRAYS[b], TOTAL_CANDIDATES) *
-                                 MATRIX_AT_PTR(probabilities, g, c);
-                    // ---- Store the resulting values as q_{bgc} ----
-                    Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num / den;
-                }
+                // ---- Store the resulting values as q_{bgc} ----
+                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num[c] / den;
             } // ---- End loop on candidates
         } // ---- End loop on groups
     } // ---- End loop on ballot boxes

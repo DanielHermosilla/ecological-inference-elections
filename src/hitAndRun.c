@@ -244,7 +244,7 @@ double *computeQHitAndRun(Matrix const *probabilities, int M, int S)
     // ---- Compute the final values and fill the returning array ---- //
     double *array2 =
         (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double)); // Array to return
-    // ---- Use a static assignment since the workload is even between threads ----
+// ---- Use a static assignment since the workload is even between threads ----
 #pragma omp parallel for collapse(3) schedule(static)
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // --- For each ballot box

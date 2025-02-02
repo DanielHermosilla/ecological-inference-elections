@@ -1,0 +1,11 @@
+{
+	"input_file":	"../../instances/J100_M50_G2_I2_L50_seed5.json",
+	"method":	"Exact",
+	"convergence_threshold":	0.001,
+	"iterations_made":	0,
+	"max_iterations":	10000,
+	"time_taken":	0.00185933,
+	"ground_truth_matrix":	[[0.1092869023075165, 0.89071309769248352], [0.084514668368276855, 0.91548533163172319]],
+	"estimated_matrix":	[[0.096282963505415625, 0.90371703649458424], [0.0949159428780825, 0.90508405712191764]],
+	"log_likelihood":	[-30.11572048176728]
+}
