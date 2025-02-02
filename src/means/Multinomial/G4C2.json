@@ -1,8 +1,0 @@
-{
-    "log_likelihood_mean_(last_iteration_value)": -13.798506360715269,
-    "time_taken_mean": 0.00028384704999999996,
-    "time_from_paper": 0.0012,
-    "percentage_improvement(%)": 322.76289290306175,
-    "iterations_made_mean": 22.45,
-    "MAE": 0.018126243152605376
-}
