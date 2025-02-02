@@ -8,7 +8,7 @@ extern "C"
 {
 #endif
 
-#include "matrixUtils.h"
+#include "utils_matrix.h"
 #include <stdint.h>
 
 // Macro for accessing a 3D flattened array (b x g x c)

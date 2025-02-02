@@ -1,4 +1,4 @@
-#include "matrixUtils.h"
+#include "utils_matrix.h"
 #include <R.h>
 #include <R_ext/BLAS.h>
 #include <R_ext/Lapack.h>

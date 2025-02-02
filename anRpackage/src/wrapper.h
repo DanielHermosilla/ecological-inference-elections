@@ -8,11 +8,14 @@ extern "C"
 
 #include "globals.h"
 #include "main.h"
-#include "matrixUtils.h"
+#include "utils_file.h"
+#include "utils_matrix.h"
 
 #ifdef __cplusplus
 }
 #endif
 void RsetParameters(Rcpp::NumericMatrix x, Rcpp::NumericMatrix w);
+
+void readFilePrint(Rcpp::String filename);
 
 #endif // WRAPPER_H

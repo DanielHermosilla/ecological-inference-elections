@@ -159,8 +159,9 @@ Matrix getInitialP(const char *p_method)
     else if (strcmp(p_method, "proportional") == 0)
     {
         for (int c = 0; c < TOTAL_CANDIDATES; c++)
-        {                                                     // --- For each candidate
-            double ratio = CANDIDATES_VOTES[c] / TOTAL_VOTES; // Proportion of candidates votes per total votes.
+        { // --- For each candidate
+            double ratio =
+                (double)CANDIDATES_VOTES[c] / (double)TOTAL_VOTES; // Proportion of candidates votes per total votes.
             for (int g = 0; g < TOTAL_GROUPS; g++)
             { // --- For each group, given a candidate
                 MATRIX_AT(probabilities, g, c) = ratio;

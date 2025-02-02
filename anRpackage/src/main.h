@@ -12,11 +12,11 @@ extern "C"
 // #include "globals.h"
 // #include "hitAndRun.h"
 // #include "instanceGenerator.h"
-#include "matrixUtils.h"
-    // #include "multinomial.h"
-    // #include "multivariate-cdf.h"
-    // #include "multivariate-pdf.h"
-    // #include "utils/fileutils.h"
+#include "utils_matrix.h"
+// #include "multinomial.h"
+// #include "multivariate-cdf.h"
+// #include "multivariate-pdf.h"
+#include "utils_file.h"
 
     /**
      * @brief Yields the global parameters of the process. Usually this should be done once for avoiding

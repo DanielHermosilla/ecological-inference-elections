@@ -2,6 +2,7 @@
 #include <iostream>
 
 // Include the corrected wrapper.h
+#include "Rcpp/String.h"
 #include "wrapper.h"
 
 // [[Rcpp::export]]
@@ -62,4 +63,34 @@ void RsetParameters(Rcpp::NumericMatrix x, Rcpp::NumericMatrix w)
     printMatrix(&p);
 
     // setParameters(&XR, &WR);
+}
+
+// [[Rcpp::export]]
+void readFilePrint(Rcpp::String filename)
+{
+    std::string file = filename;
+
+    Matrix X, W, P;
+
+    readJSONAndStoreMatrices(file.c_str(), &W, &X, &P);
+    printf("The matrices are:\nFor W:\n");
+    printMatrix(&W);
+    printf("\nFor X:\n");
+    printMatrix(&X);
+    printf("\nFor P:\n");
+    printMatrix(&P);
+
+    setParameters(&X, &W);
+    printf("\nGroup proportional method:\n");
+    Matrix p = getInitialP("group proportional");
+    printMatrix(&p);
+    printf("\nProportional method:\n");
+    p = getInitialP("proportional");
+    printMatrix(&p);
+    printf("\nUniform method:\n");
+    p = getInitialP("uniform");
+    printMatrix(&p);
+    freeMatrix(&W);
+    freeMatrix(&X);
+    freeMatrix(&P);
 }

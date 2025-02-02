@@ -1,5 +1,5 @@
-#ifndef MATRIX_UTILS_H
-#define MATRIX_UTILS_H
+#ifndef UTILS_MATRIX_H
+#define UTILS_MATRIX_H
 
 #ifdef __cplusplus
 
@@ -475,4 +475,4 @@ extern "C"
 #ifdef __cplusplus
 }
 #endif
-#endif // MATRIX_UTILS_H
+#endif // UTILS_MATRIX_H

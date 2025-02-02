@@ -21,9 +21,20 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
+// readFilePrint
+void readFilePrint(Rcpp::String filename);
+RcppExport SEXP _infPackage_readFilePrint(SEXP filenameSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
+    readFilePrint(filename);
+    return R_NilValue;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_infPackage_RsetParameters", (DL_FUNC) &_infPackage_RsetParameters, 2},
+    {"_infPackage_readFilePrint", (DL_FUNC) &_infPackage_readFilePrint, 1},
     {NULL, NULL, 0}
 };
 
