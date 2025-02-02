@@ -290,8 +290,8 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
  * @return The value of the log-likelihood.
  *
  */
-/*
-double logLikelihood(Matrix *prob, double *q)
+
+static double logLikelihood(Matrix *prob, double *q)
 {
     // ---- Define the summatory for the log-likelihood ---- //
     double logLL = 0;
@@ -319,7 +319,7 @@ double logLikelihood(Matrix *prob, double *q)
     // ---...--- //
     return logLL;
 }
-*/
+
 /*
  * @brief Computes the optimal solution for the `M` step
  *
@@ -406,7 +406,7 @@ Matrix getP(const double *q)
  */
 
 Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
-                  const bool verbose, double *time, double *iterTotal, double **logLLarr, QMethodInput inputParams)
+                  const bool verbose, double *time, int *iterTotal, double **logLLarr, QMethodInput inputParams)
 {
 
     // ---- Error handling is done on getQMethodConfig! ---- //
@@ -483,10 +483,9 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         // ---- Calculate the log-likelihood before freeing the array ----
         (*logLLarr)[i] = logLikelihood(currentP, q);
         free(q);
-        freeMatrix(currentP);
 
         // ---- Redefine the current probability matrix ----
-        *currentP = createMatrix(newProbability.rows, newProbability.cols);
+        // free(currentP->data); // This is changed! It is to avoid creating new matrices each time
         memcpy(currentP->data, newProbability.data, sizeof(double) * newProbability.rows * newProbability.cols);
         freeMatrix(&newProbability);
 

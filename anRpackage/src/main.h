@@ -17,6 +17,15 @@ extern "C"
 // #include "multivariate-cdf.h"
 // #include "multivariate-pdf.h"
 #include "utils_file.h"
+
+    // ---- Define the structure to store the function pointer ---- //
+    // ----  It is defined here since it's not used globally ----
+    typedef struct
+    {
+        double *(*computeQ)(const Matrix *, QMethodInput); // Function pointer for computing q
+        QMethodInput params;                               // Holds method-specific parameters
+    } QMethodConfig;
+    // ---...--- //
     /**
      * @brief Yields the global parameters of the process. Usually this should be done once for avoiding
      * computing a loop over ballots. It also changes the parameters in case it's called with other `x` and `w` matrix.
@@ -100,8 +109,8 @@ extern "C"
      * - `x` and `w` dimensions must be coherent.
      *
      */
-    //    Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
-    //                    const bool verbose, double *time, int *iterTotal);
+    Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
+                      const bool verbose, double *time, int *iterTotal, double **logLLarr, QMethodInput params);
 
     /**
      * @brief Checks if a candidate didn't receive any votes.

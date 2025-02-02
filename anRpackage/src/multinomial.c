@@ -1,5 +1,5 @@
 #include "multinomial.h"
-
+#include <R_ext/BLAS.h>
 /**
  * @brief Computes the value of `r` without the denominator.
  *
@@ -34,7 +34,6 @@ double computeR(Matrix const *probabilities, Matrix const *mult, int const b, in
  * it's fundamental to be a continuos array in memory for simplificating the posteriors calculations.
  *
  */
-
 double *computeQMultinomial(Matrix const *probabilities, QMethodInput params)
 {
     double *array2 =
@@ -43,11 +42,29 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params)
     // -- Summatory calculation for g --
     // This is a simple matrix calculation, to be computed once.
     Matrix WP = createMatrix((int)TOTAL_BALLOTS, (int)TOTAL_CANDIDATES);
+    /*
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, (int)TOTAL_BALLOTS, // Rows in W
                 (int)TOTAL_CANDIDATES,                                         // Columns in P
                 (int)TOTAL_GROUPS,                                             // Shared dimension
                 1.0, W->data, (int)TOTAL_GROUPS, probabilities->data, (int)TOTAL_CANDIDATES, 0.0, WP.data,
                 (int)TOTAL_CANDIDATES);
+    */
+    double alpha = 1.0;
+    double beta = 0.0;
+    BLAS_INT m = (BLAS_INT)TOTAL_BALLOTS;
+    BLAS_INT n = (BLAS_INT)TOTAL_CANDIDATES;
+    BLAS_INT k = (BLAS_INT)TOTAL_GROUPS;
+    char noTranspose = 'N';
+
+    // WP = alpha * W * probabilities + beta * WP
+    F77_CALL(dgemm)
+    (&noTranspose, &noTranspose, // transA = 'N', transB = 'N'
+     &m, &n, &k,                 // M, N, K
+     &alpha, W->data, &m,        // A, LDA = m
+     probabilities->data, &k,    // B, LDB = k
+     &beta, WP.data, &m,         // C, LDC = m
+     (BLAS_INT)1, (BLAS_INT)1    // string lengths for 'N', 'N'
+    );
 
     // ---- Do not parallelize ----
     for (int b = 0; b < (int)TOTAL_BALLOTS; b++)

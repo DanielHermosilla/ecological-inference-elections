@@ -89,6 +89,15 @@ void readFilePrint(Rcpp::String filename)
     printMatrix(&p);
     printf("\nUniform method:\n");
     p = getInitialP("uniform");
+
+    // It will run multinomial...
+    QMethodInput inputParams = {0};
+    double timeIter = 0;
+    int totalIter = 0;
+    double *logLLresults = NULL;
+
+    Matrix Pnew = EMAlgoritm(&P, "Multinomial", 0.001, 1000, true, &timeIter, &totalIter, &logLLresults, inputParams);
+    printMatrix(&Pnew);
     printMatrix(&p);
     freeMatrix(&W);
     freeMatrix(&X);
