@@ -95,7 +95,10 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params)
             for (int c = 0; c < (int)TOTAL_CANDIDATES; c++)
             {                     // ---- For each candidate given a group and a ballot box
                 if (tempSum != 0) // --- Edge case
+                {
                     Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = finalNumerator[c] / tempSum;
+                    printf("%.3f", Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES));
+                }
                 else
                     Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = 0;
                 // ---- Store the value ----
