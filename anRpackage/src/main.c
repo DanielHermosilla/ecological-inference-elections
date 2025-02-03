@@ -253,7 +253,7 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
     }
     else if (strcmp(q_method, "Exact") == 0)
     {
-        // config.computeQ = computeQExact;
+        config.computeQ = computeQExact;
     }
     else if (strcmp(q_method, "MVN CDF") == 0)
     {
@@ -338,11 +338,9 @@ Matrix getP(const double *q)
 {
     // ---- Inititalize variables ---- //
     Matrix toReturn = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES);
-    // double *ptrReturn = toReturn.data; // For OpenMP because they don't accept structs for reduction clauses
-    // even though it's dereferenced
+    // ---...--- //
 
     // ---- Compute the dot products ---- //
-
     int stride = TOTAL_GROUPS * TOTAL_CANDIDATES;
     int tBal = TOTAL_BALLOTS;
     int newStride = 1;
@@ -393,7 +391,6 @@ Matrix getP(const double *q)
  * - `x` and `w` dimensions must be coherent.
  *
  */
-
 Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
                   const bool verbose, double *time, int *iterTotal, double **logLLarr, QMethodInput inputParams)
 {
@@ -406,15 +403,18 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
                "parameters:\nConvergence threshold:\t%.6f\nMaximum iterations:\t%d\n",
                q_method, convergence, maxIter);
     }
+    // ---...--- //
 
+    // ---- Define the parameters for the main loop ---- //
     QMethodConfig config = getQMethodConfig(q_method, inputParams);
-
     *logLLarr = (double *)malloc(maxIter * sizeof(double));
+    // ---...--- //
 
     // Start timer
     struct timespec start, end, iter_start, iter_end; // Declare timers for overall and per-iteration
     clock_gettime(CLOCK_MONOTONIC_RAW, &start);
     double elapsed_total = 0;
+
     // ---- Execute the EM-iterations ---- //
     for (int i = 0; i < maxIter; i++)
     {
@@ -426,19 +426,20 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             printf("\nThe current probability matrix at the %dth iteration is:\n", i);
             printMatrix(currentP);
         }
-        // ---...--- //
 
         // ---- Compute the `q` value ---- //
         double *q = config.computeQ(currentP, config.params);
-        // ---- Check convergence ---- //
         Matrix newProbability = getP(q);
+        // ---...--- //
 
+        // ---- Check convergence ---- //
         if (convergeMatrix(&newProbability, currentP, convergence))
         {
-            // End timer
+            // ---- End timer ---- //
             clock_gettime(CLOCK_MONOTONIC_RAW, &end);
             elapsed_total += (iter_end.tv_sec - iter_start.tv_sec) + (iter_end.tv_nsec - iter_start.tv_nsec) / 1e9;
             double elapsed_total = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+            // ---...--- //
 
             (*logLLarr)[i] = logLikelihood(&newProbability, q);
             if (verbose)
@@ -454,6 +455,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             *time = elapsed_total;
             *iterTotal = i;
             // ---...--- //
+
             freeMatrix(currentP);
             free(q);
             return newProbability;
@@ -498,6 +500,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     *time = elapsed_total;
     return *currentP;
 }
+
 /**
  * @brief Checks if a candidate didn't receive any votes.
  *

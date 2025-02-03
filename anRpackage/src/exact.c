@@ -1,6 +1,5 @@
 #include "exact.h"
-#include <cblas.h>
-#include <gsl/gsl_sf_gamma.h>
+#include <Rmath.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -324,12 +323,12 @@ double prod(const size_t *hElement, const Matrix *probabilities, const int f)
 double multinomialCoeff(const int b, const int f, const size_t *hElement)
 {
     // --- Compute ln(w_bf!). When adding by one, it considers the last element too ---
-    double result = gsl_sf_lngamma((int)MATRIX_AT_PTR(W, b, f) + 1);
+    double result = lgamma1p((int)MATRIX_AT_PTR(W, b, f) + 1);
 
     for (uint16_t i = 0; i < TOTAL_CANDIDATES; i++)
     { // ---- For each candidate
         // ---- Divide by each h_i! ----
-        result -= gsl_sf_lngamma(hElement[i] + 1);
+        result -= lgamma1p(hElement[i] + 1);
     }
     // ---- Return the original result by exponentiating ----
     return exp(result);
@@ -490,13 +489,14 @@ void recursion(MemoizationTable *memo, const Matrix *probabilities)
  * `double`.
  *
  * @param[in] *probabilities A pointer to the matrix with the probabilities.
+ * @param[in] params The parameters to use for the `q` probability. On this case, it should be empty.
  *
  * @return *double: A pointer toward the array.
  *
  * @note: A single pointer is used to store the array continously. This is for using cBLAS operations later.
  *
  */
-double *computeQExact(const Matrix *probabilities)
+double *computeQExact(const Matrix *probabilities, QMethodInput params)
 {
 
     // ---- Initialize CANDIDATEARRAYS, which corresponds as a copy of `X` but in size_t. ---- //
@@ -550,25 +550,22 @@ double *computeQExact(const Matrix *probabilities)
         { // ---- For each group
             // ---- Initialize the denominator variable to avoid multiple computations
             double den = 0;
+            double num[TOTAL_CANDIDATES];
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // ---- For each candidate
               // ---- Add the values of the denominator
 #pragma omp critical
                 {
-                    den += getMemoValue(table, b, TOTAL_GROUPS - 1, g, c, CANDIDATEARRAYS[b], TOTAL_CANDIDATES) *
-                           MATRIX_AT_PTR(probabilities, g, c);
+                    num[c] = getMemoValue(table, b, TOTAL_GROUPS - 1, g, c, CANDIDATEARRAYS[b], TOTAL_CANDIDATES) *
+                             MATRIX_AT_PTR(probabilities, g, c);
+                    den += num[c];
                 }
             } // ---- End loop on candidates
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // ---- For each candidate
               // ---- Compute the numerator ----
-#pragma omp critical
-                {
-                    double num = getMemoValue(table, b, TOTAL_GROUPS - 1, g, c, CANDIDATEARRAYS[b], TOTAL_CANDIDATES) *
-                                 MATRIX_AT_PTR(probabilities, g, c);
-                    // ---- Store the resulting values as q_{bgc} ----
-                    Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num / den;
-                }
+                // ---- Store the resulting values as q_{bgc} ----
+                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num[c] / den;
             } // ---- End loop on candidates
         } // ---- End loop on groups
     } // ---- End loop on ballot boxes

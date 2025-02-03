@@ -589,10 +589,11 @@ int main(int argc, char *argv[])
 
         // ---- Get the candidate and group size ----
         sscanf(fileName, "J%d_M%*d_G%d_I%d_L%*d_seed%d.json", &J, &G, &CAm, &seed);
-        printf("\n----- Groups: %d\t Candidates: %d\t Seed: %d -----\n", G, CAm, seed);
 
         if (G != 3 || CAm != 3 || seed != 18)
             continue;
+
+        printf("\n----- Groups: %d\t Candidates: %d\t Seed: %d -----\n", G, CAm, seed);
         // ---- Construct the full path to the JSON file ---- //
         char jsonFile[5000];
         snprintf(jsonFile, sizeof(jsonFile), "%s/%s", instanceDirectory, fileName);

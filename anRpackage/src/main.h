@@ -8,7 +8,7 @@ extern "C"
 {
 #endif
 
-// #include "exact.h"
+#include "exact.h"
 #include "globals.h"
 #include "hitAndRun.h"
 // #include "instanceGenerator.h"
@@ -26,6 +26,7 @@ extern "C"
         QMethodInput params;                               // Holds method-specific parameters
     } QMethodConfig;
     // ---...--- //
+
     /**
      * @brief Yields the global parameters of the process. Usually this should be done once for avoiding
      * computing a loop over ballots. It also changes the parameters in case it's called with other `x` and `w` matrix.
