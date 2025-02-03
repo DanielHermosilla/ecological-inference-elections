@@ -257,7 +257,7 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
     }
     else if (strcmp(q_method, "MVN CDF") == 0)
     {
-        // config.computeQ = computeQMultivariateCDF;
+        config.computeQ = computeQMultivariateCDF;
     }
     else if (strcmp(q_method, "MVN PDF") == 0)
     {

@@ -1,7 +1,8 @@
 #include "multivariate-cdf.h"
-#include "globals.h"
-#include "utils/matrixUtils.h"
-#include <cblas.h>
+#include "R_ext/Random.h"
+#include <R.h>
+#include <Rmath.h>
+/*
 #include <gsl/gsl_cdf.h>
 #include <gsl/gsl_monte.h>
 #include <gsl/gsl_monte_miser.h>
@@ -9,6 +10,7 @@
 #include <gsl/gsl_monte_vegas.h>
 #include <gsl/gsl_qrng.h>
 #include <gsl/gsl_rng.h> // Random numbers
+*/
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -45,8 +47,8 @@ typedef struct
 double genzMontecarloNew(const Matrix *cholesky, const double *lowerBounds, const double *upperBounds, double epsilon,
                          int iterations, int mvnDim)
 {
-    printf("hereee\n");
-    gsl_qrng *q = gsl_qrng_alloc(gsl_qrng_sobol, mvnDim);
+    GetRNGstate();
+    // gsl_qrng *q = gsl_qrng_alloc(gsl_qrng_sobol, mvnDim);
 
     // ---- Initialize Montecarlo variables ---- //
     double intsum = 0;
@@ -54,18 +56,25 @@ double genzMontecarloNew(const Matrix *cholesky, const double *lowerBounds, cons
     double mean = 0;
     int currentIterations = 0;
     double a[mvnDim], b[mvnDim], y[mvnDim], currentError;
-    a[0] = gsl_cdf_gaussian_P(lowerBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 1);
-    b[0] = gsl_cdf_gaussian_P(upperBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 1);
+    // a[0] = gsl_cdf_gaussian_P(lowerBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 1);
+    //  b[0] = gsl_cdf_gaussian_P(upperBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 1);
+    a[0] = pnorm(lowerBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 0.0, 1.0, 1, 0);
+    b[0] = pnorm(upperBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 0.0, 1.0, 1, 0);
     // ---...--- //
 
     do
     {
         // ---- Generate a pseudoRandom number for each iteration
         double pseudoRandom[mvnDim];
-        gsl_qrng_get(q, pseudoRandom);
+        for (int i = 0; i < mvnDim; i++)
+        {
+            pseudoRandom[i] = unif_rand();
+        }
+        // gsl_qrng_get(q, pseudoRandom);
 
         // ---- Compute the base case
-        y[0] = gsl_cdf_gaussian_Pinv(a[0] + pseudoRandom[0] * (b[0] - a[0]), 1);
+        y[0] = qnorm(a[0] + pseudoRandom[0] * (b[0] - a[0]), 0.0, 1.0, 1, 0);
+        // y[0] = gsl_cdf_gaussian_Pinv(a[0] + pseudoRandom[0] * (b[0] - a[0]), 1);
         double summatory;
         double P = b[0] - a[0];
 
@@ -78,11 +87,13 @@ double genzMontecarloNew(const Matrix *cholesky, const double *lowerBounds, cons
             {
                 summatory += MATRIX_AT_PTR(cholesky, i, j) * y[j];
             }
-            a[i] = gsl_cdf_gaussian_P((lowerBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 1);
-            b[i] = gsl_cdf_gaussian_P((upperBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 1);
+            // a[i] = gsl_cdf_gaussian_P((lowerBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 1);
+            //  b[i] = gsl_cdf_gaussian_P((upperBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 1);
+            a[i] = pnorm((lowerBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 0.0, 1.0, 1, 0);
+            b[i] = pnorm((upperBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 0.0, 1.0, 1, 0);
             double difference = b[i] - a[i];
-
-            y[i] = gsl_cdf_gaussian_Pinv(a[i] + pseudoRandom[i] * (difference), 1);
+            y[i] = qnorm(a[i] + pseudoRandom[i] * difference, 0.0, 1.0, 1, 0);
+            // y[i] = gsl_cdf_gaussian_Pinv(a[i] + pseudoRandom[i] * (difference), 1);
             P *= difference;
         }
         // ---...--- //
@@ -95,7 +106,8 @@ double genzMontecarloNew(const Matrix *cholesky, const double *lowerBounds, cons
         // ---...--- //
     } while (currentError > epsilon && currentIterations < iterations);
 
-    gsl_qrng_free(q);
+    // gsl_qrng_free(q);
+    PutRNGstate();
     return mean;
 }
 
@@ -125,15 +137,15 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
 {
 
     // ---- Initialize randomizer ---- //
-    const gsl_rng_type *T;
-    gsl_rng *rng;
-
+    // const gsl_rng_type *T;
+    // gsl_rng *rng;
+    GetRNGstate();
     // ---- Set up the GSL RNG environment ----
-    gsl_rng_env_setup();
+    // gsl_rng_env_setup();
     // ---- Use the default random number generator type
-    T = gsl_rng_default;
+    // T = gsl_rng_default;
     // ---- Alocate the random number generator
-    rng = gsl_rng_alloc(T);
+    // rng = gsl_rng_alloc(T);
     // ---...--- //
 
     // ---- Initialize Montecarlo variables ---- //
@@ -142,16 +154,19 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
     int currentIterations = 0;
     double currentError;
     double d[mvnDim], e[mvnDim], f[mvnDim];
-    d[0] = gsl_cdf_gaussian_P(lowerBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 1);
-    e[0] = gsl_cdf_gaussian_P(upperBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 1);
-    f[0] = e[0] - d[0];
-    // ---...--- //
+    double diag0 = MATRIX_AT_PTR(cholesky, 0, 0);
+    d[0] = pnorm(lowerBounds[0] / diag0, 0.0, 1.0, 1, 0);
+    e[0] = pnorm(upperBounds[0] / diag0, 0.0, 1.0, 1, 0);
+    f[0] = (e[0] - d[0]);
+    // d[0] = gsl_cdf_gaussian_P(lowerBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 1);
+    // e[0] = gsl_cdf_gaussian_P(upperBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 1);
+    //  f[0] = e[0] - d[0];
+    //  ---...--- //
 
     // ---- Compute the main while loop ---- //
     do
     {
         // ---- Initialize the loop variables ---- //
-        double y[mvnDim];
         double randomVector[mvnDim - 1];
         for (int i = 0; i < mvnDim - 1; i++)
         // ---...--- //
@@ -159,15 +174,19 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
         // ---- Generate the random vector ---- //
         { // --- For each dimension
             // ---- Generate random values in [0,1) ----
-            randomVector[i] = gsl_rng_uniform(rng);
+            // randomVector[i] = gsl_rng_uniform(rng);
+            randomVector[i] = unif_rand();
         }
         // ---...--- //
 
         // ---- Calculate the integral with their new bounds ---- //
         double summatory;
+        double y[mvnDim];
         for (int i = 1; i < mvnDim; i++)
         {
-            y[i - 1] = gsl_cdf_gaussian_Pinv(d[i - 1] + randomVector[i - 1] * (e[i - 1] - d[i - 1]), 1);
+            double draw = d[i - 1] + randomVector[i - 1] * (e[i - 1] - d[i - 1]);
+            y[i - 1] = qnorm(draw, 0.0, 1.0, 1, 0);
+            // y[i - 1] = gsl_cdf_gaussian_Pinv(d[i - 1] + randomVector[i - 1] * (e[i - 1] - d[i - 1]), 1);
             // ---- Note that the summatory is equivalent to $\sum_{j=1}^{i-1}c_{ij}*y_{j}$.
 
             summatory = 0;
@@ -175,8 +194,12 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
             {
                 summatory += MATRIX_AT_PTR(cholesky, i, j) * y[j];
             }
-            d[i] = gsl_cdf_gaussian_P((lowerBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 1);
-            e[i] = gsl_cdf_gaussian_P((upperBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 1);
+
+            double diagii = MATRIX_AT_PTR(cholesky, i, i);
+            // d[i] = gsl_cdf_gaussian_P((lowerBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 1);
+            // e[i] = gsl_cdf_gaussian_P((upperBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 1);
+            d[i] = pnorm((lowerBounds[i] - summatory) / diagii, 0.0, 1.0, 1, 0);
+            e[i] = pnorm((upperBounds[i] - summatory) / diagii, 0.0, 1.0, 1, 0);
             f[i] = (e[i] - d[i]) * f[i - 1];
         }
         // ---...--- //
@@ -185,13 +208,14 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
         intsum += f[mvnDim - 1];
         varsum += pow(f[mvnDim - 1], 2);
         currentIterations += 1;
-        currentError = sqrt((varsum / (currentIterations - pow(intsum / currentIterations, 2))) / currentIterations);
+        currentError = sqrt((varsum / (currentIterations - pow(intsum / currentIterations, 2))) /
+                            currentIterations); // Possibly wrong
         // ---...--- //
 
     } while (currentError > epsilon && currentIterations < iterations);
     // ---...--- //
-
-    gsl_rng_free(rng);
+    PutRNGstate();
+    // gsl_rng_free(rng);
 
     return intsum / currentIterations;
 }
@@ -255,42 +279,18 @@ double Montecarlo(Matrix *chol, double *mu, double *lowerLimits, double *upperLi
     // ---- Set up the initial parameters ---- //
     // ---- Parameters for the integral ----
 
-    if (strcmp(method, "Genz") != 0 && strcmp(method, "Genz2") != 0)
-    {
-        inverseSymmetricPositiveMatrix(chol);
-        printMatrix(chol);
-    }
-    IntegrationParams params = {chol, mu};
+    // inverseSymmetricPositiveMatrix(chol);
+    // printMatrix(chol);
+    // IntegrationParams params = {chol, mu};
 
     // ---- Initialize GSL Monte Carlo integration ----
-    gsl_monte_function G = {&integral, (size_t)mvnDim, &params};
-    gsl_rng *rng = gsl_rng_alloc(gsl_rng_default);
+    // gsl_monte_function G = {&integral, (size_t)mvnDim, &params};
+    // gsl_rng *rng = gsl_rng_alloc(gsl_rng_default);
     double result, error;
     // ---...--- //
 
     // ---- Perform integration ---- //
-    if (strcmp(method, "Plain") == 0)
-    {
-        gsl_monte_plain_state *s = gsl_monte_plain_alloc(mvnDim);
-        gsl_monte_plain_integrate(&G, lowerLimits, upperLimits, mvnDim, maxSamples, rng, s, &result, &error);
-        gsl_monte_plain_free(s);
-        gsl_rng_free(rng);
-    }
-    else if (strcmp(method, "Miser") == 0)
-    {
-        gsl_monte_miser_state *s = gsl_monte_miser_alloc(mvnDim);
-        gsl_monte_miser_integrate(&G, lowerLimits, upperLimits, mvnDim, maxSamples, rng, s, &result, &error);
-        gsl_monte_miser_free(s);
-        gsl_rng_free(rng);
-    }
-    else if (strcmp(method, "Vegas") == 0)
-    {
-        gsl_monte_vegas_state *s = gsl_monte_vegas_alloc(mvnDim);
-        gsl_monte_vegas_integrate(&G, lowerLimits, upperLimits, mvnDim, maxSamples, rng, s, &result, &error);
-        gsl_monte_vegas_free(s);
-        gsl_rng_free(rng);
-    }
-    else if (strcmp(method, "Genz") == 0)
+    if (strcmp(method, "Genz") == 0)
     {
         result = genzMontecarlo(chol, lowerLimits, upperLimits, epsilon, maxSamples, mvnDim);
         return result;
@@ -370,8 +370,11 @@ void getMainParameters(int b, Matrix const probabilitiesReduced, Matrix **choles
  *
  * @return A contiguos array with all the new probabilities
  */
-double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSamples, double epsilon, const char *method)
+double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params)
 {
+    int monteCarloSamples = params.monteCarloIter;
+    double epsilon = params.errorThreshold;
+    const char *method = params.simulationMethod;
 
     // ---- Define initial variables ---- //
     Matrix probabilitiesReduced = removeLastColumn(probabilities);
@@ -428,7 +431,6 @@ double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSampl
                     featureCopyB[k] -= currentMu[k];
                 }
                 // ---...--- //
-                printf("heree");
                 // ---- Save the results and add them to the denominator ---- //
                 if (TOTAL_CANDIDATES != 2)
                     montecarloResults[c] = Montecarlo(currentCholesky, currentMu, featureCopyA, featureCopyB,
@@ -437,8 +439,13 @@ double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSampl
 
                 else
                 {
+                    /*
                     montecarloResults[c] = (gsl_cdf_gaussian_P(featureCopyA[0], MATRIX_AT_PTR(currentCholesky, 0, 0)) -
                                             gsl_cdf_gaussian_P(featureCopyB[0], MATRIX_AT_PTR(currentCholesky, 0, 0))) *
+                                           MATRIX_AT_PTR(probabilities, g, c);
+                    */
+                    montecarloResults[c] = (pnorm(featureCopyA[0], 0.0, MATRIX_AT_PTR(currentCholesky, 0, 0), 1, 0) -
+                                            pnorm(featureCopyB[0], 0.0, MATRIX_AT_PTR(currentCholesky, 0, 0), 1, 0)) *
                                            MATRIX_AT_PTR(probabilities, g, c);
                 }
                 denominator += montecarloResults[c];

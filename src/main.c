@@ -473,6 +473,9 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             *logLLarr = resizedLog;
             return *currentP;
         }
+
+        if (i == 0)
+            return *currentP;
     }
     printf("Maximum iterations reached without convergence.\n"); // Print even if there's not verbose, might change
                                                                  // later.
