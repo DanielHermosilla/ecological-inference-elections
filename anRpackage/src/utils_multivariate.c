@@ -1,8 +1,6 @@
 #include "utils_multivariate.h"
 #include <R_ext/BLAS.h>
-// #include <cblas.h>
 #include <float.h>
-// #include <lapacke.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,21 +69,6 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
      &lda, // G
      groupVotesPerBallot, &incx, &beta, mu, &incy, (BLAS_INT)1);
 
-    /*
-    cblas_dgemv(CblasRowMajor,              // Row-major order
-                CblasTrans,                 // Transpose the matrix (p^T)
-                TOTAL_GROUPS,               // Rows of original matrix (G)
-                TOTAL_CANDIDATES - 1,       // Columns of original matrix (C)
-                1.0,                        // alpha
-                probabilitiesReduced->data, // Matrix p
-                TOTAL_CANDIDATES - 1,       // Leading dimension (rows in original p)
-                groupVotesPerBallot,        // Vector w_b
-                1,                          // Increment for x
-                0.0,                        // beta
-                mu,                         // Output vector μ
-                1                           // Increment for y
-    );
-*/
     // ---- Computation of sigma ----
     // ---- Get a diagonal matrix with the group votes on a given ballot ----
     Matrix diagonalVotesPerBallot = createDiagonalMatrix(groupVotesPerBallot, TOTAL_GROUPS);
@@ -119,40 +102,11 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
     lda = m;            // = C-1, A is (C-1) x G
     ldb = TOTAL_GROUPS; // B is G x (C-1)
     ldc = m;            // = C-1, C is (C-1) x (C-1)
+
     F77_CALL(dgemm)
     (&transA, &transB, &m, &n, &k, &alpha, temp.data, &lda, probabilitiesReduced->data, &ldb, &beta, sigma->data, &ldc,
      (BLAS_INT)1, (BLAS_INT)1);
-    /*
-    cblas_dgemm(CblasRowMajor,               // Row-major order
-                CblasTrans,                  // No transpose (Matrix A => p^T)
-                CblasNoTrans,                // No transpose
-                TOTAL_CANDIDATES - 1,        // Rows
-                TOTAL_GROUPS,                // Columns
-                TOTAL_GROUPS,                // Inner dimension
-                1.0,                         // alpha
-                probabilitiesReduced->data,  // Matrix p
-                TOTAL_CANDIDATES - 1,        // Leading dimension
-                diagonalVotesPerBallot.data, // Matrix diag(w_b)
-                TOTAL_GROUPS,                // Leading dimension
-                0.0,                         // beta
-                temp.data,                   // Output matrix
-                TOTAL_GROUPS);               // Leading dimension
-    // ---- Calculates the matrix multiplication of (p^T * diag(w_b)) * p; result must be (C-1 x C-1) ----
-    cblas_dgemm(CblasRowMajor,              // Row-major order
-                CblasNoTrans,               // No transpose
-                CblasNoTrans,               // No transpose
-                TOTAL_CANDIDATES - 1,       // Rows
-                TOTAL_CANDIDATES - 1,       // Columns
-                TOTAL_GROUPS,               // Inner dimension
-                1.0,                        // alpha
-                temp.data,                  // Matrix (p^T * diag(w_b))
-                TOTAL_GROUPS,               // Leading dimension
-                probabilitiesReduced->data, // Matrix p
-                TOTAL_CANDIDATES - 1,       // Leading dimension
-                0.0,                        // beta
-                sigma->data,                // Output Σ_b
-                TOTAL_CANDIDATES - 1);      // Leading dimension
-*/
+
     // ---- Substract the diagonal with the average ----
     // ---- Note: This could be optimized with a cBLAS call too ----
 
@@ -222,6 +176,7 @@ void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *co
     double **probabilitiesForG = (double **)malloc(TOTAL_GROUPS * sizeof(double *));
     // ---- Create an array of size `TOTAL_GROUPS` that will store diagonal matrices with the probabilities ----
     Matrix *diagonalProbabilities = (Matrix *)malloc((TOTAL_GROUPS) * sizeof(Matrix));
+
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     { // ---- For each group
         probabilitiesForG[g] = getRow(probabilitiesReduced, g);
@@ -248,23 +203,12 @@ void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *co
     {
         matrixMultiplications[g] = createMatrix(m, n);
 
-        // dger_(m, n, alpha, X, incX, Y, incY, A, lda)
         F77_CALL(dger)
         (&m, &n, &alpha, probabilitiesForG[g], &incx, probabilitiesForG[g], &incy, matrixMultiplications[g].data, &lda);
 
         free(probabilitiesForG[g]);
     }
 
-    /*
-        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-        { // ---- For each group
-            // ---- Do the outer product and store it in the array ----
-            matrixMultiplications[g] = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1);
-            cblas_dger(CblasRowMajor, TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1, 1.0, probabilitiesForG[g], 1,
-                       probabilitiesForG[g], 1, matrixMultiplications[g].data, TOTAL_CANDIDATES - 1);
-            free(probabilitiesForG[g]);
-        }
-        */
     // --- ... --- //
 
     // ---- Add the results to the final array of matrices ----
@@ -336,10 +280,8 @@ void getMahanalobisDist(double *x, double *mu, Matrix *inverseSigma, double *mah
     // In column-major, LDA = #rows = n
     int lda = n;
 
-    // dsymv_(&uplo, &n, &alpha, A, &lda, x, &incx, &beta, y, &incy);
     F77_CALL(dsymv)(&uplo, &n, &alpha, inverseSigma->data, &lda, diff, &incx, &beta, temp, &incy, (BLAS_INT)1);
 
-    // cblas_dsymv(CblasRowMajor, CblasLower, size, 1.0, inverseSigma->data, size, diff, 1, 0.0, temp, 1);
     // --- ... --- //
 
     // ---- Compute Mahalanobis distance (truncated) ---- //
