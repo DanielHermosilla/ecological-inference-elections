@@ -10,7 +10,7 @@ extern "C"
 
 // #include "exact.h"
 #include "globals.h"
-// #include "hitAndRun.h"
+#include "hitAndRun.h"
 // #include "instanceGenerator.h"
 #include "multinomial.h"
 #include "utils_matrix.h"

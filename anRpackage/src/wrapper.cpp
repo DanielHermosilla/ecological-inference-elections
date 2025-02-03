@@ -65,6 +65,7 @@ void RsetParameters(Rcpp::NumericMatrix x, Rcpp::NumericMatrix w)
     // setParameters(&XR, &WR);
 }
 
+// [[Rcpp::plugins(openmp)]]
 // [[Rcpp::export]]
 void readFilePrint(Rcpp::String filename)
 {
@@ -92,16 +93,18 @@ void readFilePrint(Rcpp::String filename)
     printMatrix(&pIn);
 
     // It will run multinomial...
-    QMethodInput inputParams = {0};
+    QMethodInput inputParams = {.S = 1000, .M = 3000};
     double timeIter = 0;
     int totalIter = 0;
     double *logLLresults = NULL;
 
-    Matrix Pnew = EMAlgoritm(&pIn, "Multinomial", 0.001, 1000, true, &timeIter, &totalIter, &logLLresults, inputParams);
+    Matrix Pnew =
+        EMAlgoritm(&pIn, "Hit and Run", 0.001, 1000, false, &timeIter, &totalIter, &logLLresults, inputParams);
     printf("\nThe calculated matrix was\n");
     printMatrix(&Pnew);
     printf("\nThe real one was:\n");
     printMatrix(&P);
+    printf("\nIt took %.5f seconds to run.", timeIter);
     // printMatrix(&p);
     freeMatrix(&W);
     freeMatrix(&X);

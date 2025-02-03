@@ -43,13 +43,7 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params)
     // -- Summatory calculation for g --
     // This is a simple matrix calculation, to be computed once.
     Matrix WP = createMatrix((int)TOTAL_BALLOTS, (int)TOTAL_CANDIDATES);
-    /*
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, (int)TOTAL_BALLOTS, // Rows in W
-                (int)TOTAL_CANDIDATES,                                         // Columns in P
-                (int)TOTAL_GROUPS,                                             // Shared dimension
-                1.0, W->data, (int)TOTAL_GROUPS, probabilities->data, (int)TOTAL_CANDIDATES, 0.0, WP.data,
-                (int)TOTAL_CANDIDATES);
-    */
+
     double alpha = 1.0;
     double beta = 0.0;
     BLAS_INT m = (BLAS_INT)TOTAL_BALLOTS;
@@ -66,8 +60,6 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params)
      &beta, WP.data, &m,         // C, LDC = m
      (BLAS_INT)1, (BLAS_INT)1    // string lengths for 'N', 'N'
     );
-    printf("The resulting matrix after the multiplication is:\n");
-    printMatrix(&WP);
 
     // ---- Do not parallelize ----
     for (int b = 0; b < (int)TOTAL_BALLOTS; b++)
@@ -98,8 +90,6 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params)
                 if (tempSum != 0) // --- Edge case
                 {
                     Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = finalNumerator[c] / tempSum;
-                    printf("\n---\tFor b=%d\tg=%d\tc=%d:\t%.3f---", b, g, c,
-                           Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES));
                 }
                 else
                     Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = 0;

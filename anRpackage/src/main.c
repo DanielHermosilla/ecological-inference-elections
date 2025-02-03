@@ -242,26 +242,26 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
     QMethodConfig config = {NULL}; // Initialize everything to NULL/0
 
     config.computeQ = computeQMultinomial;
-    /*
-    if (strcmp(q_method, "Exact") == 0)
+
+    if (strcmp(q_method, "Multinomial") == 0)
     {
-        config.computeQ = computeQExact;
+        config.computeQ = computeQMultinomial;
     }
     else if (strcmp(q_method, "Hit and Run") == 0)
     {
         config.computeQ = computeQHitAndRun;
     }
-    else if (strcmp(q_method, "Multinomial") == 0)
+    else if (strcmp(q_method, "Exact") == 0)
     {
-        config.computeQ = computeQMultinomial;
+        // config.computeQ = computeQExact;
     }
     else if (strcmp(q_method, "MVN CDF") == 0)
     {
-        config.computeQ = computeQMultivariateCDF;
+        // config.computeQ = computeQMultivariateCDF;
     }
     else if (strcmp(q_method, "MVN PDF") == 0)
     {
-        config.computeQ = computeQMultivariatePDF;
+        // config.computeQ = computeQMultivariatePDF;
     }
     else
     {
@@ -271,7 +271,6 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
                 q_method);
         exit(EXIT_FAILURE);
     }
-    */
 
     // Directly store the input parameters
     config.params = inputParams;
@@ -343,11 +342,8 @@ Matrix getP(const double *q)
     // even though it's dereferenced
 
     // ---- Compute the dot products ---- //
-    // ---- Due to the dot product, the parallelization is worth it ----
 
-    // #pragma omp parallel for collapse(2) schedule(static)
     int stride = TOTAL_GROUPS * TOTAL_CANDIDATES;
-    int gStride = TOTAL_GROUPS;
     int tBal = TOTAL_BALLOTS;
     int newStride = 1;
     for (int g = 0; g < TOTAL_GROUPS; g++)
@@ -355,26 +351,19 @@ Matrix getP(const double *q)
         for (int c = 0; c < TOTAL_CANDIDATES; c++)
         { // --- For each candidate given a group
             // Dot product over b=0..B-1 of W_{b,g} * Q_{b,g,c}
+            const double *baseY = q + (c * TOTAL_GROUPS + g);
+
             double val;
-            /*
-            val = F77_CALL(ddot)(&tBal,
-                                 &W->data[g],                  // Points to W_{0,g}
-                                 &gStride,                     // Stride: each next W_{b+1,g} is +G in memory
-                                 &q[g * TOTAL_CANDIDATES + c], // Points to Q_{0,g,c}
-                                 &stride                       // Stride: each next Q_{b+1,g,c} is +(G*C) in memory
-            );
-            */
             val = F77_CALL(ddot)(&tBal,
                                  &W->data[g * TOTAL_BALLOTS], // Now correctly indexing W in column-major
                                  &newStride,                  // Column-major: stride is 1 for W
-                                 &q[c * TOTAL_GROUPS + g],    // Column-major: index properly
-                                 &newStride                   // Stride: move down rows (1 step per row)
+                                 baseY,                       // Column-major: index properly
+                                 &stride                      // Stride: move down rows (1 step per row)
             );
 
             MATRIX_AT(toReturn, g, c) = val / GROUP_VOTES[g];
         }
     }
-
     // ---...--- //
     return toReturn;
 }
