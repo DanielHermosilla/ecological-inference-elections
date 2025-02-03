@@ -15,7 +15,7 @@ extern "C"
 #include "multinomial.h"
 #include "utils_matrix.h"
 // #include "multivariate-cdf.h"
-// #include "multivariate-pdf.h"
+#include "multivariate-pdf.h"
 #include "utils_file.h"
 
     // ---- Define the structure to store the function pointer ---- //

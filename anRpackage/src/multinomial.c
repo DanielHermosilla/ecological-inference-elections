@@ -1,6 +1,7 @@
 #include "multinomial.h"
 #include "globals.h"
 #include <R_ext/BLAS.h>
+
 /**
  * @brief Computes the value of `r` without the denominator.
  *
@@ -14,7 +15,6 @@
  *
  * @return: The value for `r` at the position given.
  */
-
 double computeR(Matrix const *probabilities, Matrix const *mult, int const b, int const c, int const g)
 {
 

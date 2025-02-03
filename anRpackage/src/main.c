@@ -261,7 +261,7 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
     }
     else if (strcmp(q_method, "MVN PDF") == 0)
     {
-        // config.computeQ = computeQMultivariatePDF;
+        config.computeQ = computeQMultivariatePDF;
     }
     else
     {

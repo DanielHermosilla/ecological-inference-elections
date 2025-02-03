@@ -105,7 +105,7 @@ void readFilePrint(Rcpp::String filename)
     int totalIter = 0;
     double *logLLresults = NULL;
 
-    Matrix Pnew = EMAlgoritm(&pIn, "Exact", 0.001, 1000, false, &timeIter, &totalIter, &logLLresults, inputParams);
+    Matrix Pnew = EMAlgoritm(&pIn, "MVN PDF", 0.001, 1000, false, &timeIter, &totalIter, &logLLresults, inputParams);
     printf("\nThe calculated matrix was\n");
     printMatrix(&Pnew);
     printf("\nThe real one was:\n");
