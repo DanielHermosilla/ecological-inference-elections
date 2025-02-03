@@ -126,6 +126,7 @@ extern "C"
      *
      */
     //   bool noVotes(int *canArray);
+    void cleanup();
 #ifdef __cplusplus
 }
 #endif

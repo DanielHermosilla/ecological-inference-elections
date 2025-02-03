@@ -100,17 +100,18 @@ void readFilePrint(Rcpp::String filename)
     pIn = getInitialP("group proportional");
 
     // It will run multinomial...
-    QMethodInput inputParams = {.monteCarloIter = 100000, .errorThreshold = 0.00001, .simulationMethod = "Genz"};
+    QMethodInput inputParams = {.monteCarloIter = 100000, .errorThreshold = 0.00001, .simulationMethod = "Genz2"};
     double timeIter = 0;
     int totalIter = 0;
     double *logLLresults = NULL;
 
-    Matrix Pnew = EMAlgoritm(&pIn, "MVN CDF", 0.001, 1000, false, &timeIter, &totalIter, &logLLresults, inputParams);
+    Matrix Pnew = EMAlgoritm(&pIn, "MVN CDF", 0.001, 10000, false, &timeIter, &totalIter, &logLLresults, inputParams);
     printf("\nThe calculated matrix was\n");
     printMatrix(&Pnew);
     printf("\nThe real one was:\n");
     printMatrix(&P);
     printf("\nIt took %.5f seconds to run.", timeIter);
+    cleanup();
     // printMatrix(&p);
     freeMatrix(&W);
     freeMatrix(&X);

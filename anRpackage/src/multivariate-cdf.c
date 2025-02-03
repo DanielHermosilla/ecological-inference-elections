@@ -381,7 +381,7 @@ double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params
     double *array2 =
         (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double)); // Array to return
                                                                                            // --- ... --- //
-                                                                                           // #pragma omp parallel for
+#pragma omp parallel for
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // --- For each ballot box
         // ---- Get the values of the Multivariate CDF that only depends on `b` ---- //
