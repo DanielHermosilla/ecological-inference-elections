@@ -38,6 +38,21 @@ extern "C"
      */
     double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params);
 
+    /*
+     * @brief Precomputes the sets used for the simulation.
+     *
+     * Precomputes the sets that are independent from each EM iteration. It is made with parallelism towards the ballot
+     * boxes and with a static assignment for ensuring reproducibility.
+     *
+     * @param[in] M. The step size between consecutive samples. Note that the direction is assigned randomly.
+     * @param[in] S. The amount of samples for each ballot box.
+     * @param[in] seedNum. An arbitrary number to seed the process.
+     *
+     * @return void. Written on the global variable.
+     */
+    void generateOmegaSet(int M, int S, unsigned int seedNum);
+
+    void preComputeMultinomial();
     void cleanHitAndRun();
 
 #ifdef __cplusplus

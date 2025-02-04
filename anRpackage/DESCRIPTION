@@ -4,8 +4,8 @@ Title: Ecological Inference Elections
 Version: 0.1.0
 Author: Charles Thraves, Pablo Ubilla, Daniel Hermosilla 
 Maintainer: Daniel Hermosilla <daniel.hermosilla.r@uchile.cl>
-Description: A package to implement the RxG inference algorithms as exposed in Thraves, C and Ubilla, P paper.
-License: GPL-3
+Description: A package to implement the RxG ecological inference algorithms as exposed in Thraves, C and Ubilla, P paper.
+License: MIT
 LinkingTo: Rcpp
 Imports: Rcpp
 

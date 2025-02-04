@@ -234,9 +234,6 @@ void preComputeMultinomial()
  */
 double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params)
 {
-
-    printf("Available CPU cores: %d\n", omp_get_num_procs());
-    printf("Max OpenMP threads: %d\n", omp_get_max_threads());
     // ---- Compute the variables that can be reused ---- //
     if (OMEGASET == NULL)
         generateOmegaSet(params.M, params.S, 2);

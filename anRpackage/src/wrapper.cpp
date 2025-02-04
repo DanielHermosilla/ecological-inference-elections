@@ -5,10 +5,61 @@
 #include "Rcpp/String.h"
 #include "wrapper.h"
 
+static bool beenPrecomputed = false;
+static bool matricesPrecomputed = false;
+
 // [[Rcpp::export]]
-void RsetParameters(Rcpp::NumericMatrix x, Rcpp::NumericMatrix w)
+void hitAndRunEM(Rcpp::NumericMatrix X, Rcpp::NumericMatrix W, Rcpp::String Pmethod = "group proportional",
+                 Rcpp::String jsonPath = "", Rcpp::IntegerVector maxIt = 1000, Rcpp::NumericVector epsilon = 0.001,
+                 Rcpp::LogicalVector verbose = false, Rcpp::LogicalVector precompute = false,
+                 Rcpp::IntegerVector stepSize = 1000)
 {
-    std::cout << "Function RsetParameters called" << std::endl;
+}
+
+// [[Rcpp::export]]
+void RprecomputeHR(Rcpp::IntegerVector S, Rcpp::IntegerVector M)
+{
+    // TODO: Enable a saving function
+    if (beenPrecomputed)
+    {
+        std::cout << "There has been already a precomputation for Hit and Run" << std::endl;
+        return;
+    }
+    if (!matricesPrecomputed)
+    {
+        std::cout << "The `X` and `W` matrices haven't been computed yet. Hint: Call RsetParameters." << std::endl;
+        return;
+    }
+
+    // ---- Precompute the Omega Set and leave it on the global variable ---- //
+    generateOmegaSet(M[0], S[0], 42);
+    // ---- Precompute a multinomial multiplication that is constant throughout the loops ---- //
+    preComputeMultinomial();
+    beenPrecomputed = true;
+    return;
+}
+
+// [[Rcpp::export]]
+void RsetParameters(Rcpp::NumericMatrix x, Rcpp::NumericMatrix w, Rcpp::String jsonFile = "")
+{
+
+    // Case when the matrices were already computed and want to set other parameters
+    if (matricesPrecomputed == true)
+    {
+        cleanup();
+        matricesPrecomputed = false;
+    }
+
+    // Case when it wants to read the matrices from a JSON file.
+    if (jsonFile != "")
+    {
+        std::string file = jsonFile;
+        Matrix X, W, P;
+        readJSONAndStoreMatrices(file.c_str(), &W, &X, &P);
+        setParameters(&X, &W);
+        matricesPrecomputed = true;
+        return;
+    }
 
     // Check dimensions
     if (x.nrow() == 0 || x.ncol() == 0)
@@ -34,35 +85,17 @@ void RsetParameters(Rcpp::NumericMatrix x, Rcpp::NumericMatrix w)
 
     Matrix WR = {ptrW, wrows, wcols};
 
-    std::cout << "X Matrix: " << xrows << "x" << xcols << std::endl;
-    std::cout << "W Matrix: " << wrows << "x" << wcols << std::endl;
-
     // Check pointers
     if (!XR.data || !WR.data)
     {
         std::cerr << "Error: Matrix data pointer is NULL!" << std::endl;
         return;
     }
-    // Call C function
-    // std::cout << "This is a trial for setting parameters:\t" << std::endl;
-    setParameters(&XR, &WR);
-    // freeMatrix(&XR);
-    // freeMatrix(&WR);
-    printf("The X matrix is:\n");
-    printMatrix(&XR);
-    printf("The W matrix is:\n");
-    printMatrix(&WR);
-    printf("\nGroup proportional method:\n");
-    Matrix p = getInitialP("group proportional");
-    printMatrix(&p);
-    printf("\nProportional method:\n");
-    p = getInitialP("proportional");
-    printMatrix(&p);
-    printf("\nUniform method:\n");
-    p = getInitialP("uniform");
-    printMatrix(&p);
 
-    // setParameters(&XR, &WR);
+    // Call C function
+    setParameters(&XR, &WR);
+    matricesPrecomputed = true;
+    return;
 }
 
 // [[Rcpp::plugins(openmp)]]
@@ -75,39 +108,14 @@ void readFilePrint(Rcpp::String filename, Rcpp::String method)
     Matrix X, W, P;
 
     readJSONAndStoreMatrices(file.c_str(), &W, &X, &P);
-    /*
-    printf("The matrices are:\nFor W:\n");
-    printMatrix(&W);
-    printf("\nFor X:\n");
-    printMatrix(&X);
-    printf("\nFor P:\n");
-    printMatrix(&P);
-*/
     setParameters(&X, &W);
-    /*
-    printf("\nGroup proportional method:\n");
-    Matrix pIn = getInitialP("group proportional");
-    printMatrix(&pIn);
-    freeMatrix(&pIn);
 
-    printf("\nProportional method:\n");
-    pIn = getInitialP("proportional");
-    printMatrix(&pIn);
-    freeMatrix(&pIn);
-
-    printf("\nUniform method:\n");
-    pIn = getInitialP("uniform");
-    printMatrix(&pIn);
-    freeMatrix(&pIn);
-*/
     Matrix pIn = getInitialP("group proportional");
 
-    // It will run multinomial...
     QMethodInput inputParams = {.monteCarloIter = 100000, .errorThreshold = 0.000001, .simulationMethod = "Genz2"};
     double timeIter = 0;
     int totalIter = 0;
     double *logLLarr = (double *)malloc(10000 * sizeof(double));
-    // double *logLLresults = nullptr;
 
     Matrix Pnew = EMAlgoritm(&pIn, itMethod.c_str(), 0.001, 1000, false, &timeIter, &totalIter, logLLarr, inputParams);
     free(logLLarr);
@@ -116,16 +124,17 @@ void readFilePrint(Rcpp::String filename, Rcpp::String method)
     printf("\nThe real one was:\n");
     printMatrix(&P);
     printf("\nIt took %.5f seconds to run.", timeIter);
-    // free(&logLLresults);
-
-    // printMatrix(&p);
-    // freeMatrix(&W);
-    // freeMatrix(&X);
     freeMatrix(&P);
     freeMatrix(&Pnew);
-    // free(W.data);
-    // free(X.data);
-    // free(P.data);
     cleanup();
-    // *logLLresults = NULL;
+    // ---- Clean precomputed variables for a given iteration ---- //
+    if (strcmp(itMethod.c_str(), "Exact") == 0)
+    {
+        cleanExact();
+    }
+    // ---- Hit and Run method ----
+    else if (strcmp(itMethod.c_str(), "Hit and Run") == 0)
+    {
+        cleanHitAndRun();
+    }
 }
