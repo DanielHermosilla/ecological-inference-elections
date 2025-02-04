@@ -9,6 +9,6 @@ library(infPackage)
 for (s in 1:20)
 	{
 		file <- paste0("/Users/daniel/ecological-inference-elections/instances/J100_M50_G3_I3_L50_seed", s , ".json")
-		readFilePrint(file, "Multinomial")
+		readFilePrint(file, "MVN CDF")
 	}
 '

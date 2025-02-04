@@ -45,7 +45,6 @@ typedef struct
 double genzMontecarloNew(const Matrix *cholesky, const double *lowerBounds, const double *upperBounds, double epsilon,
                          int iterations, int mvnDim)
 {
-    printf("hereee\n");
     gsl_qrng *q = gsl_qrng_alloc(gsl_qrng_sobol, mvnDim);
 
     // ---- Initialize Montecarlo variables ---- //
@@ -258,7 +257,6 @@ double Montecarlo(Matrix *chol, double *mu, double *lowerLimits, double *upperLi
     if (strcmp(method, "Genz") != 0 && strcmp(method, "Genz2") != 0)
     {
         inverseSymmetricPositiveMatrix(chol);
-        printMatrix(chol);
     }
     IntegrationParams params = {chol, mu};
 
@@ -428,7 +426,6 @@ double *computeQMultivariateCDF(Matrix const *probabilities, int monteCarloSampl
                     featureCopyB[k] -= currentMu[k];
                 }
                 // ---...--- //
-                printf("heree");
                 // ---- Save the results and add them to the denominator ---- //
                 if (TOTAL_CANDIDATES != 2)
                     montecarloResults[c] = Montecarlo(currentCholesky, currentMu, featureCopyA, featureCopyB,

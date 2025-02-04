@@ -103,13 +103,13 @@ void readFilePrint(Rcpp::String filename, Rcpp::String method)
     Matrix pIn = getInitialP("group proportional");
 
     // It will run multinomial...
-    QMethodInput inputParams = {.monteCarloIter = 100000, .errorThreshold = 0.00001, .simulationMethod = "Genz2"};
+    QMethodInput inputParams = {.monteCarloIter = 100000, .errorThreshold = 0.000001, .simulationMethod = "Genz2"};
     double timeIter = 0;
     int totalIter = 0;
     double *logLLarr = (double *)malloc(10000 * sizeof(double));
     // double *logLLresults = nullptr;
 
-    Matrix Pnew = EMAlgoritm(&pIn, itMethod.c_str(), 0.001, 10000, true, &timeIter, &totalIter, logLLarr, inputParams);
+    Matrix Pnew = EMAlgoritm(&pIn, itMethod.c_str(), 0.001, 1000, false, &timeIter, &totalIter, logLLarr, inputParams);
     free(logLLarr);
     printf("\nThe calculated matrix was\n");
     printMatrix(&Pnew);

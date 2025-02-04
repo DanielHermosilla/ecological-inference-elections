@@ -413,8 +413,6 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
 
         // ---- Check convergence ---- //
         Matrix newProbability = getP(q);
-        printf("\n---The new probability is:----\n");
-        printMatrix(&newProbability);
         // sleep(4);
         if (convergeMatrix(&newProbability, currentP, convergence))
         {
@@ -473,9 +471,6 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             *logLLarr = resizedLog;
             return *currentP;
         }
-
-        if (i == 0)
-            return *currentP;
     }
     printf("Maximum iterations reached without convergence.\n"); // Print even if there's not verbose, might change
                                                                  // later.
@@ -593,7 +588,7 @@ int main(int argc, char *argv[])
         // ---- Get the candidate and group size ----
         sscanf(fileName, "J%d_M%*d_G%d_I%d_L%*d_seed%d.json", &J, &G, &CAm, &seed);
 
-        if (G != 3 || CAm != 3 || seed != 18)
+        if (G != 3 || CAm != 3)
             continue;
 
         printf("\n----- Groups: %d\t Candidates: %d\t Seed: %d -----\n", G, CAm, seed);

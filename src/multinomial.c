@@ -77,8 +77,6 @@ double *computeQMultinomial(Matrix const *probabilities)
                 if (tempSum != 0) // --- Edge case
                 {
                     Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = finalNumerator[c] / tempSum;
-                    printf("\n---\tFor b=%d\tg=%d\tc=%d:\t%.3f---", b, g, c,
-                           Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES));
                 }
                 else
                     Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = 0;

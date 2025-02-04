@@ -2,15 +2,6 @@
 #include "R_ext/Random.h"
 #include <R.h>
 #include <Rmath.h>
-/*
-#include <gsl/gsl_cdf.h>
-#include <gsl/gsl_monte.h>
-#include <gsl/gsl_monte_miser.h>
-#include <gsl/gsl_monte_plain.h>
-#include <gsl/gsl_monte_vegas.h>
-#include <gsl/gsl_qrng.h>
-#include <gsl/gsl_rng.h> // Random numbers
-*/
 #include <math.h>
 #include <omp.h>
 #include <stdint.h>
@@ -18,12 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-typedef struct
-{
-    Matrix *chol; // Cholesky decomposition
-    double *mu;   // The mu array
-} IntegrationParams;
 
 // All of the conventions used are from genz paper
 /*
@@ -49,16 +34,14 @@ double genzMontecarloNew(const Matrix *cholesky, const double *lowerBounds, cons
                          int iterations, int mvnDim)
 {
     GetRNGstate();
-    // gsl_qrng *q = gsl_qrng_alloc(gsl_qrng_sobol, mvnDim);
 
     // ---- Initialize Montecarlo variables ---- //
+    double error = epsilon + 1;
     double intsum = 0;
     double varsum = 0;
     double mean = 0;
-    int currentIterations = 0;
+    int currentIterations = 1;
     double a[mvnDim], b[mvnDim], y[mvnDim], currentError;
-    // a[0] = gsl_cdf_gaussian_P(lowerBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 1);
-    //  b[0] = gsl_cdf_gaussian_P(upperBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 1);
     a[0] = pnorm(lowerBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 0.0, 1.0, 1, 0);
     b[0] = pnorm(upperBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 0.0, 1.0, 1, 0);
     // ---...--- //
@@ -71,11 +54,9 @@ double genzMontecarloNew(const Matrix *cholesky, const double *lowerBounds, cons
         {
             pseudoRandom[i] = unif_rand();
         }
-        // gsl_qrng_get(q, pseudoRandom);
 
         // ---- Compute the base case
         y[0] = qnorm(a[0] + pseudoRandom[0] * (b[0] - a[0]), 0.0, 1.0, 1, 0);
-        // y[0] = gsl_cdf_gaussian_Pinv(a[0] + pseudoRandom[0] * (b[0] - a[0]), 1);
         double summatory;
         double P = b[0] - a[0];
 
@@ -88,13 +69,10 @@ double genzMontecarloNew(const Matrix *cholesky, const double *lowerBounds, cons
             {
                 summatory += MATRIX_AT_PTR(cholesky, i, j) * y[j];
             }
-            // a[i] = gsl_cdf_gaussian_P((lowerBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 1);
-            //  b[i] = gsl_cdf_gaussian_P((upperBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 1);
             a[i] = pnorm((lowerBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 0.0, 1.0, 1, 0);
             b[i] = pnorm((upperBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 0.0, 1.0, 1, 0);
             double difference = b[i] - a[i];
             y[i] = qnorm(a[i] + pseudoRandom[i] * difference, 0.0, 1.0, 1, 0);
-            // y[i] = gsl_cdf_gaussian_Pinv(a[i] + pseudoRandom[i] * (difference), 1);
             P *= difference;
         }
         // ---...--- //
@@ -107,9 +85,92 @@ double genzMontecarloNew(const Matrix *cholesky, const double *lowerBounds, cons
         // ---...--- //
     } while (currentError > epsilon && currentIterations < iterations);
 
-    // gsl_qrng_free(q);
     PutRNGstate();
     return mean;
+}
+
+// Might implement later
+double genzMontecarloChunk(const Matrix *cholesky, const double *lowerBounds, const double *upperBounds, double epsilon,
+                           int iterations, int mvnDim)
+{
+
+    // ---- Initialize randomizer ---- //
+    GetRNGstate();
+
+    // ---- Initialize Montecarlo variables ---- //
+    double intsum = 0;
+    double varsum = 0;
+    int currentIterations = 0;
+    double currentError = 1000;
+    double d[mvnDim], e[mvnDim], f[mvnDim];
+    double diag0 = MATRIX_AT_PTR(cholesky, 0, 0);
+    d[0] = pnorm(lowerBounds[0] / diag0, 0.0, 1.0, 1, 0);
+    e[0] = pnorm(upperBounds[0] / diag0, 0.0, 1.0, 1, 0);
+    f[0] = (e[0] - d[0]);
+    //  ---...--- //
+
+    // ---- Compute the main while loop ---- //
+    for (int k = 0; k < 5; k++)
+    {
+#pragma omp parallel for schedule(static)
+        for (int j = 0; j < 250; j++)
+        {
+            // ---- Initialize the loop variables ---- //
+            d[0] = pnorm(lowerBounds[0] / diag0, 0.0, 1.0, 1, 0);
+            e[0] = pnorm(upperBounds[0] / diag0, 0.0, 1.0, 1, 0);
+            f[0] = (e[0] - d[0]);
+
+            double randomVector[mvnDim - 1];
+            for (int i = 0; i < mvnDim - 1; i++)
+            // ---...--- //
+
+            // ---- Generate the random vector ---- //
+            { // --- For each dimension
+                // ---- Generate random values in [0,1) ----
+                randomVector[i] = unif_rand();
+            }
+            // ---...--- //
+
+            // ---- Calculate the integral with their new bounds ---- //
+            double summatory;
+            double y[mvnDim];
+            for (int i = 1; i < mvnDim; i++)
+            {
+                double draw = d[i - 1] + randomVector[i - 1] * (e[i - 1] - d[i - 1]);
+                y[i - 1] = qnorm(draw, 0.0, 1.0, 1, 0);
+                // ---- Note that the summatory is equivalent to $\sum_{j=1}^{i-1}c_{ij}*y_{j}$.
+
+                summatory = 0;
+                for (int j = 0; j < i; j++)
+                {
+                    summatory += MATRIX_AT_PTR(cholesky, i, j) * y[j];
+                }
+
+                double diagii = MATRIX_AT_PTR(cholesky, i, i);
+                d[i] = pnorm((lowerBounds[i] - summatory) / diagii, 0.0, 1.0, 1, 0);
+                e[i] = pnorm((upperBounds[i] - summatory) / diagii, 0.0, 1.0, 1, 0);
+                f[i] = (e[i] - d[i]) * f[i - 1];
+            }
+            // ---...--- //
+
+            // ---- Compute the final indicators from the current loop ---- //
+#pragma omp atomic
+            intsum += f[mvnDim - 1];
+#pragma omp atomic
+            varsum += pow(f[mvnDim - 1], 2);
+        }
+        currentIterations += 250;
+        double mean = intsum / currentIterations;
+        double variance = (varsum / currentIterations) - pow(mean, 2);
+        currentError = sqrt(variance / currentIterations);
+        // ---...--- //
+        if (currentError < epsilon)
+            break;
+    }
+    // ---...--- //
+    PutRNGstate();
+
+    return intsum / currentIterations;
 }
 
 // All of the conventions used are from genz paper
@@ -138,131 +199,75 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
 {
 
     // ---- Initialize randomizer ---- //
-    // const gsl_rng_type *T;
-    // gsl_rng *rng;
     GetRNGstate();
-    // ---- Set up the GSL RNG environment ----
-    // gsl_rng_env_setup();
-    // ---- Use the default random number generator type
-    // T = gsl_rng_default;
-    // ---- Alocate the random number generator
-    // rng = gsl_rng_alloc(T);
-    // ---...--- //
 
     // ---- Initialize Montecarlo variables ---- //
     double intsum = 0;
     double varsum = 0;
     int currentIterations = 0;
-    double currentError;
+    double currentError = 1000;
     double d[mvnDim], e[mvnDim], f[mvnDim];
     double diag0 = MATRIX_AT_PTR(cholesky, 0, 0);
     d[0] = pnorm(lowerBounds[0] / diag0, 0.0, 1.0, 1, 0);
     e[0] = pnorm(upperBounds[0] / diag0, 0.0, 1.0, 1, 0);
     f[0] = (e[0] - d[0]);
-    // d[0] = gsl_cdf_gaussian_P(lowerBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 1);
-    // e[0] = gsl_cdf_gaussian_P(upperBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 1);
-    //  f[0] = e[0] - d[0];
     //  ---...--- //
-
-    // ---- Compute the main while loop ---- //
-    for (int k = 0; k < 4; k++)
+    do
     {
-        // #pragma omp parallel for schedule(static)
-        for (int j = 0; j < 25000; j++)
-        {
-            // unsigned int seed = omp_get_thread_num() + 1;
-            GetRNGstate();
-            // ---- Initialize the loop variables ---- //
-            double randomVector[mvnDim - 1];
-            for (int i = 0; i < mvnDim - 1; i++)
-            // ---...--- //
+        // ---- Initialize the loop variables ---- //
+        d[0] = pnorm(lowerBounds[0] / diag0, 0.0, 1.0, 1, 0);
+        e[0] = pnorm(upperBounds[0] / diag0, 0.0, 1.0, 1, 0);
+        f[0] = (e[0] - d[0]);
 
-            // ---- Generate the random vector ---- //
-            { // --- For each dimension
-                // ---- Generate random values in [0,1) ----
-                // randomVector[i] = gsl_rng_uniform(rng);
-                randomVector[i] = unif_rand();
-            }
-            // ---...--- //
+        double randomVector[mvnDim - 1];
+        for (int i = 0; i < mvnDim - 1; i++)
+        // ---...--- //
 
-            // ---- Calculate the integral with their new bounds ---- //
-            double summatory;
-            double y[mvnDim];
-            for (int i = 1; i < mvnDim; i++)
-            {
-                double draw = d[i - 1] + randomVector[i - 1] * (e[i - 1] - d[i - 1]);
-                y[i - 1] = qnorm(draw, 0.0, 1.0, 1, 0);
-                // y[i - 1] = gsl_cdf_gaussian_Pinv(d[i - 1] + randomVector[i - 1] * (e[i - 1] - d[i - 1]), 1);
-                // ---- Note that the summatory is equivalent to $\sum_{j=1}^{i-1}c_{ij}*y_{j}$.
-
-                summatory = 0;
-                for (int j = 0; j < i; j++)
-                {
-                    summatory += MATRIX_AT_PTR(cholesky, i, j) * y[j];
-                }
-
-                double diagii = MATRIX_AT_PTR(cholesky, i, i);
-                // d[i] = gsl_cdf_gaussian_P((lowerBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 1);
-                // e[i] = gsl_cdf_gaussian_P((upperBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 1);
-                d[i] = pnorm((lowerBounds[i] - summatory) / diagii, 0.0, 1.0, 1, 0);
-                e[i] = pnorm((upperBounds[i] - summatory) / diagii, 0.0, 1.0, 1, 0);
-                f[i] = (e[i] - d[i]) * f[i - 1];
-            }
-            // ---...--- //
-
-            // ---- Compute the final indicators from the current loop ---- //
-#pragma omp atomic
-            intsum += f[mvnDim - 1];
-#pragma omp atomic
-            varsum += pow(f[mvnDim - 1], 2);
-            PutRNGstate();
-            // ---...--- //
+        // ---- Generate the random vector ---- //
+        { // --- For each dimension
+            // ---- Generate random values in [0,1) ----
+            randomVector[i] = unif_rand();
         }
-        currentIterations += 25000;
-        currentError = sqrt((varsum / (currentIterations - pow(intsum / currentIterations, 2))) /
-                            currentIterations); // Possibly wrong
+        // ---...--- //
 
-        if (currentError > epsilon)
-            break;
-    }
+        // ---- Calculate the integral with their new bounds ---- //
+        double summatory;
+        double y[mvnDim];
+        for (int i = 1; i < mvnDim; i++)
+        {
+            double draw = d[i - 1] + randomVector[i - 1] * (e[i - 1] - d[i - 1]);
+            y[i - 1] = qnorm(draw, 0.0, 1.0, 1, 0);
+            // ---- Note that the summatory is equivalent to $\sum_{j=1}^{i-1}c_{ij}*y_{j}$.
+
+            summatory = 0;
+            for (int j = 0; j < i; j++)
+            {
+                summatory += MATRIX_AT_PTR(cholesky, i, j) * y[j];
+            }
+
+            double diagii = MATRIX_AT_PTR(cholesky, i, i);
+            d[i] = pnorm((lowerBounds[i] - summatory) / diagii, 0.0, 1.0, 1, 0);
+            e[i] = pnorm((upperBounds[i] - summatory) / diagii, 0.0, 1.0, 1, 0);
+            f[i] = (e[i] - d[i]) * f[i - 1];
+        }
+        // ---...--- //
+
+        // ---- Compute the final indicators from the current loop ---- //
+        intsum += f[mvnDim - 1];
+        varsum += pow(f[mvnDim - 1], 2);
+        currentIterations += 1;
+        if (currentIterations < 2)
+            continue;
+        double mean = intsum / currentIterations;
+        double variance = (varsum / currentIterations) - pow(mean, 2);
+        // ---...--- //
+        currentError = sqrt(variance / currentIterations);
+
+    } while (currentError > epsilon && currentIterations < iterations);
     // ---...--- //
     PutRNGstate();
-    // gsl_rng_free(rng);
 
     return intsum / currentIterations;
-}
-
-/*
- * @brief Evaluates a given x vector towards the PDF function
- *
- * @param[in] *x A vector with the values to be evaluated. Must be of the same dimension of the multivariate.
- * @param[in] dim The dimension of the multivariate variable
- * @param[in] *params Pointer to the structure with the parameters used to integrate
- *
- * @note Refer to https://www.gnu.org/software/gsl/doc/html/montecarlo.html
- *
- * @return The value of the function. Note that it is a scalar
- */
-double integral(double *x, size_t dim, void *params)
-{
-    // ---- Unpack the integration parameters ---- //
-    IntegrationParams *p = (IntegrationParams *)params;
-    Matrix *chol = p->chol;
-    double *currentMu = p->mu;
-    // ---...--- //
-
-    // ---- Obtain the mahanalobis of the multivariate ---- //
-    double maha[dim];
-    getMahanalobisDist(x, currentMu, chol, maha, dim, true);
-
-    // ---- To get the scalar mahanalobis we need to sum over all contributions ----
-    double totalMahanobis = 0;
-    for (uint16_t c = 0; c < dim; c++)
-    { // --- For each dimension of the multivariate
-        totalMahanobis += maha[c];
-    }
-    // ---...--- //
-    return exp(-0.5 * totalMahanobis);
 }
 
 /*
@@ -289,22 +294,13 @@ double Montecarlo(Matrix *chol, double *mu, double *lowerLimits, double *upperLi
                   double epsilon, const char *method)
 {
     // ---- Set up the initial parameters ---- //
-    // ---- Parameters for the integral ----
-
-    // inverseSymmetricPositiveMatrix(chol);
-    // printMatrix(chol);
-    // IntegrationParams params = {chol, mu};
-
-    // ---- Initialize GSL Monte Carlo integration ----
-    // gsl_monte_function G = {&integral, (size_t)mvnDim, &params};
-    // gsl_rng *rng = gsl_rng_alloc(gsl_rng_default);
     double result, error;
     // ---...--- //
 
     // ---- Perform integration ---- //
     if (strcmp(method, "Genz") == 0)
     {
-        result = genzMontecarlo(chol, lowerLimits, upperLimits, epsilon, maxSamples, mvnDim);
+        result = genzMontecarloChunk(chol, lowerLimits, upperLimits, epsilon, maxSamples, mvnDim);
         return result;
     }
     else if (strcmp(method, "Genz2") == 0)
@@ -316,29 +312,11 @@ double Montecarlo(Matrix *chol, double *mu, double *lowerLimits, double *upperLi
     {
         fprintf(stderr,
                 "\nAn invalid method was handed to the Montecarlo simulation for calculating the Multivariate CDF "
-                "integral.\nThe method handed is:\t%s\nThe current available methods are `Plain`, `Miser`, `Vegas` and "
-                "`Genz`.\n",
+                "integral.\nThe method handed is:\t%s\nThe current available methods are `Genz` or `Genz2`"
+                ".\n",
                 method);
         exit(EXIT_FAILURE);
     }
-    // ---...--- //
-
-    // ---- Obtain the normalization values ---- //
-    // ---- We'll get the determinant of the cholesky by multiplying its diagonals ----
-    double determinant = 1;
-    for (uint16_t c = 0; c < mvnDim; c++)
-    {                                             // --- For each dimension of the multivariate
-        determinant *= MATRIX_AT_PTR(chol, c, c); // Diagonal of the Cholensky
-    }
-    // ---...--- //
-
-    // ---- Return the final value, normalized ---- //
-    double denominator = sqrt(pow(2 * M_PI, mvnDim) * determinant);
-    if (denominator == 0)
-        return 0; // Early exit
-                  // ---...--- //
-
-    return (1 / denominator) * result;
     // ---...--- //
 }
 
@@ -357,7 +335,6 @@ void getMainParameters(int b, Matrix const probabilitiesReduced, Matrix **choles
 {
 
     // --- Initialize empty array --- //
-
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     { // ---- For each group ----
         cholesky[g] = (Matrix *)malloc(sizeof(Matrix));
@@ -392,7 +369,7 @@ double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params
     Matrix probabilitiesReduced = removeLastColumn(probabilities);
     double *array2 =
         (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double)); // Array to return
-                                                                                           // --- ... --- //
+// --- ... --- //
 #pragma omp parallel for
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // --- For each ballot box
@@ -451,11 +428,6 @@ double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params
 
                 else
                 {
-                    /*
-                    montecarloResults[c] = (gsl_cdf_gaussian_P(featureCopyA[0], MATRIX_AT_PTR(currentCholesky, 0, 0)) -
-                                            gsl_cdf_gaussian_P(featureCopyB[0], MATRIX_AT_PTR(currentCholesky, 0, 0))) *
-                                           MATRIX_AT_PTR(probabilities, g, c);
-                    */
                     montecarloResults[c] = (pnorm(featureCopyA[0], 0.0, MATRIX_AT_PTR(currentCholesky, 0, 0), 1, 0) -
                                             pnorm(featureCopyB[0], 0.0, MATRIX_AT_PTR(currentCholesky, 0, 0), 1, 0)) *
                                            MATRIX_AT_PTR(probabilities, g, c);

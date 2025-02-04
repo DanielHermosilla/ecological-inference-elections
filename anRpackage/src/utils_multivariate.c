@@ -1,7 +1,6 @@
 #include "utils_multivariate.h"
 #include <R_ext/BLAS.h>
 #include <float.h>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 /**
