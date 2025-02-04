@@ -43,6 +43,28 @@ extern "C"
      * Given the precomputed sets of possibilities, it frees everything.
      */
     void cleanExact();
+    /**
+     * @brief Precalculates the `H` set for every index.
+     *
+     * Given that the set wasn't calculated before, it calculates the H set defined as every possible combination for a
+     * given `g` group
+     *
+     * @return void: Results written at the global variable HSETS.
+     *
+     */
+    void generateHSets();
+
+    /**
+     * @brief Precalculates the `K` set for every index.
+     *
+     * Given that the set wasn't calculated before, it calculates the K set defined as every possible combination as a
+     * cummulative set given the first `f` groups.
+     *
+     * @return void: Results written at the global variable KSETS.
+     *
+     */
+
+    void generateKSets();
 
 #ifdef __cplusplus
 }

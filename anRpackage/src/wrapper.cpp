@@ -9,11 +9,103 @@ static bool beenPrecomputed = false;
 static bool matricesPrecomputed = false;
 
 // [[Rcpp::export]]
-void hitAndRunEM(Rcpp::NumericMatrix X, Rcpp::NumericMatrix W, Rcpp::String Pmethod = "group proportional",
-                 Rcpp::String jsonPath = "", Rcpp::IntegerVector maxIt = 1000, Rcpp::NumericVector epsilon = 0.001,
-                 Rcpp::LogicalVector verbose = false, Rcpp::LogicalVector precompute = false,
-                 Rcpp::IntegerVector stepSize = 1000)
+Rcpp::List hitAndRunCDF(Rcpp::String Pmethod = "group proportional", Rcpp::IntegerVector maxIt = 1000,
+                        Rcpp::NumericVector epsilon = 0.001, Rcpp::LogicalVector verbose = false,
+                        Rcpp::String monteCarloMethod = "Genz2", Rcpp::NumericVector mvnEpsilon = 0.000001,
+                        Rcpp::IntegerVector mvnIter = 10000)
 {
+    // ---- Get the initial probability ---- //
+    std::string probabilityM = Pmethod;
+    Matrix pIn = getInitialP(Pmethod.get_cstring());
+    // ---...--- //
+
+    // ---- Define the main parameters ---- //
+    std::string monteMethod = monteCarloMethod;
+    QMethodInput inputParams = {
+        .monteCarloIter = mvnIter[0], .errorThreshold = mvnEpsilon[0], .simulationMethod = monteMethod.c_str()};
+
+    double timeIter = 0;
+    int totalIter = 0;
+    double *logLLarr = (double *)malloc(maxIt[0] * sizeof(double));
+    // ---...--- //
+
+    Matrix Pnew =
+        EMAlgoritm(&pIn, "MVN CDF", epsilon[0], maxIt[0], verbose, &timeIter, &totalIter, logLLarr, inputParams);
+    freeMatrix(&pIn);
+
+    if (verbose)
+    {
+        printf("\nThe calculated matrix is\n");
+        printMatrix(&Pnew);
+        printf("\nIt took %.5f seconds to run with a log-likelihood of %.5f.\n", timeIter, logLLarr[totalIter]);
+    }
+
+    // ---- Clean the variables ---- //
+    cleanup();
+    matricesPrecomputed = false;
+    // ---...--- //
+
+    // ---- Return the results ---- //
+    // ---- Final probability ----
+    Rcpp::NumericMatrix RfinalProbability(Pnew.rows, Pnew.cols, Pnew.data);
+    freeMatrix(&Pnew);
+
+    // ---- Final log-likelihood array ----
+    Rcpp::NumericVector RlogLikelihood(logLLarr, logLLarr + totalIter);
+    free(logLLarr);
+
+    return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = RlogLikelihood,
+                              Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter);
+    // ---...--- //
+}
+
+// [[Rcpp::export]]
+Rcpp::List hitAndRunEM(Rcpp::String Pmethod = "group proportional", Rcpp::IntegerVector maxIt = 1000,
+                       Rcpp::NumericVector epsilon = 0.001, Rcpp::LogicalVector verbose = false,
+                       Rcpp::IntegerVector stepSize = 3000, Rcpp::IntegerVector samples = 1000)
+{
+    // ---- Get the initial probability ---- //
+    std::string probabilityM = Pmethod;
+    Matrix pIn = getInitialP(Pmethod.get_cstring());
+    // ---...--- //
+
+    // ---- Define the main parameters ---- //
+    QMethodInput inputParams = {.S = samples[0], .M = stepSize[0]};
+    double timeIter = 0;
+    int totalIter = 0;
+    double *logLLarr = (double *)malloc(maxIt[0] * sizeof(double));
+    // ---...--- //
+
+    Matrix Pnew =
+        EMAlgoritm(&pIn, "Hit and Run", epsilon[0], maxIt[0], verbose, &timeIter, &totalIter, logLLarr, inputParams);
+    freeMatrix(&pIn);
+
+    if (verbose)
+    {
+        printf("\nThe calculated matrix is\n");
+        printMatrix(&Pnew);
+        printf("\nIt took %.5f seconds to run with a log-likelihood of %.5f.\n", timeIter, logLLarr[totalIter]);
+    }
+
+    // ---- Clean the variables ---- //
+    cleanup();
+    matricesPrecomputed = false;
+    cleanHitAndRun();
+    beenPrecomputed = false;
+    // ---...--- //
+
+    // ---- Return the results ---- //
+    // ---- Final probability ----
+    Rcpp::NumericMatrix RfinalProbability(Pnew.rows, Pnew.cols, Pnew.data);
+    freeMatrix(&Pnew);
+
+    // ---- Final log-likelihood array ----
+    Rcpp::NumericVector RlogLikelihood(logLLarr, logLLarr + totalIter);
+    free(logLLarr);
+
+    return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = RlogLikelihood,
+                              Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter);
+    // ---...--- //
 }
 
 // [[Rcpp::export]]
@@ -35,6 +127,28 @@ void RprecomputeHR(Rcpp::IntegerVector S, Rcpp::IntegerVector M)
     generateOmegaSet(M[0], S[0], 42);
     // ---- Precompute a multinomial multiplication that is constant throughout the loops ---- //
     preComputeMultinomial();
+    beenPrecomputed = true;
+    return;
+}
+
+// [[Rcpp::export]]
+void RprecomputeExact()
+{
+    // TODO: Enable a saving function
+    if (beenPrecomputed)
+    {
+        std::cout << "There has been already a precomputation for the Exact method" << std::endl;
+        return;
+    }
+    if (!matricesPrecomputed)
+    {
+        std::cout << "The `X` and `W` matrices haven't been computed yet. Hint: Call RsetParameters." << std::endl;
+        return;
+    }
+
+    // ---- Precompute the H set and the K set and leave it as a global variable ---- //
+    generateHSets();
+    generateKSets();
     beenPrecomputed = true;
     return;
 }
@@ -98,7 +212,6 @@ void RsetParameters(Rcpp::NumericMatrix x, Rcpp::NumericMatrix w, Rcpp::String j
     return;
 }
 
-// [[Rcpp::plugins(openmp)]]
 // [[Rcpp::export]]
 void readFilePrint(Rcpp::String filename, Rcpp::String method)
 {
