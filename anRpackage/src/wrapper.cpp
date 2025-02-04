@@ -114,10 +114,9 @@ Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method, Rcpp::IntegerVector m
 }
 
 // [[Rcpp::export]]
-Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method = "group proportional",
-                                Rcpp::IntegerVector maximum_iterations = 1000,
-                                Rcpp::NumericVector stopping_threshold = 0.001, Rcpp::LogicalVector verbose = false,
-                                Rcpp::IntegerVector stepSize = 3000, Rcpp::IntegerVector samples = 1000)
+Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations,
+                                Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector verbose,
+                                Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples)
 {
     // ---- Get the initial probability ---- //
     std::string probabilityM = probability_method;
@@ -125,7 +124,7 @@ Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method = "group proport
     // ---...--- //
 
     // ---- Define the main parameters ---- //
-    QMethodInput inputParams = {.S = samples[0], .M = stepSize[0]};
+    QMethodInput inputParams = {.S = samples[0], .M = step_size[0]};
     double timeIter = 0;
     int totalIter = 0;
     double *logLLarr = (double *)malloc(maximum_iterations[0] * sizeof(double));
