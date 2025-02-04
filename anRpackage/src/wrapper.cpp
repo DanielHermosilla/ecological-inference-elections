@@ -9,28 +9,82 @@ static bool beenPrecomputed = false;
 static bool matricesPrecomputed = false;
 
 // [[Rcpp::export]]
-Rcpp::List hitAndRunCDF(Rcpp::String Pmethod = "group proportional", Rcpp::IntegerVector maxIt = 1000,
-                        Rcpp::NumericVector epsilon = 0.001, Rcpp::LogicalVector verbose = false,
-                        Rcpp::String monteCarloMethod = "Genz2", Rcpp::NumericVector mvnEpsilon = 0.000001,
-                        Rcpp::IntegerVector mvnIter = 10000)
+Rcpp::List EMAlgorithmAll(Rcpp::String em_method, Rcpp::String probability_method,
+                          Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector stopping_threshold,
+                          Rcpp::LogicalVector verbose)
 {
     // ---- Get the initial probability ---- //
-    std::string probabilityM = Pmethod;
-    Matrix pIn = getInitialP(Pmethod.get_cstring());
+    std::string probabilityM = probability_method;
+    Matrix pIn = getInitialP(probability_method.get_cstring());
     // ---...--- //
 
     // ---- Define the main parameters ---- //
-    std::string monteMethod = monteCarloMethod;
-    QMethodInput inputParams = {
-        .monteCarloIter = mvnIter[0], .errorThreshold = mvnEpsilon[0], .simulationMethod = monteMethod.c_str()};
+    QMethodInput inputParams = {0};
+    double timeIter = 0;
+    int totalIter = 0;
+    double *logLLarr = (double *)malloc(maximum_iterations[0] * sizeof(double));
+    // ---...--- //
+
+    std::string EMAlg = em_method;
+    Matrix Pnew = EMAlgoritm(&pIn, EMAlg.c_str(), stopping_threshold[0], maximum_iterations[0], verbose, &timeIter,
+                             &totalIter, logLLarr, inputParams);
+    freeMatrix(&pIn);
+
+    if (verbose)
+    {
+        printf("\nThe calculated matrix is\n");
+        printMatrix(&Pnew);
+        printf("\nIt took %.5f seconds to run with a log-likelihood of %.5f.\n", timeIter, logLLarr[totalIter]);
+    }
+
+    // ---- Clean the variables ---- //
+    cleanup();
+    matricesPrecomputed = false;
+    if (EMAlg == "Exact")
+    {
+        cleanExact();
+        beenPrecomputed = false;
+    }
+    // ---...--- //
+
+    // ---- Return the results ---- //
+    // ---- Final probability ----
+    Rcpp::NumericMatrix RfinalProbability(Pnew.rows, Pnew.cols, Pnew.data);
+    freeMatrix(&Pnew);
+
+    // ---- Final log-likelihood array ----
+    Rcpp::NumericVector RlogLikelihood(logLLarr, logLLarr + totalIter);
+    free(logLLarr);
+
+    return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = RlogLikelihood,
+                              Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter);
+    // ---...--- //
+}
+
+// [[Rcpp::export]]
+Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations,
+                          Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector verbose,
+                          Rcpp::String multivariate_method, Rcpp::NumericVector multivariate_epsilon,
+                          Rcpp::IntegerVector multivariate_iterations)
+{
+    // ---- Get the initial probability ---- //
+    std::string probabilityM = probability_method;
+    Matrix pIn = getInitialP(probability_method.get_cstring());
+    // ---...--- //
+
+    // ---- Define the main parameters ---- //
+    std::string monteMethod = multivariate_method;
+    QMethodInput inputParams = {.monteCarloIter = multivariate_iterations[0],
+                                .errorThreshold = multivariate_epsilon[0],
+                                .simulationMethod = monteMethod.c_str()};
 
     double timeIter = 0;
     int totalIter = 0;
-    double *logLLarr = (double *)malloc(maxIt[0] * sizeof(double));
+    double *logLLarr = (double *)malloc(maximum_iterations[0] * sizeof(double));
     // ---...--- //
 
-    Matrix Pnew =
-        EMAlgoritm(&pIn, "MVN CDF", epsilon[0], maxIt[0], verbose, &timeIter, &totalIter, logLLarr, inputParams);
+    Matrix Pnew = EMAlgoritm(&pIn, "MVN CDF", stopping_threshold[0], maximum_iterations[0], verbose, &timeIter,
+                             &totalIter, logLLarr, inputParams);
     freeMatrix(&pIn);
 
     if (verbose)
@@ -60,24 +114,25 @@ Rcpp::List hitAndRunCDF(Rcpp::String Pmethod = "group proportional", Rcpp::Integ
 }
 
 // [[Rcpp::export]]
-Rcpp::List hitAndRunEM(Rcpp::String Pmethod = "group proportional", Rcpp::IntegerVector maxIt = 1000,
-                       Rcpp::NumericVector epsilon = 0.001, Rcpp::LogicalVector verbose = false,
-                       Rcpp::IntegerVector stepSize = 3000, Rcpp::IntegerVector samples = 1000)
+Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method = "group proportional",
+                                Rcpp::IntegerVector maximum_iterations = 1000,
+                                Rcpp::NumericVector stopping_threshold = 0.001, Rcpp::LogicalVector verbose = false,
+                                Rcpp::IntegerVector stepSize = 3000, Rcpp::IntegerVector samples = 1000)
 {
     // ---- Get the initial probability ---- //
-    std::string probabilityM = Pmethod;
-    Matrix pIn = getInitialP(Pmethod.get_cstring());
+    std::string probabilityM = probability_method;
+    Matrix pIn = getInitialP(probability_method.get_cstring());
     // ---...--- //
 
     // ---- Define the main parameters ---- //
     QMethodInput inputParams = {.S = samples[0], .M = stepSize[0]};
     double timeIter = 0;
     int totalIter = 0;
-    double *logLLarr = (double *)malloc(maxIt[0] * sizeof(double));
+    double *logLLarr = (double *)malloc(maximum_iterations[0] * sizeof(double));
     // ---...--- //
 
-    Matrix Pnew =
-        EMAlgoritm(&pIn, "Hit and Run", epsilon[0], maxIt[0], verbose, &timeIter, &totalIter, logLLarr, inputParams);
+    Matrix Pnew = EMAlgoritm(&pIn, "Hit and Run", stopping_threshold[0], maximum_iterations[0], verbose, &timeIter,
+                             &totalIter, logLLarr, inputParams);
     freeMatrix(&pIn);
 
     if (verbose)

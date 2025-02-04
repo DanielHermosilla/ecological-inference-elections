@@ -132,8 +132,8 @@ Matrix getInitialP(const char *p_method)
 {
 
     // ---- Validation: check the method input ----//
-    if (strcmp(p_method, "uniform") != 0 && strcmp(p_method, "proportional") != 0 &&
-        strcmp(p_method, "group proportional") != 0)
+    if (strcmp(p_method, "Uniform") != 0 && strcmp(p_method, "Proportional") != 0 &&
+        strcmp(p_method, "Group proportional") != 0)
     {
         fprintf(stderr, "getInitialP: The method `%s` passed to getInitialP doesn't exist.\n", p_method);
         exit(EXIT_FAILURE);
@@ -144,7 +144,7 @@ Matrix getInitialP(const char *p_method)
 
     // ---- Compute the uniform method ---- //
     // ---- It assumes a uniform distribution among candidates ----
-    if (strcmp(p_method, "uniform") == 0)
+    if (strcmp(p_method, "Uniform") == 0)
     {
         fillMatrix(&probabilities, 1.0 / (double)TOTAL_CANDIDATES);
     }
@@ -153,7 +153,7 @@ Matrix getInitialP(const char *p_method)
     // ---- Compute the proportional method ---- //
     // ---- It calculates the proportion of votes of each candidate, and assigns that probability to every demographic
     // group ----
-    else if (strcmp(p_method, "proportional") == 0)
+    else if (strcmp(p_method, "Proportional") == 0)
     {
         for (int c = 0; c < TOTAL_CANDIDATES; c++)
         { // --- For each candidate
