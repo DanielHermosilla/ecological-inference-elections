@@ -12,6 +12,7 @@
 #include <gsl/gsl_rng.h> // Random numbers
 */
 #include <math.h>
+#include <omp.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -164,55 +165,66 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
     //  ---...--- //
 
     // ---- Compute the main while loop ---- //
-    do
+    for (int k = 0; k < 4; k++)
     {
-        // ---- Initialize the loop variables ---- //
-        double randomVector[mvnDim - 1];
-        for (int i = 0; i < mvnDim - 1; i++)
-        // ---...--- //
-
-        // ---- Generate the random vector ---- //
-        { // --- For each dimension
-            // ---- Generate random values in [0,1) ----
-            // randomVector[i] = gsl_rng_uniform(rng);
-            randomVector[i] = unif_rand();
-        }
-        // ---...--- //
-
-        // ---- Calculate the integral with their new bounds ---- //
-        double summatory;
-        double y[mvnDim];
-        for (int i = 1; i < mvnDim; i++)
+        // #pragma omp parallel for schedule(static)
+        for (int j = 0; j < 25000; j++)
         {
-            double draw = d[i - 1] + randomVector[i - 1] * (e[i - 1] - d[i - 1]);
-            y[i - 1] = qnorm(draw, 0.0, 1.0, 1, 0);
-            // y[i - 1] = gsl_cdf_gaussian_Pinv(d[i - 1] + randomVector[i - 1] * (e[i - 1] - d[i - 1]), 1);
-            // ---- Note that the summatory is equivalent to $\sum_{j=1}^{i-1}c_{ij}*y_{j}$.
+            // unsigned int seed = omp_get_thread_num() + 1;
+            GetRNGstate();
+            // ---- Initialize the loop variables ---- //
+            double randomVector[mvnDim - 1];
+            for (int i = 0; i < mvnDim - 1; i++)
+            // ---...--- //
 
-            summatory = 0;
-            for (int j = 0; j < i; j++)
-            {
-                summatory += MATRIX_AT_PTR(cholesky, i, j) * y[j];
+            // ---- Generate the random vector ---- //
+            { // --- For each dimension
+                // ---- Generate random values in [0,1) ----
+                // randomVector[i] = gsl_rng_uniform(rng);
+                randomVector[i] = unif_rand();
             }
+            // ---...--- //
 
-            double diagii = MATRIX_AT_PTR(cholesky, i, i);
-            // d[i] = gsl_cdf_gaussian_P((lowerBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 1);
-            // e[i] = gsl_cdf_gaussian_P((upperBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 1);
-            d[i] = pnorm((lowerBounds[i] - summatory) / diagii, 0.0, 1.0, 1, 0);
-            e[i] = pnorm((upperBounds[i] - summatory) / diagii, 0.0, 1.0, 1, 0);
-            f[i] = (e[i] - d[i]) * f[i - 1];
+            // ---- Calculate the integral with their new bounds ---- //
+            double summatory;
+            double y[mvnDim];
+            for (int i = 1; i < mvnDim; i++)
+            {
+                double draw = d[i - 1] + randomVector[i - 1] * (e[i - 1] - d[i - 1]);
+                y[i - 1] = qnorm(draw, 0.0, 1.0, 1, 0);
+                // y[i - 1] = gsl_cdf_gaussian_Pinv(d[i - 1] + randomVector[i - 1] * (e[i - 1] - d[i - 1]), 1);
+                // ---- Note that the summatory is equivalent to $\sum_{j=1}^{i-1}c_{ij}*y_{j}$.
+
+                summatory = 0;
+                for (int j = 0; j < i; j++)
+                {
+                    summatory += MATRIX_AT_PTR(cholesky, i, j) * y[j];
+                }
+
+                double diagii = MATRIX_AT_PTR(cholesky, i, i);
+                // d[i] = gsl_cdf_gaussian_P((lowerBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 1);
+                // e[i] = gsl_cdf_gaussian_P((upperBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 1);
+                d[i] = pnorm((lowerBounds[i] - summatory) / diagii, 0.0, 1.0, 1, 0);
+                e[i] = pnorm((upperBounds[i] - summatory) / diagii, 0.0, 1.0, 1, 0);
+                f[i] = (e[i] - d[i]) * f[i - 1];
+            }
+            // ---...--- //
+
+            // ---- Compute the final indicators from the current loop ---- //
+#pragma omp atomic
+            intsum += f[mvnDim - 1];
+#pragma omp atomic
+            varsum += pow(f[mvnDim - 1], 2);
+            PutRNGstate();
+            // ---...--- //
         }
-        // ---...--- //
-
-        // ---- Compute the final indicators from the current loop ---- //
-        intsum += f[mvnDim - 1];
-        varsum += pow(f[mvnDim - 1], 2);
-        currentIterations += 1;
+        currentIterations += 25000;
         currentError = sqrt((varsum / (currentIterations - pow(intsum / currentIterations, 2))) /
                             currentIterations); // Possibly wrong
-        // ---...--- //
 
-    } while (currentError > epsilon && currentIterations < iterations);
+        if (currentError > epsilon)
+            break;
+    }
     // ---...--- //
     PutRNGstate();
     // gsl_rng_free(rng);

@@ -1,6 +1,6 @@
 #include <Rcpp.h>
+#include <cstdio>
 #include <iostream>
-
 // Include the corrected wrapper.h
 #include "Rcpp/String.h"
 #include "wrapper.h"
@@ -67,21 +67,24 @@ void RsetParameters(Rcpp::NumericMatrix x, Rcpp::NumericMatrix w)
 
 // [[Rcpp::plugins(openmp)]]
 // [[Rcpp::export]]
-void readFilePrint(Rcpp::String filename)
+void readFilePrint(Rcpp::String filename, Rcpp::String method)
 {
     std::string file = filename;
+    std::string itMethod = method;
 
     Matrix X, W, P;
 
     readJSONAndStoreMatrices(file.c_str(), &W, &X, &P);
+    /*
     printf("The matrices are:\nFor W:\n");
     printMatrix(&W);
     printf("\nFor X:\n");
     printMatrix(&X);
     printf("\nFor P:\n");
     printMatrix(&P);
-
+*/
     setParameters(&X, &W);
+    /*
     printf("\nGroup proportional method:\n");
     Matrix pIn = getInitialP("group proportional");
     printMatrix(&pIn);
@@ -96,24 +99,33 @@ void readFilePrint(Rcpp::String filename)
     pIn = getInitialP("uniform");
     printMatrix(&pIn);
     freeMatrix(&pIn);
-
-    pIn = getInitialP("group proportional");
+*/
+    Matrix pIn = getInitialP("group proportional");
 
     // It will run multinomial...
     QMethodInput inputParams = {.monteCarloIter = 100000, .errorThreshold = 0.00001, .simulationMethod = "Genz2"};
     double timeIter = 0;
     int totalIter = 0;
-    double *logLLresults = NULL;
+    double *logLLarr = (double *)malloc(10000 * sizeof(double));
+    // double *logLLresults = nullptr;
 
-    Matrix Pnew = EMAlgoritm(&pIn, "MVN CDF", 0.001, 10000, false, &timeIter, &totalIter, &logLLresults, inputParams);
+    Matrix Pnew = EMAlgoritm(&pIn, itMethod.c_str(), 0.001, 10000, true, &timeIter, &totalIter, logLLarr, inputParams);
+    free(logLLarr);
     printf("\nThe calculated matrix was\n");
     printMatrix(&Pnew);
     printf("\nThe real one was:\n");
     printMatrix(&P);
     printf("\nIt took %.5f seconds to run.", timeIter);
-    cleanup();
+    // free(&logLLresults);
+
     // printMatrix(&p);
-    freeMatrix(&W);
-    freeMatrix(&X);
+    // freeMatrix(&W);
+    // freeMatrix(&X);
     freeMatrix(&P);
+    freeMatrix(&Pnew);
+    // free(W.data);
+    // free(X.data);
+    // free(P.data);
+    cleanup();
+    // *logLLresults = NULL;
 }

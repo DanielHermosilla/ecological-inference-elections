@@ -290,7 +290,7 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
  *
  */
 
-static double logLikelihood(Matrix *prob, double *q)
+double logLikelihood(Matrix *prob, double *q)
 {
     // ---- Define the summatory for the log-likelihood ---- //
     double logLL = 0;
@@ -305,8 +305,13 @@ static double logLikelihood(Matrix *prob, double *q)
             { // --- For each candidate, given a group and a ballot box
                 double num = MATRIX_AT_PTR(prob, g, c);
                 double den = Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES);
+                if (q == NULL || b >= TOTAL_BALLOTS || g >= TOTAL_GROUPS || c >= TOTAL_CANDIDATES)
+                {
+                    fprintf(stderr, "[ERROR] Out-of-bounds access in Q_3D at b=%d, g=%d, c=%d\n", b, g, c);
+                    exit(EXIT_FAILURE);
+                }
                 if (den == 0)
-                    den = 1e-9;
+                    den = 1;
                 if (num == 0)
                     num = 1e-9;
                 double qval = den;
@@ -392,7 +397,7 @@ Matrix getP(const double *q)
  *
  */
 Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
-                  const bool verbose, double *time, int *iterTotal, double **logLLarr, QMethodInput inputParams)
+                  const bool verbose, double *time, int *iterTotal, double *logLLarr, QMethodInput inputParams)
 {
 
     // ---- Error handling is done on getQMethodConfig! ---- //
@@ -407,7 +412,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
 
     // ---- Define the parameters for the main loop ---- //
     QMethodConfig config = getQMethodConfig(q_method, inputParams);
-    *logLLarr = (double *)malloc(maxIter * sizeof(double));
+
     // ---...--- //
 
     // Start timer
@@ -441,17 +446,16 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             double elapsed_total = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
             // ---...--- //
 
-            (*logLLarr)[i] = logLikelihood(&newProbability, q);
+            logLLarr[i] = logLikelihood(&newProbability, q);
             if (verbose)
             {
                 printf("The convergence was found on iteration %d, with a log-likelihood of %.4f  and took %.5f "
                        "seconds!\n",
-                       i, *logLLarr[i], elapsed_total);
+                       i, logLLarr[i], elapsed_total);
             }
 
             // ---- Calculate the final values ---- //
-            double *resizedLog = (double *)realloc(*logLLarr, (i + 1) * sizeof(double));
-            *logLLarr = resizedLog;
+
             *time = elapsed_total;
             *iterTotal = i;
             // ---...--- //
@@ -472,7 +476,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         }
 
         // ---- Calculate the log-likelihood before freeing the array ----
-        (*logLLarr)[i] = logLikelihood(currentP, q);
+        logLLarr[i] = logLikelihood(currentP, q);
         free(q);
         freeMatrix(currentP);
 
@@ -482,15 +486,13 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         freeMatrix(&newProbability);
 
         // ---- Handle the case where the log-likelihood decreases ----
-
-        if (i != 0 && (*logLLarr)[i] < (*logLLarr)[i - 1])
+        if (i != 0 && (logLLarr)[i] < (logLLarr)[i - 1])
         {
             printf("Early exit; log-likelihood decreased\n");
             // ---- Save values ----
             *iterTotal = i;
             *time = elapsed_total;
-            double *resizedLog = (double *)realloc(*logLLarr, (i + 1) * sizeof(double));
-            *logLLarr = resizedLog;
+
             return *currentP;
         }
     }
@@ -571,149 +573,3 @@ void cleanup()
         W = NULL;
     }
 }
-/*
-// ---...--- //
-int main(int argc, char *argv[])
-{
-    if (argc < 4)
-    {
-        fprintf(stderr,
-                "Use: %s <Instance directory> <Results directory (must be previously created)> <Method>\nThe supported "
-                "methods are:"
-                "\tMultinomial, Hit and Run, MVN PDF, MVN CDF, Exact",
-                argv[0]);
-        return EXIT_FAILURE;
-    }
-    // Extract arguments
-    const char *instanceDirectory = argv[1]; // Directory containing instance files
-    const char *resultDirectory = argv[2];   // Directory for saving results
-    const char *inputMethod = argv[3];       // Method to use
-
-    DIR *directory = opendir(instanceDirectory); // Open directory
-    if (directory == NULL)
-    {
-        perror("Couldn't open the directory");
-        return EXIT_FAILURE;
-    }
-
-    struct dirent *entry; // For iterating between each directory
-
-    int G, CAm, seed, J;
-    while ((entry = readdir(directory)) != NULL)
-    {
-        const char *fileName = entry->d_name;
-
-        // ---- Skip cases where it iterates through itself or other directories ----
-        if (strcmp(fileName, ".") == 0 || strcmp(fileName, "..") == 0)
-        {
-            continue;
-        }
-
-        // ---- Get the candidate and group size ----
-        sscanf(fileName, "J%d_M%*d_G%d_I%d_L%*d_seed%d.json", &J, &G, &CAm, &seed);
-        printf("\n----- Groups: %d\t Candidates: %d\t Seed: %d -----\n", G, CAm, seed);
-
-        // if (G != 2 || CAm != 10 || seed != 12)
-        //    continue;
-        // ---- Construct the full path to the JSON file ---- //
-        char jsonFile[5000];
-        snprintf(jsonFile, sizeof(jsonFile), "%s/%s", instanceDirectory, fileName);
-        Matrix GG1, XX1, PP1;
-        readJSONAndStoreMatrices(jsonFile, &GG1, &XX1, &PP1);
-        // ---...--- //
-
-        // ---- Construct the output file path ---- //
-        char outputFile[1023];
-        snprintf(outputFile, sizeof(outputFile), "%s/%s/%dB/G%dC%dseed%d.json", resultDirectory, inputMethod, J, G, CAm,
-                 seed);
-        // ---...--- //
-
-        // ---- Start the main algorithm ---- //
-        setParameters(&XX1, &GG1);
-        // printMatrix(&XX1);
-        // printMatrix(&GG1);
-        int *votingArr = calloc(TOTAL_CANDIDATES, sizeof(int));
-        bool emptyVotes = noVotes(votingArr);
-        int pastCandidates = TOTAL_CANDIDATES;
-        if (emptyVotes)
-        {
-            if (TOTAL_CANDIDATES == 2)
-            {
-                Matrix Pnew = createMatrix(TOTAL_GROUPS, 2);
-                for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-                {
-                    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-                    {
-                        if (votingArr[c] == 1)
-                            MATRIX_AT(Pnew, g, c) = 1;
-                    }
-                }
-                double *timeIter = 0;
-                int *totalIter = 0;
-                goto results;
-            }
-            cleanup();
-            for (uint16_t c = 0; c < pastCandidates; c++)
-            {
-                if (votingArr[c] == 1)
-                {
-                    removeRow(&XX1, c);
-                }
-            }
-            setParameters(&XX1, &GG1);
-        }
-
-        Matrix P = getInitialP("group proportional");
-
-        double conv = 0.001;
-        double itr = 10000;
-        double timeIter = 0;
-        int totalIter = 0;
-        double *logLLresults = NULL;
-
-        Matrix Pnew = EMAlgoritm(&P, inputMethod, conv, itr, false, &timeIter, &totalIter, &logLLresults);
-        if (emptyVotes)
-        {
-            for (uint16_t c = 0; c < pastCandidates; c++)
-            {
-                if (votingArr[c] == 1)
-                    addColumnOfZeros(&Pnew, c);
-            }
-        }
-        free(votingArr);
-
-    results:
-        writeResultsJSON(outputFile, jsonFile, inputMethod, conv, itr, timeIter, totalIter, &PP1, &Pnew, logLLresults,
-                         1000, 3000, false);
-        // ---...--- //
-
-        // ---- Free the memory ---- //
-        cleanup();
-        free(logLLresults);
-        freeMatrix(&Pnew);
-        freeMatrix(&PP1);
-        freeMatrix(&XX1);
-        freeMatrix(&GG1);
-        free(XX1.data);
-        free(GG1.data);
-        free(PP1.data);
-        // ---...--- //
-
-        // ---- Clean precomputed variables for a given iteration ---- //
-        if (strcmp(inputMethod, "Exact") == 0)
-        {
-            cleanExact();
-        }
-        // ---- Hit and Run method ----
-        else if (strcmp(inputMethod, "Hit and Run") == 0)
-        {
-            cleanHitAndRun();
-        }
-    }
-
-    // ---- Close the directory ---- //
-    closedir(directory);
-
-    return 1;
-}
-*/

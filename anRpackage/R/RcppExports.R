@@ -5,7 +5,7 @@ RsetParameters <- function(x, w) {
     invisible(.Call(`_infPackage_RsetParameters`, x, w))
 }
 
-readFilePrint <- function(filename) {
-    invisible(.Call(`_infPackage_readFilePrint`, filename))
+readFilePrint <- function(filename, method) {
+    invisible(.Call(`_infPackage_readFilePrint`, filename, method))
 }
 
