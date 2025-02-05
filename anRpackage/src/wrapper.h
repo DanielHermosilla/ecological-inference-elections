@@ -114,8 +114,62 @@ Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method = "Group proport
                                 Rcpp::IntegerVector step_size = Rcpp::IntegerVector::create(3000),
                                 Rcpp::IntegerVector samples = Rcpp::IntegerVector(1000));
 
-// void RsetParameters(Rcpp::NumericMatrix x, Rcpp::NumericMatrix w);
+/**
+ * @brief Precomputes the values from the Hit and Run method that can be calculated before the EM algorithm.
+ *
+ * Computes all of the sets that are going to be used among all of the EM iterations. This values are independent
+ * between each stage of the algorithm.
+ *
+ * @param[in] Rcpp::IntegerVector samples The amount of samples to use. (default: 1000)
+ * @param[in] Rcpp::IntegerVector step_size The distance between sampling points, as shown in the paper. (default: 3000)
+ *
+ * @warning: The `X` and `W` matrices must be assigned before with the `setParameters` function.
+ *
+ * @note: This values must be freed with the `cleanHitAndRun()` function.
+ *
+ */
+void RprecomputeHR(Rcpp::IntegerVector samples = Rcpp::IntegerVector::create(1000),
+                   Rcpp::IntegerVector step_size = Rcpp::IntegerVector::create(3000));
 
-void readFilePrint(Rcpp::String filename);
+/**
+ * @brief Precomputes the values from the Exact method that can be calculated before the EM algorithm.
+ *
+ * Computes all of the sets that are going to be used among all of the EM iterations. This values are independent
+ * between each stage of the algorithm.
+ *
+ * @warning: The `X` and `W` matrices must be assigned before with the `setParameters` function.
+ *
+ * @note: This values must be freed with the `cleanExact()` function.
+ *
+ */
+void RprecomputeExact();
+
+/**
+ * @brief Sets the `X` and `W` parameters on C
+ *
+ * Given an R's matrix, it sets the global parameters of `X` and `W` and computes all of its
+ * important values (total candidates, votes per ballot, etc)
+ *
+ * @param Rcpp::NumericMatrix candidate_matrix A (c x b) matrix object of R that contains the votes that each
+ * candidate `c` got on a ballot `b`.
+ * @param Rcpp::NumericMatrix group_matrix A (b x g) matrix object of R that contains the votes that each
+ * demographic group `g` did on a ballot `b`.
+ *
+ */
+void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix);
+
+/**
+ * @brief Sets the `X` and `W` parameters on C
+ *
+ * Given an R's matrix, it sets the global parameters of `X` and `W` and computes all of its
+ * important values (total candidates, votes per ballot, etc)
+ *
+ * @param Rcpp::NumericMatrix candidate_matrix A (c x b) matrix object of R that contains the votes that each
+ * candidate `c` got on a ballot `b`.
+ * @param Rcpp::NumericMatrix group_matrix A (b x g) matrix object of R that contains the votes that each
+ * demographic group `g` did on a ballot `b`.
+ *
+ */
+void readFromFile(Rcpp::String filename);
 
 #endif // WRAPPER_H

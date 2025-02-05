@@ -163,7 +163,7 @@ Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method, Rcpp::IntegerVe
 }
 
 // [[Rcpp::export]]
-void RprecomputeHR(Rcpp::IntegerVector S, Rcpp::IntegerVector M)
+void RprecomputeHR(Rcpp::IntegerVector samples, Rcpp::IntegerVector step_size)
 {
     // TODO: Enable a saving function
     if (beenPrecomputed)
@@ -178,7 +178,7 @@ void RprecomputeHR(Rcpp::IntegerVector S, Rcpp::IntegerVector M)
     }
 
     // ---- Precompute the Omega Set and leave it on the global variable ---- //
-    generateOmegaSet(M[0], S[0], 42);
+    generateOmegaSet(step_size[0], samples[0], 42);
     // ---- Precompute a multinomial multiplication that is constant throughout the loops ---- //
     preComputeMultinomial();
     beenPrecomputed = true;
@@ -208,7 +208,7 @@ void RprecomputeExact()
 }
 
 // [[Rcpp::export]]
-void RsetParameters(Rcpp::NumericMatrix x, Rcpp::NumericMatrix w, Rcpp::String jsonFile = "")
+void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix)
 {
 
     // Case when the matrices were already computed and want to set other parameters
@@ -217,39 +217,27 @@ void RsetParameters(Rcpp::NumericMatrix x, Rcpp::NumericMatrix w, Rcpp::String j
         cleanup();
         matricesPrecomputed = false;
     }
-
-    // Case when it wants to read the matrices from a JSON file.
-    if (jsonFile != "")
-    {
-        std::string file = jsonFile;
-        Matrix X, W, P;
-        readJSONAndStoreMatrices(file.c_str(), &W, &X, &P);
-        setParameters(&X, &W);
-        matricesPrecomputed = true;
-        return;
-    }
-
     // Check dimensions
-    if (x.nrow() == 0 || x.ncol() == 0)
+    if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
     {
         std::cerr << "Error: X matrix has zero dimensions!" << std::endl;
         return;
     }
-    if (w.nrow() == 0 || w.ncol() == 0)
+    if (group_matrix.nrow() == 0 || group_matrix.ncol() == 0)
     {
         std::cerr << "Error: W matrix has zero dimensions!" << std::endl;
         return;
     }
 
     // Convert to Matrix struct
-    int xrows = x.nrow(), xcols = x.ncol();
+    int xrows = candidate_matrix.nrow(), xcols = candidate_matrix.ncol();
     double *ptrX = (double *)malloc(xrows * xcols * sizeof(double));
-    std::memcpy(ptrX, x.begin(), xrows * xcols * sizeof(double));
+    std::memcpy(ptrX, candidate_matrix.begin(), xrows * xcols * sizeof(double));
     Matrix XR = {ptrX, xrows, xcols};
 
-    int wrows = w.nrow(), wcols = w.ncol();
+    int wrows = group_matrix.nrow(), wcols = group_matrix.ncol();
     double *ptrW = (double *)malloc(wrows * wcols * sizeof(double));
-    std::memcpy(ptrW, w.begin(), wrows * wcols * sizeof(double));
+    std::memcpy(ptrW, group_matrix.begin(), wrows * wcols * sizeof(double));
 
     Matrix WR = {ptrW, wrows, wcols};
 
@@ -267,41 +255,21 @@ void RsetParameters(Rcpp::NumericMatrix x, Rcpp::NumericMatrix w, Rcpp::String j
 }
 
 // [[Rcpp::export]]
-void readFilePrint(Rcpp::String filename, Rcpp::String method)
+void readFromFile(Rcpp::String filename)
 {
     std::string file = filename;
-    std::string itMethod = method;
 
-    Matrix X, W, P;
-
-    readJSONAndStoreMatrices(file.c_str(), &W, &X, &P);
-    setParameters(&X, &W);
-
-    Matrix pIn = getInitialP("group proportional");
-
-    QMethodInput inputParams = {.monteCarloIter = 100000, .errorThreshold = 0.000001, .simulationMethod = "Genz2"};
-    double timeIter = 0;
-    int totalIter = 0;
-    double *logLLarr = (double *)malloc(10000 * sizeof(double));
-
-    Matrix Pnew = EMAlgoritm(&pIn, itMethod.c_str(), 0.001, 1000, false, &timeIter, &totalIter, logLLarr, inputParams);
-    free(logLLarr);
-    printf("\nThe calculated matrix was\n");
-    printMatrix(&Pnew);
-    printf("\nThe real one was:\n");
-    printMatrix(&P);
-    printf("\nIt took %.5f seconds to run.", timeIter);
-    freeMatrix(&P);
-    freeMatrix(&Pnew);
-    cleanup();
-    // ---- Clean precomputed variables for a given iteration ---- //
-    if (strcmp(itMethod.c_str(), "Exact") == 0)
+    // Case when the matrices were already computed and want to set other parameters
+    if (matricesPrecomputed == true)
     {
-        cleanExact();
+        cleanup();
+        matricesPrecomputed = false;
     }
-    // ---- Hit and Run method ----
-    else if (strcmp(itMethod.c_str(), "Hit and Run") == 0)
-    {
-        cleanHitAndRun();
-    }
+
+    // Case when it wants to read the matrices from a JSON file.
+    Matrix RX, RW, RP;
+    readJSONAndStoreMatrices(file.c_str(), &RW, &RX, &RP);
+    setParameters(&RX, &RW);
+    matricesPrecomputed = true;
+    return;
 }
