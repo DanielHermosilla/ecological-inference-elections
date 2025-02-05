@@ -1,6 +1,34 @@
-dyn.load("src/infPackage.so") # TODO: Corregir NAMESPACE, no importa bien util.so
+dyn.load("src/infPackage.so")
+library(jsonlite)
 
 # Function for creating the EM-algorithm object
+
+lmCustom <- function(X = NULL, W = NULL, jsonPath = NULL, ...) {
+  # Check input: if a JSON file is provided, ignore X and W
+  if (!is.null(jsonPath) && nzchar(jsonPath)) {
+    # Read the JSON file. This assumes the JSON file has keys "X" and "W".
+    jsonData <- fromJSON(jsonPath)
+    if (!("X" %in% names(jsonData)) || !("W" %in% names(jsonData))) {
+      stop("JSON file must contain elements 'X' and 'W'.")
+    }
+    X <- as.matrix(jsonData$X)
+    W <- as.matrix(jsonData$W)
+  } else {
+    # Ensure that X and W are provided as matrices
+    if (is.null(X) || is.null(W)) {
+      stop("Either matrices X and W or a JSON file path must be provided.")
+    }
+    X <- as.matrix(X)
+    W <- as.matrix(W)
+	RsetParameters(&X, &W)
+	params <- list($X = X, $W = W)
+	class(params) <- "EcologicalInference"
+	return param
+  }
+}
+
+lmCustom.compute <- function(object, )
+
 eco <- function(X, W, method, ..., verbose = TRUE) {
     # Check for valid methods
     validMethods <- c("Hit and Run", "Exact", "MVN CDF", "MVN PDF", "Multinomial")
@@ -28,7 +56,6 @@ eco <- function(X, W, method, ..., verbose = TRUE) {
     } else {
         convergence <- 0.001
     }
-
 
     # The custom object parameters
     obj <- list(

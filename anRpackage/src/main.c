@@ -494,7 +494,12 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
                                                                  // later.
     *iterTotal = maxIter;
     *time = elapsed_total;
-    return *currentP;
+
+    // ---- Matrix must be returned without a pointer ---- //
+    Matrix finalProbability = copyMatrix(currentP);
+    freeMatrix(currentP);
+    // ---...--- //
+    return finalProbability;
 }
 
 /**
