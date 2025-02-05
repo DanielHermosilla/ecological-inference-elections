@@ -4,13 +4,37 @@ library(R6)
 
 EMModel <- R6Class("ecological_inference_model",
     public = list(
-        X = NULL, # Candidate matrix
-        W = NULL, # Group matrix
-        method = NULL, # Method used on the EM Algorithm
+
+        #' @field X A (c x b) matrix with the observed results of the candidate votes (c) on a given ballot box (b). Provided manually or loaded from JSON.
+        X = NULL,
+
+        #' @field W A (b x g) matrix with the observed results of the demographical group votes (g) on a given ballot box (b). Provided manually or loaded from JSON.
+        W = NULL,
+
+        #' @field method A string indicating the EM method. One of: "Multinomial", "Hit and Run", "MVN CDF", "MVN PDF", "Exact".
+        method = NULL,
+
+        #' @field probability A (c x g) matrix that would store the final estimated probabilities of having a given group (g) voting for a candidate (c).
         probability = NULL, # Probability matrix
-        logLikelihood = NULL, # Numeric array
-        total_iterations = NULL, # Log-likelihood iterations
-        total_time = NULL, # Time on running the EM-algorithm
+
+        #' @field logLikelihood A numeric vector that will store the log-likelihood values among the total iterations of the Expected Maximization algorithm.
+        logLikelihood = NULL,
+
+        #' @field total_iterations An integer indicating the total iterations that the Expected Maximization algorithm did.
+        total_iterations = NULL,
+
+        #' @field total_time The time that the EM algorithm took.
+        total_time = NULL,
+
+        #' Constructor for the EMModel class.
+        #'
+        #' @param X A numeric matrix (c x b) of observed candidate votes (optional, required if `jsonPath` is NULL).
+        #' @param W A numeric matrix (b x g) of observed demographic group votes (optional, required if `jsonPath` is NULL).
+        #' @param jsonPath A string containing a path to a JSON file with `"X"` and `"W"` matrices. (optional, required if `X` or `W` are NULL)
+        #' @param method A string indicating the EM method to use. Defaults to `"Multinomial"`.
+        #' @return An initialized EMModel object.
+        #' @examples
+        #' model <- EMModel$new(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3), method = "Multinomial")
         initialize = function(X = NULL, W = NULL, jsonPath = NULL, method = "Multinomial") {
             validMethods <- c("Hit and Run", "Exact", "MVN CDF", "MVN PDF", "Multinomial")
             if (!is.character(method) || length(method) != 1 || !(method %in% valid_methods)) {
@@ -37,6 +61,8 @@ EMModel <- R6Class("ecological_inference_model",
             # Send the parameters to C
             RsetParameters(self$X, self$W)
         },
+
+        # Method: compute the Expected Maximization algorithm
         compute = function(probability_method = "Group proportional",
                            iterations = 1000,
                            stopping_threshold = 0.001,
@@ -105,23 +131,15 @@ EMModel <- R6Class("ecological_inference_model",
             self$logLikelihood <- resulting_values$log_likelikelihood
             self$total_iterations <- resulting_values$total_iterations
             self$total_time <- resulting_values$total_time
+
+            invisible(self)
+        },
+
+        # Method: store the results to a file
+        save_results = function(filename) {
+            saveRDS(self, file = filename)
+            message("Results saved to ", filename)
+            invisible(self)
         }
     )
 )
-# @return Rcpp::List A list with the final probability ("result"), log-likelihood array ("log_likelihood"), total
-# iterations that were made ("total_iterations") and the time that was taken ("total_time").
-
-# Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method = "Group proportional",
-#                                Rcpp::IntegerVector maximum_iterations = Rcpp::IntegerVector::create(1000),
-#                                Rcpp::NumericVector stopping_threshold = Rcpp::NumericVector::create(0.001),
-#                                Rcpp::LogicalVector verbose = Rcpp::LogicalVector::create(false),
-# ¶                                Rcpp::IntegerVector step_size = Rcpp::IntegerVector::create(3000),
-#                                Rcpp::IntegerVector samples = Rcpp::IntegerVector(1000));
-
-# Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method = "Group proportional",
-#                          Rcpp::IntegerVector maximum_iterations = Rcpp::IntegerVector::create(1000),
-#                          Rcpp::NumericVector stopping_threshold = Rcpp::NumericVector::create(0.001),
-#                          Rcpp::LogicalVector verbose = Rcpp::LogicalVector::create(false),
-#                          Rcpp::String multivariate_method = "Genz2",
-## ¶                          Rcpp::NumericVector multivariate_epsilon = Rcpp::NumericVector::create(0.000001),
-#                         Rcpp::IntegerVector multivariate_iterations = Rcpp::IntegerVector::create(5000));
