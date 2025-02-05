@@ -467,13 +467,13 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         // ---- Calculate the log-likelihood before freeing the array ----
         logLLarr[i] = logLikelihood(currentP, q);
         free(q);
-        freeMatrix(currentP);
+        // freeMatrix(currentP);
 
         // ---- Redefine the current probability matrix ----
-        *currentP = createMatrix(newProbability.rows, newProbability.cols);
+        //*currentP = createMatrix(newProbability.rows, newProbability.cols);
+        // memcpy(currentP->data, newProbability.data, sizeof(double) * newProbability.rows * newProbability.cols);
+        // freeMatrix(&newProbability);
         memcpy(currentP->data, newProbability.data, sizeof(double) * newProbability.rows * newProbability.cols);
-        freeMatrix(&newProbability);
-
         // ---- Handle the case where the log-likelihood decreases ----
         // ---- The CDF case has a lot of variance between iterations, hence, we'll leave a minimum iterations
         // threshold.
@@ -486,8 +486,9 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             *iterTotal = i;
             *time = elapsed_total;
 
-            return *currentP;
+            return newProbability;
         }
+        freeMatrix(&newProbability);
     }
     printf("Maximum iterations reached without convergence.\n"); // Print even if there's not verbose, might change
                                                                  // later.
