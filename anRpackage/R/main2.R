@@ -2,6 +2,9 @@ dyn.load("src/infPackage.so")
 library(jsonlite)
 library(R6)
 
+
+# TODO: ADD A SUMMARY METHOD
+
 #' EMModel: An R6 Class for Running an Expectation-Maximization Algorithm
 #'
 #' This class implements an EM algorithm using different methods for approximating the E-step such as "Multinomial",
@@ -69,6 +72,60 @@ EMModel <- R6Class("ecological_inference_model",
             RsetParameters(self$X, self$W)
         },
 
+        #' Precompute iteration-independent variables that can be reused for optimizing the algorithm.
+        #'
+        #' The Hit and Run and Exact method offers some calculations that doesn't depend on the current EM iteration, nor
+        #' any unseen probability. Hence, calling this method would precompute the reusable values before calling the main
+        #' computation. The main computation would run the precomputation if this method haven't been called.
+        #'
+        #' @param method A string containing the method to precompute. Options: "Exact", "Hit and Run"
+        #' @param ... Additional arguments required by specific methods:
+        #'   \itemize{
+        #'     \item **"Hit and Run" Method:**
+        #'       \itemize{
+        #'         \item `step_size` (Integer): The step size (`M`) for the Hit and Run algorithm.
+        #'         \item `samples` (Integer): The number of samples (`S`) to generate.
+        #'       }
+        #'   }
+        #'
+        #' @return Updates are made on the C internal memory.
+        precompute = function(method, ...) {
+            params <- list(...)
+
+            if (method == "Hit and Run") {
+                if (!"step_size" %in% names(params)) {
+                    stop("The 'step_size' (M) wasn't provided for running the Hit and Run method.")
+                }
+                # Check for a given sample. If it's not provided, return an error
+                if (!"samples" %in% names(params)) {
+                    stop("The 'samples' (S) wasn't provided for running the Hit and run method.")
+                }
+                if (!is.integer(step_size) || !is.integer(samples)) {
+                    stop("The 'step_size' or 'samples' are an invalid value. They must be integers.")
+                }
+                message("Precomputing the Hit and Run method")
+                RprecomputeHR(samples, step_size)
+
+                # Update inner variables
+                private$hr_samples <- samples
+                private$hr_step_size <- step_size
+                been_precomputed_hr <- TRUE
+                self$method <- "Hit and Run"
+            } else if (method == "Exact") {
+                message("Precomputing the Exact method")
+                RprecomputeExact()
+                been_computed_exact <- TRUE
+                # Update inner variables
+                self$method <- "Exact"
+            } else {
+                stop("Invalid method for precomputing. Must be either Hit and Run or Exact")
+            }
+            # It won't update the method, since the main computation haven't been called and it's possible (but weird) that the
+            # user may want to run another method even if the precomputation was made.
+
+            invisible(self)
+        },
+
         #' Runs the EM algorithm and stores the results.
         #'
         #' @description Executes the Expectation-Maximization (EM) algorithm based on the selected method.
@@ -116,7 +173,7 @@ EMModel <- R6Class("ecological_inference_model",
                            verbose = FALSE, ...) {
             params <- list(...)
 
-            validMethods <- c("Hit and Run", "Exact", "MVN CDF", "MVN PDF", "Multinomial")
+            valid_methods <- c("Hit and Run", "Exact", "MVN CDF", "MVN PDF", "Multinomial")
             if (!is.character(method) || length(method) != 1 || !(method %in% valid_methods)) {
                 stop("Invalid method. Must be one of: ", paste(valid_methods, collapse = ", "))
             }
@@ -146,6 +203,12 @@ EMModel <- R6Class("ecological_inference_model",
                 if (!is.integer(step_size) || !is.integer(samples)) {
                     stop("The 'step_size' or 'samples' are an invalid value. They must be integers.")
                 }
+
+                # If it has been computed but the precomputed values differ from the ones passed to the function
+                if (private$been_precomputed_hr &&
+                    (private$hr_step_size != step_size || private$hr_samples != hr_samples)) {
+                    clean_hr_precompute()
+                }
                 # Run the EM algorithm for the Hit and Run method.
                 resulting_values <- EMAlgorithmHitAndRun(
                     probability_method,
@@ -156,6 +219,8 @@ EMModel <- R6Class("ecological_inference_model",
                     samples
                 )
                 private$been_precomputed_hr <- TRUE
+                private$hr_step_size <- step_size
+                private$hr_samples <- hr_samples
             } else {
                 # Check if there's a multivariate method, otherwise, use 'Genz2' as default
                 if (!"multivariate_method" %in% names(params)) {
@@ -185,6 +250,9 @@ EMModel <- R6Class("ecological_inference_model",
                     multivariate_error,
                     multivariate_iterations
                 )
+                private$multivariate_method <- multivariate_method
+                private$multivariate_error <- multivariate_error
+                private$multivariate_iterations <- multivariate_iterations
             }
             self$probability <- resulting_values$result
             self$logLikelihood <- resulting_values$log_likelikelihood
@@ -271,6 +339,59 @@ EMModel <- R6Class("ecological_inference_model",
             invisible(self) # Enable method chaining
         }
     ),
+    active = list(
+        #' @field samples Active variable to show the Hit and Run samples if and only if self$method is "Hit and Run"
+        samples = function() {
+            if (self$method == "Hit and Run") {
+                # It could be the case that the Hit and Run method was ran before, but later another
+                # method is called, hence; only show this for the last method used.
+                return(private$hr_samples)
+            } else {
+                return(NULL)
+            }
+        },
+
+        #' @field step_size Active variable to show the Hit and Run step size if and only if self$method is "Hit and Run"
+        step_size = function() {
+            if (self$method == "Hit and Run") {
+                # It could be the case that the Hit and Run method was ran before, but later another
+                # method is called, hence; only show this for the last method used.
+                return(private$hr_step_size)
+            } else {
+                return(NULL)
+            }
+        },
+
+        #' @field multivariate_method Active variable to show the method used to estimate the Multivariate
+        #' Normal CDF, if and only if self$method is "MVN CDF"
+        multivariate_method = function() {
+            if (self$method == "MVN CDF") {
+                return(private$mvn_method)
+            } else {
+                return(NULL)
+            }
+        },
+
+        #' @field multivariate_error Active variable to show the error threshold for the Montecarlo simulation of the
+        #' Multivariate Normal CDF
+        multivariate_error = function() {
+            if (self$method == "MVN CDF") {
+                return(private$mvn_error)
+            } else {
+                return(NULL)
+            }
+        },
+
+        #' @field multivariate_error Active variable to show the error threshold for the Montecarlo simulation of the
+        #' Multivariate Normal CDF
+        multivariate_iterations = function() {
+            if (self$method == "MVN CDF") {
+                return(private$mvn_iterations)
+            } else {
+                return(NULL)
+            }
+        }
+    ),
     private = list(
         #' @field been_called Boolean that determines if the object has been called before. It's mainly used for triggering
         #' the C cleanup and updating its global variables
@@ -282,17 +403,33 @@ EMModel <- R6Class("ecological_inference_model",
         #' @field been_precomputed_hr Boolean that determines if the object has been precomputed for the Exact method.
         been_precomputed_exact = FALSE,
 
-        #' @field empty_candidates Boolean that determines if there's a candidate that didn't receive any vote. It's used for
-        #' handling border cases and optimizing.
+        #' @field empty_candidates Boolean that determines if there's a candidate that didn't receive any vote.
+        #' It's used for handling border cases and optimizing.
         empty_candidates = FALSE,
 
         #' @field been_computed Boolean that determines if the EM-algorithm have been computed.
         been_computed = FALSE,
 
+        #' @field hr_samples The samples used on the computation of the EM-algorithm under the Hit and Run method.
+        hr_samples = 0,
+
+        #' @field hr_step_size The step size used on the computation of the EM-algorithm under the Hit and Run method.
+        hr_step_size = 0,
+
+        #' @field mvn_method Save the method used to calculate the multivariate normal cdf.
+        mvn_method = "Genz2",
+
+        #' @field mvn_error Saves the error used for estimating the Montecarlo simulation of the multivariate normal cdf.
+        mvn_error = 0.000001,
+
+        #' @field mvn_iterations Saves the maximum iterations made to estimate the Montecarlo simulation of the
+        #' multivariate normal cdf.
+        mvn_iterations = 5000,
+
         #' Destructor to clean allocated memory
         #'
-        #' When the object gets removed or garbage collected, it cleans the allocated memory on C that could had been reused
-        #' for the object instance. It's used for avoiding memory leaks due to the C behavior.
+        #' When the object gets removed or garbage collected, it cleans the allocated memory on C that could had been
+        #' reused for the object instance. It's used for avoiding memory leaks due to the C behavior.
         #'
         #' @note For having the finalizer on the private access, R6 must be >= 2.4.0.
         finalize = function() {

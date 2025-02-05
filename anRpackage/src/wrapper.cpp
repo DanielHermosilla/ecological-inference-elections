@@ -6,9 +6,6 @@
 #include "main.h"
 #include "wrapper.h"
 
-static bool beenPrecomputed = false;
-static bool matricesPrecomputed = false;
-
 // [[Rcpp::export]]
 Rcpp::List EMAlgorithmAll(Rcpp::String em_method, Rcpp::String probability_method,
                           Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector stopping_threshold,
@@ -37,16 +34,6 @@ Rcpp::List EMAlgorithmAll(Rcpp::String em_method, Rcpp::String probability_metho
         printMatrix(&Pnew);
         printf("\nIt took %.5f seconds to run with a log-likelihood of %.5f.\n", timeIter, logLLarr[totalIter]);
     }
-
-    // ---- Clean the variables ---- //
-    cleanup();
-    matricesPrecomputed = false;
-    if (EMAlg == "Exact")
-    {
-        cleanExact();
-        beenPrecomputed = false;
-    }
-    // ---...--- //
 
     // ---- Return the results ---- //
     // ---- Final probability ----
@@ -95,11 +82,6 @@ Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method, Rcpp::IntegerVector m
         printf("\nIt took %.5f seconds to run with a log-likelihood of %.5f.\n", timeIter, logLLarr[totalIter]);
     }
 
-    // ---- Clean the variables ---- //
-    cleanup();
-    matricesPrecomputed = false;
-    // ---...--- //
-
     // ---- Return the results ---- //
     // ---- Final probability ----
     Rcpp::NumericMatrix RfinalProbability(Pnew.rows, Pnew.cols, Pnew.data);
@@ -142,13 +124,6 @@ Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method, Rcpp::IntegerVe
         printf("\nIt took %.5f seconds to run with a log-likelihood of %.5f.\n", timeIter, logLLarr[totalIter]);
     }
 
-    // ---- Clean the variables ---- //
-    cleanup();
-    matricesPrecomputed = false;
-    cleanHitAndRun();
-    beenPrecomputed = false;
-    // ---...--- //
-
     // ---- Return the results ---- //
     // ---- Final probability ----
     Rcpp::NumericMatrix RfinalProbability(Pnew.rows, Pnew.cols, Pnew.data);
@@ -166,45 +141,19 @@ Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method, Rcpp::IntegerVe
 // [[Rcpp::export]]
 void RprecomputeHR(Rcpp::IntegerVector samples, Rcpp::IntegerVector step_size)
 {
-    // TODO: Enable a saving function
-    if (beenPrecomputed)
-    {
-        std::cout << "There has been already a precomputation for Hit and Run" << std::endl;
-        return;
-    }
-    if (!matricesPrecomputed)
-    {
-        std::cout << "The `X` and `W` matrices haven't been computed yet. Hint: Call RsetParameters." << std::endl;
-        return;
-    }
-
     // ---- Precompute the Omega Set and leave it on the global variable ---- //
-    generateOmegaSet(step_size[0], samples[0], 42);
+    generateOmegaSet(step_size[0], samples[0], 42); // TODO: Rely on R's seed and randomizer
     // ---- Precompute a multinomial multiplication that is constant throughout the loops ---- //
     preComputeMultinomial();
-    beenPrecomputed = true;
     return;
 }
 
 // [[Rcpp::export]]
 void RprecomputeExact()
 {
-    // TODO: Enable a saving function
-    if (beenPrecomputed)
-    {
-        std::cout << "There has been already a precomputation for the Exact method" << std::endl;
-        return;
-    }
-    if (!matricesPrecomputed)
-    {
-        std::cout << "The `X` and `W` matrices haven't been computed yet. Hint: Call RsetParameters." << std::endl;
-        return;
-    }
-
     // ---- Precompute the H set and the K set and leave it as a global variable ---- //
     generateHSets();
     generateKSets();
-    beenPrecomputed = true;
     return;
 }
 
@@ -212,12 +161,6 @@ void RprecomputeExact()
 void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix)
 {
 
-    // Case when the matrices were already computed and want to set other parameters
-    if (matricesPrecomputed == true)
-    {
-        cleanup();
-        matricesPrecomputed = false;
-    }
     // Check dimensions
     if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
     {
@@ -251,29 +194,22 @@ void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix gr
 
     // Call C function
     setParameters(&XR, &WR);
-    matricesPrecomputed = true;
     return;
 }
 
-// [[Rcpp::export]]
+/*
 void readFromFile(Rcpp::String filename)
 {
     std::string file = filename;
 
-    // Case when the matrices were already computed and want to set other parameters
-    if (matricesPrecomputed == true)
-    {
-        cleanup();
-        matricesPrecomputed = false;
-    }
 
     // Case when it wants to read the matrices from a JSON file.
     Matrix RX, RW, RP;
     readJSONAndStoreMatrices(file.c_str(), &RW, &RX, &RP);
     setParameters(&RX, &RW);
-    matricesPrecomputed = true;
     return;
 }
+*/
 
 // [[Rcpp::export]]
 void clean_exact_precompute()

@@ -169,8 +169,8 @@ void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix gr
  * @param Rcpp::NumericMatrix group_matrix A (b x g) matrix object of R that contains the votes that each
  * demographic group `g` did on a ballot `b`.
  *
+ * void readFromFile(Rcpp::String filename);
  */
-void readFromFile(Rcpp::String filename);
 
 /**
  * Cleans the precomputed values for the exact method
