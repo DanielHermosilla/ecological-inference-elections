@@ -3,6 +3,7 @@
 #include <iostream>
 // Include the corrected wrapper.h
 #include "Rcpp/String.h"
+#include "main.h"
 #include "wrapper.h"
 
 static bool beenPrecomputed = false;
@@ -272,4 +273,22 @@ void readFromFile(Rcpp::String filename)
     setParameters(&RX, &RW);
     matricesPrecomputed = true;
     return;
+}
+
+// [[Rcpp::export]]
+void clean_exact_precompute()
+{
+    cleanExact();
+}
+
+// [[Rcpp::export]]
+void clean_hr_precompute()
+{
+    cleanHitAndRun();
+}
+
+// [[Rcpp::export]]
+void clean_everything()
+{
+    cleanup();
 }

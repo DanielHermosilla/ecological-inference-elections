@@ -172,4 +172,22 @@ void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix gr
  */
 void readFromFile(Rcpp::String filename);
 
+/**
+ * Cleans the precomputed values for the exact method
+ *
+ */
+void clean_exact_precompute();
+
+/**
+ * Cleans the precomputed values for the Hit and Run method
+ *
+ */
+void clean_hr_precompute();
+
+/**
+ * Cleans the global variables defined on C
+ *
+ */
+void clean_everything();
+
 #endif // WRAPPER_H

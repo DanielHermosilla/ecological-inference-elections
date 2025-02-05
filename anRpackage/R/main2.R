@@ -2,25 +2,39 @@ dyn.load("src/infPackage.so")
 library(jsonlite)
 library(R6)
 
+#' EMModel: An R6 Class for Running an Expectation-Maximization Algorithm
+#'
+#' This class implements an EM algorithm using different methods for approximating the E-step such as "Multinomial",
+#' "Hit and Run", "MVN CDF", "MVN PDF", and "Exact".
+#'
+#' @docType class
+#' @importFrom R6 R6Class
+#' @export
 EMModel <- R6Class("ecological_inference_model",
     public = list(
 
-        #' @field X A (c x b) matrix with the observed results of the candidate votes (c) on a given ballot box (b). Provided manually or loaded from JSON.
+        #' @field X A (c x b) matrix with the observed results of the candidate votes (c) on a given
+        #' ballot box (b). Provided manually or loaded from JSON.
         X = NULL,
 
-        #' @field W A (b x g) matrix with the observed results of the demographical group votes (g) on a given ballot box (b). Provided manually or loaded from JSON.
+        #' @field W A (b x g) matrix with the observed results of the demographical group votes (g) on
+        #' a given ballot box (b). Provided manually or loaded from JSON.
         W = NULL,
 
-        #' @field method A string indicating the EM method. One of: "Multinomial", "Hit and Run", "MVN CDF", "MVN PDF", "Exact".
+        #' @field method A string indicating the EM method. One of: "Multinomial", "Hit and Run", "MVN CDF",
+        #' "MVN PDF", "Exact".
         method = NULL,
 
-        #' @field probability A (c x g) matrix that would store the final estimated probabilities of having a given group (g) voting for a candidate (c).
-        probability = NULL, # Probability matrix
+        #' @field probability A (c x g) matrix that would store the final estimated probabilities of having
+        #' a given group (g) voting for a candidate (c).
+        probability = NULL,
 
-        #' @field logLikelihood A numeric vector that will store the log-likelihood values among the total iterations of the Expected Maximization algorithm.
+        #' @field logLikelihood A numeric vector that will store the log-likelihood values among the total
+        #' iterations of the Expected Maximization algorithm.
         logLikelihood = NULL,
 
-        #' @field total_iterations An integer indicating the total iterations that the Expected Maximization algorithm did.
+        #' @field total_iterations An integer indicating the total iterations that the Expected Maximization
+        #' algorithm did.
         total_iterations = NULL,
 
         #' @field total_time The time that the EM algorithm took.
@@ -30,19 +44,12 @@ EMModel <- R6Class("ecological_inference_model",
         #'
         #' @param X A numeric matrix (c x b) of observed candidate votes (optional, required if `jsonPath` is NULL).
         #' @param W A numeric matrix (b x g) of observed demographic group votes (optional, required if `jsonPath` is NULL).
-        #' @param jsonPath A string containing a path to a JSON file with `"X"` and `"W"` matrices. (optional, required if `X` or `W` are NULL)
-        #' @param method A string indicating the EM method to use. Defaults to `"Multinomial"`.
+        #' @param jsonPath A string containing a path to a JSON file with `"X"` and `"W"` matrices.
+        #' '(optional, required if `X` or `W` are NULL)
         #' @return An initialized EMModel object.
         #' @examples
         #' model <- EMModel$new(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3), method = "Multinomial")
-        initialize = function(X = NULL, W = NULL, jsonPath = NULL, method = "Multinomial") {
-            validMethods <- c("Hit and Run", "Exact", "MVN CDF", "MVN PDF", "Multinomial")
-            if (!is.character(method) || length(method) != 1 || !(method %in% valid_methods)) {
-                stop("Invalid method. Must be one of: ", paste(valid_methods, collapse = ", "))
-            }
-            # Impose a given method
-            self$method <- method
-
+        initialize = function(X = NULL, W = NULL, jsonPath = NULL) {
             # Verify if the JSON path is valid
             if (!is.null(jsonPath) && nzchar(jsonPath)) {
                 data <- fromJSON(jsonPath)
@@ -62,14 +69,61 @@ EMModel <- R6Class("ecological_inference_model",
             RsetParameters(self$X, self$W)
         },
 
-        # Method: compute the Expected Maximization algorithm
-        compute = function(probability_method = "Group proportional",
+        #' Runs the EM algorithm and stores the results.
+        #'
+        #' @description Executes the Expectation-Maximization (EM) algorithm based on the selected method.
+        #' Additional parameters may be required depending on the method.
+        #'
+        #' @param[in] string main_method The method for estimating the Expectation-Maximization (EM) algorithm. (default: "Multinomial")
+        #' @param[in] string probability_method The method for obtaining the initial probability. Options:
+        #' "Group proportional","Proportional", "Uniform". (default: "Group proportional")
+        #' @param[in] integer iterations The maximum amount of iterations to perform on the EM algorithm.
+        #' '(default: 1000)
+        #' @param[in] numeric stopping_threshold The minimum difference between consequent probabilities for stopping the
+        #' iterations. (default: 0.001)
+        #' @param[in] verbose bool Boolean indicating wether to print useful messages while iterating. (default: FALSE)
+        #' @param ... Additional arguments required by specific methods:
+        #'   \itemize{
+        #'     \item **"Hit and Run" Method:**
+        #'       \itemize{
+        #'         \item `step_size` (Integer): The step size (`M`) for the Hit and Run algorithm.
+        #'         \item `samples` (Integer): The number of samples (`S`) to generate.
+        #'       }
+        #'     \item **"MVN CDF" Method:**
+        #'       \itemize{
+        #'         \item `multivariate_method` (Character): The integration method. Default is `"Genz2"`.
+        #'         \item `multivariate_error` (Numeric): The integration error threshold. Default is `1e-6`.
+        #'         \item `multivariate_iterations` (Integer): The number of Monte Carlo iterations. Default is `5000`.
+        #'       }
+        #'   }'
+        #'
+        #' @return The modified EMModel object (for method chaining).
+        #'
+        #' @examples
+        #' model <- EMModel$new(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3))
+        #' model$compute()
+        #'
+        #' # Example for Hit and Run method
+        #' model$compute(main_method = "Hit and Run", step_size = 10, samples = 1000)
+        #'
+        #' # Example for MVN CDF method
+        #' model$compute(main_method = "MVN CDF", multivariate_method = "Genz2", multivariate_error = 1e-6, multivariate_iterations = 5000)
+        #'
+        compute = function(main_method = "Multinomial",
+                           probability_method = "Group proportional",
                            iterations = 1000,
                            stopping_threshold = 0.001,
                            verbose = FALSE, ...) {
             params <- list(...)
 
-            if (self$method != "Hit and Run" || self$method != "MVN CDF") {
+            validMethods <- c("Hit and Run", "Exact", "MVN CDF", "MVN PDF", "Multinomial")
+            if (!is.character(method) || length(method) != 1 || !(method %in% valid_methods)) {
+                stop("Invalid method. Must be one of: ", paste(valid_methods, collapse = ", "))
+            }
+            # Define the method
+            self$method <- method
+
+            if (self$method %in% c("Exact", "Multinomial", "MVN PDF")) {
                 # Run the EM algorithm for the Exact, Multinomial or PDF method.
                 resulting_values <- EMAlgorithmAll(
                     probability_method,
@@ -77,6 +131,9 @@ EMModel <- R6Class("ecological_inference_model",
                     stopping_threshold,
                     verbose
                 )
+                if (self$method == "Exact") {
+                    private$been_precomputed_exact <- TRUE
+                }
             } else if (self$method == "Hit and Run") {
                 # Check for a given step size. If it's not provided, return an error
                 if (!"step_size" %in% names(params)) {
@@ -98,6 +155,7 @@ EMModel <- R6Class("ecological_inference_model",
                     step_size,
                     samples
                 )
+                private$been_precomputed_hr <- TRUE
             } else {
                 # Check if there's a multivariate method, otherwise, use 'Genz2' as default
                 if (!"multivariate_method" %in% names(params)) {
@@ -113,7 +171,8 @@ EMModel <- R6Class("ecological_inference_model",
                 if (!"multivariate_iterations" %in% names(params)) {
                     multivariate_iterations <- 5000
                 }
-                if (!is.integer(multivariate_iterations) || !is.numeric(multivariate_error) || !is.character(multivariate_method)) {
+                if (!is.integer(multivariate_iterations) || !is.numeric(multivariate_error) ||
+                    !is.character(multivariate_method)) {
                     stop("Invalid types values are handed to the EM algorithm method.")
                 }
                 # Run the EM algorithm for the MVN CDF method.
@@ -131,15 +190,121 @@ EMModel <- R6Class("ecological_inference_model",
             self$logLikelihood <- resulting_values$log_likelikelihood
             self$total_iterations <- resulting_values$total_iterations
             self$total_time <- resulting_values$total_time
+            private$been_computed <- TRUE
 
             invisible(self)
         },
 
-        # Method: store the results to a file
-        save_results = function(filename) {
-            saveRDS(self, file = filename)
-            message("Results saved to ", filename)
+        #' Define the printing method
+        #'
+        #' @description According to the state of the algorithm (either computed or not), it prints a
+        #' message with its most relevant parameters
+        print = function() {
+            cat("RxG ecological inference model\n")
+            cat("Candidate matrix:\t", self$X, "\n")
+            cat("Group matrix:\t", self$W, "\n")
+            if (private$been_computed) {
+                cat("Method:\t", self$method, "\n")
+                cat("Total Iterations:\t", self$totalIterations, "\n")
+                cat("Total Time (s):\t", self$totalTime, "\n")
+                cat("Estimated probability\t", self$probability, "\n")
+            }
             invisible(self)
+        },
+
+        #' Save Model Results to a File
+        #'
+        #' @description Saves the current `EMModel` object to a specified file. The results can be saved in:
+        #'   \itemize{
+        #'     \item **RDS (Binary format)**: Preserves object structure for future use in R.
+        #'     \item **JSON**: Saves model data in a human-readable format.
+        #'     \item **CSV**: Saves probability matrix in a tabular format.
+        #'   }
+        #'
+        #' @param filename Character. The file name where the results should be saved.
+        #'   The file extension determines the format:
+        #'   \itemize{
+        #'     \item `*.rds` → Saves as **RDS** (default, binary format).
+        #'     \item `*.json` → Saves as **JSON** (readable and shareable).
+        #'     \item `*.csv` → Saves the **final probability matrix** as CSV.
+        #'   }
+        #'
+        #' @return The modified `EMModel` object (for method chaining).
+        #'
+        #' @examples
+        #' model <- EMModel$new(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3), method = "Multinomial")
+        #' model$computeEM()
+        #' model$save_results("results.rds")  # Save as RDS
+        #' model$save_results("results.json") # Save as JSON
+        #' model$save_results("results.csv")  # Save final probability as CSV
+        save_results = function(filename) {
+            # Ensure filename is valid
+            if (!is.character(filename) || length(filename) != 1) {
+                stop("Invalid filename. Please provide a valid file path as a character string.")
+            }
+
+            # Get file extension
+            file_ext <- tools::file_ext(filename)
+
+            # Save based on the file extension
+            if (file_ext == "rds") {
+                saveRDS(self, file = filename)
+                message("Results saved as RDS: ", filename)
+            } else if (file_ext == "json") {
+                json_data <- list(
+                    method = self$method,
+                    probability = as.list(as.data.frame(self$finalProbability)),
+                    logLikelihood = self$logLikelihood,
+                    totalIterations = self$totalIterations,
+                    totalTime = self$totalTime
+                )
+                jsonlite::write_json(json_data, filename, pretty = TRUE)
+                message("Results saved as JSON: ", filename)
+            } else if (file_ext == "csv") {
+                if (is.null(self$finalProbability)) stop("No probability data to save in CSV format.")
+                write.csv(self$finalProbability, filename, row.names = TRUE)
+                message("Probability matrix saved as CSV: ", filename)
+            } else {
+                stop("Unsupported file format. Use '.rds', '.json', or '.csv'.")
+            }
+
+            invisible(self) # Enable method chaining
+        }
+    ),
+    private = list(
+        #' @field been_called Boolean that determines if the object has been called before. It's mainly used for triggering
+        #' the C cleanup and updating its global variables
+        been_called = FALSE,
+
+        #' @field been_precomputed_hr Boolean that determines if the object has been precomputed for the Hit and Run method.
+        been_precomputed_hr = FALSE,
+
+        #' @field been_precomputed_hr Boolean that determines if the object has been precomputed for the Exact method.
+        been_precomputed_exact = FALSE,
+
+        #' @field empty_candidates Boolean that determines if there's a candidate that didn't receive any vote. It's used for
+        #' handling border cases and optimizing.
+        empty_candidates = FALSE,
+
+        #' @field been_computed Boolean that determines if the EM-algorithm have been computed.
+        been_computed = FALSE,
+
+        #' Destructor to clean allocated memory
+        #'
+        #' When the object gets removed or garbage collected, it cleans the allocated memory on C that could had been reused
+        #' for the object instance. It's used for avoiding memory leaks due to the C behavior.
+        #'
+        #' @note For having the finalizer on the private access, R6 must be >= 2.4.0.
+        finalize = function() {
+            if (been_computed_exact) {
+                clean_exact_precompute()
+            }
+            if (been_computed_hr) {
+                clean_hr_precompute()
+            }
+            if (been_called) {
+                clean_everything()
+            }
         }
     )
 )
