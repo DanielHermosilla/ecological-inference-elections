@@ -24,7 +24,7 @@ Rcpp::List EMAlgorithmAll(Rcpp::String em_method, Rcpp::String probability_metho
     // ---...--- //
 
     std::string EMAlg = em_method;
-    Matrix Pnew = EMAlgoritm(&pIn, EMAlg.c_str(), stopping_threshold[0], maximum_iterations[0], verbose, &timeIter,
+    Matrix Pnew = EMAlgoritm(&pIn, EMAlg.c_str(), stopping_threshold[0], maximum_iterations[0], verbose[0], &timeIter,
                              &totalIter, logLLarr, inputParams);
     freeMatrix(&pIn);
 
@@ -71,7 +71,7 @@ Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method, Rcpp::IntegerVector m
     double *logLLarr = (double *)malloc(maximum_iterations[0] * sizeof(double));
     // ---...--- //
 
-    Matrix Pnew = EMAlgoritm(&pIn, "MVN CDF", stopping_threshold[0], maximum_iterations[0], verbose, &timeIter,
+    Matrix Pnew = EMAlgoritm(&pIn, "MVN CDF", stopping_threshold[0], maximum_iterations[0], verbose[0], &timeIter,
                              &totalIter, logLLarr, inputParams);
     freeMatrix(&pIn);
 
@@ -113,9 +113,9 @@ Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method, Rcpp::IntegerVe
     double *logLLarr = (double *)malloc(maximum_iterations[0] * sizeof(double));
     // ---...--- //
 
-    Matrix Pnew = EMAlgoritm(&pIn, "Hit and Run", stopping_threshold[0], maximum_iterations[0], verbose, &timeIter,
+    Matrix Pnew = EMAlgoritm(&pIn, "Hit and Run", stopping_threshold[0], maximum_iterations[0], verbose[0], &timeIter,
                              &totalIter, logLLarr, inputParams);
-    freeMatrix(&pIn);
+    // freeMatrix(&pIn);
 
     if (verbose)
     {

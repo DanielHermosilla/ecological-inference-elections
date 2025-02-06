@@ -90,7 +90,6 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params)
                 if (tempSum != 0) // --- Edge case
                 {
                     Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = finalNumerator[c] / tempSum;
-                    printf("Adding to q:\t%.4f\n", finalNumerator[c] / tempSum);
                 }
                 else
                     Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = 0;

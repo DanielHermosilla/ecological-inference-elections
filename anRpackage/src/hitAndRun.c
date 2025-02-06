@@ -4,7 +4,6 @@
 #include <omp.h>
 #include <stdio.h>
 #include <unistd.h>
-// [[Rcpp::plugins(openmp)]]
 
 OmegaSet **OMEGASET = NULL; // Global pointer to store all H sets
 double **multinomialVals = NULL;
@@ -57,7 +56,6 @@ Matrix startingPoint(int b)
  */
 void generateOmegaSet(int M, int S, unsigned int seedNum)
 {
-
     // ---- Allocate memory for the `b` index ----
     OMEGASET = malloc(TOTAL_BALLOTS * sizeof(OmegaSet *));
 
@@ -236,9 +234,13 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params)
 {
     // ---- Compute the variables that can be reused ---- //
     if (OMEGASET == NULL)
+    {
         generateOmegaSet(params.M, params.S, 2);
+    }
     if (multinomialVals == NULL)
+    {
         preComputeMultinomial();
+    }
     // ---...--- //
 
     // ---- Compute the final values and fill the returning array ---- //

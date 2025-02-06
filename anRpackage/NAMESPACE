@@ -8,3 +8,6 @@ export(RprecomputeHR)
 export(RprecomputeExact)
 export(RsetParameters)
 export(EMModel)
+S3method(summary, ecological_inference_model)
+export(summary.ecological_inference_model)
+

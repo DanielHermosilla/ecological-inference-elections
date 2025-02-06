@@ -400,9 +400,6 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
                "parameters:\nConvergence threshold:\t%.6f\nMaximum iterations:\t%d\n",
                q_method, convergence, maxIter);
     }
-    printf("The candidate and group matrices are:\n");
-    printMatrix(X);
-    printMatrix(W);
     // ---...--- //
 
     // ---- Define the parameters for the main loop ---- //
@@ -428,12 +425,8 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         }
 
         // ---- Compute the `q` value ---- //
-        printf("Entering with the matrix:\n");
-        printMatrix(currentP);
         double *q = config.computeQ(currentP, config.params);
         Matrix newProbability = getP(q);
-        printf("Obtained:\n");
-        printMatrix(&newProbability);
         // sleep(10);
         // ---...--- //
 

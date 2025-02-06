@@ -16,7 +16,7 @@ library(R6)
 EMModel <- R6Class("ecological_inference_model",
     public = list(
 
-        #' @field X A (c x b) matrix with the observed results of the candidate votes (c) on a given
+        #' @field X A (b x c) matrix with the observed results of the candidate votes (c) on a given
         #' ballot box (b). Provided manually or loaded from JSON.
         X = NULL,
 
@@ -28,7 +28,7 @@ EMModel <- R6Class("ecological_inference_model",
         #' "MVN PDF", "Exact".
         method = NULL,
 
-        #' @field probability A (c x g) matrix that would store the final estimated probabilities of having
+        #' @field probability A (g x c) matrix that would store the final estimated probabilities of having
         #' a given group (g) voting for a candidate (c).
         probability = NULL,
 
@@ -78,7 +78,7 @@ EMModel <- R6Class("ecological_inference_model",
             private$empty_candidates <- which(rowSums(self$X == 0) == ncol(self$X))
             if (length(private$empty_candidates) != 0) param_X <- param_X[-private$empty_candidates, drop = FALSE]
 
-            RsetParameters(param_X, param_W)
+            RsetParameters(t(param_X), param_W) # The C code uses the X matrix as (c x b)
         },
 
         #' Precompute iteration-independent variables that can be reused for optimizing the algorithm.
@@ -109,8 +109,8 @@ EMModel <- R6Class("ecological_inference_model",
                 # ------ Validation check ------- #
                 # Check for the given step size or samples. If it's not provided, return an error
 
-                if (is.null(params$step_size) || params$step_size < 0) stop("compute():\tA valid 'step_size' wasn't provided")
-                if (is.null(params$samples) || params$samples < 0) stop("compute():\tA valid 'samples' wasn't provided")
+                if (is.null(params$step_size) || params$step_size < 0) stop("precompute():\tA valid 'step_size' wasn't provided")
+                if (is.null(params$samples) || params$samples < 0) stop("precompute():\tA valid 'samples' wasn't provided")
 
                 # If the EM parameters differ from the precomputed values => erase the precomputation
                 if (private$been_precomputed_hr &&
@@ -230,7 +230,7 @@ EMModel <- R6Class("ecological_inference_model",
                 }
 
                 private$hr_step_size <- params$step_size
-                private$hr_samples <- params$hr_samples
+                private$hr_samples <- params$samples
                 # ------------- .... ------------ #
 
                 # Run the EM algorithm for the Hit and Run method.
@@ -239,8 +239,8 @@ EMModel <- R6Class("ecological_inference_model",
                     iterations,
                     stopping_threshold,
                     verbose,
-                    as.integer(private$step_size),
-                    as.integer(private$samples)
+                    as.integer(private$hr_step_size),
+                    as.integer(private$hr_samples)
                 )
                 private$been_precomputed_hr <- TRUE
             } else {
@@ -278,9 +278,9 @@ EMModel <- R6Class("ecological_inference_model",
                     iterations,
                     stopping_threshold,
                     verbose,
-                    multivariate_method,
-                    multivariate_error,
-                    as.integer(multivariate_iterations)
+                    private$mvn_method,
+                    as.numeric(private$mvn_error),
+                    as.integer(private$mvn_iterations)
                 )
             }
 
@@ -288,9 +288,16 @@ EMModel <- R6Class("ecological_inference_model",
             # --- Handle candidates ---- #
             # If there was a candidate that didn't receive any votes, add them with probability 0.
             if (length(private$empty_candidates) != 0) {
-                new_probability <- matrix(0, nrow = self$X.row, ncol = resulting_values$result.col)
-                non_zero <- setdiff(seq_len(self$X.row), private$empty_candidates)
-                new_probability[non_zero, ] <- resulting_values$result
+                # Create a matrix full of zeros with the final correct shape (g x c)
+                # ncol(self$X) is used just to get the total amount of candidates
+                new_probability <- matrix(0, nrow = nrow(resulting_values$result), ncol = ncol(self$X))
+
+                # Identify the columns that have valid probability values
+                non_zero_cols <- setdiff(seq_len(ncol(self$X)), private$empty_candidates)
+
+                # Insert the computed probabilities into the correct places
+                new_probability[, non_zero_cols] <- resulting_values$result
+
                 self$probability <- new_probability
             } else {
                 self$probability <- resulting_values$result
@@ -337,7 +344,7 @@ EMModel <- R6Class("ecological_inference_model",
         #' @description Shows, in form of a list, a selection of the most important atributes. It'll retrieve
         #' the method, amount of candidates, ballots and groups and the principal resuls of the EM algorithm.
         #'
-        ecological_inference_model.summary = function() {
+        summary = function() {
             list(
                 Method = self$method,
                 Candidates = nrow(self$X),
@@ -513,3 +520,140 @@ EMModel <- R6Class("ecological_inference_model",
         }
     )
 )
+
+#' Summarize the object main attributes.
+#'
+#' This method is an S3 styled wrapper around `summary()`, allowing to get, as a list, the
+#' main details of the object. Additional parameters are shown depending on the state of
+#' the object (computed/uncomputed).
+#'
+#' @inheritParams ecological_inference_model$compute  # Inherit params from compute()
+#' @export
+#' @method summary ecological_inference_model
+summary.ecological_inference_model <- function(object, ...) {
+    object$summary()
+}
+
+#' Predict Probability using an EM Model
+#'
+#' This method is a wrapper around `compute()`, allowing prediction of probabilities
+#' based on specified parameters. The results are stored in `object$probability`. Refer
+#' to object$compute method for more information about its function and parameters. However
+#' it will esentially trigger the EM algorithm.
+#'
+#' @inheritParams ecological_inference_model$compute  # Inherit params from compute()
+#' @return A matrix of estimated probabilities.
+#' @export
+#' @method predict ecological_inference_model
+predict.ecological_inference_model <- function(object, ...) {
+    params <- list(...)
+    do.call(object$compute, params) # Calls compute() with the right arguments
+    return(object$probability)
+}
+
+#' Convert EMModel Object to a Probability Matrix
+#'
+#' Extracts the probability matrix from the model, making it able to manipulate it as
+#' a matrix
+#'
+#' @param object An `ecological_inference_model` object.
+#' @param ... Additional arguments (ignored).
+#' @return A matrix containing the estimated probabilities.
+#' @export
+#' @method as.matrix ecological_inference_model
+as.matrix.ecological_inference_model <- function(object, ...) {
+    if (is.null(object$probability)) {
+        stop(paste0("Probability matrix not available. Run compute() or ", object, "$compute() first."))
+    }
+    return(object$probability)
+}
+
+#' Update an existing RxG model with a new EM algorithm computation
+#'
+#' This function updates an object with a new Expected Maximization computation
+#' with other parameters.
+#'
+#' @param object An `ecological_inference_model` object.
+#' @param ... New parameters to pass to `compute()`.
+#' @return The updated object.
+#' @export
+#' @method update ecological_inference_model
+update.ecological_inference_model <- function(object, ...) {
+    params <- list(...)
+
+    # Ensure the model has been computed before updating
+    if (is.null(object$probability)) {
+        stop(paste0("Model must be computed before updating. Run compute() or ", object, "$compute() first."))
+    }
+
+    # Recompute with new parameters
+    do.call(object$compute, params)
+
+    return(object)
+}
+
+
+#' Returns the current amount of candidates.
+#'
+#' Given a initialized object, it returns the amount of candidates that it has. It's equivalent
+#' of running ncol(object$X).
+#'
+#' @param object An `ecological_inference_model` object.
+#' @return The amount of candidates.
+#' @export
+#' @method candidates ecological_inference_model
+candidates.ecological_inference_model <- function(object) {
+    # Ensure the model has been computed before updating
+    if (is.null(object$X)) stop("The object must be initialized.")
+
+    return(ncol(object$X))
+}
+
+
+#' Returns the current amount of groups.
+#'
+#' Given a initialized object, it returns the amount of candidates that it has. It's equivalent
+#' of running ncol(object$W).
+#'
+#' @param object An `ecological_inference_model` object.
+#' @return The amount of groups.
+#' @export
+#' @method candidates ecological_inference_model
+groups.ecological_inference_model <- function(object) {
+    # Ensure the model has been computed before updating
+    if (is.null(object$W)) stop("The object must be initialized.")
+
+    return(ncol(object$W))
+}
+
+#' Returns the current amount of ballots boxes.
+#'
+#' Given a initialized object, it returns the amount of ballot boxes it has. It's equivalent
+#' of running nrow(object$W) or nrow(object$X).
+#'
+#' @param object An `ecological_inference_model` object.
+#' @return The amount of ballots.
+#' @export
+#' @method candidates ecological_inference_model
+ballots.ecological_inference_model <- function(object) {
+    # Ensure the model has been computed before updating
+    if (is.null(object$W)) stop("The object must be initialized.")
+
+    return(nrow(object$W))
+}
+
+#' Returns the total amount of voters in the system.
+#'
+#' Given a initialized object, it returns the total amount of voters. It's equivalent
+#' of running sum(object$W) or sum(object$X)
+#'
+#' @param object An `ecological_inference_model` object.
+#' @return The amount of voters.
+#' @export
+#' @method candidates ecological_inference_model
+sum.ecological_inference_model <- function(object) {
+    # Ensure the model has been computed before updating
+    if (is.null(object$W)) stop("The object must be initialized.")
+
+    return(sum(object$W))
+}
