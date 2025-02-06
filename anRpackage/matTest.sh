@@ -7,25 +7,15 @@ set -e
 R --vanilla -e '
 library(infPackage)
 
-for (s in 1:20)
-	{
-		file <- paste0("/Users/daniel/ecological-inference-elections/instances/J100_M50_G3_I3_L50_seed", s , ".json")
-		readFromFile(file)
-		results <- EMAlgorithmAll("Multinomial", "Group proportional", 1000, 0.001, TRUE)
-		print(results)
-	}
-for (s in 1:20)
-	{
-		file <- paste0("/Users/daniel/ecological-inference-elections/instances/J100_M50_G3_I3_L50_seed", s , ".json")
-		readFromFile(file)
-		results <- EMAlgorithmAll("MVN PDF", "Group proportional", 1000, 0.001, TRUE)
-		print(results)
-	}
-for (s in 1:20)
-	{
-		file <- paste0("/Users/daniel/ecological-inference-elections/instances/J100_M50_G3_I3_L50_seed", s , ".json")
-		readFromFile(file)
-		results <- EMAlgorithmAll("Exact", "Group proportional", 1000, 0.001, TRUE)
-		print(results)
-	}
+a <- EMModel$new(jsonPath = "/Users/daniel/ecological-inference-elections/anRpackage/instances/J100_M50_G2_I3_L50_seed18.json")
+a$compute(main_method = "MVN PDF")
+Sys.sleep(3)
+a$compute(main_method = "Multinomial")
+Sys.sleep(3)
+a$compute(main_method = "MVN CDF")
+Sys.sleep(3)
+a$compute(main_method = "Hit and Run", samples = 1000, step_size = 3000)
+Sys.sleep(3)
+a$compute(main_method = "Exact")
+
 '

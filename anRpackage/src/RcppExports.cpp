@@ -89,13 +89,30 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
-// readFromFile
-void readFromFile(Rcpp::String filename);
-RcppExport SEXP _infPackage_readFromFile(SEXP filenameSEXP) {
+// clean_exact_precompute
+void clean_exact_precompute();
+RcppExport SEXP _infPackage_clean_exact_precompute() {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::String >::type filename(filenameSEXP);
-    readFromFile(filename);
+    clean_exact_precompute();
+    return R_NilValue;
+END_RCPP
+}
+// clean_hr_precompute
+void clean_hr_precompute();
+RcppExport SEXP _infPackage_clean_hr_precompute() {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    clean_hr_precompute();
+    return R_NilValue;
+END_RCPP
+}
+// clean_everything
+void clean_everything();
+RcppExport SEXP _infPackage_clean_everything() {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    clean_everything();
     return R_NilValue;
 END_RCPP
 }
@@ -107,7 +124,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_infPackage_RprecomputeHR", (DL_FUNC) &_infPackage_RprecomputeHR, 2},
     {"_infPackage_RprecomputeExact", (DL_FUNC) &_infPackage_RprecomputeExact, 0},
     {"_infPackage_RsetParameters", (DL_FUNC) &_infPackage_RsetParameters, 2},
-    {"_infPackage_readFromFile", (DL_FUNC) &_infPackage_readFromFile, 1},
+    {"_infPackage_clean_exact_precompute", (DL_FUNC) &_infPackage_clean_exact_precompute, 0},
+    {"_infPackage_clean_hr_precompute", (DL_FUNC) &_infPackage_clean_hr_precompute, 0},
+    {"_infPackage_clean_everything", (DL_FUNC) &_infPackage_clean_everything, 0},
     {NULL, NULL, 0}
 };
 

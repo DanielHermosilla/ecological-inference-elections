@@ -55,11 +55,11 @@ EMModel <- R6Class("ecological_inference_model",
         initialize = function(X = NULL, W = NULL, jsonPath = NULL) {
             # Verify if the JSON path is valid
             if (!is.null(jsonPath) && nzchar(jsonPath)) {
-                data <- fromJSON(jsonPath)
+                data <- jsonlite::fromJSON(jsonPath)
                 if (!all(c("X", "W") %in% names(data))) {
                     stop("JSON file must contain the keys 'X' (candidate matrix) and 'W' (group matrix)")
                 }
-                self$X <- as.matrix(data$X)
+                self$X <- t(as.matrix(data$X)) # ERASE THE TRANSPOSE LATER
                 self$W <- as.matrix(data$W)
             } else { # Case when there's no JSON path; hand matrices
                 if (is.null(X) || is.null(W)) {
@@ -190,15 +190,16 @@ EMModel <- R6Class("ecological_inference_model",
             params <- list(...)
 
             valid_methods <- c("Hit and Run", "Exact", "MVN CDF", "MVN PDF", "Multinomial")
-            if (!is.character(method) || length(method) != 1 || !(method %in% valid_methods)) {
+            if (!is.character(main_method) || length(main_method) != 1 || !(main_method %in% valid_methods)) {
                 stop("Invalid method. Must be one of: ", paste(valid_methods, collapse = ", "))
             }
             # Define the method
-            self$method <- method
+            self$method <- main_method
 
             if (self$method %in% c("Exact", "Multinomial", "MVN PDF")) {
                 # Run the EM algorithm for the Exact, Multinomial or PDF method.
                 resulting_values <- EMAlgorithmAll(
+                    self$method,
                     probability_method,
                     iterations,
                     stopping_threshold,
@@ -242,17 +243,17 @@ EMModel <- R6Class("ecological_inference_model",
                 private$hr_samples <- hr_samples
             } else {
                 # Check if there's a multivariate method, otherwise, use 'Genz2' as default
-                if (!"multivariate_method" %in% names(params)) {
+                if (is.null(params$multivariate_method)) {
                     multivariate_method <- "Genz2"
                 }
 
                 # Check if there's a multivariate error, otherwise, use '0.000001' as default
-                if (!"multivariate_error" %in% names(params)) {
+                if (is.null(params$multivariate_error)) {
                     multivariate_error <- 0.000001
                 }
 
                 # Check if there's a multivariate iteration, otherwise, use '5000' as default
-                if (!"multivariate_iterations" %in% names(params)) {
+                if (is.null(params$multivariate_iterations)) {
                     multivariate_iterations <- 5000
                 }
                 if (!is.integer(multivariate_iterations) || !is.numeric(multivariate_error) ||
@@ -479,13 +480,13 @@ EMModel <- R6Class("ecological_inference_model",
         #'
         #' @note For having the finalizer on the private access, R6 must be >= 2.4.0.
         finalize = function() {
-            if (been_computed_exact) {
+            if (private$been_precomputed_exact) {
                 clean_exact_precompute()
             }
-            if (been_computed_hr) {
+            if (private$been_precomputed_hr) {
                 clean_hr_precompute()
             }
-            if (been_called) {
+            if (private$been_called) {
                 clean_everything()
             }
         }

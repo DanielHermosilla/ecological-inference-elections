@@ -400,6 +400,9 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
                "parameters:\nConvergence threshold:\t%.6f\nMaximum iterations:\t%d\n",
                q_method, convergence, maxIter);
     }
+    printf("The candidate and group matrices are:\n");
+    printMatrix(X);
+    printMatrix(W);
     // ---...--- //
 
     // ---- Define the parameters for the main loop ---- //
@@ -425,8 +428,13 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         }
 
         // ---- Compute the `q` value ---- //
+        printf("Entering with the matrix:\n");
+        printMatrix(currentP);
         double *q = config.computeQ(currentP, config.params);
         Matrix newProbability = getP(q);
+        printf("Obtained:\n");
+        printMatrix(&newProbability);
+        // sleep(10);
         // ---...--- //
 
         // ---- Check convergence ---- //
@@ -465,15 +473,15 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         }
 
         // ---- Calculate the log-likelihood before freeing the array ----
-        logLLarr[i] = logLikelihood(currentP, q);
+        logLLarr[i] = logLikelihood(&newProbability, q);
         free(q);
-        // freeMatrix(currentP);
+        freeMatrix(currentP);
 
         // ---- Redefine the current probability matrix ----
-        //*currentP = createMatrix(newProbability.rows, newProbability.cols);
-        // memcpy(currentP->data, newProbability.data, sizeof(double) * newProbability.rows * newProbability.cols);
-        // freeMatrix(&newProbability);
+        *currentP = createMatrix(newProbability.rows, newProbability.cols);
         memcpy(currentP->data, newProbability.data, sizeof(double) * newProbability.rows * newProbability.cols);
+        freeMatrix(&newProbability);
+        // memcpy(currentP->data, newProbability.data, sizeof(double) * newProbability.rows * newProbability.cols);
         // ---- Handle the case where the log-likelihood decreases ----
         // ---- The CDF case has a lot of variance between iterations, hence, we'll leave a minimum iterations
         // threshold.
@@ -485,10 +493,10 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             // ---- Save values ----
             *iterTotal = i;
             *time = elapsed_total;
-
-            return newProbability;
+            Matrix finalProbability = copyMatrix(currentP);
+            freeMatrix(currentP);
+            return finalProbability;
         }
-        freeMatrix(&newProbability);
     }
     printf("Maximum iterations reached without convergence.\n"); // Print even if there's not verbose, might change
                                                                  // later.

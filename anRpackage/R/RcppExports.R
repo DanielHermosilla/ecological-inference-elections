@@ -25,7 +25,15 @@ RsetParameters <- function(candidate_matrix, group_matrix) {
     invisible(.Call(`_infPackage_RsetParameters`, candidate_matrix, group_matrix))
 }
 
-readFromFile <- function(filename) {
-    invisible(.Call(`_infPackage_readFromFile`, filename))
+clean_exact_precompute <- function() {
+    invisible(.Call(`_infPackage_clean_exact_precompute`))
+}
+
+clean_hr_precompute <- function() {
+    invisible(.Call(`_infPackage_clean_hr_precompute`))
+}
+
+clean_everything <- function() {
+    invisible(.Call(`_infPackage_clean_everything`))
 }
 
