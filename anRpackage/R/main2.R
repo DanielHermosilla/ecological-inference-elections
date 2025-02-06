@@ -66,10 +66,24 @@ EMModel <- R6Class("ecological_inference_model",
                     stop("Either provide X and W or an non-empty JSON path")
                 }
                 self$X <- as.matrix(X)
-                self$W <- as.matrix(X)
+                self$W <- as.matrix(W)
             }
-            # Send the parameters to C
-            RsetParameters(self$X, self$W)
+
+            # ---- C initialization ---- #
+
+            # Convert the parameters to C, must be double in C:
+            param_X <- matrix(as.numeric(self$X), nrow(self$X), ncol(self$X))
+            param_W <- matrix(as.numeric(self$W), nrow(self$W), ncol(self$W))
+
+            # Check if there's a candidate without votes:
+            # Gets an integer vector with the index of rows that sum 0.
+            private$empty_candidates <- which(rowSums(self$X == 0) == ncol(self$X))
+            if (length(private$empty_candidates) != 0) {
+                param_X <- param_X[-private$empty_candidates, drop = FALSE]
+            }
+            RsetParameters(param_X, param_W)
+
+            # ---- Check if there's a candidate without votes ---- #
         },
 
         #' Precompute iteration-independent variables that can be reused for optimizing the algorithm.
@@ -93,22 +107,24 @@ EMModel <- R6Class("ecological_inference_model",
             params <- list(...)
 
             if (method == "Hit and Run") {
-                if (!"step_size" %in% names(params)) {
-                    stop("The 'step_size' (M) wasn't provided for running the Hit and Run method.")
+                # Check for the Hit and Run step size
+                if (!is.null(params$step_size) && is.numeric(params$step_size)) {
+                    private$hr_step_size <- step_size
+                } else {
+                    stop("'step_size' is required and must be numeric.")
                 }
-                # Check for a given sample. If it's not provided, return an error
-                if (!"samples" %in% names(params)) {
-                    stop("The 'samples' (S) wasn't provided for running the Hit and run method.")
+
+                # Check for the Hit and Run samples
+                if (!is.null(params$samples) && is.integer(params$samples)) {
+                    private$hr_samples <- samples
+                } else {
+                    stop("'samples' is required and must be integer.")
                 }
-                if (!is.integer(step_size) || !is.integer(samples)) {
-                    stop("The 'step_size' or 'samples' are an invalid value. They must be integers.")
-                }
+
                 message("Precomputing the Hit and Run method")
                 RprecomputeHR(samples, step_size)
 
                 # Update inner variables
-                private$hr_samples <- samples
-                private$hr_step_size <- step_size
                 been_precomputed_hr <- TRUE
                 self$method <- "Hit and Run"
             } else if (method == "Exact") {
@@ -193,15 +209,17 @@ EMModel <- R6Class("ecological_inference_model",
                 }
             } else if (self$method == "Hit and Run") {
                 # Check for a given step size. If it's not provided, return an error
-                if (!"step_size" %in% names(params)) {
-                    stop("The 'step_size' (M) wasn't provided for running the Hit and Run method.")
+                if (!is.null(params$step_size) && is.numeric(params$step_size)) {
+                    private$hr_step_size <- step_size
+                } else {
+                    stop("'step_size' is required and must be numeric.")
                 }
-                # Check for a given sample. If it's not provided, return an error
-                if (!"samples" %in% names(params)) {
-                    stop("The 'samples' (S) wasn't provided for running the Hit and run method.")
-                }
-                if (!is.integer(step_size) || !is.integer(samples)) {
-                    stop("The 'step_size' or 'samples' are an invalid value. They must be integers.")
+
+                # Check for the Hit and Run samples
+                if (!is.null(params$samples) && is.integer(params$samples)) {
+                    private$hr_samples <- samples
+                } else {
+                    stop("'samples' is required and must be integer.")
                 }
 
                 # If it has been computed but the precomputed values differ from the ones passed to the function
@@ -209,6 +227,7 @@ EMModel <- R6Class("ecological_inference_model",
                     (private$hr_step_size != step_size || private$hr_samples != hr_samples)) {
                     clean_hr_precompute()
                 }
+
                 # Run the EM algorithm for the Hit and Run method.
                 resulting_values <- EMAlgorithmHitAndRun(
                     probability_method,
@@ -254,7 +273,16 @@ EMModel <- R6Class("ecological_inference_model",
                 private$multivariate_error <- multivariate_error
                 private$multivariate_iterations <- multivariate_iterations
             }
-            self$probability <- resulting_values$result
+
+            # Add, with probability = 0, the candidates that didn't receive any votes
+            if (length(private$empty_candidates) != 0) {
+                new_probability <- matrix(0, nrow = self$X.row, ncol = resulting_values$result.col)
+                non_zero <- setdiff(seq_len(self$X.row), private$empty_candidates)
+                new_probability[non_zero, ] <- resulting_values$result
+                self$probability <- new_probability
+            } else {
+                self$probability <- resulting_values$result
+            }
             self$logLikelihood <- resulting_values$log_likelikelihood
             self$total_iterations <- resulting_values$total_iterations
             self$total_time <- resulting_values$total_time
@@ -269,8 +297,10 @@ EMModel <- R6Class("ecological_inference_model",
         #' message with its most relevant parameters
         print = function() {
             cat("RxG ecological inference model\n")
-            cat("Candidate matrix:\t", self$X, "\n")
-            cat("Group matrix:\t", self$W, "\n")
+            cat("Candidate matrix (X):\n")
+            print(self$X)
+            cat("Group matrix (W):\n")
+            print(self$W)
             if (private$been_computed) {
                 cat("Method:\t", self$method, "\n")
                 cat("Total Iterations:\t", self$totalIterations, "\n")
@@ -278,6 +308,22 @@ EMModel <- R6Class("ecological_inference_model",
                 cat("Estimated probability\t", self$probability, "\n")
             }
             invisible(self)
+        },
+
+        #' Define the summary method
+        #'
+        #' @description Shows, in form of a list, a selection of the most important atributes. It'll retrieve
+        #' the method, amount of candidates, ballots and groups and the principal resuls of the EM algorithm.
+        #'
+        summary = function() {
+            list(
+                Method = self$method,
+                Candidates = nrow(self$X),
+                Ballots = ncol(self$X),
+                Groups = ncol(self$W),
+                Probabilities = if (!is.null(self$probability)) head(self$probability, 5) else "Not computed yet",
+                LogLikelihood = if (!is.null(self$logLikelihood)) tail(self$logLikelihood, 5) else "Not computed yet"
+            )
         },
 
         #' Save Model Results to a File
@@ -403,9 +449,9 @@ EMModel <- R6Class("ecological_inference_model",
         #' @field been_precomputed_hr Boolean that determines if the object has been precomputed for the Exact method.
         been_precomputed_exact = FALSE,
 
-        #' @field empty_candidates Boolean that determines if there's a candidate that didn't receive any vote.
+        #' @field empty_candidates Integer vector with the index of candidates that didn't receive any vote.
         #' It's used for handling border cases and optimizing.
-        empty_candidates = FALSE,
+        empty_candidates = integer(0),
 
         #' @field been_computed Boolean that determines if the EM-algorithm have been computed.
         been_computed = FALSE,
