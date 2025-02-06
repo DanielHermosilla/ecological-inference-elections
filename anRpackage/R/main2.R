@@ -56,15 +56,13 @@ EMModel <- R6Class("ecological_inference_model",
             # Verify if the JSON path is valid
             if (!is.null(jsonPath) && nzchar(jsonPath)) {
                 data <- jsonlite::fromJSON(jsonPath)
-                if (!all(c("X", "W") %in% names(data))) {
-                    stop("JSON file must contain the keys 'X' (candidate matrix) and 'W' (group matrix)")
-                }
+                if (!all(c("X", "W") %in% names(data))) stop("JSON file must contain the keys 'X' (candidate matrix) and 'W' (group matrix)")
+
                 self$X <- t(as.matrix(data$X)) # ERASE THE TRANSPOSE LATER
                 self$W <- as.matrix(data$W)
             } else { # Case when there's no JSON path; hand matrices
-                if (is.null(X) || is.null(W)) {
-                    stop("Either provide X and W or an non-empty JSON path")
-                }
+                if (is.null(X) || is.null(W)) stop("Either provide X and W or an non-empty JSON path")
+
                 self$X <- as.matrix(X)
                 self$W <- as.matrix(W)
             }
@@ -75,15 +73,12 @@ EMModel <- R6Class("ecological_inference_model",
             param_X <- matrix(as.numeric(self$X), nrow(self$X), ncol(self$X))
             param_W <- matrix(as.numeric(self$W), nrow(self$W), ncol(self$W))
 
-            # Check if there's a candidate without votes:
+            # ---- Check if there's a candidate without votes ---- #
             # Gets an integer vector with the index of rows that sum 0.
             private$empty_candidates <- which(rowSums(self$X == 0) == ncol(self$X))
-            if (length(private$empty_candidates) != 0) {
-                param_X <- param_X[-private$empty_candidates, drop = FALSE]
-            }
-            RsetParameters(param_X, param_W)
+            if (length(private$empty_candidates) != 0) param_X <- param_X[-private$empty_candidates, drop = FALSE]
 
-            # ---- Check if there's a candidate without votes ---- #
+            RsetParameters(param_X, param_W)
         },
 
         #' Precompute iteration-independent variables that can be reused for optimizing the algorithm.
@@ -102,40 +97,49 @@ EMModel <- R6Class("ecological_inference_model",
         #'       }
         #'   }
         #'
+        #' @note The method attribute wont be updated, since the main computation haven't been called and it's possible (but weird) that the
+        #' user may want to run another method even if the precomputation was made.
+        #'
         #' @return Updates are made on the C internal memory.
         precompute = function(method, ...) {
             params <- list(...)
 
             if (method == "Hit and Run") {
-                # Check for the Hit and Run step size
-                if (!is.null(params$step_size) && is.numeric(params$step_size)) {
-                    private$hr_step_size <- step_size
-                } else {
-                    stop("'step_size' is required and must be numeric.")
+                # ========= HIT AND RUN ========= #
+                # ------ Validation check ------- #
+                # Check for the given step size or samples. If it's not provided, return an error
+
+                if (is.null(params$step_size) || params$step_size < 0) stop("compute():\tA valid 'step_size' wasn't provided")
+                if (is.null(params$samples) || params$samples < 0) stop("compute():\tA valid 'samples' wasn't provided")
+
+                # If the EM parameters differ from the precomputed values => erase the precomputation
+                if (private$been_precomputed_hr &&
+                    (private$hr_step_size != params$step_size ||
+                        private$hr_samples != params$hr_samples)) {
+                    clean_hr_precompute()
                 }
 
-                # Check for the Hit and Run samples
-                if (!is.null(params$samples) && is.integer(params$samples)) {
-                    private$hr_samples <- samples
-                } else {
-                    stop("'samples' is required and must be integer.")
-                }
+                private$hr_step_size <- params$step_size
+                private$hr_samples <- params$hr_samples
+                # ------------- .... ------------ #
 
                 message("Precomputing the Hit and Run method")
-                RprecomputeHR(samples, step_size)
-
-                # Update inner variables
+                RprecomputeHR(as.integer(private$hr_samples), as.integer(private$hr_step_size))
+                # Update output variables
                 been_precomputed_hr <- TRUE
-                self$method <- "Hit and Run"
+                # self$method <- "Hit and Run"
             } else if (method == "Exact") {
+                # ========= EXACT ========= #
                 message("Precomputing the Exact method")
                 RprecomputeExact()
                 been_computed_exact <- TRUE
                 # Update inner variables
-                self$method <- "Exact"
+                # self$method <- "Exact"
+                # ---------- ... ---------- #
             } else {
                 stop("Invalid method for precomputing. Must be either Hit and Run or Exact")
             }
+            # NOTE:
             # It won't update the method, since the main computation haven't been called and it's possible (but weird) that the
             # user may want to run another method even if the precomputation was made.
 
@@ -189,6 +193,7 @@ EMModel <- R6Class("ecological_inference_model",
                            verbose = FALSE, ...) {
             params <- list(...)
 
+            # Check if the method provided is valid
             valid_methods <- c("Hit and Run", "Exact", "MVN CDF", "MVN PDF", "Multinomial")
             if (!is.character(main_method) || length(main_method) != 1 || !(main_method %in% valid_methods)) {
                 stop("Invalid method. Must be one of: ", paste(valid_methods, collapse = ", "))
@@ -197,6 +202,7 @@ EMModel <- R6Class("ecological_inference_model",
             self$method <- main_method
 
             if (self$method %in% c("Exact", "Multinomial", "MVN PDF")) {
+                # === MULTINOMIAL | MVN PDF | EXACT === #
                 # Run the EM algorithm for the Exact, Multinomial or PDF method.
                 resulting_values <- EMAlgorithmAll(
                     self$method,
@@ -205,29 +211,27 @@ EMModel <- R6Class("ecological_inference_model",
                     stopping_threshold,
                     verbose
                 )
-                if (self$method == "Exact") {
-                    private$been_precomputed_exact <- TRUE
-                }
+
+                # If the method is exact, the precomputation is going to occur if it wasn't called before
+                if (self$method == "Exact") private$been_precomputed_exact <- TRUE
             } else if (self$method == "Hit and Run") {
-                # Check for a given step size. If it's not provided, return an error
-                if (!is.null(params$step_size) && is.numeric(params$step_size)) {
-                    private$hr_step_size <- step_size
-                } else {
-                    stop("'step_size' is required and must be numeric.")
-                }
+                # ========= HIT AND RUN ========= #
+                # ------ Validation check ------- #
+                # Check for the given step size or samples. If it's not provided, return an error
 
-                # Check for the Hit and Run samples
-                if (!is.null(params$samples) && is.integer(params$samples)) {
-                    private$hr_samples <- samples
-                } else {
-                    stop("'samples' is required and must be integer.")
-                }
+                if (is.null(params$step_size) || params$step_size < 0) stop("compute():\tA valid 'step_size' wasn't provided")
+                if (is.null(params$samples) || params$samples < 0) stop("compute():\tA valid 'samples' wasn't provided")
 
-                # If it has been computed but the precomputed values differ from the ones passed to the function
+                # If the EM parameters differ from the precomputed values => erase the precomputation
                 if (private$been_precomputed_hr &&
-                    (private$hr_step_size != step_size || private$hr_samples != hr_samples)) {
+                    (private$hr_step_size != params$step_size ||
+                        private$hr_samples != params$hr_samples)) {
                     clean_hr_precompute()
                 }
+
+                private$hr_step_size <- params$step_size
+                private$hr_samples <- params$hr_samples
+                # ------------- .... ------------ #
 
                 # Run the EM algorithm for the Hit and Run method.
                 resulting_values <- EMAlgorithmHitAndRun(
@@ -235,31 +239,39 @@ EMModel <- R6Class("ecological_inference_model",
                     iterations,
                     stopping_threshold,
                     verbose,
-                    step_size,
-                    samples
+                    as.integer(private$step_size),
+                    as.integer(private$samples)
                 )
                 private$been_precomputed_hr <- TRUE
-                private$hr_step_size <- step_size
-                private$hr_samples <- hr_samples
             } else {
+                # ========= MVN CDF ========= #
+                # ----- Validation check ---- #
+
                 # Check if there's a multivariate method, otherwise, use 'Genz2' as default
-                if (is.null(params$multivariate_method)) {
-                    multivariate_method <- "Genz2"
+                if (is.null(params$multivariate_method) || !params$multivariate_method %in% c("Genz", "Genz2")) {
+                    private$mvn_method <- "Genz2"
+                } else {
+                    private$mvn_method <- params$multivariate_method
                 }
 
-                # Check if there's a multivariate error, otherwise, use '0.000001' as default
-                if (is.null(params$multivariate_error)) {
-                    multivariate_error <- 0.000001
+                # Check if there's a multivariate error, otherwise, use 1e-5 as default
+                if (is.null(params$multivariate_error) || params$multivariate_error < 0) {
+                    private$mvn_error <- 1e-5
+                } else {
+                    private$mvn_error <- as.numeric(params$multivariate_error)
                 }
 
-                # Check if there's a multivariate iteration, otherwise, use '5000' as default
-                if (is.null(params$multivariate_iterations)) {
-                    multivariate_iterations <- 5000
+                # Check if there's a multivariate iterations, otherwise, use 5000 as default
+                if (is.null(params$multivariate_iterations) || params$mvn_iterations < 0) {
+                    private$mvn_iterations <- as.integer(5000)
+                } else {
+                    private$mvn_iterations <- as.integer(params$mvn_iterations)
                 }
-                if (!is.integer(multivariate_iterations) || !is.numeric(multivariate_error) ||
-                    !is.character(multivariate_method)) {
-                    stop("Invalid types values are handed to the EM algorithm method.")
-                }
+
+                # Check if there's a multivariate error, otherwise, use 0.000001 as default
+                if (is.null(params$multivariate_error) || params$multivariate_error < 0) private$mvn_error <- 0.000001
+                # -------- ... --------- #
+
                 # Run the EM algorithm for the MVN CDF method.
                 resulting_values <- EMAlgorithmCDF(
                     probability_method,
@@ -268,14 +280,13 @@ EMModel <- R6Class("ecological_inference_model",
                     verbose,
                     multivariate_method,
                     multivariate_error,
-                    multivariate_iterations
+                    as.integer(multivariate_iterations)
                 )
-                private$multivariate_method <- multivariate_method
-                private$multivariate_error <- multivariate_error
-                private$multivariate_iterations <- multivariate_iterations
             }
 
-            # Add, with probability = 0, the candidates that didn't receive any votes
+            # ======= LIMIT CASE ======= #
+            # --- Handle candidates ---- #
+            # If there was a candidate that didn't receive any votes, add them with probability 0.
             if (length(private$empty_candidates) != 0) {
                 new_probability <- matrix(0, nrow = self$X.row, ncol = resulting_values$result.col)
                 non_zero <- setdiff(seq_len(self$X.row), private$empty_candidates)
@@ -284,6 +295,8 @@ EMModel <- R6Class("ecological_inference_model",
             } else {
                 self$probability <- resulting_values$result
             }
+            # ---------- ... ---------- #
+
             self$logLikelihood <- resulting_values$log_likelikelihood
             self$total_iterations <- resulting_values$total_iterations
             self$total_time <- resulting_values$total_time
@@ -298,10 +311,18 @@ EMModel <- R6Class("ecological_inference_model",
         #' message with its most relevant parameters
         print = function() {
             cat("RxG ecological inference model\n")
+            # Determine if truncation is needed
+            truncated_X <- (nrow(self$X) > 5 || ncol(self$X) > 5)
+            truncated_W <- (nrow(self$W) > 5 || ncol(self$W) > 5)
+
             cat("Candidate matrix (X):\n")
-            print(self$X)
+            print(self$X[1:min(5, nrow(self$X)), 1:min(5, ncol(self$X))])
+            if (truncated_X) cat("...\n")
+
             cat("Group matrix (W):\n")
-            print(self$W)
+            print(self$W[1:min(5, nrow(self$W)), 1:min(5, ncol(self$W))])
+            if (truncated_W) cat("...\n")
+
             if (private$been_computed) {
                 cat("Method:\t", self$method, "\n")
                 cat("Total Iterations:\t", self$totalIterations, "\n")
@@ -316,7 +337,7 @@ EMModel <- R6Class("ecological_inference_model",
         #' @description Shows, in form of a list, a selection of the most important atributes. It'll retrieve
         #' the method, amount of candidates, ballots and groups and the principal resuls of the EM algorithm.
         #'
-        summary = function() {
+        ecological_inference_model.summary = function() {
             list(
                 Method = self$method,
                 Candidates = nrow(self$X),
