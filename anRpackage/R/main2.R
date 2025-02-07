@@ -1,43 +1,44 @@
-dyn.load("src/infPackage.so")
-library(jsonlite)
-library(R6)
+# dyn.load("src/infPackage.so")
+# library(infPackage)
+# library(jsonlite)
+# library(R6)
 
 
 # TODO: ADD A SUMMARY METHOD
 
-#' EMModel: An R6 Class for Running an Expectation-Maximization Algorithm
+#' rxg: An R6 Class for Running an Expectation-Maximization Algorithm
 #'
 #' This class implements an EM algorithm using different methods for approximating the E-step such as "Multinomial",
-#' "Hit and Run", "MVN CDF", "MVN PDF", and "Exact".
+#' 		"Hit and Run", "MVN CDF", "MVN PDF", and "Exact".
 #'
 #' @docType class
 #' @importFrom R6 R6Class
 #' @export
-EMModel <- R6Class("ecological_inference_model",
+rxg <- R6Class("rxg",
     public = list(
 
         #' @field X A (b x c) matrix with the observed results of the candidate votes (c) on a given
-        #' ballot box (b). Provided manually or loaded from JSON.
+        #' 		ballot box (b). Provided manually or loaded from JSON.
         X = NULL,
 
         #' @field W A (b x g) matrix with the observed results of the demographical group votes (g) on
-        #' a given ballot box (b). Provided manually or loaded from JSON.
+        #' 		a given ballot box (b). Provided manually or loaded from JSON.
         W = NULL,
 
         #' @field method A string indicating the EM method. One of: "Multinomial", "Hit and Run", "MVN CDF",
-        #' "MVN PDF", "Exact".
+        #' 		"MVN PDF", "Exact".
         method = NULL,
 
         #' @field probability A (g x c) matrix that would store the final estimated probabilities of having
-        #' a given group (g) voting for a candidate (c).
+        #' 		a given group (g) voting for a candidate (c).
         probability = NULL,
 
         #' @field logLikelihood A numeric vector that will store the log-likelihood values among the total
-        #' iterations of the Expected Maximization algorithm.
+        #' 		iterations of the Expected Maximization algorithm.
         logLikelihood = NULL,
 
         #' @field total_iterations An integer indicating the total iterations that the Expected Maximization
-        #' algorithm did.
+        #' 		algorithm did.
         total_iterations = NULL,
 
         #' @field total_time The time that the EM algorithm took.
@@ -47,8 +48,7 @@ EMModel <- R6Class("ecological_inference_model",
         #'
         #' @param X A numeric matrix (c x b) of observed candidate votes (optional, required if `jsonPath` is NULL).
         #' @param W A numeric matrix (b x g) of observed demographic group votes (optional, required if `jsonPath` is NULL).
-        #' @param jsonPath A string containing a path to a JSON file with `"X"` and `"W"` matrices.
-        #' '(optional, required if `X` or `W` are NULL)
+        #' @param jsonPath A string containing a path to a JSON file with `"X"` and `"W"` matrices. (optional, required if `X` or `W` are NULL)
         #' @return An initialized EMModel object.
         #' @examples
         #' model <- EMModel$new(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3), method = "Multinomial")
@@ -81,6 +81,7 @@ EMModel <- R6Class("ecological_inference_model",
             RsetParameters(t(param_X), param_W) # The C code uses the X matrix as (c x b)
         },
 
+        #' @name rxg$compute
         #' Precompute iteration-independent variables that can be reused for optimizing the algorithm.
         #'
         #' The Hit and Run and Exact method offers some calculations that doesn't depend on the current EM iteration, nor
@@ -151,14 +152,14 @@ EMModel <- R6Class("ecological_inference_model",
         #' @description Executes the Expectation-Maximization (EM) algorithm based on the selected method.
         #' Additional parameters may be required depending on the method.
         #'
-        #' @param[in] string main_method The method for estimating the Expectation-Maximization (EM) algorithm. (default: "Multinomial")
-        #' @param[in] string probability_method The method for obtaining the initial probability. Options:
-        #' "Group proportional","Proportional", "Uniform". (default: "Group proportional")
-        #' @param[in] integer iterations The maximum amount of iterations to perform on the EM algorithm.
-        #' '(default: 1000)
-        #' @param[in] numeric stopping_threshold The minimum difference between consequent probabilities for stopping the
-        #' iterations. (default: 0.001)
-        #' @param[in] verbose bool Boolean indicating wether to print useful messages while iterating. (default: FALSE)
+        #' @param string main_method The method for estimating the Expectation-Maximization (EM) algorithm. (default: "Multinomial")
+        #' @param string probability_method The method for obtaining the initial probability. Options:
+        #' 		"Group proportional","Proportional", "Uniform". (default: "Group proportional")
+        #' @param integer iterations The maximum amount of iterations to perform on the EM algorithm.
+        #' 		(default: 1000)
+        #' @param numeric stopping_threshold The minimum difference between consequent probabilities for stopping the
+        #' 		iterations. (default: 0.001)
+        #' @param verbose bool Boolean indicating wether to print useful messages while iterating. (default: FALSE)
         #' @param ... Additional arguments required by specific methods:
         #'   \itemize{
         #'     \item **"Hit and Run" Method:**
@@ -315,7 +316,7 @@ EMModel <- R6Class("ecological_inference_model",
         #' Define the printing method
         #'
         #' @description According to the state of the algorithm (either computed or not), it prints a
-        #' message with its most relevant parameters
+        #' 		message with its most relevant parameters
         print = function() {
             cat("RxG ecological inference model\n")
             # Determine if truncation is needed
@@ -339,10 +340,12 @@ EMModel <- R6Class("ecological_inference_model",
             invisible(self)
         },
 
+        #' @name rxg$summary
+        #'
         #' Define the summary method
         #'
         #' @description Shows, in form of a list, a selection of the most important atributes. It'll retrieve
-        #' the method, amount of candidates, ballots and groups and the principal resuls of the EM algorithm.
+        #' 		the method, amount of candidates, ballots and groups and the principal resuls of the EM algorithm.
         #'
         summary = function() {
             list(
@@ -468,36 +471,36 @@ EMModel <- R6Class("ecological_inference_model",
         }
     ),
     private = list(
-        #' @field been_called Boolean that determines if the object has been called before. It's mainly used for triggering
+        #' @keywords internal been_called Boolean that determines if the object has been called before. It's mainly used for triggering
         #' the C cleanup and updating its global variables
         been_called = FALSE,
 
-        #' @field been_precomputed_hr Boolean that determines if the object has been precomputed for the Hit and Run method.
+        #' @keywords internal been_precomputed_hr Boolean that determines if the object has been precomputed for the Hit and Run method.
         been_precomputed_hr = FALSE,
 
-        #' @field been_precomputed_hr Boolean that determines if the object has been precomputed for the Exact method.
+        #' @keywords internal been_precomputed_exact Boolean that determines if the object has been precomputed for the Exact method.
         been_precomputed_exact = FALSE,
 
-        #' @field empty_candidates Integer vector with the index of candidates that didn't receive any vote.
+        #' @keywords internal empty_candidates Integer vector with the index of candidates that didn't receive any vote.
         #' It's used for handling border cases and optimizing.
         empty_candidates = integer(0),
 
-        #' @field been_computed Boolean that determines if the EM-algorithm have been computed.
+        #' @keywords internal been_computed Boolean that determines if the EM-algorithm have been computed.
         been_computed = FALSE,
 
-        #' @field hr_samples The samples used on the computation of the EM-algorithm under the Hit and Run method.
+        #' @keywords internal hr_samples The samples used on the computation of the EM-algorithm under the Hit and Run method.
         hr_samples = 0,
 
-        #' @field hr_step_size The step size used on the computation of the EM-algorithm under the Hit and Run method.
+        #' @keywords internal hr_step_size The step size used on the computation of the EM-algorithm under the Hit and Run method.
         hr_step_size = 0,
 
-        #' @field mvn_method Save the method used to calculate the multivariate normal cdf.
+        #' @keywords internal mvn_method Save the method used to calculate the multivariate normal cdf.
         mvn_method = "Genz2",
 
-        #' @field mvn_error Saves the error used for estimating the Montecarlo simulation of the multivariate normal cdf.
+        #' @keywords internal mvn_error Saves the error used for estimating the Montecarlo simulation of the multivariate normal cdf.
         mvn_error = 0.000001,
 
-        #' @field mvn_iterations Saves the maximum iterations made to estimate the Montecarlo simulation of the
+        #' @keywords internal mvn_iterations Saves the maximum iterations made to estimate the Montecarlo simulation of the
         #' multivariate normal cdf.
         mvn_iterations = 5000,
 
@@ -527,10 +530,10 @@ EMModel <- R6Class("ecological_inference_model",
 #' main details of the object. Additional parameters are shown depending on the state of
 #' the object (computed/uncomputed).
 #'
-#' @inheritParams ecological_inference_model$compute  # Inherit params from compute()
+#' @inheritParams rxg$compute  # Inherit params from compute()
 #' @export
-#' @method summary ecological_inference_model
-summary.ecological_inference_model <- function(object, ...) {
+#' @method summary rxg
+summary.rxg <- function(object, ...) {
     object$summary()
 }
 
@@ -541,11 +544,11 @@ summary.ecological_inference_model <- function(object, ...) {
 #' to object$compute method for more information about its function and parameters. However
 #' it will esentially trigger the EM algorithm.
 #'
-#' @inheritParams ecological_inference_model$compute  # Inherit params from compute()
+#' @inheritParams rxg$compute  # Inherit params from compute()
 #' @return A matrix of estimated probabilities.
 #' @export
-#' @method predict ecological_inference_model
-predict.ecological_inference_model <- function(object, ...) {
+#' @method predict rxg
+predict.rxg <- function(object, ...) {
     params <- list(...)
     do.call(object$compute, params) # Calls compute() with the right arguments
     return(object$probability)
@@ -556,12 +559,11 @@ predict.ecological_inference_model <- function(object, ...) {
 #' Extracts the probability matrix from the model, making it able to manipulate it as
 #' a matrix
 #'
-#' @param object An `ecological_inference_model` object.
-#' @param ... Additional arguments (ignored).
+#' @inheritParams EMModel$compute  # Inherit docs from compute()
 #' @return A matrix containing the estimated probabilities.
 #' @export
-#' @method as.matrix ecological_inference_model
-as.matrix.ecological_inference_model <- function(object, ...) {
+#' @method as.matrix rxg
+as.matrix.rxg <- function(object, ...) {
     if (is.null(object$probability)) {
         stop(paste0("Probability matrix not available. Run compute() or ", object, "$compute() first."))
     }
@@ -573,12 +575,12 @@ as.matrix.ecological_inference_model <- function(object, ...) {
 #' This function updates an object with a new Expected Maximization computation
 #' with other parameters.
 #'
-#' @param object An `ecological_inference_model` object.
+#' @param object An `rxg` object.
 #' @param ... New parameters to pass to `compute()`.
 #' @return The updated object.
 #' @export
-#' @method update ecological_inference_model
-update.ecological_inference_model <- function(object, ...) {
+#' @method update rxg
+update.rxg <- function(object, ...) {
     params <- list(...)
 
     # Ensure the model has been computed before updating
@@ -598,11 +600,11 @@ update.ecological_inference_model <- function(object, ...) {
 #' Given a initialized object, it returns the amount of candidates that it has. It's equivalent
 #' of running ncol(object$X).
 #'
-#' @param object An `ecological_inference_model` object.
+#' @param object An `rxg` object.
 #' @return The amount of candidates.
 #' @export
-#' @method candidates ecological_inference_model
-candidates.ecological_inference_model <- function(object) {
+#' @method candidates rxg
+candidates.rxg <- function(object) {
     # Ensure the model has been computed before updating
     if (is.null(object$X)) stop("The object must be initialized.")
 
@@ -615,11 +617,11 @@ candidates.ecological_inference_model <- function(object) {
 #' Given a initialized object, it returns the amount of candidates that it has. It's equivalent
 #' of running ncol(object$W).
 #'
-#' @param object An `ecological_inference_model` object.
+#' @param object An `rxg` object.
 #' @return The amount of groups.
 #' @export
-#' @method candidates ecological_inference_model
-groups.ecological_inference_model <- function(object) {
+#' @method grouops rxg
+groups.rxg <- function(object) {
     # Ensure the model has been computed before updating
     if (is.null(object$W)) stop("The object must be initialized.")
 
@@ -631,11 +633,11 @@ groups.ecological_inference_model <- function(object) {
 #' Given a initialized object, it returns the amount of ballot boxes it has. It's equivalent
 #' of running nrow(object$W) or nrow(object$X).
 #'
-#' @param object An `ecological_inference_model` object.
+#' @param object An `rxg` object.
 #' @return The amount of ballots.
 #' @export
-#' @method candidates ecological_inference_model
-ballots.ecological_inference_model <- function(object) {
+#' @method ballots rxg
+ballots.rxg <- function(object) {
     # Ensure the model has been computed before updating
     if (is.null(object$W)) stop("The object must be initialized.")
 
@@ -647,11 +649,11 @@ ballots.ecological_inference_model <- function(object) {
 #' Given a initialized object, it returns the total amount of voters. It's equivalent
 #' of running sum(object$W) or sum(object$X)
 #'
-#' @param object An `ecological_inference_model` object.
+#' @param object An `rxg` object.
 #' @return The amount of voters.
 #' @export
-#' @method candidates ecological_inference_model
-sum.ecological_inference_model <- function(object) {
+#' @method sum rxg
+sum.rxg <- function(object) {
     # Ensure the model has been computed before updating
     if (is.null(object$W)) stop("The object must be initialized.")
 

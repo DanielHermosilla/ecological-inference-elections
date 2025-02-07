@@ -7,7 +7,9 @@ PKG_LIBS = $(SHLIB_OPENMP_CFLAGS) $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)
 
 # macOS-specific settings
 ifeq ($(shell uname -s), Darwin)
-    PKG_CFLAGS += -Xpreprocessor -fopenmp
-    PKG_CXXFLAGS += -Xpreprocessor -fopenmp
     PKG_LIBS += -lomp
 endif
+
+# Remap the current directory to a dot so that absolute paths are replaced
+CFLAGS += -fdebug-prefix-map=$(CURDIR)=.
+CXXFLAGS += -fdebug-prefix-map=$(CURDIR)=.

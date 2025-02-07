@@ -6,9 +6,13 @@ Author: Charles Thraves, Pablo Ubilla, Daniel Hermosilla
 Maintainer: Daniel Hermosilla <daniel.hermosilla.r@uchile.cl>
 Description: A package to implement the RxG ecological inference algorithms as exposed in Thraves, C and Ubilla, P paper.
 License: MIT
+Encoding: UTF-8
 LinkingTo: Rcpp
 Imports: 
 	Rcpp,
 	jsonlite,
-	R6
-
+	R6,
+	devtools,
+	roxygen2
+Roxygen: list(load = "source")
+RoxygenNote: 7.3.2
