@@ -14,5 +14,5 @@ Imports:
 	R6,
 	devtools,
 	roxygen2
-Roxygen: list(markdown = TRUE, load = "source", r6 = TRUE)
+Roxygen: list(load = "source")
 RoxygenNote: 7.3.2
