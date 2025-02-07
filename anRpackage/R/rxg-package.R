@@ -1,52 +1,65 @@
-#' @keywords internal
-#' @references Check "Thraves, C. and Ubilla, P.: 'Fast Ecological Inference Algorithm for the R×C Case" for a detailed description of the package
-
-# dyn.load("src/infPackage.so")
-# library(infPackage)
-# library(jsonlite)
-# library(R6)
-
-
-# TODO: ADD A SUMMARY METHOD
-
-#' rxc: An R6 Class for estimating an RxC matrix from a ecological inference problem.
+#' An R6 Class for estimating an RxC matrix from an ecological inference problem.
 #'
-#' This class implements an EM algorithm using different methods for approximating the E-step such as "Multinomial",
-#' 		"Hit and Run", "MVN CDF", "MVN PDF", and "Exact".
+#' @description This class implements an EM algorithm using different methods for approximating the E-step such as "Multinomial",
+#' "Hit and Run", "MVN CDF", "MVN PDF", and "Exact".
 #'
-#' @docType class
+#'
+#' @param X (matrix) A (b x c) matrix with the observed results of the candidate votes (c) on a given
+#' 		ballot box (b). Provided manually or loaded from JSON.
+#'
+#' @param W (matrix) A (b x g) matrix with the observed results of the demographical group votes (g) on
+#' 		a given ballot box (b). Provided manually or loaded from JSON.
+#'
+#' @param method (character) A string indicating the EM method. One of: "Multinomial", "Hit and Run", "MVN CDF",
+#' 		"MVN PDF", "Exact".
+#'
+#' @param probability (matrix) A (g x c) matrix that would store the final estimated probabilities of having
+#' 		a given group (g) voting for a candidate (c).
+#'
+#' @param logLikelihood (numeric) A numeric vector that will store the log-likelihood values among the total
+#' 		iterations of the Expected Maximization algorithm.
+#'
+#' @param total_iterations (integer(1)) An integer indicating the total iterations that the Expected Maximization
+#' 		algorithm did.
+#'
+#' @param total_time (numeric(1)) The time that the EM algorithm took.
+#'
+#' @return The object
+#'
 #' @importFrom R6 R6Class
 #' @export
-rxc <- R6Class("rxg",
+rxc <- R6::R6Class("rxc",
     public = list(
 
-        #' @field X A (b x c) matrix with the observed results of the candidate votes (c) on a given
+        #' @field X (matrix) A (b x c) matrix with the observed results of the candidate votes (c) on a given
         #' 		ballot box (b). Provided manually or loaded from JSON.
         X = NULL,
 
-        #' @field W A (b x g) matrix with the observed results of the demographical group votes (g) on
+        #' @field W (matrix) A (b x g) matrix with the observed results of the demographical group votes (g) on
         #' 		a given ballot box (b). Provided manually or loaded from JSON.
         W = NULL,
 
-        #' @field method A string indicating the EM method. One of: "Multinomial", "Hit and Run", "MVN CDF",
+        #' @field method (character) A string indicating the EM method. One of: "Multinomial", "Hit and Run", "MVN CDF",
         #' 		"MVN PDF", "Exact".
         method = NULL,
 
-        #' @field probability A (g x c) matrix that would store the final estimated probabilities of having
+        #' @field probability (matrix) A (g x c) matrix that would store the final estimated probabilities of having
         #' 		a given group (g) voting for a candidate (c).
         probability = NULL,
 
-        #' @field logLikelihood A numeric vector that will store the log-likelihood values among the total
+        #' @field logLikelihood (numeric) A numeric vector that will store the log-likelihood values among the total
         #' 		iterations of the Expected Maximization algorithm.
         logLikelihood = NULL,
 
-        #' @field total_iterations An integer indicating the total iterations that the Expected Maximization
+        #' @field total_iterations (integer(1)) An integer indicating the total iterations that the Expected Maximization
         #' 		algorithm did.
         total_iterations = NULL,
 
-        #' @field total_time The time that the EM algorithm took.
+        #' @field total_time (numeric(1)) The time that the EM algorithm took.
         total_time = NULL,
 
+        #' @name rxc$initialize
+        #'
         #' Constructor for the rxc class.
         #'
         #' @description
@@ -54,22 +67,22 @@ rxc <- R6Class("rxg",
         #'
         #' @details
         #' Creates the object by defining the candidate (X) and group (W) matrix. Aditionally, checks if the candidate matrix contains
-        #' 		`empty candidates` (candidates that didn't receive any votes across all ballot boxes). Finally, sends the parameters to
+        #' 		empty candidates (candidates that didn't receive any votes across all ballot boxes). Finally, sends the parameters to
         #' 		C's internal code and start computing global variables. It's possible to read the matrices from a JSON file too.
         #'
-        #' @param X A matrix (c x b) of observed candidates (c) votes per ballot boxes (b) (optional, required if `json_path` is NULL).
+        #' @param X (matrix) A matrix (c x b) of observed candidates (c) votes per ballot boxes (b) (optional, required if json_path is NULL).
         #'
-        #' @param W A matrix (b x g) of observed demographic (g) group votes per ballot boxes (b) (optional, required if `json_path` is NULL).
+        #' @param W (matrix) A matrix (b x g) of observed demographic (g) group votes per ballot boxes (b) (optional, required if json_path is NULL).
         #'
-        #' @param json_path A string containing a path to a JSON file with `"X"` and `"W"` matrices. (optional, required if `X` or `W` are NULL)
+        #' @param json_path (character) A string containing a path to a JSON file with "X" and "W" matrices. (optional, required if X or W are NULL)
         #'
         #' @return An initialized rxc object.
         #'
         #' @examples
-        #' # Example 1: Create a `rxc` object from a matrix
+        #' # Example 1: Create a rxc object from a matrix
         #' model <- rxc$new(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3))
         #'
-        #' # Example 2: Create a `rxc` object from a JSON file
+        #' # Example 2: Create a rxc object from a JSON file
         #' \dontrun{
         #' model2 <- rxc$new(json_path = "a/file/path/to/a/file.json")
         #' 	}
@@ -109,28 +122,38 @@ rxc <- R6Class("rxg",
         #' Precompute iteration-independent variables that can be reused for optimizing the algorithm.
         #'
         #' @description
-        #' Calculates the EM-independent variables for the `Hit and Run` and `Exact` method.
+        #' Calculates the EM-independent variables for the Hit and Run and Exact method.
         #'
         #' @details
         #' The Hit and Run and Exact method offers some calculations that doesn't depend on the current EM iteration, nor
         #' 		any unseen probability. Hence, calling this method would precompute the reusable values before calling the
         #' 		main computation. The main computation would run the precomputation if this method haven't been called.
         #'
-        #' @param method A string containing the method to precompute. Options: "Exact", "Hit and Run"
+        #' @param method (character) A string containing the method to precompute. Options: "Exact", "Hit and Run"
         #'
         #' @param ... Additional arguments required by specific methods:
         #'   \itemize{
         #'     \item **"Hit and Run" Method:**
         #'       \itemize{
-        #'         \item `step_size` The step size (`M`) for the Hit and Run algorithm. Must be a positive integer.
-        #'         \item `samples` The number of samples (`S`) to generate. Must be a integer
+        #'         \item step_size The step size (M) for the Hit and Run algorithm. Must be a positive integer.
+        #'         \item samples The number of samples (S) to generate. Must be a integer
         #'       }
         #'   }
         #'
         #' @note The method attribute wont be updated, since the main computation haven't been called and it's possible (but weird) that the
         #' 		user may want to run another method even if the precomputation was made.
         #'
-        #' @return Updates are made on the C internal memory.
+        #' @return The modified rxc object (for method chaining). Updates are made on the C internal memory.
+        #'
+        #' @examples
+        #' # Example 1: Precompute the Hit and Run method
+        #' model <- rxc$new(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3))
+        #' model$precompute("Hit and Run", step_size = 1000, samples = 5000) # Changes are made on C internals API
+        #'
+        #' # Example 2: Precompute the Exact method
+        #' model$precompute("Exact")
+        #'
+        #' @export
         precompute = function(method, ...) {
             params <- list(...)
 
@@ -176,38 +199,36 @@ rxc <- R6Class("rxg",
             invisible(self)
         },
 
-        #' @name rxc$compute
-        #'
         #' Runs the EM algorithm and stores the results.
         #'
         #' @description Executes the Expectation-Maximization (EM) algorithm based on the selected method.
         #' 		Additional parameters may be required depending on the method.
         #'
-        #' @param main_method The method for estimating the Expectation-Maximization (EM) algorithm. Options:
+        #' @param main_method (character) The method for estimating the Expectation-Maximization (EM) algorithm. Options:
         #' 		"Multinomial", "MVN CDF", "MVN PDF", "Hit and Run" and "Exact" (default: "Multinomial").
         #'
-        #' @param probability_method The method for obtaining the initial probability. Options: "Group proportional",
+        #' @param probability_method (character) The method for obtaining the initial probability. Options: "Group proportional",
         #' 		"Proportional", "Uniform". (default: "Group proportional").
         #'
-        #' @param iterations The maximum amount of iterations to perform on the EM algorithm. (default: 1000).
+        #' @param iterations (integer(1)) The maximum amount of iterations to perform on the EM algorithm. (default: 1000).
         #'
-        #' @param stopping_threshold The minimum difference between consequent probabilities for stopping the iterations.
+        #' @param stopping_threshold (numeric(1)) The minimum difference between consequent probabilities for stopping the iterations.
         #' 		(default: 0.001).
         #'
-        #' @param verbose Boolean indicating wether to print useful messages while iterating. (default: FALSE).
+        #' @param verbose (boolean(1)) Boolean indicating wether to print useful messages while iterating. (default: FALSE).
         #'
         #' @param ... Additional arguments required by specific methods:
         #'   \itemize{
         #'     \item **"Hit and Run" Method:**
         #'       \itemize{
-        #'         \item `step_size` (Integer): The step size (`M`) for the Hit and Run algorithm.
-        #'         \item `samples` (Integer): The number of samples (`S`) to generate.
+        #'         \item step_size (Integer): The step size (M) for the Hit and Run algorithm.
+        #'         \item samples (Integer): The number of samples (S) to generate.
         #'       }
         #'     \item **"MVN CDF" Method:**
         #'       \itemize{
-        #'         \item `multivariate_method` (Character): The integration method. Default is `"Genz2"`.
-        #'         \item `multivariate_error` (Numeric): The integration error threshold. Default is `1e-6`.
-        #'         \item `multivariate_iterations` (Integer): The number of Monte Carlo iterations. Default is `5000`.
+        #'         \item multivariate_method (Character): The integration method. Default is "Genz2".
+        #'         \item multivariate_error (Numeric): The integration error threshold. Default is 1e-6.
+        #'         \item multivariate_iterations (Integer): The number of Monte Carlo iterations. Default is 5000.
         #'       }
         #'   }'
         #'
@@ -215,7 +236,7 @@ rxc <- R6Class("rxg",
         #'
         #' @examples
         #' # Example 1: Compute the Expected Maximization with default values
-        #' model <- EMModel$new(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3))
+        #' model <- rxc$new(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3))
         #' model$compute() # Retrieves the object with updated attributes
         #'
         #' # Example 2: Compute the Expected Maximization for the Hit and Run method
@@ -225,13 +246,13 @@ rxc <- R6Class("rxg",
         #'
         #' # Example 3: Omit arguments to the Hit and Run method
         #' \dontrun{
-        #' 		model$compute(main_method = "Hit and Run", step_size = 3000) # -> Error x; must hand in `samples` parameter too
+        #' 		model$compute(main_method = "Hit and Run", step_size = 3000) # -> Error x; must hand in samples parameter too
         #' 		}
         #'
         #' # Example 4: Run the MVN CDF with default values
         #' model$compute(main_method = "MVN CDF")
         #'
-        #' # Example 5: Run a `Exact` estimation with user defined parameters
+        #' # Example 5: Run a Exact estimation with user defined parameters
         #' model$compute(main_method = "Exact", probability_method = "Uniform", iterations = 5, stopping_threshold = 1e-3) # Verbose was omitted
         #'
         #' @export
@@ -369,12 +390,12 @@ rxc <- R6Class("rxg",
         #'
         #' @return The own object for method chaining.
         #'
-        #' @example
-        #' model <- EMModel$new(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3))
-        #' print(model) # Will print the `X` and `W` matrix.
+        #' @examples
+        #' model <- rxc$new(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3))
+        #' print(model) # Will print the X and W matrix.
         #'
         #' model$compute()
-        #' print(model) # Will print the `X`and `W` matrix among the EM results.
+        #' print(model) # Will print the Xand W matrix among the EM results.
         #'
         #' @export
         print = function() {
@@ -400,64 +421,60 @@ rxc <- R6Class("rxg",
             invisible(self)
         },
 
-        #' @name rxc$summary
-        #'
         #' Returns a list with relevant attributes.
         #'
         #' @description Shows, in form of a list, a selection of the most important atributes. It'll retrieve
         #' 		the method, amount of candidates, ballots and groups and the principal resuls of the EM algorithm.
         #'
-		#' @return A list with the method, candidates, ballots, group, probabilities and log-likelihood.
-		#'
-		#' @example
-		#' model <- EMModel$new(X = matrix(1:15, 5, 3), W = matrix(1:10, 2, 5))
-		#' a_list <- summary(model)
-		#' a_list$method # Not computed yet
-		#' a_list$groups # 2
-		#' a_list$ballots # 5
-		#' names(a_list) # "candidates" "groups" "ballots" "method" "probabilities" "logLikelihood"
-		#'
-		#' @export
+        #' @return (list) A list with the method, candidates, ballots, group, probabilities and log-likelihood.
+        #'
+        #' @examples
+        #' model <- rxc$new(X = matrix(1:15, 5, 3), W = matrix(1:10, 2, 5))
+        #' a_list <- model$summary()
+        #' a_list$method # Not computed yet
+        #' a_list$groups # 2
+        #' a_list$ballots # 5
+        #' names(a_list) # "candidates" "groups" "ballots" "method" "probabilities" "logLikelihood"
+        #'
+        #' @export
         summary = function() {
             list(
                 candidates = nrow(self$X),
-				groups = ncol(self$W),
+                groups = ncol(self$W),
                 ballots = ncol(self$X),
-				method = if (!is.null(self$method)) else "Not computed yet",
+                method = if (!is.null(self$method)) self$method else "Not computed yet",
                 probabilities = if (!is.null(self$probability)) head(self$probability, 5) else "Not computed yet",
                 logLikelihood = if (!is.null(self$logLikelihood)) tail(self$logLikelihood, 5) else "Not computed yet"
             )
         },
 
-        #' @name rxc$save_results
-		#'
-		#' Save the model results to a file. 
+        #' Save the model results to a file.
         #'
-        #' @description Saves the current `EMModel` object to a specified file. The results can be saved in:
+        #' @description Saves the current rxc object to a specified file. The results can be saved in:
         #'   \itemize{
         #'     \item **RDS (Binary format)**: Preserves object structure for future use in R.
         #'     \item **JSON**: Saves model data in a human-readable format.
         #'     \item **CSV**: Saves probability matrix in a tabular format.
         #'   }
         #'
-        #' @param filename The file name where the results should be saved with its extension.
+        #' @param filename (character) The file name where the results should be saved with its extension.
         #'   The file extension determines the format:
         #'   \itemize{
-        #'     \item `*.rds` → Saves as **RDS** (default, binary format).
-        #'     \item `*.json` → Saves as **JSON** (readable and shareable).
-        #'     \item `*.csv` → Saves the **final probability matrix** as CSV.
+        #'     \item *.rds → Saves as **RDS** (default, binary format).
+        #'     \item *.json → Saves as **JSON** (readable and shareable).
+        #'     \item *.csv → Saves the **final probability matrix** as CSV.
         #'   }
         #'
-        #' @return The modified `rxc` object (for method chaining).
+        #' @return The modified rxc object (for method chaining).
         #'
         #' @examples
-        #' model <- EMModel$new(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3), method = "Multinomial")
+        #' model <- rxc$new(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3), method = "Multinomial")
         #' model$computeEM()
         #' model$save_results("results.rds")  # Save as RDS
         #' model$save_results("results.json") # Save as JSON
         #' model$save_results("results.csv")  # Save final probability as CSV
-		#'
-		#' @export
+        #'
+        #' @export
         save_results = function(filename) {
             # Ensure filename is valid
             if (!is.character(filename) || length(filename) != 1) {
@@ -493,7 +510,7 @@ rxc <- R6Class("rxg",
         }
     ),
     active = list(
-        #' @field samples Active variable to show the Hit and Run samples if and only if self$method is "Hit and Run"
+        #' @field samples (integer(1)) Active variable to show the Hit and Run samples if and only if self$method is "Hit and Run"
         samples = function() {
             if (self$method == "Hit and Run") {
                 # It could be the case that the Hit and Run method was ran before, but later another
@@ -504,7 +521,7 @@ rxc <- R6Class("rxg",
             }
         },
 
-        #' @field step_size Active variable to show the Hit and Run step size if and only if self$method is "Hit and Run"
+        #' @field step_size (integer(1)) Active variable to show the Hit and Run step size if and only if self$method is "Hit and Run"
         step_size = function() {
             if (self$method == "Hit and Run") {
                 # It could be the case that the Hit and Run method was ran before, but later another
@@ -515,8 +532,8 @@ rxc <- R6Class("rxg",
             }
         },
 
-        #' @field multivariate_method Active variable to show the method used to estimate the Multivariate
-        #' Normal CDF, if and only if self$method is "MVN CDF"
+        #' @field multivariate_method (character) Active variable to show the method used to estimate the Multivariate
+        #' 		Normal CDF, if and only if self$method is "MVN CDF"
         multivariate_method = function() {
             if (self$method == "MVN CDF") {
                 return(private$mvn_method)
@@ -525,8 +542,8 @@ rxc <- R6Class("rxg",
             }
         },
 
-        #' @field multivariate_error Active variable to show the error threshold for the Montecarlo simulation of the
-        #' Multivariate Normal CDF
+        #' @field multivariate_error (numeric(1)) Active variable to show the error threshold for the Montecarlo simulation of the
+        #' 		Multivariate Normal CDF
         multivariate_error = function() {
             if (self$method == "MVN CDF") {
                 return(private$mvn_error)
@@ -535,8 +552,8 @@ rxc <- R6Class("rxg",
             }
         },
 
-        #' @field multivariate_error Active variable to show the error threshold for the Montecarlo simulation of the
-        #' Multivariate Normal CDF
+        #' @field multivariate_error (numeric(1)) Active variable to show the error threshold for the Montecarlo simulation of the
+        #' 		Multivariate Normal CDF
         multivariate_iterations = function() {
             if (self$method == "MVN CDF") {
                 return(private$mvn_iterations)
@@ -585,8 +602,7 @@ rxc <- R6Class("rxg",
         #' reused for the object instance. It's used for avoiding memory leaks due to the C behavior.
         #'
         #' @note For having the finalizer on the private access, R6 must be >= 2.4.0.
-		#'
-		#' @noRd
+        #'
         finalize = function() {
             if (private$been_precomputed_exact) {
                 clean_exact_precompute()
@@ -603,44 +619,107 @@ rxc <- R6Class("rxg",
 
 #' Summarize the object main attributes.
 #'
-#' This method is an S3 styled wrapper around `summary()`, allowing to get, as a list, the
-#' main details of the object. Additional parameters are shown depending on the state of
-#' the object (computed/uncomputed).
+#' Return a list with the principal attributes
 #'
-#' @inheritParams rxc$compute  # Inherit params from compute()
+#' @description This method is an S3 styled wrapper around summary(), allowing to get, as a list,
+#' 		the main details of the object. Additional parameters are shown depending on the state of
+#' 		the object (computed/uncomputed).
+#'
+#' @param A rxc object
+#'
+#' @return (list) A list with the principal attributes
+#'
+#' @examples
+
+#' model <- rxc$new(X = matrix(1:15, 5, 3), W = matrix(1:10, 2, 5))
+#' a_list <- summary(model)
+#' a_list$method # Not computed yet
+#' a_list$groups # 2
+#' a_list$ballots # 5
+#' names(a_list) # "candidates" "groups" "ballots" "method" "probabilities" "logLikelihood"
+#'
+
+
 #' @export
-#' @method summary rxc
-summary.rxc <- function(object, ...) {
+summary.rxc <- function(object) {
     object$summary()
 }
 
-#' Predict Probability using an EM Model
+#' Predict the R x C probability using an EM Model
 #'
-#' This method is a wrapper around `compute()`, allowing prediction of probabilities
-#' based on specified parameters. The results are stored in `object$probability`. Refer
-#' to object$compute method for more information about its function and parameters. However
-#' it will esentially trigger the EM algorithm.
+#' Given the parameters of an Expected Maximization, computes and updates the results of the
+#' 		input algorithm.
 #'
-#' @inheritParams rxc$compute  # Inherit params from compute()
-#' @return A matrix of estimated probabilities.
+#' @description This method is a wrapper around compute(), allowing prediction of probabilities
+#' 		based on specified parameters. The results are stored in object$probability. Refer
+#' 		to object$compute method for more information about its function and parameters. However
+#' 		it will esentially trigger the EM algorithm.
+#'
+#' @param object An rxc object
+#'
+#' @param ... Additional arguments required by specific methods:
+#'   \itemize{
+#' 		\item main_method (character) The method for estimating the Expectation-Maximization (EM) algorithm. Options:
+#' 			"Multinomial", "MVN CDF", "MVN PDF", "Hit and Run" and "Exact" (default: "Multinomial").
+#'
+#' 		\item probability_method (character) The method for obtaining the initial probability. Options:
+#' 			"Group proportional", "Proportional", "Uniform". (default: "Group proportional").
+#'
+#' 		\item iterations (integer(1)) The maximum amount of iterations to perform on the EM algorithm. (default: 1000).
+#'
+#' 		\item stopping_threshold (numeric(1)) The minimum difference between consequent probabilities for stopping the
+#' 			iterations (default: 0.001).
+#'
+#' 		\item verbose (boolean(1)) Boolean indicating wether to print useful messages while iterating. (default: FALSE).
+#'
+#'     \item **"Hit and Run" Method:**
+#'       \itemize{
+#'         \item step_size (Integer): The step size (M) for the Hit and Run algorithm.
+#'         \item samples (Integer): The number of samples (S) to generate.
+#'       }
+#'     \item **"MVN CDF" Method:**
+#'       \itemize{
+#'         \item multivariate_method (Character): The integration method. Default is "Genz2".
+#'         \item multivariate_error (Numeric): The integration error threshold. Default is 1e-6.
+#'         \item multivariate_iterations (Integer): The number of Monte Carlo iterations. Default is 5000.
+#'       }
+#'   }
+#'
+#'
+#' @return (matrix) A matrix of estimated probabilities.
+#'
+#' @examples
+#' # Example 1: Predict the Hit and Run method
+#' model <- rxc$new(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3))
+#' predict(model, "Hit and Run", step_size = 1000, samples = 5000) # Returns the matrix of probabilities
+#' nrow(model) # 3
+#'
+#' # Example 2:  Predict the Exact method
+#' predict(model, "Exact")
+#'
 #' @export
-#' @method predict rxc
 predict.rxc <- function(object, ...) {
     params <- list(...)
     do.call(object$compute, params) # Calls compute() with the right arguments
     return(object$probability)
 }
 
-#' Convert EMModel Object to a Probability Matrix
+#' Returns the rxc model's probability matrix.
 #'
 #' Extracts the probability matrix from the model, making it able to manipulate it as
-#' a matrix
+#' 		a matrix
 #'
-#' @inheritParams EMModel$compute  # Inherit docs from compute()
-#' @return A matrix containing the estimated probabilities.
+#' @param object
+#'
+#' @return (matrix) A matrix containing the estimated probabilities.
+#'
+#' @examples
+#' model <- rxc$new(X = matrix(1:15, 5, 3), W = matrix(1:50, 5, 10))
+#' predict(model)
+#' ncol(as.matrix(model)) # Returns the column of probabilities
+#'
 #' @export
-#' @method as.matrix rxc
-as.matrix.rxc <- function(object, ...) {
+as.matrix.rxc <- function(object) {
     if (is.null(object$probability)) {
         stop(paste0("Probability matrix not available. Run compute() or ", object, "$compute() first."))
     }
@@ -650,13 +729,21 @@ as.matrix.rxc <- function(object, ...) {
 #' Update an existing rxc model with a new EM algorithm computation
 #'
 #' This function updates an object with a new Expected Maximization computation
-#' with other parameters.
+#' 		with other parameters.
 #'
-#' @param object An `rxc` object.
-#' @param ... New parameters to pass to `compute()`.
-#' @return The updated object.
+#' @param object An rxc object.
+#'
+#' @param ... New parameters to pass to compute().
+#'
+#' @return Changes made on the updated object.
+#'
+#' @examples
+#' model <- rxc$new(X = matrix(1:15, 5, 3), W = matrix(1:50, 5, 10))
+#' predict(model)
+#' update(model, "MVN PDF")
+#' model$method # Returns 'MVN PDF'
+#'
 #' @export
-#' @method update rxc
 update.rxc <- function(object, ...) {
     params <- list(...)
 
@@ -675,12 +762,19 @@ update.rxc <- function(object, ...) {
 #' Returns the current amount of candidates.
 #'
 #' Given a initialized object, it returns the amount of candidates that it has. It's equivalent
-#' of running ncol(object$X).
+#' 		of running ncol(object$X).
 #'
-#' @param object An `rxc` object.
-#' @return The amount of candidates.
-#' @export
+#' @param object An rxc object.
+#'
+#' @return (integer(1)) The amount of candidates.
+#'
+#' @examples
+#' model <- rxc$new(X = matrix(1:15, 5, 3), W = matrix(1:50, 5, 10))
+#' candidates(model) # 3
+#'
 #' @method candidates rxc
+#'
+#' @export
 candidates.rxc <- function(object) {
     # Ensure the model has been computed before updating
     if (is.null(object$X)) stop("The object must be initialized.")
@@ -692,12 +786,19 @@ candidates.rxc <- function(object) {
 #' Returns the current amount of groups.
 #'
 #' Given a initialized object, it returns the amount of candidates that it has. It's equivalent
-#' of running ncol(object$W).
+#' 		of running ncol(object$W).
 #'
-#' @param object An `rxc` object.
-#' @return The amount of groups.
-#' @export
+#' @param object An rxc object.
+#'
+#' @return (integer(1)) The amount of groups.
+#'
+#' @examples
+#' model <- rxc$new(X = matrix(1:15, 5, 3), W = matrix(1:50, 5, 10))
+#' groups(model) # 10
+#'
 #' @method grouops rxc
+#'
+#' @export
 groups.rxc <- function(object) {
     # Ensure the model has been computed before updating
     if (is.null(object$W)) stop("The object must be initialized.")
@@ -708,12 +809,19 @@ groups.rxc <- function(object) {
 #' Returns the current amount of ballots boxes.
 #'
 #' Given a initialized object, it returns the amount of ballot boxes it has. It's equivalent
-#' of running nrow(object$W) or nrow(object$X).
+#' 		of running nrow(object$W) or nrow(object$X).
 #'
-#' @param object An `rxc` object.
-#' @return The amount of ballots.
-#' @export
+#' @param object An rxc object.
+#'
+#' @return (integer(1)) The amount of ballots.
+#'
+#' @examples
+#' model <- rxc$new(X = matrix(1:15, 5, 3), W = matrix(1:50, 5, 10))
+#' ballots(model) # 5
+#'
 #' @method ballots rxc
+#'
+#' @export
 ballots.rxc <- function(object) {
     # Ensure the model has been computed before updating
     if (is.null(object$W)) stop("The object must be initialized.")
@@ -724,12 +832,17 @@ ballots.rxc <- function(object) {
 #' Returns the total amount of voters in the system.
 #'
 #' Given a initialized object, it returns the total amount of voters. It's equivalent
-#' of running sum(object$W) or sum(object$X)
+#' 		of running sum(object$W) or sum(object$X)
 #'
-#' @param object An `rxc` object.
+#' @param object An rxc object.
+#'
 #' @return The amount of voters.
+#'
+#' @examples
+#' model <- rxc$new(X = matrix(1:15, 5, 3), W = matrix(1:50, 5, 10))
+#' sum(model) # 1395
+#'
 #' @export
-#' @method sum rxc
 sum.rxc <- function(object) {
     # Ensure the model has been computed before updating
     if (is.null(object$W)) stop("The object must be initialized.")
