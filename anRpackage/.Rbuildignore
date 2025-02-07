@@ -7,3 +7,5 @@
 ^packageMaker\.sh$
 ^instances/.*$
 
+^.*\.Rproj$
+^\.Rproj\.user$
