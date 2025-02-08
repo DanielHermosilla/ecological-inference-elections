@@ -13,6 +13,6 @@
 !DESCRIPTION
 !src/
 !src/**
-.Rproj.user
-!anRpackage
-!anRpackage/**
+!infPackage2-prev/
+!infPackage2-prev/**
+

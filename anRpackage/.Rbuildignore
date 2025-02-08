@@ -1,9 +1,0 @@
-^src/.*\.(o|so|dll)$
-^\..*Rcheck$
-^\.cache$
-^R/\.lintr$
-^\.r-lsp-config\.json$
-^matTest\.sh$
-^packageMaker\.sh$
-^instances/.*$
-

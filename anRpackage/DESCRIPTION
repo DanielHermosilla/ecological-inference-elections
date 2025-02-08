@@ -8,11 +8,12 @@ Description: A package to implement the RxG ecological inference algorithms as e
 License: MIT
 Encoding: UTF-8
 LinkingTo: Rcpp
+KeepSource: yes
 Imports: 
 	Rcpp,
 	jsonlite,
 	R6,
 	devtools,
 	roxygen2
-Roxygen: list(load = "source")
+Roxygen: list(R6 = TRUE)
 RoxygenNote: 7.3.2
