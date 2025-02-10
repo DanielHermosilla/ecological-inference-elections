@@ -1,6 +1,7 @@
 #include "multinomial.h"
 #include "globals.h"
 #include <R_ext/BLAS.h>
+#include <R_ext/Memory.h>
 
 /**
  * @brief Computes the value of `r` without the denominator.
@@ -37,8 +38,7 @@ double computeR(Matrix const *probabilities, Matrix const *mult, int const b, in
  */
 double *computeQMultinomial(Matrix const *probabilities, QMethodInput params)
 {
-    double *array2 =
-        (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double)); // Array to return
+    double *array2 = (double *)Calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, double); // Array to return
 
     // -- Summatory calculation for g --
     // This is a simple matrix calculation, to be computed once.

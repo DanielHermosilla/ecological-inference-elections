@@ -1,6 +1,7 @@
 #include "multivariate-cdf.h"
-#include "R_ext/Random.h"
 #include <R.h>
+#include <R_ext/Memory.h>
+#include <R_ext/Random.h>
 #include <Rmath.h>
 #include <math.h>
 #include <omp.h>
@@ -36,7 +37,6 @@ double genzMontecarloNew(const Matrix *cholesky, const double *lowerBounds, cons
     GetRNGstate();
 
     // ---- Initialize Montecarlo variables ---- //
-    double error = epsilon + 1;
     double intsum = 0;
     double varsum = 0;
     double mean = 0;
@@ -293,8 +293,8 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
 double Montecarlo(Matrix *chol, double *mu, double *lowerLimits, double *upperLimits, int mvnDim, int maxSamples,
                   double epsilon, const char *method)
 {
-    // ---- Set up the initial parameters ---- //
-    double result, error;
+    // ---- Set up the initial parameter ---- //
+    double result;
     // ---...--- //
 
     // ---- Perform integration ---- //
@@ -310,12 +310,11 @@ double Montecarlo(Matrix *chol, double *mu, double *lowerLimits, double *upperLi
     }
     else
     {
-        fprintf(stderr,
-                "\nAn invalid method was handed to the Montecarlo simulation for calculating the Multivariate CDF "
-                "integral.\nThe method handed is:\t%s\nThe current available methods are `Genz` or `Genz2`"
-                ".\n",
-                method);
-        exit(EXIT_FAILURE);
+        error("Multivariate CDF: An invalid method was handed to the Montecarlo simulation for calculating the "
+              "Multivariate CDF "
+              "integral.\nThe method handed is:\t%s\nThe current available methods are `Genz` or `Genz2`"
+              ".\n",
+              method);
     }
     // ---...--- //
 }
@@ -337,7 +336,7 @@ void getMainParameters(int b, Matrix const probabilitiesReduced, Matrix **choles
     // --- Initialize empty array --- //
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     { // ---- For each group ----
-        cholesky[g] = (Matrix *)malloc(sizeof(Matrix));
+        cholesky[g] = (Matrix *)Calloc(1, Matrix);
         *cholesky[g] = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1); // Initialize
     }
     // ---...--- //
@@ -367,8 +366,7 @@ double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params
 
     // ---- Define initial variables ---- //
     Matrix probabilitiesReduced = removeLastColumn(probabilities);
-    double *array2 =
-        (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double)); // Array to return
+    double *array2 = (double *)Calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, double); // Array to return
 // --- ... --- //
 #pragma omp parallel for
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
@@ -376,7 +374,7 @@ double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params
         // ---- Get the values of the Multivariate CDF that only depends on `b` ---- //
         // ---- Mu and inverse Sigma matrix ----
         Matrix mu = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES - 1);
-        Matrix **choleskyVals = (Matrix **)malloc(TOTAL_GROUPS * sizeof(Matrix *));
+        Matrix **choleskyVals = (Matrix **)Calloc(TOTAL_GROUPS, Matrix *);
         getMainParameters(b, probabilitiesReduced, choleskyVals, &mu);
         // ---- Array with the results of the Xth candidate on ballot B ----
         double *feature = getColumn(X, b); // Of size C-1
@@ -398,8 +396,8 @@ double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params
 
                 // ---- Define the borders of the hypercube ---- //
                 // ---- First, make a copy of the feature vector ----
-                double *featureCopyA = (double *)malloc((TOTAL_CANDIDATES - 1) * sizeof(double));
-                double *featureCopyB = (double *)malloc((TOTAL_CANDIDATES - 1) * sizeof(double));
+                double *featureCopyA = (double *)Calloc((TOTAL_CANDIDATES - 1), double);
+                double *featureCopyB = (double *)Calloc((TOTAL_CANDIDATES - 1), double);
 
                 memcpy(featureCopyA, feature, (TOTAL_CANDIDATES - 1) * sizeof(double));
                 memcpy(featureCopyB, feature, (TOTAL_CANDIDATES - 1) * sizeof(double));
@@ -434,14 +432,14 @@ double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params
                 }
                 denominator += montecarloResults[c];
                 // TODO: Make an arena for this loop
-                free(featureCopyA);
-                free(featureCopyB);
+                Free(featureCopyA);
+                Free(featureCopyB);
                 // ---...--- //
             } // --- End c loop
-            free(currentMu);
+            Free(currentMu);
             freeMatrix(currentCholesky);
             freeMatrix(choleskyVals[g]);
-            free(choleskyVals[g]);
+            Free(choleskyVals[g]);
 
             // ---- Add the final results to the array ----//
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
@@ -452,9 +450,9 @@ double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params
             } // --- End c loop
             // ---...--- //
         } // --- End g loop
-        free(feature);
+        Free(feature);
         freeMatrix(&mu);
-        free(choleskyVals);
+        Free(choleskyVals);
     } // --- End b loop
     freeMatrix(&probabilitiesReduced);
     return array2;

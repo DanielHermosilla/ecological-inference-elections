@@ -1,3 +1,4 @@
+
 #' An R6 Class for estimating an eim matrix from an ecological inference problem.
 #'
 #' @description This class implements an EM algorithm using different methods for approximating the E-step such as "Multinomial",
@@ -10,7 +11,7 @@ eim <- R6::R6Class("eim",
 
         #' @field X (matrix) A (b x c) matrix with the observed results of the candidate votes (c) on a given
         #' ballot box (b). Provided manually or loaded from JSON.
-        X = NULL,
+		X = NULL,
 
         #' @field W (matrix) A (b x g) matrix with the observed results of the demographical group votes (g) on
         #' ballot box (b). Provided manually or loaded from JSON.
@@ -69,9 +70,9 @@ eim <- R6::R6Class("eim",
 
 			# ===== DIRECT MATRIX READING ==== #
             } else { # Case when there's no JSON path; hand matrices
-
 				# Validations
-                if (is.null(X) || is.null(W)) stop("Either provide X and W or a valid JSON path")
+                if (is.null(X) || is.null(W))
+				stop("Either provide X and W or a valid JSON path")
 				private$validate_X_W(X, W)
 
 				# Update parameters
@@ -122,11 +123,10 @@ eim <- R6::R6Class("eim",
         precompute = function(method, ...) {
             params <- list(...)
 			# Check if the method provided is valid
-			validate_methods(main_method, params)
+			private$validate_methods(method, params)
 
 			# ========= HIT AND RUN ========= #
             if (method == "Hit and Run") {
-				
 				# Define the attributes
                 private$hr_step_size <- params$step_size
                 private$hr_samples <- params$samples
@@ -137,8 +137,9 @@ eim <- R6::R6Class("eim",
                 private$been_precomputed_hr <- TRUE
 
             } 
-			# ========= EXACT ========= #
 			else if (method == "Exact") {
+			    # ========= EXACT ========= #
+				if (private$been_precomputed_exact) clean_exact_precompute()
                 message("Precomputing the Exact method")
                 RprecomputeExact()
                 private$been_precomputed_exact <- TRUE
@@ -150,8 +151,7 @@ eim <- R6::R6Class("eim",
             # It won't update the method, since the main computation haven't been called and it's possible (but weird) that the
             # user may want to run another method even if the precomputation was made.
 
-            invisible(self)
-        },
+            invisible(self)},
 
         #' @description Executes the Expectation-Maximization (EM) algorithm based on the selected method. Additional parameters may be required depending on the method.
 		#'
@@ -221,7 +221,7 @@ eim <- R6::R6Class("eim",
             params <- list(...)
 
 			# Check if the method provided is valid
-			validate_methods(main_method, params)
+			private$validate_methods(main_method, params)
 			# Define the method
             self$method <- main_method
 
@@ -308,14 +308,14 @@ eim <- R6::R6Class("eim",
                 # Insert the computed probabilities into the correct places
                 new_probability[, non_zero_cols] <- resulting_values$result
 
-                self$probability <- new_probability
+                self$probability <- as.matrix(new_probability)
             } else {
-                self$probability <- resulting_values$result
+                self$probability <- as.matrix(resulting_values$result)
             }
             # ---------- ... ---------- #
 
-            self$logLikelihood <- resulting_values$log_likelikelihood
-            self$total_iterations <- resulting_values$total_iterations
+            self$logLikelihood <- as.numeric(resulting_values$log_likelihood)
+            self$total_iterations <- as.integer(resulting_values$total_iterations)
             self$total_time <- resulting_values$total_time
             private$been_computed <- TRUE
 
@@ -338,19 +338,21 @@ eim <- R6::R6Class("eim",
             truncated_X <- (nrow(self$X) > 5 || ncol(self$X) > 5)
             truncated_W <- (nrow(self$W) > 5 || ncol(self$W) > 5)
 
-            cat("Candidate matrix (X):\n")
+            cat("Candidate matrix (X) [b x c]:\n")
             print(self$X[1:min(5, nrow(self$X)), 1:min(5, ncol(self$X))])
             if (truncated_X) cat("...\n")
 
-            cat("Group matrix (W):\n")
+            cat("Group matrix (W) [b x g]:\n")
             print(self$W[1:min(5, nrow(self$W)), 1:min(5, ncol(self$W))])
             if (truncated_W) cat("...\n")
 
             if (private$been_computed) {
+                cat("Estimated probability [g x c]:\n")
+                print(self$probability[1:min(5, nrow(self$probability)), 1:min(5, ncol(self$probability))])
                 cat("Method:\t", self$method, "\n")
                 cat("Total Iterations:\t", self$total_iterations, "\n")
                 cat("Total Time (s):\t", self$total_time, "\n")
-                cat("Estimated probability\t", self$probability, "\n")
+				cat("Log-likelihood:\t", tail(self$logLikelihood, 1))
             }
             invisible(self)
         },
@@ -373,8 +375,8 @@ eim <- R6::R6Class("eim",
                 groups = ncol(self$W),
                 ballots = ncol(self$X),
                 method = if (!is.null(self$method)) self$method else "Not computed yet",
-                probabilities = if (!is.null(self$probability)) head(self$probability, 5) else "Not computed yet",
-                logLikelihood = if (!is.null(self$logLikelihood)) tail(self$logLikelihood, 5) else "Not computed yet"
+                probabilities = if (!is.null(self$probability)) self$probability else "Not computed yet",
+                logLikelihood = if (!is.null(self$logLikelihood)) self$logLikelihood else "Not computed yet"
             )
         },
 
@@ -555,17 +557,17 @@ eim <- R6::R6Class("eim",
 
 			# ====== HIT AND RUN ======= #
 			if (method == "Hit and Run") {
-
+                tolerance <- .Machine$double.eps^0.5
 				# Check for the step size
 				if (is.null(params$step_size) 
 					|| params$step_size < 0
-					|| !is.integer(params$step_size))
+					|| abs(params$step_size %% 1) > tolerance) # Last condition: check if it has decimal part
 				stop("Hit and Run:\tA valid 'step_size' wasn't provided")
 
 				# Check for samples
                 if (is.null(params$samples) 
 					|| params$samples < 0
-					|| !is.integer(params$samples)) 
+				    || abs(params$step_size %% 1) > tolerance) # Last condition: check if it has decimal part
 				stop("Hit and Run:\tA valid 'samples' wasn't provided")
 
 				# If the EM parameters differ from the precomputed values => erase the precomputation
@@ -591,11 +593,13 @@ eim <- R6::R6Class("eim",
 					stop("MVN CDF\t: The error threshold for the Montecarlo simulation isn't valid")
 				
 				# Check if there's a multivariate iterations, otherwise, use 5000 as default
+				tolerance <- .Machine$double.eps^0.5
 				if (!is.null(params$multivariate_iterations) && 
-						(params$mvn_iterations < 0) || !is.integer(params$mvn_iterations))) {
+						(params$mvn_iterations < 0 || abs(params$mvn_iterations %% 1) > tolerance))
 					stop("MVN CDF\t: An invalid iteration parameter was handed")
-			} 
 			
+			}
+
 		},
 		# PRIVATE METHOD finalize Destructor to clean allocated memory via C routines.
 		finalize = function() {

@@ -1,10 +1,16 @@
 #include <Rcpp.h>
 #include <cstdio>
 #include <iostream>
+#include <vector>
 // Include the corrected wrapper.h
 #include "Rcpp/String.h"
 #include "main.h"
 #include "wrapper.h"
+// #include <R.h>
+// #include <R_ext/Memory.h>
+#include <R.h>
+#include <R_ext/Memory.h>
+#include <R_ext/RS.h>
 
 // [[Rcpp::export]]
 Rcpp::List EMAlgorithmAll(Rcpp::String em_method, Rcpp::String probability_method,
@@ -20,7 +26,7 @@ Rcpp::List EMAlgorithmAll(Rcpp::String em_method, Rcpp::String probability_metho
     QMethodInput inputParams = {0};
     double timeIter = 0;
     int totalIter = 0;
-    double *logLLarr = (double *)malloc(maximum_iterations[0] * sizeof(double));
+    double *logLLarr = (double *)R_alloc(maximum_iterations[0], sizeof(double));
     // ---...--- //
 
     std::string EMAlg = em_method;
@@ -30,9 +36,9 @@ Rcpp::List EMAlgorithmAll(Rcpp::String em_method, Rcpp::String probability_metho
 
     if (verbose)
     {
-        printf("\nThe calculated matrix is\n");
+        Rprintf("\nThe calculated matrix is\n");
         printMatrix(&Pnew);
-        printf("\nIt took %.5f seconds to run with a log-likelihood of %.5f.\n", timeIter, logLLarr[totalIter]);
+        Rprintf("\nIt took %.5f seconds to run with a log-likelihood of %.5f.\n", timeIter, logLLarr[totalIter - 1]);
     }
 
     // ---- Return the results ---- //
@@ -41,8 +47,7 @@ Rcpp::List EMAlgorithmAll(Rcpp::String em_method, Rcpp::String probability_metho
     freeMatrix(&Pnew);
 
     // ---- Final log-likelihood array ----
-    Rcpp::NumericVector RlogLikelihood(logLLarr, logLLarr + totalIter);
-    free(logLLarr);
+    Rcpp::NumericVector RlogLikelihood(logLLarr, logLLarr + totalIter - 1);
 
     return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = RlogLikelihood,
                               Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter);
@@ -68,7 +73,7 @@ Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method, Rcpp::IntegerVector m
 
     double timeIter = 0;
     int totalIter = 0;
-    double *logLLarr = (double *)malloc(maximum_iterations[0] * sizeof(double));
+    double *logLLarr = (double *)R_alloc(maximum_iterations[0], sizeof(double));
     // ---...--- //
 
     Matrix Pnew = EMAlgoritm(&pIn, "MVN CDF", stopping_threshold[0], maximum_iterations[0], verbose[0], &timeIter,
@@ -77,9 +82,9 @@ Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method, Rcpp::IntegerVector m
 
     if (verbose)
     {
-        printf("\nThe calculated matrix is\n");
+        Rprintf("\nThe calculated matrix is\n");
         printMatrix(&Pnew);
-        printf("\nIt took %.5f seconds to run with a log-likelihood of %.5f.\n", timeIter, logLLarr[totalIter]);
+        Rprintf("\nIt took %.5f seconds to run with a log-likelihood of %.5f.\n", timeIter, logLLarr[totalIter]);
     }
 
     // ---- Return the results ---- //
@@ -89,7 +94,6 @@ Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method, Rcpp::IntegerVector m
 
     // ---- Final log-likelihood array ----
     Rcpp::NumericVector RlogLikelihood(logLLarr, logLLarr + totalIter);
-    free(logLLarr);
 
     return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = RlogLikelihood,
                               Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter);
@@ -110,7 +114,7 @@ Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method, Rcpp::IntegerVe
     QMethodInput inputParams = {.S = samples[0], .M = step_size[0]};
     double timeIter = 0;
     int totalIter = 0;
-    double *logLLarr = (double *)malloc(maximum_iterations[0] * sizeof(double));
+    double *logLLarr = (double *)R_alloc(maximum_iterations[0], sizeof(double));
     // ---...--- //
 
     Matrix Pnew = EMAlgoritm(&pIn, "Hit and Run", stopping_threshold[0], maximum_iterations[0], verbose[0], &timeIter,
@@ -119,9 +123,9 @@ Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method, Rcpp::IntegerVe
 
     if (verbose)
     {
-        printf("\nThe calculated matrix is\n");
+        Rprintf("\nThe calculated matrix is\n");
         printMatrix(&Pnew);
-        printf("\nIt took %.5f seconds to run with a log-likelihood of %.5f.\n", timeIter, logLLarr[totalIter]);
+        Rprintf("\nIt took %.5f seconds to run with a log-likelihood of %.5f.\n", timeIter, logLLarr[totalIter]);
     }
 
     // ---- Return the results ---- //
@@ -131,7 +135,6 @@ Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method, Rcpp::IntegerVe
 
     // ---- Final log-likelihood array ----
     Rcpp::NumericVector RlogLikelihood(logLLarr, logLLarr + totalIter);
-    free(logLLarr);
 
     return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = RlogLikelihood,
                               Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter);
@@ -164,23 +167,21 @@ void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix gr
     // Check dimensions
     if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
     {
-        std::cerr << "Error: X matrix has zero dimensions!" << std::endl;
-        return;
+        Rcpp::stop("Error: X matrix has zero dimensions!");
     }
     if (group_matrix.nrow() == 0 || group_matrix.ncol() == 0)
     {
-        std::cerr << "Error: W matrix has zero dimensions!" << std::endl;
-        return;
+        Rcpp::stop("Error: W matrix has zero dimensions!");
     }
 
     // Convert to Matrix struct
     int xrows = candidate_matrix.nrow(), xcols = candidate_matrix.ncol();
-    double *ptrX = (double *)malloc(xrows * xcols * sizeof(double));
+    double *ptrX = (double *)R_alloc(xrows * xcols, sizeof(double));
     std::memcpy(ptrX, candidate_matrix.begin(), xrows * xcols * sizeof(double));
     Matrix XR = {ptrX, xrows, xcols};
 
     int wrows = group_matrix.nrow(), wcols = group_matrix.ncol();
-    double *ptrW = (double *)malloc(wrows * wcols * sizeof(double));
+    double *ptrW = (double *)R_alloc(wrows * wcols, sizeof(double));
     std::memcpy(ptrW, group_matrix.begin(), wrows * wcols * sizeof(double));
 
     Matrix WR = {ptrW, wrows, wcols};
@@ -188,28 +189,14 @@ void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix gr
     // Check pointers
     if (!XR.data || !WR.data)
     {
-        std::cerr << "Error: Matrix data pointer is NULL!" << std::endl;
-        return;
+        Rcpp::stop("Error: Couldn't allocate memory for matrices. Consider removing unused objects or calling the "
+                   "garbage collector (`gc()`)");
     }
 
     // Call C function
     setParameters(&XR, &WR);
     return;
 }
-
-/*
-void readFromFile(Rcpp::String filename)
-{
-    std::string file = filename;
-
-
-    // Case when it wants to read the matrices from a JSON file.
-    Matrix RX, RW, RP;
-    readJSONAndStoreMatrices(file.c_str(), &RW, &RX, &RP);
-    setParameters(&RX, &RW);
-    return;
-}
-*/
 
 // [[Rcpp::export]]
 void clean_exact_precompute()

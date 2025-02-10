@@ -1,5 +1,6 @@
 #include "utils_multivariate.h"
 #include <R_ext/BLAS.h>
+#include <R_ext/Memory.h>
 #include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,17 +30,14 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
     // ---- Note: Mu must be of size TOTAL_CANDIDATES-1 and sigma of size (TOTAL_CANDIDATES-1xTOTAL_CANDIDATES-1) ----
     if (probabilitiesReduced->cols != TOTAL_CANDIDATES - 1)
     {
-        fprintf(
-            stderr,
-            "The probability matrix handed should consider C-1 candidates, but it has %d columns. Consider using the "
-            "`removeLastCols()` function from matrixUtils.\n",
-            probabilitiesReduced->cols);
-        exit(EXIT_FAILURE);
+        error("Multivariate utils: The probability matrix handed should consider C-1 candidates, but it has %d "
+              "columns. Consider using the "
+              "`removeLastCols()` function from matrixUtils.\n",
+              probabilitiesReduced->cols);
     }
     if (W == NULL && X == NULL)
     {
-        fprintf(stderr, "The `w` and `x` matrices aren't defined.\n");
-        exit(EXIT_FAILURE);
+        error("Multivariate utils: The `w` and `x` matrices aren't defined.\n");
     }
     // --- ... --- //
 
@@ -122,7 +120,7 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
         }
     }
     //  ---- Free alocated memory ----
-    free(groupVotesPerBallot);
+    Free(groupVotesPerBallot);
     freeMatrix(&temp);
     freeMatrix(&diagonalVotesPerBallot);
     // --- ... --- //
@@ -151,7 +149,7 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
 void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *conditionalMu, Matrix **conditionalSigma)
 {
     // ---- Get the parameters of the unconditional probability ---- //
-    double *newMu = (double *)malloc((TOTAL_CANDIDATES - 1) * sizeof(double));
+    double *newMu = (double *)Calloc((TOTAL_CANDIDATES - 1), double);
     Matrix newSigma = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1);
     getParams(b, probabilitiesReduced, newMu, &newSigma);
     // ---- ... ----
@@ -165,16 +163,16 @@ void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *co
         }
     }
     // ---- The original mu isn't needed anymore ---- //
-    free(newMu);
+    Free(newMu);
     //  ---- ... ---- //
 
     // ---- Get the parameters for the conditional sigma ---- //
 
     // ---- Get the diagonal probabilities ----
     // ---- Create an array of size `TOTAL_GROUPS` that will store the probabilities for a given group ----
-    double **probabilitiesForG = (double **)malloc(TOTAL_GROUPS * sizeof(double *));
+    double **probabilitiesForG = (double **)Calloc(TOTAL_GROUPS, double *);
     // ---- Create an array of size `TOTAL_GROUPS` that will store diagonal matrices with the probabilities ----
-    Matrix *diagonalProbabilities = (Matrix *)malloc((TOTAL_GROUPS) * sizeof(Matrix));
+    Matrix *diagonalProbabilities = (Matrix *)Calloc((TOTAL_GROUPS), Matrix);
 
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     { // ---- For each group
@@ -186,7 +184,7 @@ void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *co
     // ---- Get the matrix multiplications ---- //
     // ---- This multiplications are esentially outer products ----
     // ---- Create an array of size `TOTAL_GROUPS` that will store each outer product ----
-    Matrix *matrixMultiplications = (Matrix *)malloc((TOTAL_GROUPS) * sizeof(Matrix));
+    Matrix *matrixMultiplications = (Matrix *)Calloc((TOTAL_GROUPS), Matrix);
 
     char trans = 'N';             // (There's no separate transpose flag in dger,
                                   //  but we keep a placeholder for clarity)
@@ -205,7 +203,7 @@ void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *co
         F77_CALL(dger)
         (&m, &n, &alpha, probabilitiesForG[g], &incx, probabilitiesForG[g], &incy, matrixMultiplications[g].data, &lda);
 
-        free(probabilitiesForG[g]);
+        Free(probabilitiesForG[g]);
     }
 
     // --- ... --- //
@@ -233,9 +231,9 @@ void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *co
         freeMatrix(&diagonalProbabilities[g]);
     }
     // ---- Free space ----
-    free(matrixMultiplications);
-    free(diagonalProbabilities);
-    free(probabilitiesForG);
+    Free(matrixMultiplications);
+    Free(diagonalProbabilities);
+    Free(probabilitiesForG);
     freeMatrix(&newSigma);
 
     // --- ... --- //

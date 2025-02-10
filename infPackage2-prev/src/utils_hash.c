@@ -1,4 +1,5 @@
 #include "utils_hash.h"
+#include <R_ext/Memory.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -51,7 +52,7 @@ uint64_t generateHash(int a, int b, int c, int d, const size_t *vector, int vect
 MemoizationTable *initMemo()
 {
     // ---- Allocates memory for the table
-    MemoizationTable *table = (MemoizationTable *)malloc(sizeof(MemoizationTable));
+    MemoizationTable *table = (MemoizationTable *)Calloc(1, MemoizationTable);
     // ---- Initialize the uthash hash table, initially as NULL.
     table->hashmap = NULL;
     // ---- Return a pointer towards the hash table.
@@ -124,7 +125,7 @@ void setMemoValue(MemoizationTable *table, int a, int b, int c, int d, size_t *v
     }
 
     // Create a new entry
-    entry = malloc(sizeof(MemoizationEntry));
+    entry = Calloc(1, MemoizationEntry);
     entry->hash = hash;
     entry->value = value;
 
@@ -143,7 +144,7 @@ void deleteEntry(MemoizationTable *table, int a, int b, int c, int d, size_t *ve
     if (entry)
     {
         HASH_DEL(table->hashmap, entry);
-        free(entry); // Free the entry memory
+        Free(entry); // Free the entry memory
     }
 }
 
@@ -163,7 +164,7 @@ void freeMemo(MemoizationTable *table)
     HASH_ITER(hh, table->hashmap, entry, tmp)
     {
         HASH_DEL(table->hashmap, entry); // Remove from the hash table
-        free(entry);                     // Free the entry
+        Free(entry);                     // Free the entry
     }
-    free(table); // Free the table structure itself
+    Free(table); // Free the table structure itself
 }

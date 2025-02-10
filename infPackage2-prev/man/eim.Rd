@@ -19,7 +19,7 @@ model <- eim$new(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3))
 # Example 2: Create a eim object from a JSON file
 \dontrun{
 model2 <- eim$new(json_path = "a/file/path/to/a/file.json")
-	}
+}
 
 ## ------------------------------------------------
 ## Method `eim$precompute`
@@ -106,7 +106,7 @@ model$save_results("results.csv")  # Save final probability as CSV
 ballot box (b). Provided manually or loaded from JSON.}
 
 \item{\code{W}}{(matrix) A (b x g) matrix with the observed results of the demographical group votes (g) on
-a given ballot box (b). Provided manually or loaded from JSON.}
+ballot box (b). Provided manually or loaded from JSON.}
 
 \item{\code{method}}{(character) A string indicating the EM method. One of: "Multinomial", "Hit and Run", "MVN CDF",
 "MVN PDF", "Exact".}
@@ -136,7 +136,7 @@ Normal CDF, if and only if self$method is "MVN CDF"}
 
 \item{\code{multivariate_error}}{(numeric(1)) Active variable to show the error threshold for the Montecarlo simulation of the Multivariate Normal CDF}
 
-\item{\code{multivariate_iterations}}{(numeric(1)) Active variable to show the error threshold for the Montecarlo simulation of the Multivariate Normal CDF}
+\item{\code{multivariate_iterations}}{(numeric(1)) Active variable to show the number of iterations for the Montecarlo simulation of the Multivariate Normal CDF}
 }
 \if{html}{\out{</div>}}
 }
@@ -183,7 +183,7 @@ model <- eim$new(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3))
 # Example 2: Create a eim object from a JSON file
 \dontrun{
 model2 <- eim$new(json_path = "a/file/path/to/a/file.json")
-	}
+}
 }
 \if{html}{\out{</div>}}
 
@@ -265,7 +265,7 @@ Executes the Expectation-Maximization (EM) algorithm based on the selected metho
 \item{\code{stopping_threshold}}{(numeric(1)) The minimum difference between consequent probabilities for stopping the iterations.
 (default: 0.001).}
 
-\item{\code{verbose}}{(boolean(1)) Boolean indicating wether to print useful messages while iterating. (default: FALSE).}
+\item{\code{verbose}}{(boolean(1)) Boolean indicating whether to print useful messages while iterating. (default: FALSE).}
 
 \item{\code{...}}{Additional arguments required by specific methods:
 \itemize{
@@ -280,7 +280,7 @@ Executes the Expectation-Maximization (EM) algorithm based on the selected metho
       \item multivariate_error (numeric(1)): The integration error threshold. Default is 1e-6. \cr
       \item multivariate_iterations (integer(1)): The number of Monte Carlo iterations. Default is 5000.
     }
-}'}
+}}
 }
 \if{html}{\out{</div>}}
 }
@@ -351,7 +351,7 @@ print(model) # Will print the Xand W matrix among the EM results.
 \if{html}{\out{<a id="method-eim-summary"></a>}}
 \if{latex}{\out{\hypertarget{method-eim-summary}{}}}
 \subsection{Method \code{summary()}}{
-Shows, in form of a list, a selection of the most important atributes. It'll retrieve the method, amount of candidates, ballots and groups and the principal resuls of the EM algorithm.
+Shows, in form of a list, a selection of the most important attributes. It'll retrieve the method, amount of candidates, ballots and groups and the principal results of the EM algorithm.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{eim$summary()}\if{html}{\out{</div>}}
 }

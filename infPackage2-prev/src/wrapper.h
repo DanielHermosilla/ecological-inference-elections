@@ -9,7 +9,6 @@ extern "C"
 #include "globals.h"
 #include "hitAndRun.h"
 #include "main.h"
-#include "utils_file.h"
 #include "utils_matrix.h"
 
 #ifdef __cplusplus

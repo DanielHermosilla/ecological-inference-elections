@@ -20,9 +20,9 @@
         \item \var{iterations} (integer(1)) The maximum amount of iterations to perform on the EM algorithm. (default: 1000). \cr
 
         \item \var{stopping_threshold} (numeric(1)) The minimum difference between consequent probabilities for stopping the
-            iterations (default: 0.001). \cr
+         iterations (default: 0.001). \cr
 
-        \item \var{verbose} (boolean(1)) Boolean indicating wether to print useful messages while iterating. (default: FALSE). \cr
+        \item \var{verbose} (boolean(1)) Boolean indicating whether to print useful messages while iterating. (default: FALSE). \cr
 
     \item \strong{"Hit and Run" Method:}
       \itemize{
@@ -42,13 +42,13 @@
 }
 \description{
 This method is a wrapper around compute(), allowing prediction of probabilities
-		based on specified parameters. The results are stored in object$probability. Refer
-		to object$compute method for more information about its function and parameters. However
-		it will esentially trigger the EM algorithm.
+based on specified parameters. The results are stored in object$probability. Refer
+to object$compute method for more information about its function and parameters. However
+it will essentially trigger the EM algorithm.
 }
 \details{
 Given the parameters of an Expected Maximization, computes and updates the results of the
-		input algorithm.
+input algorithm.
 }
 \examples{
 # Example 1: Predict the Hit and Run method

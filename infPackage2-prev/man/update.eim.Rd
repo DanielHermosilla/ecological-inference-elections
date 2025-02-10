@@ -16,7 +16,7 @@ Changes made on the updated object.
 }
 \description{
 This function updates an object with a new Expected Maximization computation
-		with other parameters.
+with other parameters.
 }
 \examples{
 model <- eim$new(X = matrix(1:15, 5, 3), W = matrix(1:50, 5, 10))

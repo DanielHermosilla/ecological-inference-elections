@@ -1,7 +1,8 @@
 #include "hitAndRun.h"
+#include <R_ext/Memory.h>
+#include <R_ext/Random.h>
 #include <Rmath.h>
 #include <math.h>
-#include <omp.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -37,16 +38,16 @@ Matrix startingPoint(int b)
         }
     }
     // ---...--- //
-    free(groupVotes);
-    free(candidateVotes);
+    Free(groupVotes);
+    Free(candidateVotes);
     return toReturn;
 }
 
 /*
  * @brief Precomputes the sets used for the simulation.
  *
- * Precomputes the sets that are independent from each EM iteration. It is made with parallelism towards the ballot
- * boxes and with a static assignment for ensuring reproducibility.
+ * Precomputes the sets that are independent from each EM iteration. It is made with parallelism (NOT SUPPORTED) towards
+ * the ballot boxes and with a static assignment for ensuring reproducibility.
  *
  * @param[in] M. The step size between consecutive samples. Note that the direction is assigned randomly.
  * @param[in] S. The amount of samples for each ballot box.
@@ -57,20 +58,32 @@ Matrix startingPoint(int b)
 void generateOmegaSet(int M, int S, unsigned int seedNum)
 {
     // ---- Allocate memory for the `b` index ----
-    OMEGASET = malloc(TOTAL_BALLOTS * sizeof(OmegaSet *));
+    OMEGASET = Calloc(TOTAL_BALLOTS, OmegaSet *);
 
-    // ---- Use schedule(static) instead of schedule(dynamic) for ensuring reproducibility ----
-#pragma omp parallel for schedule(static)
+    /*
+     * Currently, CRAN doesn't allow to use the own system random number generator.
+     * Even though it has its upsides (setting a global seed from R), it doesn't allow to use
+     * parallelization with RNG's in a thread-safe way. In fact, R's seed is global and unique.
+     * The C's approach back then, was to define a seed per thread;
+     *
+     * int seed = rand_r(&seedNum) + omp_get_thread_number
+     *
+     * This cannot be done anymore, so, as of now, this loop cannot be parallelized, despite its
+     * benefits.
+     */
+
+    GetRNGstate();
+
     // ---- Perform the main iterations ---- //
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For every ballot box
         // ---- Define a seed, that will be unique per thread ----
-        unsigned int seed = omp_get_thread_num() + seedNum;
+        //    unsigned int seed = rand_r(&seedNum) + omp_get_thread_number();
         // ---- Allocate memory for the OmegaSet ---- //
-        OMEGASET[b] = malloc(sizeof(OmegaSet));
+        OMEGASET[b] = Calloc(1, OmegaSet);
         OMEGASET[b]->b = b;
         OMEGASET[b]->size = S;
-        OMEGASET[b]->data = malloc(S * sizeof(Matrix *));
+        OMEGASET[b]->data = Calloc(S, Matrix *);
         // ---...--- //
         // ---- The `base` element used as a starting point ----
         Matrix startingZ = startingPoint(b);
@@ -82,18 +95,19 @@ void generateOmegaSet(int M, int S, unsigned int seedNum)
             for (int m = 0; m < M; m++)
             { // --- For each step size given a sample and a ballot box
                 // ---- Sample random indexes ---- //
-                int groupIndex1 = rand_r(&seed) % TOTAL_GROUPS;
+                int groupIndex1 = (int)(unif_rand() * TOTAL_GROUPS);
                 int groupIndex2;
                 do
                 {
-                    groupIndex2 = rand_r(&seed) % TOTAL_GROUPS;
+                    groupIndex2 = (int)(unif_rand() * TOTAL_GROUPS);
                 } while (groupIndex2 == groupIndex1);
 
-                int candidateIndex1 = rand_r(&seed) % TOTAL_CANDIDATES;
+                int candidateIndex1 = (int)(unif_rand() * TOTAL_CANDIDATES);
+
                 int candidateIndex2;
                 do
                 {
-                    candidateIndex2 = rand_r(&seed) % TOTAL_CANDIDATES;
+                    candidateIndex2 = (int)(unif_rand() * TOTAL_CANDIDATES);
                 } while (candidateIndex2 == candidateIndex1);
                 // ---...--- //
 
@@ -113,7 +127,7 @@ void generateOmegaSet(int M, int S, unsigned int seedNum)
                 // ---...--- //
             } // --- End the step size loop
             // ---- Add the combination to the OmegaSet ---- //
-            Matrix *append = malloc(sizeof(Matrix));
+            Matrix *append = Calloc(1, Matrix);
             *append = copyMatrix(&steppingZ);
             OMEGASET[b]->data[s] = append;
             freeMatrix(&steppingZ);
@@ -121,6 +135,7 @@ void generateOmegaSet(int M, int S, unsigned int seedNum)
         } // --- End the sample loop
         freeMatrix(&startingZ);
     } // --- End the ballot box loop
+    PutRNGstate();
 }
 
 /**
@@ -203,14 +218,14 @@ double logarithmicProduct(const Matrix *probabilities, const int b, const int se
 void preComputeMultinomial()
 {
     // ---- Initialize space for storing all of the simulations ---- //
-    multinomialVals = malloc(TOTAL_BALLOTS * sizeof(double **));
+    multinomialVals = Calloc(TOTAL_BALLOTS, double **);
     // ---...--- //
     // ---- Compute the simulated combinations for each OmegaSet ---- //
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // --- For each ballot box
         // ---- Define the current OmegaSet and allocate memory for saving its size ----
         OmegaSet *currentSet = OMEGASET[b];
-        multinomialVals[b] = malloc(currentSet->size * sizeof(double));
+        multinomialVals[b] = Calloc(currentSet->size, double);
         for (size_t s = 0; s < currentSet->size; s++)
         { // --- For each simulation given a balot box
             multinomialVals[b][s] = preMultinomialCoeff(b, currentSet->data[s]);
@@ -244,8 +259,7 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params)
     // ---...--- //
 
     // ---- Compute the final values and fill the returning array ---- //
-    double *array2 =
-        (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double)); // Array to return
+    double *array2 = (double *)Calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, double); // Array to return
     // ---- Use a static assignment since the workload is even between threads ----
 #pragma omp parallel for collapse(3) schedule(static)
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
@@ -290,14 +304,14 @@ void cleanHitAndRun()
             for (size_t s = 0; s < OMEGASET[b]->size; s++)
             {                                     // For each sample given a ballot box
                 freeMatrix(OMEGASET[b]->data[s]); // Free individual matrices
-                free(OMEGASET[b]->data[s]);       // Free the pointers to matrices
+                Free(OMEGASET[b]->data[s]);       // Free the pointers to matrices
             }
-            free(OMEGASET[b]->data); // Free the data array
-            free(OMEGASET[b]);       // Free the OmegaSet struct
-            free(multinomialVals[b]);
+            Free(OMEGASET[b]->data); // Free the data array
+            Free(OMEGASET[b]);       // Free the OmegaSet struct
+            Free(multinomialVals[b]);
         }
-        free(multinomialVals); // Free the precomputed multinomial values
-        free(OMEGASET);        // Free the OMEGASET array
+        Free(multinomialVals); // Free the precomputed multinomial values
+        Free(OMEGASET);        // Free the OMEGASET array
         OMEGASET = NULL;
         multinomialVals = NULL;
     }

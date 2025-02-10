@@ -7,6 +7,7 @@ extern "C"
 {
 #endif
 
+#include "globals.h"
 #include "uthash.h"
 #include <stdbool.h>
 #include <stdint.h>

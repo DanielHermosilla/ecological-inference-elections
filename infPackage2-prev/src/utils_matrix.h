@@ -452,6 +452,17 @@ extern "C"
      * @param[in] colIndex The index of the column to remove (0-based).
      */
     void removeColumn(Matrix *matrix, int colIndex);
+
+    /**
+     * @brief Creates a copy of the given Matrix.
+     *
+     * @param orig Pointer to the original Matrix.
+     * @return Pointer to a new Matrix that is a copy of orig.
+     *
+     * This function uses malloc to allocate memory for both the Matrix struct and its data array.
+     * The caller is responsible for freeing the memory (using free) when it is no longer needed.
+     */
+    Matrix *copyMatrixPtr(const Matrix *orig);
 #ifdef __cplusplus
 }
 #endif

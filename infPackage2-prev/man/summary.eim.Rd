@@ -14,8 +14,8 @@
 }
 \description{
 This method is an S3 styled wrapper around summary(), allowing to get, as a list,
-		the main details of the object. Additional parameters are shown depending on the state of
-		the object (computed/uncomputed).
+the main details of the object. Additional parameters are shown depending on the state of
+the object (computed/uncomputed).
 }
 \details{
 Return a list with the principal attributes

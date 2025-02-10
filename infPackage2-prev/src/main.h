@@ -11,11 +11,9 @@ extern "C"
 #include "exact.h"
 #include "globals.h"
 #include "hitAndRun.h"
-// #include "instanceGenerator.h"
 #include "multinomial.h"
 #include "multivariate-cdf.h"
 #include "multivariate-pdf.h"
-#include "utils_file.h"
 #include "utils_matrix.h"
 
     // ---- Define the structure to store the function pointer ---- //

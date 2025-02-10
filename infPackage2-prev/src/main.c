@@ -1,5 +1,6 @@
 #include "main.h"
 #include <R_ext/BLAS.h>
+#include <R_ext/Memory.h>
 #include <dirent.h>
 #include <errno.h>
 #include <math.h>
@@ -44,26 +45,27 @@ Matrix *W = NULL;
  * - `x` and `w` dimensions must be coherent.
  *
  */
-void setParameters(Matrix *x, Matrix *w)
+void setParameters(Matrix *xCPP, Matrix *wCPP)
 {
+    // Must generate a copy because of R's gc() in c++
+
+    Matrix *x = copyMatrixPtr(xCPP);
+    Matrix *w = copyMatrixPtr(wCPP);
 
     // ---- Validation checks ---- //
     // ---- Check if there's a NULL pointer ----
     if (!x->data || !w->data)
     {
-        fprintf(stderr, "setParameters: A NULL pointer was handed.\n");
-        exit(EXIT_FAILURE); // Frees used memory
+        error("Constructor: A NULL pointer was handed.\n");
     }
 
     // ---- Check for dimentional coherence ----
     if (x->cols != w->rows && x->cols > 0)
     {
-        fprintf(stderr,
-                "setParameters: The dimensions of the matrices handed to countVotes are incorrect; `x` columns and `w` "
-                "rows length "
-                "must be the same, but they're %d and %d respectivately.\n",
-                x->cols, w->rows);
-        exit(EXIT_FAILURE);
+        error("Constructor: The dimensions of the matrices handed are incorrect; `x` columns and `w` "
+              "rows length "
+              "must be the same, but they're %d and %d respectivately.\n",
+              x->cols, w->rows);
     }
 
     // ---- Allocate memory for the global variables ---- //
@@ -72,17 +74,17 @@ void setParameters(Matrix *x, Matrix *w)
     TOTAL_CANDIDATES = x->rows;
     TOTAL_GROUPS = w->cols;
     TOTAL_BALLOTS = w->rows;
-    CANDIDATES_VOTES = (uint32_t *)calloc(TOTAL_CANDIDATES, sizeof(uint32_t));
-    GROUP_VOTES = (uint32_t *)calloc(TOTAL_GROUPS, sizeof(uint32_t));
-    BALLOTS_VOTES = (uint16_t *)calloc(TOTAL_BALLOTS, sizeof(uint16_t));
-    inv_BALLOTS_VOTES = (double *)calloc(TOTAL_BALLOTS, sizeof(double));
+    CANDIDATES_VOTES = (uint32_t *)Calloc(TOTAL_CANDIDATES, uint32_t);
+    GROUP_VOTES = (uint32_t *)Calloc(TOTAL_GROUPS, uint32_t);
+    BALLOTS_VOTES = (uint16_t *)Calloc(TOTAL_BALLOTS, uint16_t);
+    inv_BALLOTS_VOTES = (double *)Calloc(TOTAL_BALLOTS, double);
 
     // ---- Allocate memory for the matrices
-    X = malloc(sizeof(Matrix));
+    X = Calloc(1, Matrix);
     *X = createMatrix(x->rows, x->cols);
     memcpy(X->data, x->data, sizeof(double) * x->rows * x->cols);
 
-    W = malloc(sizeof(Matrix));
+    W = Calloc(1, Matrix);
     *W = createMatrix(w->rows, w->cols);
     memcpy(W->data, w->data, sizeof(double) * w->rows * w->cols);
     // ---...--- //
@@ -135,8 +137,9 @@ Matrix getInitialP(const char *p_method)
     if (strcmp(p_method, "Uniform") != 0 && strcmp(p_method, "Proportional") != 0 &&
         strcmp(p_method, "Group proportional") != 0)
     {
-        fprintf(stderr, "getInitialP: The method `%s` passed to getInitialP doesn't exist.\n", p_method);
-        exit(EXIT_FAILURE);
+        error("Compute: The method `%s` to calculate the initial probability doesn't exist.\nThe supported methods "
+              "are: `Uniform`, `Proportional` and `Group proportional`.\n",
+              p_method);
     }
     // ---...--- //
 
@@ -262,11 +265,9 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
     }
     else
     {
-        fprintf(stderr,
-                "getQMethodConfig: An invalid method was provided: `%s`\nThe supported methods are: `Exact`, `Hit and "
-                "Run`, `Multinomial`, `MVN CDF` and `MVN PDF`.\n",
-                q_method);
-        exit(EXIT_FAILURE);
+        error("Compute: An invalid method was provided: `%s`\nThe supported methods are: `Exact`, `Hit and "
+              "Run`, `Multinomial`, `MVN CDF` and `MVN PDF`.\n",
+              q_method);
     }
 
     // Directly store the input parameters
@@ -395,10 +396,10 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     // ---- Error handling is done on getQMethodConfig! ---- //
     if (verbose)
     {
-        printf("Starting the EM algorithm.\n");
-        printf("The method to calculate the conditional probability will be %s method with the following "
-               "parameters:\nConvergence threshold:\t%.6f\nMaximum iterations:\t%d\n",
-               q_method, convergence, maxIter);
+        Rprintf("Starting the EM algorithm.\n");
+        Rprintf("The method to calculate the conditional probability will be %s method with the following "
+                "parameters:\nConvergence threshold:\t%.6f\nMaximum iterations:\t%d\n",
+                q_method, convergence, maxIter);
     }
     // ---...--- //
 
@@ -420,7 +421,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
 
         if (verbose)
         {
-            printf("\nThe current probability matrix at the %dth iteration is:\n", i);
+            Rprintf("\nThe current probability matrix at the %dth iteration is:\n", i);
             printMatrix(currentP);
         }
 
@@ -440,18 +441,18 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             logLLarr[i] = logLikelihood(&newProbability, q);
             if (verbose)
             {
-                printf("The convergence was found on iteration %d, with a log-likelihood of %.4f  and took %.5f "
-                       "seconds!\n",
-                       i, logLLarr[i], elapsed_total);
+                Rprintf("The convergence was found on iteration %d, with a log-likelihood of %.4f  and took %.5f "
+                        "seconds!\n",
+                        i + 1, logLLarr[i], elapsed_total);
             }
 
             // ---- Calculate the final values ---- //
             *time = elapsed_total;
-            *iterTotal = i;
+            *iterTotal = i + 1;
             // ---...--- //
 
             freeMatrix(currentP);
-            free(q);
+            Free(q);
             return newProbability;
         }
         // ---- Convergence wasn't found ----
@@ -462,12 +463,12 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
 
         if (verbose)
         {
-            printf("Iteration %d took %.5f seconds.\n", i, elapsed_iter);
+            Rprintf("Iteration %d took %.5f seconds.\n", i + 1, elapsed_iter);
         }
 
         // ---- Calculate the log-likelihood before freeing the array ----
         logLLarr[i] = logLikelihood(&newProbability, q);
-        free(q);
+        Free(q);
         freeMatrix(currentP);
 
         // ---- Redefine the current probability matrix ----
@@ -481,18 +482,16 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         int minIter = (strcmp(q_method, "MVN CDF") == 0) ? 100 : 1;
         if (i >= minIter && (logLLarr)[i] < (logLLarr)[i - 1])
         {
-            printf("Early exit; log-likelihood decreased\n");
-            printf("Loglikelihood from iteration %d:\t%.4f\n", i, logLLarr[i]);
             // ---- Save values ----
-            *iterTotal = i;
+            *iterTotal = i + 1;
             *time = elapsed_total;
             Matrix finalProbability = copyMatrix(currentP);
             freeMatrix(currentP);
             return finalProbability;
         }
     }
-    printf("Maximum iterations reached without convergence.\n"); // Print even if there's not verbose, might change
-                                                                 // later.
+    Rprintf("Maximum iterations reached without convergence.\n"); // Print even if there's not verbose, might change
+                                                                  // later.
     *iterTotal = maxIter;
     *time = elapsed_total;
 
@@ -541,35 +540,35 @@ void cleanup()
 
     if (CANDIDATES_VOTES != NULL)
     {
-        free(CANDIDATES_VOTES);
+        Free(CANDIDATES_VOTES);
         CANDIDATES_VOTES = NULL;
     }
     if (GROUP_VOTES != NULL)
     {
-        free(GROUP_VOTES);
+        Free(GROUP_VOTES);
         GROUP_VOTES = NULL;
     }
     if (BALLOTS_VOTES != NULL)
     {
-        free(BALLOTS_VOTES);
+        Free(BALLOTS_VOTES);
         BALLOTS_VOTES = NULL;
     }
     if (inv_BALLOTS_VOTES != NULL)
     {
-        free(inv_BALLOTS_VOTES);
+        Free(inv_BALLOTS_VOTES);
         inv_BALLOTS_VOTES = NULL;
     }
 
     if (X->data != NULL) // Note that the columns and rows are usually stack.
     {
         freeMatrix(X);
-        free(X);
+        Free(X);
         X = NULL;
     }
     if (W->data != NULL)
     {
         freeMatrix(W);
-        free(W);
+        Free(W);
         W = NULL;
     }
 }

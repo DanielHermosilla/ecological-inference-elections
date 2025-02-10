@@ -2,6 +2,7 @@
 #include <R.h>
 #include <R_ext/BLAS.h>
 #include <R_ext/Lapack.h>
+#include <R_ext/Memory.h>
 #include <math.h>
 #include <omp.h> // Parallelization
 #include <stdbool.h>
@@ -108,7 +109,7 @@ static void rowMajor_dgemm(char transA, char transB, int M, int N, int K, double
 
 static int rowMajor_dsyev(char jobz, char uplo, int n, double *Arow, double *W)
 {
-    double *Acol = (double *)malloc(n * n * sizeof(double));
+    double *Acol = (double *)Calloc(n * n, double);
     if (!Acol)
         return -1;
 
@@ -121,32 +122,32 @@ static int rowMajor_dsyev(char jobz, char uplo, int n, double *Arow, double *W)
     F77_CALL(dsyev)(&jobz, &uplo, &n, Acol, &n, W, &wkopt, &lwork, &info, (La_INT)1, (La_INT)1);
     if (info != 0)
     {
-        free(Acol);
+        Free(Acol);
         return info;
     }
     lwork = (int)wkopt;
-    double *work = (double *)malloc(lwork * sizeof(double));
+    double *work = (double *)Calloc(lwork, double);
     if (!work)
     {
-        free(Acol);
+        Free(Acol);
         return -2;
     }
 
     F77_CALL(dsyev)(&jobz, &uplo, &n, Acol, &n, W, work, &lwork, &info, (La_INT)1, (La_INT)1);
-    free(work);
+    Free(work);
 
     if (info == 0 && jobz == 'V')
     {
         // eigenvectors in Acol => transpose back to row-major
         transposeMatrix(Acol, n, n, Arow);
     }
-    free(Acol);
+    Free(Acol);
     return info;
 }
 
 static int rowMajor_dpotrf(char uplo, int n, double *Arow)
 {
-    double *Acol = (double *)malloc(n * n * sizeof(double));
+    double *Acol = (double *)Calloc(n * n, double);
     if (!Acol)
         return -1;
     transposeMatrix(Arow, n, n, Acol);
@@ -158,13 +159,13 @@ static int rowMajor_dpotrf(char uplo, int n, double *Arow)
     {
         transposeMatrix(Acol, n, n, Arow);
     }
-    free(Acol);
+    Free(Acol);
     return info;
 }
 
 static int rowMajor_dpotri(char uplo, int n, double *Arow)
 {
-    double *Acol = (double *)malloc(n * n * sizeof(double));
+    double *Acol = (double *)Calloc(n * n, double);
     if (!Acol)
         return -1;
     transposeMatrix(Arow, n, n, Acol);
@@ -176,13 +177,13 @@ static int rowMajor_dpotri(char uplo, int n, double *Arow)
     {
         transposeMatrix(Acol, n, n, Arow);
     }
-    free(Acol);
+    Free(Acol);
     return info;
 }
 
 static int rowMajor_dgetrf(int m, int n, double *Arow, int *ipiv)
 {
-    double *Acol = (double *)malloc(m * n * sizeof(double));
+    double *Acol = (double *)Calloc(m * n, double);
     if (!Acol)
         return -1;
     transposeMatrix(Arow, m, n, Acol);
@@ -203,32 +204,32 @@ static int rowMajor_dgetrf(int m, int n, double *Arow, int *ipiv)
         // transpose back
         transposeMatrix(Acol, n, m, Arow);
     }
-    free(Acol);
+    Free(Acol);
     return info;
 }
 
 static int rowMajor_dgetri(int n, double *Arow, int *ipiv)
 {
-    double *Acol = (double *)malloc(n * n * sizeof(double));
+    double *Acol = (double *)Calloc(n * n, double);
     if (!Acol)
         return -1;
     transposeMatrix(Arow, n, n, Acol);
 
     int info, lwork = n * 64; // or do a workspace query
-    double *work = (double *)malloc(lwork * sizeof(double));
+    double *work = (double *)Calloc(lwork, double);
     if (!work)
     {
-        free(Acol);
+        Free(Acol);
         return -2;
     }
     F77_CALL(dgetri)(&n, Acol, &n, ipiv, work, &lwork, &info);
-    free(work);
+    Free(work);
 
     if (info == 0)
     {
         transposeMatrix(Acol, n, n, Arow);
     }
-    free(Acol);
+    Free(Acol);
     return info;
 }
 
@@ -263,14 +264,12 @@ void makeArray(double *array, int N, double value)
 {
     if (!array)
     {
-        fprintf(stderr, "A NULL pointer was handed as an array.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: A NULL pointer was handed as an array.\n");
     }
 
     if (N < 0)
     {
-        fprintf(stderr, "A incoherent dimension was handen for making the array.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: A incoherent dimension was handen for making the array.\n");
     }
 
     // Fill the array with the specified constant value
@@ -304,15 +303,13 @@ void checkMatrix(const Matrix *m)
     // Validation, checks NULL pointer
     if (!m || !m->data)
     {
-        fprintf(stderr, "A NULL pointer was handed as a matrix argument.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: A NULL pointer was handed as a matrix argument.\n");
     }
 
     // Checks dimensions
     if (m->rows <= 0 || m->cols <= 0)
     {
-        fprintf(stderr, "Invalid matrix dimensions: rows=%d, cols=%d\n", m->rows, m->cols);
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Invalid matrix dimensions: rows=%d, cols=%d\n", m->rows, m->cols);
     }
 }
 
@@ -338,20 +335,18 @@ Matrix createMatrix(int rows, int cols)
 {
     if (rows <= 0 || cols <= 0)
     {
-        fprintf(stderr, "Invalid matrix dimensions: rows=%d, cols=%d\n", rows, cols);
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Invalid matrix dimensions: rows=%d, cols=%d\n", rows, cols);
     }
 
     Matrix m;
     m.rows = rows;
     m.cols = cols;
 
-    m.data = calloc(rows * cols, sizeof(double));
+    m.data = Calloc(rows * cols, double);
 
     if (!m.data)
     {
-        fprintf(stderr, "Failed to allocate matrix data\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Failed to allocate matrix data\n");
     }
 
     return m;
@@ -371,7 +366,7 @@ void freeMatrix(Matrix *m)
     // TODO: Implement a validation warning.
     if (m != NULL && m->data != NULL)
     {
-        free(m->data);
+        Free(m->data);
         m->data = NULL;
     }
     m->rows = 0;
@@ -393,16 +388,21 @@ void printMatrix(const Matrix *matrix)
 {
     checkMatrix(matrix); // Assertion
 
-    printf("Matrix (%dx%d) of type double\n", matrix->rows, matrix->cols);
+    Rprintf("Matrix (%dx%d):\n", matrix->rows, matrix->cols);
 
     for (int i = 0; i < matrix->rows; i++)
     {
-        printf("| ");
+        Rprintf("| ");
         for (int j = 0; j < matrix->cols; j++)
         {
-            printf("%.5f\t", MATRIX_AT_PTR(matrix, i, j));
+            if (j == 0)
+            {
+                Rprintf("\t%.5f\t", MATRIX_AT_PTR(matrix, i, j));
+                continue;
+            }
+            Rprintf("%.5f\t", MATRIX_AT_PTR(matrix, i, j));
         }
-        printf(" |\n");
+        Rprintf(" |\n");
     }
 }
 
@@ -451,11 +451,11 @@ void rowSum(const Matrix *matrix, double *result)
     // what's the size that will be given to the matrix, but if it exceeds
     // 1.000.000 columns (8MB for a `double` type matrix) it will overflow
 
-    double *ones = (double *)malloc(matrix->cols * sizeof(double));
+    double *ones = (double *)Calloc(matrix->cols, double);
     if (!ones)
     {
-        fprintf(stderr, "Failed to allocate memory to the rowSum function. \n");
-        exit(EXIT_FAILURE);
+        // In theory, R's Calloc would take care of that and throw its own error
+        error("Matrix handling: Failed to allocate memory to the rowSum function. \n");
     }
 
     makeArray(ones, matrix->cols, 1.0);
@@ -471,7 +471,7 @@ void rowSum(const Matrix *matrix, double *result)
      ones, &incX,                              // Vector of ones
      &beta, result, &incY, (BLAS_INT)1);       // Output row sum
 
-    free(ones);
+    Free(ones);
 }
 
 /**
@@ -519,11 +519,10 @@ void colSum(const Matrix *matrix, double *result)
 {
     checkMatrix(matrix); // Assertion
 
-    double *ones = (double *)malloc(matrix->rows * sizeof(double));
+    double *ones = (double *)Calloc(matrix->rows, double);
     if (!ones)
     {
-        fprintf(stderr, "Failed to allocate memory in colSum function.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Failed to allocate memory in colSum function.\n");
     }
 
     makeArray(ones, matrix->rows, 1.0);
@@ -540,7 +539,7 @@ void colSum(const Matrix *matrix, double *result)
      ones, &incX,                              // Vector of ones
      &beta, result, &incY, (BLAS_INT)1);       // Output column sum
 
-    free(ones);
+    Free(ones);
 }
 
 /**
@@ -635,14 +634,12 @@ bool convergeMatrix(const Matrix *matrixA, const Matrix *matrixB, const double c
 
     if (convergence <= 0)
     {
-        fprintf(stderr, "An invalid value was handed to convergence, it must be greater than cero.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: An invalid value was handed to convergence, it must be greater than cero.\n");
     }
 
     if (matrixA->cols != matrixB->cols || matrixA->rows != matrixB->rows)
     {
-        fprintf(stderr, "The dimensions of both matrices doesn't match.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: The dimensions of both matrices doesn't match.\n");
     }
 
     int size = matrixA->rows * matrixB->cols;
@@ -650,7 +647,7 @@ bool convergeMatrix(const Matrix *matrixA, const Matrix *matrixB, const double c
     int incY = 1;
     double alpha = -1.0;
 
-    double *diff = (double *)malloc(size * sizeof(double));
+    double *diff = (double *)Calloc(size, double);
 
     F77_CALL(dcopy)(&(size), matrixA->data, &incX, diff, &incY);
     F77_CALL(daxpy)(&(size), &alpha, matrixB->data, &incX, diff, &incY);
@@ -660,12 +657,12 @@ bool convergeMatrix(const Matrix *matrixA, const Matrix *matrixB, const double c
         // isn't achieved.
         if (fabs(diff[i]) >= convergence)
         {
-            free(diff);
+            Free(diff);
             return false;
         }
     }
 
-    free(diff);
+    Free(diff);
     return true;
 }
 
@@ -732,8 +729,7 @@ Matrix removeLastRow(const Matrix *matrix)
 
     if (matrix->rows <= 1)
     {
-        fprintf(stderr, "Matrix must have at least two rows to remove one.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Matrix must have at least two rows to remove one.\n");
     }
 
     // Create a new matrix with one less row
@@ -767,8 +763,7 @@ Matrix removeLastColumn(const Matrix *matrix)
 
     if (matrix->cols <= 1)
     {
-        fprintf(stderr, "Matrix must have at least two columns to remove one.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Matrix must have at least two columns to remove one.\n");
     }
 
     // Create a new matrix with one less column
@@ -802,8 +797,7 @@ Matrix createDiagonalMatrix(const double *vector, int size)
 
     if (!diag.data)
     {
-        fprintf(stderr, "Failed to allocate memory for diagonal matrix.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Failed to allocate memory for diagonal matrix.\n");
     }
 
     for (int i = 0; i < size; i++)
@@ -827,8 +821,7 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
     char lCh = 'L';
     if (matrix->rows != matrix->cols)
     {
-        fprintf(stderr, "Matrix must be square.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Matrix must be square.\n");
     }
 
     int n = matrix->rows;
@@ -849,14 +842,12 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
 
     if (info < 0)
     {
-        fprintf(stderr, "dpotrf illegal value argument. info=%d\n", info);
-        printMatrix(matrix);
-        exit(EXIT_FAILURE);
+        error("Matrix handling: dpotrf illegal value argument. info=%d\n", info);
     }
     if (info > 0)
     {
-        fprintf(stderr, "Cholesky decomposition failed. Leading minor not positive definite.\n"
-                        "Retrying with +1 on diagonal.\n");
+        REprintf("Cholesky decomposition failed. Leading minor not positive definite.\n"
+                 "Retrying with +1 on diagonal.\n");
 
         // restore from emergencyMat, add small diagonal
         for (int i = 0; i < n; i++)
@@ -878,9 +869,7 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
     F77_CALL(dpotri)(&lCh, &n, matrix->data, &n, &info2, (La_INT)1);
     if (info2 != 0)
     {
-        fprintf(stderr, "Matrix inversion failed after Cholesky. info=%d\n", info2);
-        printMatrix(matrix);
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Matrix inversion failed after Cholesky. info=%d\n", info2);
     }
 
     // Fill upper triangle = mirror of lower triangle
@@ -908,16 +897,14 @@ void inverseMatrixEigen(Matrix *matrix)
     checkMatrix(matrix);
     if (matrix->rows != matrix->cols)
     {
-        fprintf(stderr, "inverseMatrixEigen: must be square.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: The matrix must be square for getting the inverse and Eigen values.\n");
     }
     int n = matrix->rows;
 
-    double *eigenvals = (double *)malloc(n * sizeof(double));
+    double *eigenvals = (double *)Calloc(n, double);
     if (!eigenvals)
     {
-        fprintf(stderr, "inverseMatrixEigen: cannot allocate eigenvals.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Cannot allocate eigenvals.\n");
     }
 
     // First, we query the working array to get the optimal size...
@@ -931,21 +918,19 @@ void inverseMatrixEigen(Matrix *matrix)
 
     if (info != 0)
     {
-        fprintf(stderr, "dsyev workspace query failed with info = %d\n", info);
-        exit(EXIT_FAILURE);
+        error("Matrix handling: dsyev workspace query failed with info = %d\n", info);
     }
 
     // Allocate the working array
     lwork = (int)query_work; // LAPACK returns optimal size in query_work
-    double *work = (double *)malloc(lwork * sizeof(double));
+    double *work = (double *)Calloc(lwork, double);
 
     // Step 3: Compute Eigen decomposition
     F77_CALL(dsyev)(&vCh, &uCh, &n, matrix->data, &n, eigenvals, work, &lwork, &info, (La_INT)1, (La_INT)1);
 
     if (info != 0)
     {
-        fprintf(stderr, "dsyev failed with info = %d\n", info);
-        exit(EXIT_FAILURE);
+        error("Matrix handling: dsyev failed with info = %d\n", info);
     }
 
     // Invert eigenvalues
@@ -953,16 +938,15 @@ void inverseMatrixEigen(Matrix *matrix)
     {
         if (fabs(eigenvals[i]) < 1e-15)
         {
-            fprintf(stderr, "inverseMatrixEigen: Zero or near-zero eigenvalue => not invertible.\n");
-            free(eigenvals);
-            exit(EXIT_FAILURE);
+            error("Matrix handling: Zero or near-zero eigenvalue => not invertible.\n");
+            Free(eigenvals);
         }
         eigenvals[i] = 1.0 / eigenvals[i];
     }
 
     // Build diagonal matrix from eigenvals
     Matrix Dinv = createDiagonalMatrix(eigenvals, n);
-    free(eigenvals);
+    Free(eigenvals);
 
     // temp = Q * Dinv
     Matrix temp = createMatrix(n, n);
@@ -1004,16 +988,14 @@ void inverseMatrixLU(Matrix *matrix)
     checkMatrix(matrix);
     if (matrix->rows != matrix->cols)
     {
-        fprintf(stderr, "Matrix must be square for inversion.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Matrix must be square for inversion.\n");
     }
     int n = matrix->rows;
 
-    int *ipiv = (int *)malloc(n * sizeof(int));
+    int *ipiv = (int *)Calloc(n, int);
     if (!ipiv)
     {
-        fprintf(stderr, "Failed to allocate pivot array.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Failed to allocate pivot array.\n");
     }
 
     // LU decomposition
@@ -1021,9 +1003,8 @@ void inverseMatrixLU(Matrix *matrix)
     F77_CALL(dgetrf)(&n, &n, matrix->data, &n, ipiv, &info);
     if (info != 0)
     {
-        fprintf(stderr, "LU decomposition failed. info=%d\n", info);
-        free(ipiv);
-        exit(EXIT_FAILURE);
+        error("Matrix handling: LU decomposition failed. info=%d\n", info);
+        Free(ipiv);
     }
 
     // Invert from LU
@@ -1035,27 +1016,25 @@ void inverseMatrixLU(Matrix *matrix)
 
     // Allocate optimal work array
     lwork = (int)query_work;
-    double *work = (double *)malloc(lwork * sizeof(double));
+    double *work = (double *)Calloc(lwork, double);
 
     if (!work)
     {
-        fprintf(stderr, "Failed to allocate workspace for dgetri.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Failed to allocate workspace for dgetri.\n");
     }
 
     // Compute matrix inverse
     F77_CALL(dgetri)(&n, matrix->data, &n, ipiv, work, &lwork, &info);
 
     // Free workspace
-    free(work);
+    Free(work);
     if (info != 0)
     {
-        fprintf(stderr, "Matrix inversion failed. info=%d\n", info);
-        free(ipiv);
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Matrix inversion failed. info=%d\n", info);
+        Free(ipiv);
     }
 
-    free(ipiv);
+    Free(ipiv);
 }
 
 Matrix copyMatrix(const Matrix *original)
@@ -1092,16 +1071,14 @@ double *getRow(const Matrix *matrix, int rowIndex)
 
     if (rowIndex < 0 || rowIndex >= matrix->rows)
     {
-        fprintf(stderr, "Row index out of bounds: %d\n", rowIndex);
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Row index out of bounds: %d\n", rowIndex);
     }
 
     // Allocate memory for the row
-    double *row = (double *)malloc(matrix->cols * sizeof(double));
+    double *row = (double *)Calloc(matrix->cols, double);
     if (!row)
     {
-        fprintf(stderr, "Failed to allocate memory for row.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Failed to allocate memory for row.\n");
     }
 
     // Copy the elements of the row
@@ -1128,16 +1105,14 @@ double *getColumn(const Matrix *matrix, int colIndex)
 
     if (colIndex < 0 || colIndex >= matrix->cols)
     {
-        fprintf(stderr, "Column index out of bounds: %d\n", colIndex);
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Column index out of bounds: %d\n", colIndex);
     }
 
     // Allocate memory for the column
-    double *column = (double *)malloc(matrix->rows * sizeof(double));
+    double *column = (double *)Calloc(matrix->rows, double);
     if (!column)
     {
-        fprintf(stderr, "Failed to allocate memory for column.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Failed to allocate memory for column.\n");
     }
 
     // Copy the elements of the column
@@ -1179,19 +1154,17 @@ void addRowToMatrix(Matrix *matrix, const double *newRow)
 
     if (!newRow)
     {
-        fprintf(stderr, "addRowToMatrix: The new row pointer is NULL.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: The new row pointer is NULL on the function to add a new row to the matrix.\n");
     }
 
     // Reallocate memory for the new row
     Matrix temp = copyMatrix(matrix);
-    size_t newSize = (matrix->rows + 1) * matrix->cols * sizeof(double);
-    double *newData = realloc(matrix->data, newSize);
+    size_t newSize = (matrix->rows + 1) * matrix->cols;
+    double *newData = Realloc(matrix->data, newSize, double);
 
     if (!newData)
     {
-        fprintf(stderr, "addRowToMatrix: Failed to reallocate memory for the matrix.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Failed to reallocate memory for the matrix.\n");
     }
     matrix->data = newData;
 
@@ -1231,14 +1204,13 @@ void removeRow(Matrix *matrix, int rowIndex)
 
     if (rowIndex < 0 || rowIndex >= matrix->rows)
     {
-        fprintf(stderr, "Row index out of bounds: %d\n", rowIndex);
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Row index out of bounds: %d\n", rowIndex);
     }
 
     // Shift rows up to overwrite the specified row
     Matrix temp = copyMatrix(matrix);
     matrix->rows -= 1;
-    matrix->data = realloc(matrix->data, matrix->rows * matrix->cols * sizeof(double));
+    matrix->data = Realloc(matrix->data, matrix->rows * matrix->cols, double);
 
     for (int i = 0; i < matrix->rows; i++)
     {
@@ -1270,18 +1242,16 @@ void addRowOfZeros(Matrix *matrix, int rowIndex)
 
     if (rowIndex < 0 || rowIndex > matrix->rows)
     {
-        fprintf(stderr, "Row index out of bounds: %d\n", rowIndex);
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Row index out of bounds: %d\n", rowIndex);
     }
 
     // Resize the matrix to have one additional row
     Matrix temp = copyMatrix(matrix);
     matrix->rows += 1;
-    matrix->data = realloc(matrix->data, matrix->rows * matrix->cols * sizeof(double));
+    matrix->data = Realloc(matrix->data, matrix->rows * matrix->cols, double);
     if (!matrix->data)
     {
-        fprintf(stderr, "Memory reallocation failed while resizing the matrix.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Memory reallocation failed while resizing the matrix.\n");
     }
 
     for (int i = 0; i < matrix->rows; i++)
@@ -1313,8 +1283,7 @@ void removeColumn(Matrix *matrix, int colIndex)
 
     if (colIndex < 0 || colIndex >= matrix->cols)
     {
-        fprintf(stderr, "Column index out of bounds: %d\n", colIndex);
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Column index out of bounds: %d\n", colIndex);
     }
 
     // Shift columns left to overwrite the specified column
@@ -1328,11 +1297,10 @@ void removeColumn(Matrix *matrix, int colIndex)
 
     // Resize the matrix to have one less column
     matrix->cols -= 1;
-    matrix->data = realloc(matrix->data, matrix->rows * matrix->cols * sizeof(double));
+    matrix->data = Realloc(matrix->data, matrix->rows * matrix->cols, double);
     if (!matrix->data)
     {
-        fprintf(stderr, "Memory reallocation failed while resizing the matrix.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Memory reallocation failed while resizing the matrix.\n");
     }
 }
 
@@ -1350,17 +1318,15 @@ void addColumnOfZeros(Matrix *matrix, int colIndex)
 
     if (colIndex < 0 || colIndex > matrix->cols)
     {
-        fprintf(stderr, "Column index out of bounds: %d\n", colIndex);
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Column index out of bounds: %d\n", colIndex);
     }
 
     // Resize the matrix to have one additional column
     matrix->cols += 1;
-    matrix->data = realloc(matrix->data, matrix->rows * matrix->cols * sizeof(double));
+    matrix->data = Realloc(matrix->data, matrix->rows * matrix->cols, double);
     if (!matrix->data)
     {
-        fprintf(stderr, "Memory reallocation failed while resizing the matrix.\n");
-        exit(EXIT_FAILURE);
+        error("Matrix handling: Memory reallocation failed while resizing the matrix.\n");
     }
 
     // Shift existing columns right to make space for the new column
@@ -1377,4 +1343,43 @@ void addColumnOfZeros(Matrix *matrix, int colIndex)
     {
         MATRIX_AT_PTR(matrix, i, colIndex) = 0.0;
     }
+}
+
+/**
+ * @brief Creates a copy of the given Matrix.
+ *
+ * @param orig Pointer to the original Matrix.
+ * @return Pointer to a new Matrix that is a copy of orig.
+ *
+ * This function uses malloc to allocate memory for both the Matrix struct and its data array.
+ * The caller is responsible for freeing the memory (using free) when it is no longer needed.
+ */
+Matrix *copyMatrixPtr(const Matrix *orig)
+{
+    // Allocate memory for the new Matrix structure.
+    Matrix *copy = (Matrix *)Calloc(1, Matrix);
+    if (copy == NULL)
+    {
+        error("Memory allocation error in copyMatrix: could not allocate Matrix struct");
+    }
+
+    // Copy the dimensions.
+    copy->rows = orig->rows;
+    copy->cols = orig->cols;
+
+    // Compute the total number of elements.
+    int totalElements = orig->rows * orig->cols;
+
+    // Allocate memory for the data array.
+    copy->data = (double *)Calloc(totalElements, double);
+    if (copy->data == NULL)
+    {
+        free(copy);
+        error("Memory allocation error in copyMatrix: could not allocate data array");
+    }
+
+    // Copy the data from the original matrix.
+    memcpy(copy->data, orig->data, totalElements * sizeof(double));
+
+    return copy;
 }

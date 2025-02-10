@@ -8,7 +8,6 @@ extern "C"
 #endif
 
 #include "globals.h"
-#include "utils_combinations.h"
 #include "utils_matrix.h"
 
     // ---- Define a structure to store the Omega sets ---- //

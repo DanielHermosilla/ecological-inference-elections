@@ -14,7 +14,7 @@ The amount of voters.
 }
 \description{
 Given a initialized object, it returns the total amount of voters. It's equivalent
-		of running sum(object$W) or sum(object$X)
+of running sum(object$W) or sum(object$X)
 }
 \examples{
 model <- eim$new(X = matrix(1:15, 5, 3), W = matrix(1:50, 5, 10))

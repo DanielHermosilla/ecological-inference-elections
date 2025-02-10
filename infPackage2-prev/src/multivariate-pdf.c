@@ -1,6 +1,5 @@
 #include "multivariate-pdf.h"
-// #include "globals.h"
-// #include "matrixUtils.h"
+#include <R_ext/Memory.h>
 #include <math.h>
 #include <unistd.h>
 
@@ -23,11 +22,11 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
 
     // --- Get the mu and sigma --- //
     Matrix muR = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES - 1);
-    Matrix **sigma = (Matrix **)malloc(TOTAL_GROUPS * sizeof(Matrix *));
+    Matrix **sigma = (Matrix **)Calloc(TOTAL_GROUPS, Matrix *);
 
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     { // ---- For each group ----
-        sigma[g] = (Matrix *)malloc(sizeof(Matrix));
+        sigma[g] = (Matrix *)Calloc(1, Matrix);
         *sigma[g] = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1); // Initialize
     }
 
@@ -44,12 +43,12 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
     // ---- ... ----
 
     // --- Calculate the mahanalobis distance --- //
-    double **mahanalobisDistances = (double **)malloc(TOTAL_GROUPS * sizeof(double *));
+    double **mahanalobisDistances = (double **)Calloc(TOTAL_GROUPS, double *);
 
     // // #pragma omp parallel for
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     { // ---- For each group ----
-        mahanalobisDistances[g] = (double *)malloc(TOTAL_CANDIDATES * sizeof(double));
+        mahanalobisDistances[g] = (double *)Calloc(TOTAL_CANDIDATES, double);
         // ---- Get the feature vector (the candidate results) ----
         double *feature = getColumn(X, b);
         // ---- Get the average values for the candidate results ----
@@ -58,11 +57,11 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
         getMahanalobisDist(feature, muG, sigma[g], mahanalobisDistances[g], TOTAL_CANDIDATES - 1, false);
         // ---- Free allocated and temporary values ----
         freeMatrix(sigma[g]);
-        free(sigma[g]);
-        free(feature);
-        free(muG);
+        Free(sigma[g]);
+        Free(feature);
+        Free(muG);
     }
-    free(sigma);
+    Free(sigma);
     freeMatrix(&muR);
     // --- .... --- //
 
@@ -73,7 +72,7 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
     { // ---- For each group
         // ---- Initialize variables ----
         double den = 0;
-        double *QC = (double *)calloc(TOTAL_CANDIDATES, sizeof(double)); // Value of Q on candidate C
+        double *QC = (double *)Calloc(TOTAL_CANDIDATES, double); // Value of Q on candidate C
 
         for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
         { // ---- For each candidate given a group
@@ -91,10 +90,10 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
                 MATRIX_AT(toReturn, g, c) = 0;
         }
         // ---- Free allocated memory ----
-        free(mahanalobisDistances[g]);
-        free(QC);
+        Free(mahanalobisDistances[g]);
+        Free(QC);
     }
-    free(mahanalobisDistances); // Might have to remove
+    Free(mahanalobisDistances); // Might have to remove
 
     return toReturn;
     // --- ... --- //
@@ -116,9 +115,8 @@ double *computeQMultivariatePDF(Matrix const *probabilities, QMethodInput params
     // ---- Initialize values ---- //
     // ---- The probabilities without the last column will be used for each iteration ----
     Matrix probabilitiesReduced = removeLastColumn(probabilities);
-    double *array2 =
-        (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double)); // Array to return
-                                                                                           // --- ... --- //
+    double *array2 = (double *)Calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, double); // Array to return
+                                                                                                // --- ... --- //
 
     // ---- Fill the array with the results ---- //
     // #pragma omp parallel for

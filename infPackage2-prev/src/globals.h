@@ -8,8 +8,13 @@ extern "C"
 {
 #endif
 
+#include <R.h>
+#include <R_ext/Memory.h>
 #include <stdint.h>
 #include <stdio.h>
+
+#undef R_NO_REMAP // Remove this definition if it's being set by your build environment
+
 // Macro for accessing a 3D flattened array (b x g x c)
 // #define Q_3D(q, bIdx, gIdx, cIdx, G, C) ((q)[((bIdx) * (G) * (C)) + ((gIdx) * (C)) + (cIdx)])
 #define Q_3D(q, bIdx, gIdx, cIdx, G, C) ((q)[(bIdx) * (G) * (C) + (cIdx) * (G) + (gIdx)])

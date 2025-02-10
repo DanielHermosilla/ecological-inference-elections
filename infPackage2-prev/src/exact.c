@@ -1,4 +1,6 @@
+#undef R_NO_REMAP
 #include "exact.h"
+#include <R_ext/Memory.h>
 #include <Rmath.h>
 #include <math.h>
 #include <stdint.h>
@@ -112,8 +114,8 @@ void generateConfigurations(int b, size_t *votes, int position, int remainingVot
 
         // ---- Store the result ---- //
         // ---- Up to this point, the combination is valid, hence, the results will be stored.
-        (*results) = realloc(*results, (*count + 1) * sizeof(size_t *));
-        (*results)[*count] = malloc(numCandidates * sizeof(size_t));
+        (*results) = Realloc(*results, (*count + 1), size_t *);
+        (*results)[*count] = Calloc(numCandidates, size_t);
         memcpy((*results)[*count], votes, numCandidates * sizeof(size_t));
         (*count)++;
         return;
@@ -160,13 +162,13 @@ size_t **generateAllConfigurations(int b, int totalVotes, int numCandidates, siz
     // ---- Initialize parameters ---- //
     size_t **results = NULL;
     *count = 0;
-    size_t *votes = malloc(numCandidates * sizeof(size_t));
+    size_t *votes = Calloc(numCandidates, size_t);
     // --- ... --- //
 
     // ---- Call the recursion ---- //
     generateConfigurations(b, votes, 0, totalVotes, numCandidates, &results, count);
     // --- ... --- //
-    free(votes);
+    Free(votes);
     return results;
 }
 
@@ -182,13 +184,13 @@ size_t **generateAllConfigurations(int b, int totalVotes, int numCandidates, siz
 void generateHSets()
 {
     // ---- Allocate memory for the `b` index ----
-    HSETS = malloc(TOTAL_BALLOTS * sizeof(Set *));
+    HSETS = Calloc(TOTAL_BALLOTS, Set *);
 
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For every ballot box
 
         // ---- Allocate memory for the `g` index ----
-        HSETS[b] = malloc(TOTAL_GROUPS * sizeof(Set));
+        HSETS[b] = Calloc(TOTAL_GROUPS, Set);
 
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         { // ---- For each group given a ballot box
@@ -225,13 +227,13 @@ void generateHSets()
 void generateKSets()
 {
     // ---- Allocate memory for the `b` index ----
-    KSETS = malloc(TOTAL_BALLOTS * sizeof(Set *));
+    KSETS = Calloc(TOTAL_BALLOTS, Set *);
 
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For every ballot box
 
         // ---- Allocate memory for the `f` index ----
-        KSETS[b] = malloc(TOTAL_GROUPS * sizeof(Set));
+        KSETS[b] = Calloc(TOTAL_GROUPS, Set);
 
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         { // ---- For each group given a ballot box
@@ -401,8 +403,7 @@ void recursion(MemoizationTable *memo, const Matrix *probabilities)
                     // ---- Initialize the variable that will store the past iteration ----
                     double valueBefore;
                     // ---- Substract the Kth element with the Hth element (k-h) ----
-                    size_t *substractionVector =
-                        malloc((size_t)TOTAL_CANDIDATES * sizeof(size_t)); // ---- Allocates memory
+                    size_t *substractionVector = Calloc((size_t)TOTAL_CANDIDATES, size_t); // ---- Allocates memory
                     vectorDiff(currentK, currentH, substractionVector);
                     // --- ... --- //
 
@@ -474,7 +475,7 @@ void recursion(MemoizationTable *memo, const Matrix *probabilities)
                             // --- ... --- //
                         } // ---- End g loop
                     } // ---- End c loop
-                    free(substractionVector);
+                    Free(substractionVector);
                     // ---...--- //
                 } // ---- End H set loop
             } // ---- End K set loop
@@ -503,13 +504,13 @@ double *computeQExact(const Matrix *probabilities, QMethodInput params)
     if (CANDIDATEARRAYS == NULL)
     {
         // ---- Define the memory for the matrix and its parameters ----
-        CANDIDATEARRAYS = malloc(TOTAL_BALLOTS * sizeof(size_t *));
+        CANDIDATEARRAYS = Calloc(TOTAL_BALLOTS, size_t *);
         // ---- Parallelize the loop over the ballot boxes ----
         // #pragma omp parallel for
         for (uint16_t b = 0; b < TOTAL_BALLOTS; b++)
         { // ---- For all ballot boxes
             // ---- Allocate memory for the candidate array ----
-            CANDIDATEARRAYS[b] = malloc(TOTAL_CANDIDATES * sizeof(size_t));
+            CANDIDATEARRAYS[b] = Calloc(TOTAL_CANDIDATES, size_t);
             for (uint32_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // ---- For each candidate given a ballot box
                 // ---- Add the result to the array ----
@@ -535,7 +536,7 @@ double *computeQExact(const Matrix *probabilities, QMethodInput params)
     // ---- Initialize the hash table ----
     MemoizationTable *table = initMemo();
     // ---- Initialize the array to return
-    double *array2 = (double *)calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, sizeof(double));
+    double *array2 = (double *)Calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, double);
     // --- ... --- //
 
     // ---- Start the main computation ---- //
@@ -594,15 +595,15 @@ void freeHSet()
                         // ---- Free each configuration in the H set ----
                         for (size_t i = 0; i < HSETS[b][g].size; i++)
                         { // ---- For each combination in the bth and gth configuration ----
-                            free(HSETS[b][g].data[i]);
+                            Free(HSETS[b][g].data[i]);
                         }
-                        free(HSETS[b][g].data); // Free the array of configurations
+                        Free(HSETS[b][g].data); // Free the array of configurations
                     }
                 }
-                free(HSETS[b]); // Free the array of Hsets for this ballot
+                Free(HSETS[b]); // Free the array of Hsets for this ballot
             }
         }
-        free(HSETS); // Free the global array
+        Free(HSETS); // Free the global array
         HSETS = NULL;
     }
 }
@@ -627,15 +628,15 @@ void freeKSet()
                         // ---- Free each configuration in the K set ----
                         for (size_t i = 0; i < KSETS[b][g].size; i++)
                         { // ---- For each combination in the bth and gth configuration ----
-                            free(KSETS[b][g].data[i]);
+                            Free(KSETS[b][g].data[i]);
                         }
-                        free(KSETS[b][g].data); // Free the array of configurations
+                        Free(KSETS[b][g].data); // Free the array of configurations
                     }
                 }
-                free(KSETS[b]); // Free the array of K sets for this ballot
+                Free(KSETS[b]); // Free the array of K sets for this ballot
             }
         }
-        free(KSETS); // Free the global array
+        Free(KSETS); // Free the global array
         KSETS = NULL;
     }
 }
@@ -648,9 +649,9 @@ __attribute__((destructor)) void cleanExact()
     {
         for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
         { // ---- For each ballot box
-            free(CANDIDATEARRAYS[b]);
+            Free(CANDIDATEARRAYS[b]);
         }
-        free(CANDIDATEARRAYS);
+        Free(CANDIDATEARRAYS);
         CANDIDATEARRAYS = NULL;
     }
     // ---...--- //

@@ -14,7 +14,7 @@
 }
 \description{
 Extracts the probability matrix from the model, making it able to manipulate it as
-		a matrix
+a matrix
 }
 \examples{
 model <- eim$new(X = matrix(1:15, 5, 3), W = matrix(1:50, 5, 10))
