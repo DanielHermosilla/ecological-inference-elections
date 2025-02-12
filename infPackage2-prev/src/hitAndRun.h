@@ -1,5 +1,5 @@
-#ifndef HITANDRUN_H
-#define HITANDRUN_H
+#ifndef HITANDRUN_H_EIM
+#define HITANDRUN_H_EIM
 
 #ifdef __cplusplus
 

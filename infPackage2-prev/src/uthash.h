@@ -130,7 +130,7 @@ typedef unsigned char uint8_t;
 /* malloc failures result in lost memory, hash tables are unusable */
 
 #ifndef uthash_fatal
-#define uthash_fatal(msg) error(-1) /* fatal OOM error */
+#define uthash_fatal(msg) error("Exact: Computing error") /* fatal OOM error */
 #endif
 
 #define HASH_RECORD_OOM(oomed) uthash_fatal("out of memory")
@@ -585,7 +585,7 @@ typedef unsigned char uint8_t;
     do                                                                                                                 \
     {                                                                                                                  \
         fprintf(stderr, __VA_ARGS__);                                                                                  \
-        error(-1);                                                                                                     \
+        exit("Exact: Computing error");                                                                                 \
     } while (0)
 #define HASH_FSCK(hh, head, where)                                                                                     \
     do                                                                                                                 \

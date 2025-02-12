@@ -1,5 +1,5 @@
-#ifndef UTILS_HASH
-#define UTILS_HASH
+#ifndef UTILS_HASH_EIM
+#define UTILS_HASH_EIM
 
 #ifdef __cplusplus
 

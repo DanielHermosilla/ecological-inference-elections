@@ -1,5 +1,5 @@
-#ifndef MULTIVARIATE_UTILS_H
-#define MULTIVARIATE_UTILS_H
+#ifndef MULTIVARIATE_UTILS_H_EIM
+#define MULTIVARIATE_UTILS_H_EIM
 
 #ifdef __cplusplus
 

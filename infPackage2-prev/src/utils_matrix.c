@@ -393,15 +393,11 @@ void printMatrix(const Matrix *matrix)
     for (int i = 0; i < matrix->rows; i++)
     {
         Rprintf("| ");
-        for (int j = 0; j < matrix->cols; j++)
+        for (int j = 0; j < matrix->cols - 1; j++)
         {
-            if (j == 0)
-            {
-                Rprintf("\t%.5f\t", MATRIX_AT_PTR(matrix, i, j));
-                continue;
-            }
             Rprintf("%.5f\t", MATRIX_AT_PTR(matrix, i, j));
         }
+        Rprintf("%.5f", MATRIX_AT_PTR(matrix, i, matrix->cols - 1));
         Rprintf(" |\n");
     }
 }

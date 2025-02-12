@@ -430,7 +430,9 @@ void recursion(MemoizationTable *memo, const Matrix *probabilities)
                             // ---- No more border cases, at this point, every past value should had been defined ----
                             else
                             {
+#ifdef _OPENMP
 #pragma omp critical
+#endif
                                 {
                                     valueBefore =
                                         getMemoValue(memo, b, f - 1, g, c, substractionVector, TOTAL_CANDIDATES);
@@ -439,7 +441,9 @@ void recursion(MemoizationTable *memo, const Matrix *probabilities)
                             // --- ... --- //
                             double valueNow;
                             // ---- Get the current value ---- //
+#ifdef _OPENMP
 #pragma omp critical
+#endif
                             {
                                 valueNow = getMemoValue(memo, b, f, g, c, currentK, TOTAL_CANDIDATES);
                             }
@@ -468,7 +472,9 @@ void recursion(MemoizationTable *memo, const Matrix *probabilities)
                             // ---- Store the value ---- //
                             // ---- We set a critical point in case there's an error when inserting two values at the
                             // same time. Remember that this loop is parallelized ----
+#ifdef _OPENMP
 #pragma omp critical
+#endif
                             {
                                 setMemoValue(memo, b, f, g, c, currentK, TOTAL_CANDIDATES, valueNow);
                             }
@@ -555,7 +561,9 @@ double *computeQExact(const Matrix *probabilities, QMethodInput params)
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // ---- For each candidate
               // ---- Add the values of the denominator
+#ifdef _OPENMP
 #pragma omp critical
+#endif
                 {
                     num[c] = getMemoValue(table, b, TOTAL_GROUPS - 1, g, c, CANDIDATEARRAYS[b], TOTAL_CANDIDATES) *
                              MATRIX_AT_PTR(probabilities, g, c);

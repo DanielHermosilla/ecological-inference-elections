@@ -1,6 +1,6 @@
 // ---- Avoid circular dependencies
-#ifndef GLOBALS_H
-#define GLOBALS_H
+#ifndef GLOBALS_H_EIM
+#define GLOBALS_H_EIM
 
 #ifdef __cplusplus
 

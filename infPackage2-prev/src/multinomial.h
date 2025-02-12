@@ -1,5 +1,5 @@
-#ifndef COMPUTE_MULTINOMIAL_H
-#define COMPUTE_MULTINOMIAL_H
+#ifndef COMPUTE_MULTINOMIAL_H_EIM
+#define COMPUTE_MULTINOMIAL_H_EIM
 
 #ifdef __cplusplus
 

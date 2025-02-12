@@ -34,7 +34,7 @@ Rcpp::List EMAlgorithmAll(Rcpp::String em_method, Rcpp::String probability_metho
                              &totalIter, logLLarr, inputParams);
     freeMatrix(&pIn);
 
-    if (verbose)
+    if (verbose[0])
     {
         Rprintf("\nThe calculated matrix is\n");
         printMatrix(&Pnew);
@@ -80,11 +80,11 @@ Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method, Rcpp::IntegerVector m
                              &totalIter, logLLarr, inputParams);
     freeMatrix(&pIn);
 
-    if (verbose)
+    if (verbose[0])
     {
         Rprintf("\nThe calculated matrix is\n");
         printMatrix(&Pnew);
-        Rprintf("\nIt took %.5f seconds to run with a log-likelihood of %.5f.\n", timeIter, logLLarr[totalIter]);
+        Rprintf("\nIt took %.5f seconds to run with a log-likelihood of %.5f.\n", timeIter, logLLarr[totalIter - 1]);
     }
 
     // ---- Return the results ---- //
@@ -93,7 +93,7 @@ Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method, Rcpp::IntegerVector m
     freeMatrix(&Pnew);
 
     // ---- Final log-likelihood array ----
-    Rcpp::NumericVector RlogLikelihood(logLLarr, logLLarr + totalIter);
+    Rcpp::NumericVector RlogLikelihood(logLLarr, logLLarr + totalIter - 1);
 
     return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = RlogLikelihood,
                               Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter);
@@ -121,11 +121,11 @@ Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method, Rcpp::IntegerVe
                              &totalIter, logLLarr, inputParams);
     // freeMatrix(&pIn);
 
-    if (verbose)
+    if (verbose[0])
     {
         Rprintf("\nThe calculated matrix is\n");
         printMatrix(&Pnew);
-        Rprintf("\nIt took %.5f seconds to run with a log-likelihood of %.5f.\n", timeIter, logLLarr[totalIter]);
+        Rprintf("\nIt took %.5f seconds to run with a log-likelihood of %.5f.\n", timeIter, logLLarr[totalIter - 1]);
     }
 
     // ---- Return the results ---- //
@@ -134,7 +134,7 @@ Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method, Rcpp::IntegerVe
     freeMatrix(&Pnew);
 
     // ---- Final log-likelihood array ----
-    Rcpp::NumericVector RlogLikelihood(logLLarr, logLLarr + totalIter);
+    Rcpp::NumericVector RlogLikelihood(logLLarr, logLLarr + totalIter - 1);
 
     return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = RlogLikelihood,
                               Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter);

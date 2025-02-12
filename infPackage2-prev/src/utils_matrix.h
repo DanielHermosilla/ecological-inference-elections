@@ -1,5 +1,5 @@
-#ifndef UTILS_MATRIX_H
-#define UTILS_MATRIX_H
+#ifndef UTILS_MATRIX_H_EIM
+#define UTILS_MATRIX_H_EIM
 
 #ifdef __cplusplus
 

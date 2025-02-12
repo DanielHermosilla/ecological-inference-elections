@@ -1,6 +1,6 @@
 // El header del paquete, acá llamamos las funciones que pasarán a R
-#ifndef MAIN_H
-#define MAIN_H
+#ifndef MAIN_H_EIM
+#define MAIN_H_EIM
 
 #ifdef __cplusplus
 

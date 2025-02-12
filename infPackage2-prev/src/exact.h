@@ -1,5 +1,5 @@
-#ifndef COMPUTE_EXACT_H
-#define COMPUTE_EXACT_H
+#ifndef COMPUTE_EXACT_H_EIM
+#define COMPUTE_EXACT_H_EIM
 
 #ifdef __cplusplus
 

@@ -1,3 +1,6 @@
+#define extern
+#include "globals.h"
+#undef extern
 #include "main.h"
 #include <R_ext/BLAS.h>
 #include <R_ext/Memory.h>

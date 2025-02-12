@@ -68,6 +68,22 @@ model$compute(main_method = "Exact",
 # Verbose was omitted
 
 ## ------------------------------------------------
+## Method `eim$bootstrap`
+## ------------------------------------------------
+
+
+simulations <- simulate_votation(num_ballots = 20, 
+				num_candidates = 5, 
+				num_demographics = 3, 
+				ballot_voters = rep(100, 20))
+
+model <- eim$new(X = simulations$X, W = simulations$W)
+
+model$bootstrap(30, 10)
+
+model$standard_deviation # An estimate of the probabilities sd.
+
+## ------------------------------------------------
 ## Method `eim$print`
 ## ------------------------------------------------
 
@@ -137,6 +153,8 @@ Normal CDF, if and only if self$method is "MVN CDF"}
 \item{\code{multivariate_error}}{(numeric(1)) Active variable to show the error threshold for the Montecarlo simulation of the Multivariate Normal CDF}
 
 \item{\code{multivariate_iterations}}{(numeric(1)) Active variable to show the number of iterations for the Montecarlo simulation of the Multivariate Normal CDF}
+
+\item{\code{standard_deviation}}{(matrix) Active variable to show an estimate of the probability standard deviation if the bootstrapping method has been called}
 }
 \if{html}{\out{</div>}}
 }
@@ -146,6 +164,7 @@ Normal CDF, if and only if self$method is "MVN CDF"}
 \item \href{#method-eim-new}{\code{eim$new()}}
 \item \href{#method-eim-precompute}{\code{eim$precompute()}}
 \item \href{#method-eim-compute}{\code{eim$compute()}}
+\item \href{#method-eim-bootstrap}{\code{eim$bootstrap()}}
 \item \href{#method-eim-print}{\code{eim$print()}}
 \item \href{#method-eim-summary}{\code{eim$summary()}}
 \item \href{#method-eim-save_results}{\code{eim$save_results()}}
@@ -316,6 +335,86 @@ model$compute(main_method = "Exact",
  			iterations = 5, 
 				stopping_threshold = 1e-3) 
 # Verbose was omitted
+}
+\if{html}{\out{</div>}}
+
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-eim-bootstrap"></a>}}
+\if{latex}{\out{\hypertarget{method-eim-bootstrap}{}}}
+\subsection{Method \code{bootstrap()}}{
+Runs a bootstrap algorithm to estimate the standard deviation of probabilities
+
+Computes the EM algorithm 'bootstrap_iterations' times by sampling without replacement an 'ballot_boxes' amount of tables. New samples are made 
+per iteration. It'll obtain the standard deviation from every iteration
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{eim$bootstrap(
+  bootstrap_iterations,
+  ballot_boxes,
+  main_method = "Multinomial",
+  probability_method = "Group proportional",
+  iterations = 1000,
+  stopping_threshold = 0.001,
+  verbose = FALSE,
+  ...
+)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{bootstrap_iterations}}{(integer(1)) Amount of EM computations.}
+
+\item{\code{ballot_boxes}}{(integer(1)) Amount of ballot boxes to use as a sample. It must be strictly smaller than the current amount of ballot boxes.}
+
+\item{\code{main_method}}{(character) The method for estimating the Expectation-Maximization (EM) algorithm. Options:
+"Multinomial", "MVN CDF", "MVN PDF", "Hit and Run" and "Exact" (default: "Multinomial").}
+
+\item{\code{probability_method}}{(character) The method for obtaining the initial probability. Options: "Group proportional",
+"Proportional", "Uniform". (default: "Group proportional").}
+
+\item{\code{iterations}}{(integer(1)) The maximum amount of iterations to perform on the EM algorithm. (default: 1000).}
+
+\item{\code{stopping_threshold}}{(numeric(1)) The minimum difference between consequent probabilities for stopping the iterations.
+(default: 0.001).}
+
+\item{\code{verbose}}{(boolean(1)) Boolean indicating whether to print useful messages while iterating. (default: FALSE).}
+
+\item{\code{...}}{Additional arguments required by specific methods:
+\itemize{
+  \item \strong{"Hit and Run" Method:}
+    \itemize{
+      \item step_size (integer(1)): The step size (M) for the Hit and Run algorithm. \cr
+      \item samples (integer(1)): The number of samples (S) to generate.
+    }
+  \item \strong{"MVN CDF" Method:}
+    \itemize{
+      \item multivariate_method (character): The integration method. Default is "Genz2". \cr
+      \item multivariate_error (numeric(1)): The integration error threshold. Default is 1e-6. \cr
+      \item multivariate_iterations (integer(1)): The number of Monte Carlo iterations. Default is 5000.
+    }
+}}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+The modified eim object, under the field of `$standard_deviation`
+}
+\subsection{Examples}{
+\if{html}{\out{<div class="r example copy">}}
+\preformatted{
+simulations <- simulate_votation(num_ballots = 20, 
+				num_candidates = 5, 
+				num_demographics = 3, 
+				ballot_voters = rep(100, 20))
+
+model <- eim$new(X = simulations$X, W = simulations$W)
+
+model$bootstrap(30, 10)
+
+model$standard_deviation # An estimate of the probabilities sd.
 }
 \if{html}{\out{</div>}}
 

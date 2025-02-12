@@ -89,7 +89,8 @@ double genzMontecarloNew(const Matrix *cholesky, const double *lowerBounds, cons
     return mean;
 }
 
-// Might implement later
+// Might implement later: has the problem of global RNG state from R's API. To be solved
+/*
 double genzMontecarloChunk(const Matrix *cholesky, const double *lowerBounds, const double *upperBounds, double epsilon,
                            int iterations, int mvnDim)
 {
@@ -172,6 +173,7 @@ double genzMontecarloChunk(const Matrix *cholesky, const double *lowerBounds, co
 
     return intsum / currentIterations;
 }
+*/
 
 // All of the conventions used are from genz paper
 /*
@@ -300,7 +302,7 @@ double Montecarlo(Matrix *chol, double *mu, double *lowerLimits, double *upperLi
     // ---- Perform integration ---- //
     if (strcmp(method, "Genz") == 0)
     {
-        result = genzMontecarloChunk(chol, lowerLimits, upperLimits, epsilon, maxSamples, mvnDim);
+        result = genzMontecarlo(chol, lowerLimits, upperLimits, epsilon, maxSamples, mvnDim);
         return result;
     }
     else if (strcmp(method, "Genz2") == 0)
@@ -367,8 +369,11 @@ double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params
     // ---- Define initial variables ---- //
     Matrix probabilitiesReduced = removeLastColumn(probabilities);
     double *array2 = (double *)Calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, double); // Array to return
-// --- ... --- //
+    // --- ... --- //
+
+#ifdef _OPENMP
 #pragma omp parallel for
+#endif
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // --- For each ballot box
         // ---- Get the values of the Multivariate CDF that only depends on `b` ---- //

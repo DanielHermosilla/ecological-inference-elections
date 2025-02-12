@@ -321,6 +321,109 @@ eim <- R6::R6Class("eim",
 
             invisible(self)
         },
+		
+		#' @description Runs a bootstrap algorithm to estimate the standard deviation of probabilities
+		#'
+		#' Computes the EM algorithm 'bootstrap_iterations' times by sampling without replacement an 'ballot_boxes' amount of tables. New samples are made 
+		#' per iteration. It'll obtain the standard deviation from every iteration
+		#'
+		#' @param bootstrap_iterations (integer(1)) Amount of EM computations.
+		#'
+		#' @param ballot_boxes (integer(1)) Amount of ballot boxes to use as a sample. It must be strictly smaller than the current amount of ballot boxes.
+		#' 
+		#' @param main_method (character) The method for estimating the Expectation-Maximization (EM) algorithm. Options:
+		#' "Multinomial", "MVN CDF", "MVN PDF", "Hit and Run" and "Exact" (default: "Multinomial").
+		#'
+		#' @param probability_method (character) The method for obtaining the initial probability. Options: "Group proportional",
+		#' "Proportional", "Uniform". (default: "Group proportional").
+		#'
+		#' @param iterations (integer(1)) The maximum amount of iterations to perform on the EM algorithm. (default: 1000).
+		#'
+		#' @param stopping_threshold (numeric(1)) The minimum difference between consequent probabilities for stopping the iterations.
+		#' (default: 0.001).
+		#'
+		#' @param verbose (boolean(1)) Boolean indicating whether to print useful messages while iterating. (default: FALSE).
+		#'
+		#' @param ... Additional arguments required by specific methods:
+		#'   \itemize{
+		#'     \item \strong{"Hit and Run" Method:}
+		#'       \itemize{
+		#'         \item step_size (integer(1)): The step size (M) for the Hit and Run algorithm. \cr
+		#'         \item samples (integer(1)): The number of samples (S) to generate.
+		#'       }
+		#'     \item \strong{"MVN CDF" Method:}
+		#'       \itemize{
+		#'         \item multivariate_method (character): The integration method. Default is "Genz2". \cr
+		#'         \item multivariate_error (numeric(1)): The integration error threshold. Default is 1e-6. \cr
+		#'         \item multivariate_iterations (integer(1)): The number of Monte Carlo iterations. Default is 5000.
+		#'       }
+		#'   }
+		#'
+		#' @return The modified eim object, under the field of `$standard_deviation`
+		#'
+		#' @examples
+		#'
+		#' simulations <- simulate_votation(num_ballots = 20, 
+		#' 				num_candidates = 5, 
+		#' 				num_demographics = 3, 
+		#' 				ballot_voters = rep(100, 20))
+		#'
+		#' model <- eim$new(X = simulations$X, W = simulations$W)
+		#' 
+		#' model$bootstrap(30, 10)
+		#'
+		#' model$standard_deviation # An estimate of the probabilities sd.
+		bootstrap = function(bootstrap_iterations, ballot_boxes, main_method = "Multinomial", probability_method = "Group proportional", iterations = 1000, stopping_threshold = 0.001, verbose = FALSE, ...){
+			params <- list(...)
+			# By default we won't verbose the computing intermediate results, since they got missing values.
+			compute_params <- c(
+				list(main_method = main_method, 
+				     probability_method = probability_method, 
+				     iterations = iterations, 
+				     stopping_threshold = stopping_threshold, 
+				     verbose = FALSE), 
+				params
+			)
+
+			# Parameter checking
+			if (ballot_boxes >= nrow(self$X)){
+			stop("Bootstrap error: The sampling size must be smaller than the amount of ballot boxes")
+			}
+			if (main_method == "Exact" && bootstrap_iterations >= 5)	{
+				message("Warning: The bootstraping method may take a while.")
+			}
+
+			# Array for storing intermediate results
+			results_array <- vector("list", length = bootstrap_iterations)
+			
+			# Main loop
+			for (i in seq_len(bootstrap_iterations)){
+				if (verbose){
+				message("Running iteration:\t", i)
+				}	
+				# Sample according the ballot boxes
+				sample = sample(1:nrow(self$X), size = ballot_boxes, replace = FALSE)
+				iteration_X <- self$X[sample, ,drop = FALSE]
+				iteration_W <- self$W[sample, ,drop = FALSE]
+				# Create a temporary eim object and compute
+				sample_object <- eim$new(iteration_X, iteration_W)
+				do.call(sample_object$compute, compute_params)
+
+				results_array[[i]] <- sample_object$probability
+				rm(sample_object)
+			}
+
+			# Convert results into a 3D tensor
+			final_array <- array(unlist(results_array), dim = c(ncol(self$W), ncol(self$X), bootstrap_iterations))
+			sd_matrix <- apply(final_array, MARGIN = c(1,2), FUN = sd)
+
+			# Final results
+			private$bootstrap_result <- sd_matrix
+			private$bootstrap_called <- TRUE
+			
+			invisible(self)
+
+		},
 
         #' @description According to the state of the algorithm (either computed or not), it prints a message with its most relevant parameters
 		#'
@@ -335,15 +438,15 @@ eim <- R6::R6Class("eim",
         print = function() {
             cat("eim ecological inference model\n")
             # Determine if truncation is needed
-            truncated_X <- (nrow(self$X) > 5 || ncol(self$X) > 5)
-            truncated_W <- (nrow(self$W) > 5 || ncol(self$W) > 5)
+            truncated_X <- (nrow(self$X) > 5)
+            truncated_W <- (nrow(self$W) > 5)
 
             cat("Candidate matrix (X) [b x c]:\n")
-            print(self$X[1:min(5, nrow(self$X)), 1:min(5, ncol(self$X))])
+            print(self$X[1:min(5, nrow(self$X)), ])
             if (truncated_X) cat("...\n")
 
             cat("Group matrix (W) [b x g]:\n")
-            print(self$W[1:min(5, nrow(self$W)), 1:min(5, ncol(self$W))])
+            print(self$W[1:min(5, nrow(self$W)), ])
             if (truncated_W) cat("...\n")
 
             if (private$been_computed) {
@@ -482,7 +585,15 @@ eim <- R6::R6Class("eim",
             } else {
                 return(NULL)
             }
-        }
+        },
+		#' @field standard_deviation (matrix) Active variable to show an estimate of the probability standard deviation if the bootstrapping method has been called
+		standard_deviation = function(){
+			if (private$bootstrap_called) {
+				return(private$bootstrap_result)
+			} else {
+				return(NULL)
+			}
+		}
     ),
     private = list(
         # PRIVATE FIELD: been_called Boolean that determines if the object has been called before (used for C cleanup).
@@ -505,6 +616,10 @@ eim <- R6::R6Class("eim",
         mvn_error = 0.000001,
         # PRIVATE FIELD mvn_iterations The number of iterations for the MVN CDF Monte Carlo simulation.
         mvn_iterations = 5000,
+		# PRIVATE_FIELD bootstrap_called Used to see if the bootstrapping method has been called.
+		bootstrap_called = FALSE,
+		# PRIVATE_FIELD boostrap_result The result of the bootstrapping method.
+		bootstrap_result = 0,
 		# PRIVATE METHOD validate_JSON_data Validates an input JSON file data.
 		validate_JSON_data = function(data) {
 			# Check that the keys "X" and "W" exist

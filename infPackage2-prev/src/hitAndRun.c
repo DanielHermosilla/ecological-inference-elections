@@ -261,7 +261,10 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params)
     // ---- Compute the final values and fill the returning array ---- //
     double *array2 = (double *)Calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, double); // Array to return
     // ---- Use a static assignment since the workload is even between threads ----
+
+#ifdef _OPENMP
 #pragma omp parallel for collapse(3) schedule(static)
+#endif
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // --- For each ballot box
         OmegaSet *currentSet = OMEGASET[b];

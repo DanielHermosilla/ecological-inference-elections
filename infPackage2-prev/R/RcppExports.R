@@ -2,38 +2,37 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 EMAlgorithmAll <- function(em_method, probability_method, maximum_iterations, stopping_threshold, verbose) {
-    .Call(`_infPackage2_EMAlgorithmAll`, em_method, probability_method, maximum_iterations, stopping_threshold, verbose)
+  .Call("_infPackage2_EMAlgorithmAll", PACKAGE = "infPackage2", em_method, probability_method, maximum_iterations, stopping_threshold, verbose)
 }
 
 EMAlgorithmCDF <- function(probability_method, maximum_iterations, stopping_threshold, verbose, multivariate_method, multivariate_epsilon, multivariate_iterations) {
-    .Call(`_infPackage2_EMAlgorithmCDF`, probability_method, maximum_iterations, stopping_threshold, verbose, multivariate_method, multivariate_epsilon, multivariate_iterations)
+  .Call("_infPackage2_EMAlgorithmCDF", PACKAGE = "infPackage2", probability_method, maximum_iterations, stopping_threshold, verbose, multivariate_method, multivariate_epsilon, multivariate_iterations)
 }
 
 EMAlgorithmHitAndRun <- function(probability_method, maximum_iterations, stopping_threshold, verbose, step_size, samples) {
-    .Call(`_infPackage2_EMAlgorithmHitAndRun`, probability_method, maximum_iterations, stopping_threshold, verbose, step_size, samples)
+  .Call("_infPackage2_EMAlgorithmHitAndRun", PACKAGE = "infPackage2", probability_method, maximum_iterations, stopping_threshold, verbose, step_size, samples)
 }
 
 RprecomputeHR <- function(samples, step_size) {
-    invisible(.Call(`_infPackage2_RprecomputeHR`, samples, step_size))
+  invisible(.Call("_infPackage2_RprecomputeHR", PACKAGE = "infPackage2", samples, step_size))
 }
 
 RprecomputeExact <- function() {
-    invisible(.Call(`_infPackage2_RprecomputeExact`))
+  invisible(.Call("_infPackage2_RprecomputeExact", PACKAGE = "infPackage2"))
 }
 
 RsetParameters <- function(candidate_matrix, group_matrix) {
-    invisible(.Call(`_infPackage2_RsetParameters`, candidate_matrix, group_matrix))
+  invisible(.Call("_infPackage2_RsetParameters", PACKAGE = "infPackage2", candidate_matrix, group_matrix))
 }
 
 clean_exact_precompute <- function() {
-    invisible(.Call(`_infPackage2_clean_exact_precompute`))
+  invisible(.Call("_infPackage2_clean_exact_precompute", PACKAGE = "infPackage2"))
 }
 
 clean_hr_precompute <- function() {
-    invisible(.Call(`_infPackage2_clean_hr_precompute`))
+  invisible(.Call("_infPackage2_clean_hr_precompute", PACKAGE = "infPackage2"))
 }
 
 clean_everything <- function() {
-    invisible(.Call(`_infPackage2_clean_everything`))
+  invisible(.Call("_infPackage2_clean_everything", PACKAGE = "infPackage2"))
 }
-
