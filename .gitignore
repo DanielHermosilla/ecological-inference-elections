@@ -5,14 +5,5 @@
 
 # Exclude files inside the "project/" directory
 !README.md 
-!instances/
-!instances/**
-!R/
-!R/**
-!NAMESPACE
-!DESCRIPTION
-!src/
-!src/**
-!infPackage2-prev/
-!infPackage2-prev/**
+!eimodel/**
 
