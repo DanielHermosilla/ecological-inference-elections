@@ -1,9 +1,0 @@
-{
-  "r.lsp.diagnostics": true,
-  "r.lsp.formatting.style": "RStudio",   // Options: "RStudio", "Google", "Default"
-  "r.lsp.indent_size": 4,                // Number of spaces for indentation
-  "r.lsp.line_length": 100,               // Max line length before wrapping
-  "r.lsp.hover": true,                    // Show hover tooltips
-  "r.lsp.completion.enabled": true        // Enable autocompletion
-}
-
