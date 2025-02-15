@@ -95,6 +95,12 @@ extern "C"
      * @param[in] convergence Threshold value for convergence. Usually it's set to 0.001.
      * @param[in] maxIter Integer with a threshold of maximum iterations. Usually it's set to 100.
      * @param[in] verbose Wether to verbose useful outputs.
+     * @param[in, out] time The time that the algorithm took.
+     * @param[in, out] iterTotal Total amount of iterations.
+     * @param[in, out] logLLarr The loglikelihood array
+     * @param[in, out] finishing_reason The reason that the algorithm has been stopped. It can either be 0, 1, 2, 3,
+     * representing a normal convergence, log likelihood decrease, maximum time reached and maximum iterations reached,
+     * respectively.
      *
      * @return Matrix: A matrix with the final probabilities. In case it doesn't converges, it returns the last
      * probability that was computed
@@ -109,7 +115,8 @@ extern "C"
      *
      */
     Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
-                      const bool verbose, double *time, int *iterTotal, double *logLLarr, QMethodInput params);
+                      int maxMinutes, const bool verbose, double *time, int *iterTotal, double *logLLarr,
+                      int *finishing_reason, QMethodInput params);
 
     /**
      * @brief Checks if a candidate didn't receive any votes.

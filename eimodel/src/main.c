@@ -1,3 +1,25 @@
+/*
+Copyright (c) 2025 Daniel Hermosilla
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
 #define extern
 #include "globals.h"
 #undef extern
@@ -5,7 +27,6 @@
 #include <R_ext/BLAS.h>
 #include <R_ext/Memory.h>
 #include <dirent.h>
-#include <errno.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -392,8 +413,9 @@ Matrix getP(const double *q)
  * - `x` and `w` dimensions must be coherent.
  *
  */
-Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
-                  const bool verbose, double *time, int *iterTotal, double *logLLarr, QMethodInput inputParams)
+Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter, int maxMinutes,
+                  const bool verbose, double *time, int *iterTotal, double *logLLarr, int *finishing_reason,
+                  QMethodInput inputParams)
 {
 
     // ---- Error handling is done on getQMethodConfig! ---- //
@@ -421,7 +443,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     {
         // Timer for the current iteration
         clock_gettime(CLOCK_MONOTONIC, &iter_start);
-
+        *iterTotal = i;
         if (verbose)
         {
             Rprintf("\nThe current probability matrix at the %dth iteration is:\n", i);
@@ -431,7 +453,6 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         // ---- Compute the `q` value ---- //
         double *q = config.computeQ(currentP, config.params);
         Matrix newProbability = getP(q);
-        // sleep(10);
         // ---...--- //
 
         // ---- Check convergence ---- //
@@ -450,8 +471,8 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             }
 
             // ---- Calculate the final values ---- //
+            *finishing_reason = 0;
             *time = elapsed_total;
-            *iterTotal = i + 1;
             // ---...--- //
 
             freeMatrix(currentP);
@@ -463,6 +484,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         clock_gettime(CLOCK_MONOTONIC, &iter_end);
         double elapsed_iter = (iter_end.tv_sec - iter_start.tv_sec) + (iter_end.tv_nsec - iter_start.tv_nsec) / 1e9;
         elapsed_total += elapsed_iter;
+        R_CheckUserInterrupt();
 
         if (verbose)
         {
@@ -478,26 +500,28 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         *currentP = createMatrix(newProbability.rows, newProbability.cols);
         memcpy(currentP->data, newProbability.data, sizeof(double) * newProbability.rows * newProbability.cols);
         freeMatrix(&newProbability);
-        // memcpy(currentP->data, newProbability.data, sizeof(double) * newProbability.rows * newProbability.cols);
+
         // ---- Handle the case where the log-likelihood decreases ----
         // ---- The CDF case has a lot of variance between iterations, hence, we'll leave a minimum iterations
         // threshold.
         int minIter = (strcmp(q_method, "MVN CDF") == 0) ? 100 : 1;
-        if (i >= minIter && (logLLarr)[i] < (logLLarr)[i - 1])
+        if ((i >= minIter && (logLLarr)[i] < (logLLarr)[i - 1]))
         {
-            // ---- Save values ----
-            *iterTotal = i + 1;
-            *time = elapsed_total;
-            Matrix finalProbability = copyMatrix(currentP);
-            freeMatrix(currentP);
-            return finalProbability;
+            *finishing_reason = 1;
+            goto results;
+        }
+        // ---- Handle the case where the maximum times is reached
+        if (elapsed_total / 60 > maxMinutes)
+        {
+            *finishing_reason = 2;
+            goto results;
         }
     }
     Rprintf("Maximum iterations reached without convergence.\n"); // Print even if there's not verbose, might change
                                                                   // later.
-    *iterTotal = maxIter;
+    *finishing_reason = 3;
+results:
     *time = elapsed_total;
-
     // ---- Matrix must be returned without a pointer ---- //
     Matrix finalProbability = copyMatrix(currentP);
     freeMatrix(currentP);

@@ -41,6 +41,9 @@ eim <- R6::R6Class("eim",
     #' @field total_time \emph{(numeric(1))} The time that the EM algorithm took.
     total_time = NULL,
 
+    #' @field finish_state \emph{Character} The reason of the algorithm's finishing. It could either be "Maximum iterations", "Log-likelihood decrease", "Convergence" or "Early exit".
+    finish_state = NULL,
+
     #' @description Creates the object by defining the X and W matrix attributes.
     #'
     #' @param X \emph{(matrix)} A matrix (c x b) of observed candidates (c) votes per ballot boxes (b) (optional, required if json_path is NULL).
@@ -119,9 +122,9 @@ eim <- R6::R6Class("eim",
     #'
     #' @examples
     #' # Example 1: Precompute the Hit and Run method
-    #' simulations <- simulate_votation(num_ballots = 20,
+    #' simulations <- simulate_elections(num_ballots = 20,
     #' 				num_candidates = 5,
-    #' 				num_demographics = 3,
+    #' 				num_groups = 3,
     #' 				ballot_voters = rep(100, 20))
     #'
     #' model <- eim$new(simulations$X, simulations$W)
@@ -169,13 +172,15 @@ eim <- R6::R6Class("eim",
     #'
     #' @note This method can also be called as an S3 method with \code{predict()}.
     #'
-    #' @param main_method \emph{(character)} The method for estimating the Expectation-Maximization (EM) algorithm. Options:
+    #' @param method \emph{(character)} The method for estimating the Expectation-Maximization (EM) algorithm. Options:
     #' \code{"Multinomial", "MVN CDF", "MVN PDF", "Hit and Run"} and \code{"Exact"} (default: \code{"Multinomial"}).
     #'
     #' @param probability_method \emph{(character)} The method for obtaining the initial probability. Options: \code{"Group proportional"},
     #' \code{"Proportional"} or \code{"Uniform"}. (default: \code{"Group proportional"}).
     #'
     #' @param iterations \emph{(integer(1))} The maximum amount of iterations to perform on the EM algorithm. (default: \code{1000}).
+    #'
+    #' @param maximum_time \emph{(integer(1))} The maximum time (in minutes) that the algorithm will iterate. (default: \code{1440}).
     #'
     #' @param stopping_threshold \emph{(numeric(1))} The minimum difference between consequent probabilities for stopping the iterations.
     #' (default: \code{0.001}).
@@ -204,9 +209,9 @@ eim <- R6::R6Class("eim",
     #' @examples
     #' # Example 1: Compute the Expected Maximization with default values
     #'
-    #' simulations <- simulate_votation(num_ballots = 20,
+    #' simulations <- simulate_elections(num_ballots = 20,
     #' 				num_candidates = 5,
-    #' 				num_demographics = 3,
+    #' 				num_groups = 3,
     #' 				ballot_voters = rep(100, 20))
     #'
     #' model <- eim$new(simulations$X, simulations$W)
@@ -214,38 +219,39 @@ eim <- R6::R6Class("eim",
     #'
     #' # Example 2: Compute the Expected Maximization for the Hit and Run method
     #' \donttest{
-    #' 	model$compute(main_method = "Hit and Run",
+    #' 	model$compute(method = "Hit and Run",
     #' 					step_size = 3000,
     #' 					samples = 1000)
     #' 	}
     #'
     #' # Example 3: Omit arguments to the Hit and Run method
     #' \dontrun{
-    #' 	model$compute(main_method = "Hit and Run",
+    #' 	model$compute(method = "Hit and Run",
     #' 					step_size = 3000)
     #' 	# Error; must hand in samples parameter too
     #' 	}
     #'
     #' # Example 4: Run the MVN CDF with default values
-    #' model$compute(main_method = "MVN CDF")
+    #' model$compute(method = "MVN CDF")
     #'
     #' # Example 5: Run a Exact estimation with user defined parameters
-    #' model$compute(main_method = "Exact",
+    #' model$compute(method = "Exact",
     #' 				probability_method = "Uniform",
     #'  			iterations = 5,
     #' 				stopping_threshold = 1e-3)
     #' # Verbose was omitted
-    compute = function(main_method = "Multinomial",
+    compute = function(method = "Multinomial",
                        probability_method = "Group proportional",
                        iterations = 1000,
+                       maximum_time = 1440,
                        stopping_threshold = 0.001,
                        verbose = FALSE, ...) {
       params <- list(...)
 
       # Check if the method provided is valid
-      private$validate_methods(main_method, params)
+      private$validate_methods(method, params)
       # Define the method
-      self$method <- main_method
+      self$method <- method
 
       # ========= HIT AND RUN ========= #
       if (self$method == "Hit and Run") {
@@ -257,6 +263,7 @@ eim <- R6::R6Class("eim",
         resulting_values <- EMAlgorithmHitAndRun(
           probability_method,
           iterations,
+          maximum_time,
           stopping_threshold,
           verbose,
           as.integer(private$hr_step_size),
@@ -291,6 +298,7 @@ eim <- R6::R6Class("eim",
         resulting_values <- EMAlgorithmCDF(
           probability_method,
           iterations,
+          maximum_time,
           stopping_threshold,
           verbose,
           private$mvn_method,
@@ -305,6 +313,7 @@ eim <- R6::R6Class("eim",
           self$method,
           probability_method,
           iterations,
+          maximum_time,
           stopping_threshold,
           verbose
         )
@@ -318,7 +327,7 @@ eim <- R6::R6Class("eim",
       # If there was a candidate that didn't receive any votes, add them with probability 0.
       if (length(private$empty_candidates) != 0) {
         # Create a matrix full of zeros with the final correct shape (g x c)
-        # ncol(self$X) is used just to get the total amount of candidates
+        # ncol(self$X) is used just to get the total number of candidates
         new_probability <- matrix(0, nrow = nrow(resulting_values$result), ncol = ncol(self$X))
 
         # Identify the columns that have valid probability values
@@ -336,6 +345,7 @@ eim <- R6::R6Class("eim",
       self$logLikelihood <- as.numeric(resulting_values$log_likelihood)
       self$total_iterations <- as.integer(resulting_values$total_iterations)
       self$total_time <- resulting_values$total_time
+      self$finish_state <- resulting_values$stopping_reason
       private$been_computed <- TRUE
 
       invisible(self)
@@ -352,13 +362,15 @@ eim <- R6::R6Class("eim",
     #'
     #' @param ballot_boxes \emph{(integer(1))} Amount of ballot boxes to use as a sample. It must be strictly smaller than the current amount of ballot boxes.
     #'
-    #' @param main_method \emph{(character)} The method for estimating the Expectation-Maximization (EM) algorithm. Options:
+    #' @param method \emph{(character)} The method for estimating the Expectation-Maximization (EM) algorithm. Options:
     #' \code{"Multinomial", "MVN CDF", "MVN PDF", "Hit and Run"} and \code{"Exact"} (default: \code{"Multinomial"}).
     #'
     #' @param probability_method \emph{(character)} The method for obtaining the initial probability. Options: \code{"Group proportional"},
     #' \code{"Proportional"} or \code{"Uniform"}. (default: \code{"Group proportional"}).
     #'
     #' @param iterations \emph{(integer(1))} The maximum amount of iterations to perform on the EM algorithm. (default: \code{1000}).
+    #'
+    #' @param maximum_time \emph{(integer(1))} The maximum time (in minutes) that the EM algorithm will iterate. (default: \code{1440}).
     #'
     #' @param stopping_threshold \emph{(numeric(1))} The minimum difference between consequent probabilities for stopping the iterations.
     #' (default: \code{0.001}).
@@ -384,18 +396,18 @@ eim <- R6::R6Class("eim",
     #'
     #' @examples
     #'
-    #' simulations <- simulate_votation(num_ballots = 20,
+    #' simulations <- simulate_elections(num_ballots = 20,
     #' 				num_candidates = 5,
-    #' 				num_demographics = 3,
+    #' 				num_groups = 3,
     #' 				ballot_voters = rep(100, 20))
     #'
     #' model <- eim$new(X = simulations$X, W = simulations$W)
     #'
     #' model$bootstrap(30, 10)
     #'
-    #' model$standard_deviation # An estimate of the probabilities sd.
+    #' model$std # An estimate of the probabilities sd.
     bootstrap = function(bootstrap_iterations, ballot_boxes,
-                         main_method = "Multinomial",
+                         method = "Multinomial",
                          probability_method = "Group proportional",
                          iterations = 1000,
                          stopping_threshold = 0.001,
@@ -404,7 +416,7 @@ eim <- R6::R6Class("eim",
       # By default we won't verbose the computing intermediate results, since they got missing values.
       compute_params <- c(
         list(
-          main_method = main_method,
+          method = method,
           probability_method = probability_method,
           iterations = iterations,
           stopping_threshold = stopping_threshold,
@@ -417,7 +429,7 @@ eim <- R6::R6Class("eim",
       if (ballot_boxes >= nrow(self$X)) {
         stop("Bootstrap error: The sampling size must be smaller than the amount of ballot boxes")
       }
-      if (main_method == "Exact" && bootstrap_iterations >= 5) {
+      if (method == "Exact" && bootstrap_iterations >= 5) {
         message("Warning: The bootstraping method may take a while.")
       }
 
@@ -460,9 +472,9 @@ eim <- R6::R6Class("eim",
     #'
     #' @examples
     #'
-    #' simulations <- simulate_votation(num_ballots = 20,
+    #' simulations <- simulate_elections(num_ballots = 20,
     #' 				num_candidates = 5,
-    #' 				num_demographics = 3,
+    #' 				num_groups = 3,
     #' 				ballot_voters = rep(100, 20))
     #'
     #' model <- eim$new(simulations$X, simulations$W)
@@ -495,7 +507,7 @@ eim <- R6::R6Class("eim",
       invisible(self)
     },
 
-    #' @description Shows, in form of a list, a selection of the most important attributes. It'll retrieve the method, amount of candidates, ballots and groups and the principal results of the EM algorithm.
+    #' @description Shows, in form of a list, a selection of the most important attributes. It'll retrieve the method, number of candidates, ballots and groups and the principal results of the EM algorithm.
     #'
     #' @note This method can also be called as an S3 method with \code{summary()}.
     #'
@@ -503,9 +515,9 @@ eim <- R6::R6Class("eim",
     #'
     #' @examples
     #'
-    #' simulations <- simulate_votation(num_ballots = 5,
+    #' simulations <- simulate_elections(num_ballots = 5,
     #' 				num_candidates = 3,
-    #' 				num_demographics = 2,
+    #' 				num_groups = 2,
     #' 				ballot_voters = rep(100, 5))
     #'
     #' model <- eim$new(simulations$X, simulations$W)
@@ -523,7 +535,7 @@ eim <- R6::R6Class("eim",
         method = if (!is.null(self$method)) self$method else "Not computed yet",
         probabilities = if (!is.null(self$probability)) self$probability else "Not computed yet",
         logLikelihood = if (!is.null(self$logLikelihood)) self$logLikelihood else "Not computed yet",
-        standard_deviation = if (!is.null(self$standard_deviation)) self$standard_deviation else "Not computed yet"
+        std = if (!is.null(self$std)) self$std else "Not computed yet"
       )
     },
 
@@ -546,9 +558,9 @@ eim <- R6::R6Class("eim",
     #'
     #' @examples
     #'
-    #' simulations <- simulate_votation(num_ballots = 20,
+    #' simulations <- simulate_elections(num_ballots = 20,
     #' 				num_candidates = 5,
-    #' 				num_demographics = 3,
+    #' 				num_groups = 3,
     #' 				ballot_voters = rep(100, 20))
     #'
     #' model <- eim$new(simulations$X, simulations$W)
@@ -580,7 +592,7 @@ eim <- R6::R6Class("eim",
 
         # Add the standard deviation only if it exists
         if (private$bootstrap_called) {
-          json_data$standard_deviation <- self$standard_deviation
+          json_data$std <- self$std
         }
 
         jsonlite::write_json(json_data, filename, pretty = TRUE)
@@ -642,8 +654,8 @@ eim <- R6::R6Class("eim",
         return(NULL)
       }
     },
-    #' @field standard_deviation \emph{(matrix)} Active variable to show an estimate of the probability standard deviation if the bootstrapping method has been called
-    standard_deviation = function() {
+    #' @field std \emph{(matrix)} Active variable to show an estimate of the probability standard deviation if the bootstrapping method has been called
+    std = function() {
       if (private$bootstrap_called) {
         return(private$bootstrap_result)
       } else {
@@ -817,7 +829,7 @@ as.matrix.eim <- function(object) {
 std.eim <- function(object, ...) {
   params <- list(...)
   do.call(object$bootstrap, params)
-  return(object$standard_deviation)
+  return(object$std)
 }
 
 #' Update an existing eim model with a new EM algorithm computation
@@ -832,10 +844,10 @@ std.eim <- function(object, ...) {
 #' @return Changes made on the updated object.
 #'
 #' @examples
-#' simulations <- simulate_votation(
+#' simulations <- simulate_elections(
 #'   num_ballots = 20,
 #'   num_candidates = 5,
-#'   num_demographics = 3,
+#'   num_groups = 3,
 #'   ballot_voters = rep(100, 20)
 #' )
 #'
@@ -872,10 +884,10 @@ update.eim <- function(object, ...) {
 #' @return The amount of voters.
 #'
 #' @examples
-#' simulations <- simulate_votation(
+#' simulations <- simulate_elections(
 #'   num_ballots = 20,
 #'   num_candidates = 5,
-#'   num_demographics = 3,
+#'   num_groups = 3,
 #'   ballot_voters = rep(100, 20)
 #' )
 #'

@@ -35,6 +35,8 @@ extern "C"
  * proportional", "Proportional", "Uniform". (default: "Group proportional")
  * @param[in] Rcpp::IntegerVector maximum_iterations A single integer value with the maximum iterations allowed for the
  * EM-algorithm. (default: 1000)
+ * @param[in] Rcpp:: maximum_minutes A single integer value with the maximum minutes to run the algorithm. (default:
+ * 1440)
  * @param[in] Rcpp::NumericVector stopping_threshold The absolute difference between subsequent probabilities matrices
  * to stop the algorithm. (default: 0.001)
  * @param[in] Rcpp::LogicalVector verbose Boolean to determine if the algorithm will print helpful messages. (default:
@@ -48,6 +50,7 @@ extern "C"
 Rcpp::List EMAlgorithmAll(Rcpp::String em_method = "Multinomial",
                           Rcpp::String probability_method = "Group proportional",
                           Rcpp::IntegerVector maximum_iterations = Rcpp::IntegerVector::create(1000),
+                          Rcpp::IntegerVector maximum_minutes = Rcpp::IntegerVector::create(1440),
                           Rcpp::NumericVector stopping_threshold = Rcpp::NumericVector::create(0.001),
                           Rcpp::LogicalVector verbose = Rcpp::LogicalVector::create(false));
 
@@ -64,6 +67,8 @@ Rcpp::List EMAlgorithmAll(Rcpp::String em_method = "Multinomial",
  * proportional", "Proportional", "Uniform". (default: "Group proportional")
  * @param[in] Rcpp::IntegerVector maximum_iterations A single integer value with the maximum iterations allowed for the
  * EM-algorithm. (default: 1000)
+ * @param[in] Rcpp:: maximum_minutes A single integer value with the maximum minutes to run the algorithm. (default:
+ * 1440)
  * @param[in] Rcpp::NumericVector stopping_threshold The absolute difference between subsequent probabilities matrices
  * to stop the algorithm. (default: 0.001)
  * @param[in] Rcpp::LogicalVector verbose Boolean to determine if the algorithm will print helpful messages. (default:
@@ -84,6 +89,7 @@ Rcpp::List EMAlgorithmAll(Rcpp::String em_method = "Multinomial",
  */
 Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method = "Group proportional",
                           Rcpp::IntegerVector maximum_iterations = Rcpp::IntegerVector::create(1000),
+                          Rcpp::IntegerVector maximum_minutes = Rcpp::IntegerVector::create(1440),
                           Rcpp::NumericVector stopping_threshold = Rcpp::NumericVector::create(0.001),
                           Rcpp::LogicalVector verbose = Rcpp::LogicalVector::create(false),
                           Rcpp::String multivariate_method = "Genz2",
@@ -101,6 +107,8 @@ Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method = "Group proportional"
  * proportional", "Proportional", "Uniform". (default: "Group proportional")
  * @param[in] Rcpp::IntegerVector maximum_iterations A single integer value with the maximum iterations allowed for
  * the EM-algorithm. (default: 1000)
+ * @param[in] Rcpp:: maximum_minutes A single integer value with the maximum minutes to run the algorithm. (default:
+ * 1440)
  * @param[in] Rcpp::NumericVector stopping_threshold The absolute difference between subsequent probabilities
  * matrices to stop the algorithm. (default: 0.001)
  * @param[in] Rcpp::LogicalVector verbose Boolean to determine if the algorithm will print helpful messages.
@@ -116,6 +124,7 @@ Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method = "Group proportional"
  */
 Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method = "Group proportional",
                                 Rcpp::IntegerVector maximum_iterations = Rcpp::IntegerVector::create(1000),
+                                Rcpp::IntegerVector maximum_minutes = Rcpp::IntegerVector::create(1440),
                                 Rcpp::NumericVector stopping_threshold = Rcpp::NumericVector::create(0.001),
                                 Rcpp::LogicalVector verbose = Rcpp::LogicalVector::create(false),
                                 Rcpp::IntegerVector step_size = Rcpp::IntegerVector::create(3000),
