@@ -19,11 +19,9 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-
-#define extern
-#include "globals.h"
-#undef extern
 #include "main.h"
+#include "globals.h"
+#include <R.h>
 #include <R_ext/BLAS.h>
 #include <R_ext/Memory.h>
 #include <dirent.h>

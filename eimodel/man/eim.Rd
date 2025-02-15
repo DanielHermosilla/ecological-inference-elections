@@ -3,7 +3,7 @@
 \alias{summary.eim}
 \alias{predict.eim}
 \alias{as.matrix.eim}
-\alias{std.eim}
+\alias{sd.eim}
 \title{An R6 Class for estimating an probability matrix from an R x C ecological inference problem.}
 \usage{
 \method{summary}{eim}(object)
@@ -12,7 +12,7 @@
 
 \method{as.matrix}{eim}(object)
 
-std.eim(object, ...)
+sd.eim(object, ...)
 }
 \description{
 This class implements an EM algorithm using different methods to approximate the E-step, such as \code{"Multinomial"}, \code{"Hit and Run"}, \code{"MVN CDF"}, \code{"MVN PDF"}, and \code{"Exact"}.
@@ -20,7 +20,7 @@ This class implements an EM algorithm using different methods to approximate the
 \note{
 Precomputing can eventually accelerate the computation time of the Expectation-Maximization algorithm.
 
-The \code{$compute, $bootstrap, $print} and \code{$summary} methods can also be called as an S3 method with \code{predict(), std(), print()} and \code{summary()}.
+The \code{$compute, $bootstrap, $print} and \code{$summary} methods can also be called as an S3 method with \code{predict(), sd(), print()} and \code{summary()}.
 }
 \examples{
 
@@ -60,7 +60,8 @@ model$precompute("Exact")
 ## Method `eim$compute`
 ## ------------------------------------------------
 
-# Example 1: Compute the Expectation-Maximization with default values
+# Example 1: Compute the Expectation-Maximization 
+# with default values
 
 simulations <- simulate_elections(num_ballots = 20,
 				num_candidates = 5,
@@ -68,16 +69,19 @@ simulations <- simulate_elections(num_ballots = 20,
 				ballot_voters = rep(100, 20))
 
 model <- eim$new(simulations$X, simulations$W)
-model$compute() # Retrieves the object with updated attributes
+model$compute() # Retrieves the object with updated 
+# attributes
 
-# Example 2: Compute the Expectation-Maximization for the Hit and Run method
+# Example 2: Compute the Expectation-Maximization 
+# for the Hit and Run method
 \donttest{
 	model$compute(method = "Hit and Run",
 					step_size = 3000,
 					samples = 1000)
 	}
 
-# Example 3: Omit arguments to the Hit and Run method
+# Example 3: Omit arguments to the Hit and Run 
+# method
 \dontrun{
 	model$compute(method = "Hit and Run",
 					step_size = 3000)
@@ -87,7 +91,8 @@ model$compute() # Retrieves the object with updated attributes
 # Example 4: Run the MVN CDF with default values
 model$compute(method = "MVN CDF")
 
-# Example 5: Run an Exact estimation with user-defined parameters
+# Example 5: Run an Exact estimation with 
+# user-defined parameters
 model$compute(method = "Exact",
 				probability_method = "Uniform",
  			iterations = 5,
@@ -107,7 +112,8 @@ model <- eim$new(X = simulations$X, W = simulations$W)
 
 model$bootstrap(30, 10)
 
-model$std # An estimate of the probabilities' standard deviation.
+model$sd # An estimate of the probabilities' standard 
+# deviation.
 
 ## ------------------------------------------------
 ## Method `eim$print`
@@ -122,7 +128,8 @@ model <- eim$new(simulations$X, simulations$W)
 print(model) # Prints the X and W matrices.
 
 model$compute()
-print(model) # Prints the X and W matrices along with the EM results.
+print(model) # Prints the X and W matrices along with 
+# the EM results.
 
 ## ------------------------------------------------
 ## Method `eim$summary`
@@ -139,7 +146,8 @@ a_list$method # Not computed yet
 a_list$groups # 2
 a_list$ballots # 5
 names(a_list)
-# "candidates" "groups" "ballots" "method" "probabilities" "logLikelihood"
+# "candidates" "groups" "ballots" "method" "probabilities" 
+# "logLikelihood" "finish_state" "sd"
 
 ## ------------------------------------------------
 ## Method `eim$save_results`
@@ -154,7 +162,8 @@ model <- eim$new(simulations$X, simulations$W)
 model$compute()
 model$save_results("results.rds")  # Save as RDS
 model$save_results("results.json") # Save as JSON
-model$save_results("results.csv")  # Save the final probability matrix as CSV
+model$save_results("results.csv")  # Save the final 
+# probability matrix as CSV
 }
 \references{
 Thraves, C. and Ubilla, P.: 'Fast Ecological Inference Algorithm for the R×C Case'
@@ -198,7 +207,7 @@ Normal CDF, if and only if \code{self$method} is \cr \tab \code{"MVN CDF"}. \cr 
 
 \code{multivariate_iterations} \emph{(numeric(1))} \tab Active variable to show the number of iterations for the Monte \cr \tab Carlo simulation of the Multivariate Normal CDF. \cr \cr
 
-\code{std} \emph{(matrix)} \tab Active variable to show an estimate of the probability standard \cr \tab deviation if the bootstrapping method has been called.
+\code{sd} \emph{(matrix)} \tab Active variable to show an estimate of the probability standard \cr \tab deviation if the bootstrapping method has been called.
 }
 \if{html}{\out{</div>}}
 }
@@ -447,7 +456,7 @@ Runs a bootstrap algorithm to estimate the \strong{standard deviation} of probab
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-The modified eim object, under the field \code{$std}.
+The modified eim object, under the field \code{$sd}.
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
@@ -461,7 +470,7 @@ model <- eim$new(simulations$X, simulations$W)
 
 model$bootstrap(30, 10)
 
-model$std # An estimate of the standard deviation of the probabilities.
+model$sd # An estimate of the standard deviation of the probabilities.
 }
 \if{html}{\out{</div>}}
 
@@ -509,7 +518,7 @@ Shows, in the form of a list, a selection of the most important attributes. It r
 }
 
 \subsection{Returns}{
-\emph{(list)} A list with the method, candidates, ballots, groups, probabilities, and log-likelihood.
+\emph{(list)} A list with the \code{method, candidates, ballots, groups, probabilities, log-likelihood, finish_state} and \code{standard deviation.}
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
@@ -525,7 +534,8 @@ a_list$method # Not computed yet
 a_list$groups # 2
 a_list$ballots # 5
 names(a_list)
-# "candidates" "groups" "ballots" "method" "probabilities" "logLikelihood"
+# "candidates" "groups" "ballots" "method" "probabilities"
+# "logLikelihood" "finish_state" "sd"
 }
 \if{html}{\out{</div>}}
 
@@ -579,7 +589,6 @@ model$save_results("results.csv")  # Save the final probability matrix as CSV
 
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-eim-clone"></a>}}
 \if{latex}{\out{\hypertarget{method-eim-clone}{}}}

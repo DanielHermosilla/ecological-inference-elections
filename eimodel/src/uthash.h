@@ -26,7 +26,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define UTHASH_VERSION 2.3.0
 
-#include <R.h>      /* Replace exit with R's error */
+#ifdef __cplusplus
+
+extern "C"
+{
+#endif
+// #include <R.h>
 #include <stddef.h> /* ptrdiff_t */
 #include <stdlib.h> /* exit NOTE: USE R ERROR HANDLING */
 #include <string.h> /* memcmp, memset, strlen */
@@ -585,7 +590,7 @@ typedef unsigned char uint8_t;
     do                                                                                                                 \
     {                                                                                                                  \
         fprintf(stderr, __VA_ARGS__);                                                                                  \
-        exit("Exact: Computing error");                                                                                 \
+        exit("Exact: Computing error");                                                                                \
     } while (0)
 #define HASH_FSCK(hh, head, where)                                                                                     \
     do                                                                                                                 \
@@ -1295,5 +1300,7 @@ typedef struct UT_hash_handle
     unsigned keylen;                /* enclosing struct's key len     */
     unsigned hashv;                 /* result of hash-fcn(key)        */
 } UT_hash_handle;
-
+#ifdef __cplusplus
+}
+#endif
 #endif /* UTHASH_H */

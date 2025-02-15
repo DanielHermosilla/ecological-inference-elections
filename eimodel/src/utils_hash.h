@@ -11,9 +11,6 @@ extern "C"
 #include "uthash.h"
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #define INVALID -1.0
     // Entry structure: stores the hash and the associated value

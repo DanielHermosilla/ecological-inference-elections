@@ -26,11 +26,13 @@ SOFTWARE.
 #include <R_ext/Lapack.h>
 #include <R_ext/Memory.h>
 #include <math.h>
+#ifdef _OPENMP
 #include <omp.h> // Parallelization
+#endif
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 /**

@@ -21,11 +21,14 @@ SOFTWARE.
 */
 
 #include "utils_multivariate.h"
+#include <R.h>
 #include <R_ext/BLAS.h>
 #include <R_ext/Memory.h>
 #include <float.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+
 /**
  * @brief Computes the parameters of the unconditional probability without the last candidate
  *

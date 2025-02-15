@@ -10,7 +10,8 @@ extern "C"
 #include "globals.h"
 #include "utils_hash.h"
 #include "utils_matrix.h"
-
+#include <stdint.h>
+#include <stdio.h>
     // ---- Define a structure to store the sets ---- //
     typedef struct
     {

@@ -19,7 +19,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-
 #include "wrapper.h"
 #include "Rcpp/String.h"
 #include "main.h"
@@ -27,6 +26,9 @@ SOFTWARE.
 #include <R_ext/Memory.h>
 #include <R_ext/RS.h>
 #include <Rcpp.h>
+#include <cstdio>
+#include <iostream>
+#include <vector>
 
 // [[Rcpp::export]]
 Rcpp::List EMAlgorithmAll(Rcpp::String em_method, Rcpp::String probability_method,

@@ -353,7 +353,7 @@ eim <- R6::R6Class("eim",
 
     #' @description Runs a bootstrap algorithm to estimate the \strong{standard deviation} of probabilities
     #'
-    #' @note This method can also be called as an S3 method with \code{std()}.
+    #' @note This method can also be called as an S3 method with \code{sd()}.
     #'
     #' Computes the EM algorithm an "\code{bootstrap_iterations}" times by sampling without replacement an "\code{ballot_boxes}" amount of tables. New samples are made
     #' per iteration. It'll obtain the standard deviation as a result from every iteration.
@@ -405,20 +405,25 @@ eim <- R6::R6Class("eim",
     #'
     #' model$bootstrap(30, 10)
     #'
-    #' model$std # An estimate of the probabilities sd.
+    #' model$sd # An estimate of the probabilities sd.
     bootstrap = function(bootstrap_iterations, ballot_boxes,
                          method = "Multinomial",
                          probability_method = "Group proportional",
                          iterations = 1000,
+                         maximum_time = 1440,
                          stopping_threshold = 0.001,
                          verbose = FALSE, ...) {
       params <- list(...)
+      if (missing(bootstrap_iterations) || missing(ballot_boxes)) {
+        stop("When calling bootstrap, you must provide both 'bootstrap_iterations' and 'ballot_boxes'.")
+      }
       # By default we won't verbose the computing intermediate results, since they got missing values.
       compute_params <- c(
         list(
           method = method,
           probability_method = probability_method,
           iterations = iterations,
+          maximum_time = maximum_time,
           stopping_threshold = stopping_threshold,
           verbose = FALSE
         ),
@@ -438,11 +443,11 @@ eim <- R6::R6Class("eim",
 
       # Main loop
       for (i in seq_len(bootstrap_iterations)) {
-        if (verbose) {
-          message("Running iteration:\t", i)
-        }
         # Sample according the ballot boxes
         sample <- sample(1:nrow(self$X), size = ballot_boxes, replace = FALSE)
+        if (verbose) {
+          message("Running iteration:\t", i, "\nThe sampled ballot boxes indices are:\t", sample)
+        }
         iteration_X <- self$X[sample, , drop = FALSE]
         iteration_W <- self$W[sample, , drop = FALSE]
         # Create a temporary eim object and compute
@@ -460,6 +465,11 @@ eim <- R6::R6Class("eim",
       # Final results
       private$bootstrap_result <- sd_matrix
       private$bootstrap_called <- TRUE
+
+      if (verbose) {
+        message("The result of the bootstrap algorithm is:")
+        print(sd_matrix)
+      }
 
       invisible(self)
     },
@@ -511,7 +521,7 @@ eim <- R6::R6Class("eim",
     #'
     #' @note This method can also be called as an S3 method with \code{summary()}.
     #'
-    #' @return \emph{(list)} A list with the method, candidates, ballots, group, probabilities and log-likelihood.
+    #' @return \emph{(list)} A list with the method, candidates, ballots, group, probabilities log-likelihood, finish state and standard deviation.
     #'
     #' @examples
     #'
@@ -526,7 +536,7 @@ eim <- R6::R6Class("eim",
     #' a_list$groups # 2
     #' a_list$ballots # 5
     #' names(a_list)
-    #' # "candidates" "groups" "ballots" "method" "probabilities" "logLikelihood"
+    #' # "candidates" "groups" "ballots" "method" "probabilities" "logLikelihood" "finish_state" "sd"
     summary = function() {
       list(
         candidates = ncol(self$X),
@@ -535,7 +545,8 @@ eim <- R6::R6Class("eim",
         method = if (!is.null(self$method)) self$method else "Not computed yet",
         probabilities = if (!is.null(self$probability)) self$probability else "Not computed yet",
         logLikelihood = if (!is.null(self$logLikelihood)) self$logLikelihood else "Not computed yet",
-        std = if (!is.null(self$std)) self$std else "Not computed yet"
+        finish_state = if (!is.null(self$finish_state)) self$finish_state else "Not computed yet",
+        sd = if (!is.null(self$sd)) self$sd else "Not computed yet"
       )
     },
 
@@ -592,7 +603,7 @@ eim <- R6::R6Class("eim",
 
         # Add the standard deviation only if it exists
         if (private$bootstrap_called) {
-          json_data$std <- self$std
+          json_data$sd <- self$sd
         }
 
         jsonlite::write_json(json_data, filename, pretty = TRUE)
@@ -654,8 +665,8 @@ eim <- R6::R6Class("eim",
         return(NULL)
       }
     },
-    #' @field std \emph{(matrix)} Active variable to show an estimate of the probability standard deviation if the bootstrapping method has been called
-    std = function() {
+    #' @field sd \emph{(matrix)} Active variable to show an estimate of the probability standard deviation if the bootstrapping method has been called
+    sd = function() {
       if (private$bootstrap_called) {
         return(private$bootstrap_result)
       } else {
@@ -803,7 +814,7 @@ eim <- R6::R6Class("eim",
 
 #' @rdname eim
 #' @export
-summary.eim <- function(object) {
+summary.eim <- function(object, ...) {
   object$summary()
 }
 
@@ -817,19 +828,29 @@ predict.eim <- function(object, ...) {
 
 #' @rdname eim
 #' @export
-as.matrix.eim <- function(object) {
+as.matrix.eim <- function(object, ...) {
   if (is.null(object$probability)) {
-    stop(paste0("Probability matrix not available. Run compute() or ", object, "$compute() first."))
+    stop(paste0(
+      "Probability matrix not available. Run compute() or ",
+      deparse(substitute(object)), "$compute() first."
+    ))
   }
   return(object$probability)
 }
 
 #' @rdname eim
 #' @export
-std.eim <- function(object, ...) {
-  params <- list(...)
+sd.eim <- function(object, bootstrap_iterations, ballot_boxes, ...) {
+  if (missing(bootstrap_iterations) || missing(ballot_boxes)) {
+    stop("When calling sd.eim, you must provide both 'bootstrap_iterations' and 'ballot_boxes'.")
+  }
+  params <- list(
+    bootstrap_iterations = bootstrap_iterations,
+    ballot_boxes = ballot_boxes,
+    ...
+  )
   do.call(object$bootstrap, params)
-  return(object$std)
+  return(object$sd)
 }
 
 #' Update an existing eim model with a new EM algorithm computation
@@ -865,7 +886,10 @@ update.eim <- function(object, ...) {
 
   # Ensure the model has been computed before updating
   if (is.null(object$probability)) {
-    stop(paste0("Model must be computed before updating. Run compute() or ", object, "$compute() first."))
+    stop(paste0(
+      "Model must be computed before updating. Run compute() or ",
+      deparse(substitute(object)), "$compute() first."
+    ))
   }
 
   # Recompute with new parameters
@@ -895,7 +919,7 @@ update.eim <- function(object, ...) {
 #' sum(model) # 2000
 #'
 #' @export
-sum.eim <- function(object) {
+sum.eim <- function(object, ...) {
   # Ensure the model has been computed before updating
   if (is.null(object$W)) stop("The object must be initialized.")
 

@@ -2,38 +2,38 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 EMAlgorithmAll <- function(em_method, probability_method, maximum_iterations, maximum_minutes, stopping_threshold, verbose) {
-    .Call(`_eimodel_EMAlgorithmAll`, em_method, probability_method, maximum_iterations, maximum_minutes, stopping_threshold, verbose)
+    .Call('_eimodel_EMAlgorithmAll', PACKAGE = 'eimodel', em_method, probability_method, maximum_iterations, maximum_minutes, stopping_threshold, verbose)
 }
 
 EMAlgorithmCDF <- function(probability_method, maximum_iterations, maximum_minutes, stopping_threshold, verbose, multivariate_method, multivariate_epsilon, multivariate_iterations) {
-    .Call(`_eimodel_EMAlgorithmCDF`, probability_method, maximum_iterations, maximum_minutes, stopping_threshold, verbose, multivariate_method, multivariate_epsilon, multivariate_iterations)
+    .Call('_eimodel_EMAlgorithmCDF', PACKAGE = 'eimodel', probability_method, maximum_iterations, maximum_minutes, stopping_threshold, verbose, multivariate_method, multivariate_epsilon, multivariate_iterations)
 }
 
 EMAlgorithmHitAndRun <- function(probability_method, maximum_iterations, maximum_minutes, stopping_threshold, verbose, step_size, samples) {
-    .Call(`_eimodel_EMAlgorithmHitAndRun`, probability_method, maximum_iterations, maximum_minutes, stopping_threshold, verbose, step_size, samples)
+    .Call('_eimodel_EMAlgorithmHitAndRun', PACKAGE = 'eimodel', probability_method, maximum_iterations, maximum_minutes, stopping_threshold, verbose, step_size, samples)
 }
 
 RprecomputeHR <- function(samples, step_size) {
-    invisible(.Call(`_eimodel_RprecomputeHR`, samples, step_size))
+    invisible(.Call('_eimodel_RprecomputeHR', PACKAGE = 'eimodel', samples, step_size))
 }
 
 RprecomputeExact <- function() {
-    invisible(.Call(`_eimodel_RprecomputeExact`))
+    invisible(.Call('_eimodel_RprecomputeExact', PACKAGE = 'eimodel'))
 }
 
 RsetParameters <- function(candidate_matrix, group_matrix) {
-    invisible(.Call(`_eimodel_RsetParameters`, candidate_matrix, group_matrix))
+    invisible(.Call('_eimodel_RsetParameters', PACKAGE = 'eimodel', candidate_matrix, group_matrix))
 }
 
 clean_exact_precompute <- function() {
-    invisible(.Call(`_eimodel_clean_exact_precompute`))
+    invisible(.Call('_eimodel_clean_exact_precompute', PACKAGE = 'eimodel'))
 }
 
 clean_hr_precompute <- function() {
-    invisible(.Call(`_eimodel_clean_hr_precompute`))
+    invisible(.Call('_eimodel_clean_hr_precompute', PACKAGE = 'eimodel'))
 }
 
 clean_everything <- function() {
-    invisible(.Call(`_eimodel_clean_everything`))
+    invisible(.Call('_eimodel_clean_everything', PACKAGE = 'eimodel'))
 }
 

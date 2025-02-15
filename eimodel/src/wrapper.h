@@ -14,14 +14,13 @@ extern "C"
 {
 #endif
 #include "exact.h"
-#include "globals.h"
 #include "hitAndRun.h"
 #include "main.h"
 #include "utils_matrix.h"
-
 #ifdef __cplusplus
 }
 #endif
+#include <Rcpp.h>
 
 /**
  * @brief Runs the Expected Maximization algorithm for the `MVN PDF`, `Multinomial` or `Exact` method.

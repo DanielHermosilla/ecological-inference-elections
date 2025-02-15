@@ -19,11 +19,13 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-
 #include "multinomial.h"
 #include "globals.h"
+#include <R.h>
 #include <R_ext/BLAS.h>
 #include <R_ext/Memory.h>
+#include <stdint.h>
+#include <stdio.h>
 
 /**
  * @brief Computes the value of `r` without the denominator.

@@ -21,6 +21,7 @@ SOFTWARE.
 */
 
 #include "utils_hash.h"
+#include <R.h>
 #include <R_ext/Memory.h>
 #include <stdbool.h>
 #include <stdint.h>

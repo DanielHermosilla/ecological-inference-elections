@@ -21,8 +21,11 @@ SOFTWARE.
 */
 
 #include "multivariate-pdf.h"
+#include <R.h>
 #include <R_ext/Memory.h>
 #include <math.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <unistd.h>
 
 /**

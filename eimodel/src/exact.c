@@ -22,10 +22,13 @@ SOFTWARE.
 
 #undef R_NO_REMAP
 #include "exact.h"
+#include <R.h>
 #include <R_ext/Memory.h>
+#include <R_ext/Utils.h> // for R_CheckUserInterrupt()
 #include <Rmath.h>
 #include <math.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -412,6 +415,8 @@ void recursion(MemoizationTable *memo, const Matrix *probabilities)
 
                 for (size_t h = 0; h < HSETS[b][f].size; h++)
                 { // ---- For each element from the H_bf set
+                    if (HSETS[b][f].size > 5000 && h % 250 == 0)
+                        R_CheckUserInterrupt();
                     size_t *currentH = HSETS[b][f].data[h];
                     // ---- If the element from h isn't smaller than the one from k ----
                     // ---- Note that, when generating the H set, the restriction from candidate votes was also imposed,

@@ -21,8 +21,10 @@ SOFTWARE.
 */
 
 #include "hitAndRun.h"
+#include <R.h>
 #include <R_ext/Memory.h>
 #include <R_ext/Random.h>
+#include <R_ext/Utils.h> // for R_CheckUserInterrupt()
 #include <Rmath.h>
 #include <math.h>
 #include <stdio.h>
@@ -113,7 +115,9 @@ void generateOmegaSet(int M, int S, unsigned int seedNum)
         Matrix startingZ = startingPoint(b);
 
         for (int s = 0; s < S; s++)
-        { // --- For each sample given a ballot box
+        {                                 // --- For each sample given a ballot box
+            if (S > 5000 && S % 100 == 0) // If there's a big amount of samples, check interrupts
+                R_CheckUserInterrupt();
             // ---- Copy the initial matrix ----
             Matrix steppingZ = copyMatrix(&startingZ);
             for (int m = 0; m < M; m++)
