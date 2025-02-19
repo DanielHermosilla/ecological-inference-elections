@@ -91,7 +91,7 @@ Rcpp::List EMAlgorithmAll(Rcpp::String em_method, Rcpp::String probability_metho
 
     return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = RlogLikelihood,
                               Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter,
-                              Rcpp::_["stopping_reason"] = stopping_reason);
+                              Rcpp::_["stopping_reason"] = stopping_reason, Rcpp::_["finish_id"] = finish);
     // ---...--- //
 }
 
@@ -159,7 +159,7 @@ Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method, Rcpp::IntegerVector m
 
     return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = RlogLikelihood,
                               Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter,
-                              Rcpp::_["stopping_reason"] = stopping_reason);
+                              Rcpp::_["stopping_reason"] = stopping_reason, Rcpp::_["finish_id"] = finish);
     // ---...--- //
 }
 
@@ -222,7 +222,7 @@ Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method, Rcpp::IntegerVe
 
     return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = RlogLikelihood,
                               Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter,
-                              Rcpp::_["stopping_reason"] = stopping_reason);
+                              Rcpp::_["stopping_reason"] = stopping_reason, Rcpp::_["finish_id"] = finish);
     // ---...--- //
 }
 

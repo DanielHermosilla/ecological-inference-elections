@@ -1,226 +1,234 @@
-#' Simulates an election by creating the candidate and group matrices and their results.
+#' Simulate an Election
 #'
 #' @description
-#' Given the number of ballots, groups, candidates, and votes per ballot, it will simulate an election.
-#' Additionally, it generates the resulting matrix (of dimension g x c) that represents the unobserved probabilities
-#' that a demographic group votes for a given candidate. These probabilities are drawn from a Dirichlet distribution
-#' and a \code{lambda} value, which represents the heterogeneity of the groups.
+#' This function simulates an election by creating matrices representing candidate votes
+#' (`X`) and demographic group votes (`W`) across a specified number of ballot boxes.
+#' It either receives (or accepts) a probability matrix (`prob`) indicating how likely
+#' each demographic group is to vote for each candidate.
 #'
-#' @param num_ballots \emph{(integer(1))} The number of ballot boxes \emph{("b")}.
+#' By default, the number of voters per ballot box (`ballot_voters`) is set to a vector
+#' of 50s with length `num_ballots`. You can optionally override this by providing a
+#' custom vector.
 #'
-#' @param num_candidates \emph{(integer(1))} The number of candidates \emph{("c")}.
+#' Several optional parameters are available to control the distribution of votes:
+#' \itemize{
+#'   \item \strong{`group_proportions`}: A vector of length `num_groups` specifying
+#'         the overall proportion of each demographic group. Entries must sum to one and be non-negative.
+#'   \item \strong{`prob`}: A user-supplied probability matrix of dimension
+#'         (`num_groups` x `num_candidates`). If provided, this matrix is used directly
+#'         instead of drawing from a Dirichlet distribution.
+#' }
 #'
-#' @param num_groups \emph{(integer(1))} The number of demographic groups \emph{("g")}.
+#' @param num_ballots
+#'   Number of ballot boxes (`b`).
 #'
-#' @param ballot_voters \emph{(integer(num_ballots))} A vector of size \code{num_ballots} with the number of votes per ballot box.
+#' @param num_candidates
+#'   Number of candidates (`c`).
 #'
-#' @param lambda \emph{(numeric(1))} A value between 0 and 1 representing the group heterogeneity. Values near 0 are more heterogeneous,
-#' but less realistic. The same goes the other way around. (default: 0.5)
+#' @param num_groups
+#'   Number of demographic groups (`g`).
 #'
-#' @param seed \emph{(numeric(1)} Optional. If provided, it overrides the current global seed. (default: \code{NULL})
+#' @param ballot_voters
+#'   A vector of length `num_ballots` representing the number of voters per ballot
+#'   box. Defaults to `rep(50, num_ballots)`.
 #'
-#' @note A reminder of the Dirichlet distribution is that alpha = 1 represents a distribution that is
-#' uniform around the mean. On the other hand, alpha < 1 tends to produce a sparser probability vector, with many
-#' values close to zero and one or a few larger values. The inverse case occurs when alpha > 1, tightening
-#' the concentration around the mean.
+#' @param lambda
+#' 	A numeric value between `0` and `1` that controls the **shuffling proportion**
+#'  of individuals among demographic groups (`num_groups`). This parameter determines
+#'  how much **random reassignment** occurs among groups, affecting group heterogeneity.
 #'
-#' @seealso [random_samples()]
+#'   - **`lambda = 0`**: No shuffling occurs. Individuals remain in their original
+#'     assigned groups, leading to **maximum heterogeneity**.
+#'   - **`lambda = 1`**: Complete shuffling. Individuals are **fully reassigned**,
+#'     leading to **homogeneous groups**.
+#'   - **Intermediate values** (e.g., `lambda = 0.5`): A fraction of individuals is **randomly selected and reassigned**, balancing between heterogeneity and homogeneity.
 #'
-#' @return A list with components:
-#' \item{X}{A matrix (b x c) with candidate votes per ballot box.}
-#' \item{W}{A matrix (b x g) with demographic votes per ballot box.}
-#' \item{real_p}{A matrix (g x c) with the estimated (unobserved) probabilities that a demographic group votes for a given candidate.}
+#'  Default value is set to `0.5`.
+#'
+#' @param seed
+#'   If provided, overrides the current global seed. Defaults to `NULL`.
+#'
+#' @param group_proportions
+#'   Optional. A vector specifying the overall proportion of each group. If provided,
+#'   the function assigns groups per ballot box according to a multinomial draw using
+#'   these proportions. This **disables** the shuffling mechanism determined by
+#'   `lambda`.
+#'
+#' @param prob
+#'   Optional. A user-supplied probability matrix of dimension `(g x c)`.
+#'   If provided, this matrix is used directly instead of
+#'   drawing from a Dirichlet distribution with each parameter set to 1 (yielding an uninformative prior).
+#'
+#' @section Shuffling Mechanism:
+#' The shuffling step is controlled by the `lambda` (\eqn{\lambda}) parameter and operates as follows:
+#'
+#' 1. **Initial Group Assignment**: Each of the individuals (`I`) is evenly assigned to one of the `num_groups`:
+#' 		\deqn{\omega_{i}^{0} = \lceil i \cdot \lvert \text{num\_groups}\rvert \cdot I^{-1} \rceil}
+#'    This ensures all groups initially contain an equal count of individuals.
+#'
+#' 2. **Determining the Shuffling Fraction**: The fraction of individuals to shuffle is given by \eqn{\lambda \cdot I}. Hence, different `lambda` values are interpreted as follows:
+#'
+#' 	- `lambda = 0` means no one is shuffled (groups remain as is).
+#' 	- `lambda = 1` means all individuals are shuffled.
+#' 	- Intermediate values like `lambda = 0.5` shuffle half the population.
+#'
+#' 3. **Random Selection of Individuals**: From the total population, \eqn{\lambda\cdot I} individuals are randomly sampled without replacement into a set `v`. This set dictates which individuals
+#'    will have their group assignments swapped.
+#'
+#' 4. **Sorting and Swapping**: The selected indices in `v` are sorted into a new vector `v_sorted`. Then, each individual `v[i]` obtains the group assignment of `v_sorted[i]`. This approach preserves the total number of people in each group while introducing a new arrangement of individuals.
+#'
+#' @return A list with three components:
+#' \describe{
+#'   \item{\code{W}}{A \code{(b x g)} matrix of demographic votes per ballot box.}
+#'   \item{\code{X}}{A \code{(b x c)} matrix of candidate votes per ballot box.}
+#'   \item{\code{prob}}{A \code{(g x c)} matrix of probabilities that each group votes for each candidate. If `prob` is provided, it would equal such probability.}
+#' }
+#'
+#' @references
+#' The algorithm is fully explained in ['Thraves, C. and Ubilla, P.: *"Fast Ecological Inference Algorithm for the R×C Case"*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834).
 #'
 #' @examples
-#' result <- simulate_elections(num_ballots = 10, num_candidates = 5, num_groups = 3, ballot_voters = c(100, 10))
-#' result$X # Candidate matrix (b x c)
-#' result$W # Group matrix (b x g)
-#' result$real_p # Probability matrix (g x c)
+#' # Default usage with 2 ballot boxes, each having 50 voters
+#' result1 <- simulate_election(
+#'   num_ballots = 2,
+#'   num_candidates = 3,
+#'   num_groups = 2
+#' )
 #'
+#' # Using a custom ballot_voters vector
+#' result2 <- simulate_election(
+#'   num_ballots = 3,
+#'   num_candidates = 2,
+#'   num_groups = 2,
+#'   ballot_voters = c(100, 50, 75)
+#' )
+#'
+#' # Supplying group_proportions (skips the lambda shuffle)
+#' result3 <- simulate_election(
+#'   num_ballots = 3,
+#'   num_candidates = 2,
+#'   num_groups = 2,
+#'   group_proportions = c(0.3, 0.7)
+#' )
+#'
+#' # Providing a user-defined prob matrix
+#' custom_prob <- matrix(c(
+#'   0.9, 0.1,
+#'   0.4, 0.6
+#' ), nrow = 2, byrow = TRUE)
+#'
+#' result4 <- simulate_election(
+#'   num_ballots = 2,
+#'   num_candidates = 2,
+#'   num_groups = 2,
+#'   prob = custom_prob
+#' )
 #' @export
-simulate_elections <- function(num_ballots, # Number of ballot boxes
-                               num_candidates, # Number of candidates
-                               num_groups, # Number of demographic groups
-                               ballot_voters, # Vector of length "ballot boxes" with the number of voters per box
-                               lambda = 0.5, # Proportion of individuals to "shuffle"
-                               seed = NULL) {
-  # If user provides a seed, override the current global seed:
+simulate_election <- function(num_ballots,
+                              num_candidates,
+                              num_groups,
+                              ballot_voters = rep(50, num_ballots),
+                              lambda = 0.5,
+                              seed = NULL,
+                              group_proportions = NULL,
+                              prob = NULL) {
+  # If user provides a seed, override the current global seed
   if (!is.null(seed)) {
     set.seed(seed)
   }
 
+  # Validate length of ballot_voters
   if (length(ballot_voters) != num_ballots) {
     stop("`ballot_voters` must be a vector of length `num_ballots`.")
   }
 
-  # Form the total population size:
-  n <- sum(ballot_voters)
+  # Build W (b x g), the distribution of groups in each ballot box
+  W <- matrix(0, nrow = num_ballots, ncol = num_groups)
 
-  # Split the population roughly evenly among the G groups.
-  omega0 <- ceiling((1:n) * num_groups / n)
+  # If group_proportions is provided, skip the lambda-based shuffling
+  if (!is.null(group_proportions)) {
+    if (length(group_proportions) != num_groups) {
+      stop("`group_proportions` must be of length `num_groups`.")
+    }
+    # Normalize group_proportions to sum to 1
+    group_proportions <- group_proportions / sum(group_proportions)
 
-  # Get a copy of the vector for the shuffle
-  omega <- omega0
+    # For each ballot box, draw from a multinomial
+    for (b_idx in seq_len(num_ballots)) {
+      W[b_idx, ] <- rmultinom(1, size = ballot_voters[b_idx], prob = group_proportions)
+    }
+  } else {
+    # Otherwise, use the lambda shuffling approach
+    n <- sum(ballot_voters)
+    # Assign each of the n people to a group (uniformly) in a vector 'omega0'
+    omega0 <- ceiling(seq_len(n) * num_groups / n)
+    # Copy for shuffling
+    omega <- omega0
 
-  # Sample λ·I individuals v (without replacement) and shuffle them:
-  size_shuffle <- floor(lambda * n)
-  if (size_shuffle > 0) {
-    v <- sample.int(n, size_shuffle, replace = FALSE) # the λ·I indices
-    v_ <- sort(v) # sorted
-    for (k in seq_len(size_shuffle)) {
-      omega[v[k]] <- omega0[v_[k]]
+    # Shuffle lambda * n individuals among groups
+    size_shuffle <- floor(lambda * n)
+    if (size_shuffle > 0) {
+      v <- sample.int(n, size_shuffle, replace = FALSE)
+      v_sorted <- sort(v)
+      for (k in seq_len(size_shuffle)) {
+        # Shuffle individuals
+        omega[v[k]] <- omega0[v_sorted[k]]
+      }
+    }
+
+    # Get the cumulative sum for later creating the partition between ballot boxes
+    # This will allow defining a range of voters between values of a[]. For
+    # example: a[2] - a[1] = voters of ballot box 1.
+    a <- c(0, cumsum(ballot_voters))
+
+    # Fill in W by counting how many from each group are in each box
+    for (b_idx in seq_len(num_ballots)) {
+      start_idx <- a[b_idx] + 1
+      end_idx <- a[b_idx + 1]
+      sub_omega <- omega[start_idx:end_idx]
+      counts_bg <- tabulate(sub_omega, nbins = num_groups)
+      W[b_idx, ] <- counts_bg
     }
   }
 
-  # Get the cumulative sum for later creating the partition between ballot boxes
-  # This will allow defining a range of voters between values of a[]. For
-  # example: a[2] - a[1] = voters of ballot box 1.
-  a <- c(0, cumsum(ballot_voters))
-
-  # Build W
-  w <- matrix(0, nrow = num_ballots, ncol = num_groups)
-  for (b_idx in seq_len(num_ballots)) {
-    # Indices of the population that fall into box b
-    start_idx <- a[b_idx] + 1
-    end_idx <- a[b_idx + 1]
-    # Tally the groups in this segment:
-    sub_omega <- omega[start_idx:end_idx]
-    # Count how many are in each group:
-    # (Note that it's shuffled according to lambda)
-    counts_bg <- tabulate(sub_omega, nbins = num_groups)
-    w[b_idx, ] <- counts_bg
+  # Build the probality matrix (g x c)
+  # 1) If 'prob' is provided, use it directly
+  # 2) Otherwise, sample each row from a Dirichlet with alpha=1
+  if (!is.null(prob)) {
+    # Validate dimension
+    if (!all(dim(prob) == c(num_groups, num_candidates))) {
+      stop("`prob` must be a matrix with dimensions (num_groups x num_candidates).")
+    }
+    p <- prob
+  } else {
+    # Sample from Dirichlet(alpha=1)
+    rdirichlet_1c <- function() {
+      x <- rgamma(num_candidates, shape = 1)
+      x / sum(x)
+    }
+    p <- matrix(0, nrow = num_groups, ncol = num_candidates)
+    for (g_idx in seq_len(num_groups)) {
+      p[g_idx, ] <- rdirichlet_1c()
+    }
   }
 
-  # Define the probability matrix
-  # small helper for Dirichlet(1C) draws:
-  rdirichlet_1c <- function() {
-    # shape = rep(1, C)
-    x <- rgamma(num_candidates, shape = 1)
-    x / sum(x)
-  }
-
-  p <- matrix(0, nrow = num_groups, ncol = num_candidates)
-  for (g_idx in seq_len(num_groups)) {
-    p[g_idx, ] <- rdirichlet_1c()
-  }
-
-  # For each (b,g), draw z_{bg} (C-dimensional) from Multinomial(w_{bg}, p_g).
-  # Then x_{bc} = sum_{g} z_{bgc}.
-  x <- matrix(0, nrow = num_ballots, ncol = num_candidates)
-
+  # Build X (b x c) by aggregating multinomial draws per group
+  X <- matrix(0, nrow = num_ballots, ncol = num_candidates)
   for (b_idx in seq_len(num_ballots)) {
     for (g_idx in seq_len(num_groups)) {
-      w_bg <- w[b_idx, g_idx] # number of people of group g in box b
+      w_bg <- W[b_idx, g_idx]
       if (w_bg > 0) {
-        # draw from multinomial
-        z_bgc <- as.vector(rmultinom(1, size = w_bg, prob = p[g_idx, ]))
-        x[b_idx, ] <- x[b_idx, ] + z_bgc
+        # Draw from Multinomial(w_bg, p[g_idx, ])
+        z_bgc <- rmultinom(1, size = w_bg, prob = p[g_idx, ])
+        X[b_idx, ] <- X[b_idx, ] + z_bgc
       }
     }
   }
 
+  # Return the list
   list(
-    W = w,
-    X = x,
-    real_p = p
+    W = W,
+    X = X,
+    prob = p
   )
-}
-
-#' Randomly create a voting instance by defining an interval
-#'
-#' @description
-#' Given a range of possible \strong{observed} outcomes (such as ballot boxes, number of candidates, etc.),
-#' it creates a completely random voting instance, simulating the unobserved results as well.
-#'
-#' @param ballots_range (integer) A vector of size 2 with the lower and upper bound of ballot boxes.
-#'
-#' @param candidates_range (integer) A vector of size 2 with the lower and upper bound of candidates to draw.
-#'
-#' @param demographic_range (integer) A vector of size 2 with the lower and upper bound of demographic groups
-#' to draw.
-#'
-#' @param voting_range (integer) A vector of size 2 with the lower and upper bound of votes per ballot box.
-#'
-#' @param seed \emph{(numeric(1)} Optional. If provided, it overrides the current global seed. (default: \code{NULL})
-#'
-#' @return A list with components:
-#' \item{X}{A matrix (b x c) with candidate votes per ballot box.}
-#' \item{W}{A matrix (b x g) with demographic votes per ballot box.}
-#' \item{real_p}{A matrix (g x c) with the estimated \strong{(unobserved)} probabilities that a demographic group votes for a given candidate.}
-#' \item{ballots}{The number of ballot boxes that were drawn.}
-#' \item{candidates}{The number of candidates that were drawn.}
-#' \item{groups}{The number of demographic groups that were drawn.}
-#' \item{total_votes}{A vector with the number of total votes per ballot box.}
-#'
-#' @seealso [simulate_elections()]
-#' @examples
-#'
-#' bal_range <- c(30, 50)
-#' can_range <- c(2, 4)
-#' group_range <- c(2, 6)
-#' voting_range <- c(50, 100)
-#' results <- random_samples(bal_range, can_range, group_range, voting_range)
-#'
-#' # X matrix
-#' results$X # A randomly generated matrix of dimension (b x c)
-#' ncol(results$X <= can_range[2]) # Always TRUE
-#' ncol(results$X >= can_range[1]) # Always TRUE
-#' nrow(results$X <= bal_range[2]) # Always TRUE
-#' nrow(results$X >= bal_range[1]) # Always TRUE
-#'
-#' # W matrix
-#' results$W # A randomly generated matrix of dimension (b x g)
-#' ncol(results$W <= group_range[2]) # Always TRUE
-#' ncol(results$W >= group_range[1]) # Always TRUE
-#' nrow(results$W <= bal_range[2]) # Always TRUE
-#' nrow(results$W >= bal_range[1]) # Always TRUE
-#'
-#' # Probability matrix
-#' results$real_p # A matrix (g x c) that summarizes the unobserved outcomes
-#' ncol(results$real_p) == ncol(results$X) # Always TRUE
-#' nrow(results$real_p) == ncol(results$W) # Always TRUE
-#'
-#' @export
-random_samples <- function(ballots_range, # Arguments must be vectors of size 2
-                           candidates_range,
-                           demographic_range,
-                           voting_range,
-                           seed = NULL) {
-  param_list <- list(ballots_range, candidates_range, demographic_range, voting_range)
-  if (!(all(sapply(param_list, length) == 2))) {
-    stop("The vectors must be of size 2.")
-  }
-  if (!is.null(seed)) {
-    set.seed(seed)
-  }
-  # Randomly choose a ballot box
-  num_ballots <- sample(ballots_range[1]:ballots_range[2], 1)
-  # Randomly choose demographic groups
-  num_groups <- sample(demographic_range[1]:demographic_range[2], 1)
-  # Randomly choose candidates
-  num_candidates <- sample(candidates_range[1]:candidates_range[2], 1)
-  # Randomly choose the total amount of votes per ballot box
-  total_votes <- sample(
-    seq.int(voting_range[1], voting_range[2]),
-    size = num_ballots,
-    replace = TRUE
-  )
-
-  choosen_values <- list(
-    ballots = num_ballots,
-    candidates = num_candidates,
-    groups = num_groups,
-    total_votes = total_votes
-  )
-
-  result <- simulate_elections(
-    num_ballots = num_ballots,
-    num_candidates = num_candidates,
-    num_groups = num_groups,
-    ballot_voters = total_votes,
-    seed = seed
-  )
-
-  appended_list <- c(result, choosen_values)
-  appended_list
 }

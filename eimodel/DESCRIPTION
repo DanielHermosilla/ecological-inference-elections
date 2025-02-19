@@ -13,3 +13,12 @@ Imports:
 LinkingTo: Rcpp
 NeedsCompilation: yes
 BugReports: https://github.com/DanielHermosilla/ecological-inference-elections/issues
+Suggests: 
+    knitr,
+    rmarkdown
+Roxygen: list(markdown = TRUE, load = "source")
+VignetteBuilder: knitr
+Depends: 
+    R (>= 3.5)
+LazyData: true
+RoxygenNote: 7.3.2
