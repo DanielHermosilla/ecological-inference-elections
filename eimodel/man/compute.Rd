@@ -2,43 +2,46 @@
 % Please edit documentation in R/eim-class.R
 \name{compute}
 \alias{compute}
-\alias{compute.eim}
 \title{Compute the Expected-Maximization Algorithm}
 \usage{
 compute(
-		object = NULL,
-     X = NULL,
-     W = NULL,
-     json_path = NULL,
-     method = "Multinomial",
-     initial_prob = "Group proportional",
-     maxiter = 1000,
-     maxtime = 1440,
-     stop_threshold = 0.001,
-     verbose = FALSE,
-     ...
+	object = NULL,
+ X = NULL,
+ W = NULL,
+ json_path = NULL,
+ mismatch = FALSE,
+ method = "mult",
+ initial_prob = "group proportional",
+ maxiter = 1000,
+ maxtime = 1440,
+ stop_threshold = 0.001,
+ verbose = FALSE,
+ ...
 )
 }
 \arguments{
-\item{object}{An object of class \code{eim}, which can be created using the \code{eim()} function.
+\item{object}{An object of class \code{eim}, which can be created using the \link{eim} function.
 This parameter shouldn't be called if you prefer to supply the \code{X} and \code{W} matrices or a \code{json_path}.}
 
-\item{X}{A \verb{(b x c)} matrix representing candidate votes per ballot box. This is required if neither an
-\code{eim} object or a JSON path is provided.}
+\item{X}{A \verb{(b x c)} matrix representing candidate votes per ballot box.}
 
-\item{W}{A \verb{(b x g)} matrix representing group votes per ballot box. This is required if neither an
-\code{eim} object or a JSON path is provided.}
+\item{W}{A \verb{(b x g)} matrix representing group votes per ballot box.}
 
-\item{json_path}{A path to a JSON file containing \code{X} and \code{W}. This is required if neither an
-\code{eim} object or matrices are provided.}
+\item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays.}
+
+\item{mismatch}{Boolean to allow a mismatch between group and candidate votes. By default it is \code{FALSE}.}
 
 \item{method}{An optional string specifying the method used for estimating the E-step. Valid
 options are \code{mult}, \code{mvn_cdf}, \code{mvn_pdf}, \code{hnr}, or \code{exact}.
 The default is \code{mult}.}
 
 \item{initial_prob}{An optional string specifying the method used to obtain the initial
-probability. Accepted values are \code{group_proportional}, \code{proportional}, or \code{uniform}.
-The default is \code{group_proportional}.}
+probability. Accepted values are:
+\itemize{
+\item \code{uniform}: Assigns equal probability to every candidate within each group.
+\item \code{proportional}: Assigns probabilities to each group based on the proportion of candidates votes.
+\item \code{group_proportional}: Computes the probability matrix by taking into account both group and candidate proportions. This is the default method.
+}}
 
 \item{maxiter}{An optional integer indicating the maximum number of Expected-Maximization algorithm iterations.
 The default value is \code{1000}.}
@@ -61,14 +64,14 @@ be ignored otherwise. The default value is \code{3000}.}
 The default value is \code{1000}.}
 
 \item{monte_method}{An optional string specifying the method used to estimate the \strong{Multivariate Normal CDF (MVN CDF)}
-via a Monte Carlo simulation. Accepted values are "\code{genz}" and "\code{genz2}", with "\code{genz2}"
+via a Monte Carlo simulation. Accepted values are \code{genz} and \code{genz2}, with \code{genz2}
 set as the default.}
 
 \item{monte_error}{An optional numeric value defining the error threshold for the Monte Carlo
 simulation when estimating the \strong{MVN CDF}. The default value is \code{1e-6}.}
 
-\item{monte_sample}{An optional integer specifying the number of Monte Carlo
-samples to perform for the \strong{MVN CDF} method. The default value is \code{5000}.}
+\item{monte_samples}{An optional integer specifying the number of Monte Carlo
+samples for the \strong{MVN CDF} method. The default value is \code{5000}.}
 }
 \value{
 The function updates (or creates) the input object by adding the following attributes:
@@ -77,9 +80,18 @@ The function updates (or creates) the input object by adding the following attri
 \item{logLik}{An array containing the log-likelihood values from each iteration.}
 \item{iterations}{The total number of iterations performed by the EM algorithm.}
 \item{time}{The total execution time of the algorithm.}
-\item{status}{The final status of the algorithm upon completion.}
+\item{status}{
+The final status ID of the algorithm upon completion:
+\itemize{
+\item \code{0}: Convergence achieved.
+\item \code{1}: Log-likelihood decrease.
+\item \code{2}: Maximum time reached.
+\item \code{3}: Maximum iterations reached.
 }
-Aditionally, it will update the object with additional parameters in case the method provided is \code{"Hit and Run"} or \code{"MVN CDF"}.
+}
+\item{message}{The finishing status displayed as a message.}
+}
+Aditionally, it will create additional parameters if the method provided is \code{hnr} or \code{mvn_cdf}.
 }
 \description{
 Executes the Expectation-Maximization (EM) algorithm using a specified method for estimating

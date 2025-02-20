@@ -30,11 +30,12 @@
 #'
 #' @references
 #' [Thraves, C. and Ubilla, P.: *"Fast Ecological Inference Algorithm for the R×C Case"*.](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834)
-#'
+#' @aliases NULL
+#' @concept package
 "_PACKAGE"
 
 ## usethis namespace: start
 ## usethis namespace: end
 #' @useDynLib eimodel, .registration = TRUE
-# @importFrom Rcpp sourceCpp
+# @importFrom Rcpp evalCpp
 NULL

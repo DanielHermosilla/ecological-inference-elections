@@ -11,7 +11,7 @@ simulate_election(
   ballot_voters = rep(50, num_ballots),
   lambda = 0.5,
   seed = NULL,
-  group_proportions = NULL,
+  group_proportions = rep(1/num_groups, num_groups),
   prob = NULL
 )
 }
@@ -40,10 +40,7 @@ Default value is set to \code{0.5}.}
 
 \item{seed}{If provided, overrides the current global seed. Defaults to \code{NULL}.}
 
-\item{group_proportions}{Optional. A vector specifying the overall proportion of each group. If provided,
-the function assigns groups per ballot box according to a multinomial draw using
-these proportions. This \strong{disables} the shuffling mechanism determined by
-\code{lambda}.}
+\item{group_proportions}{Optional. A vector specifying the overall proportion of each group among all of the ballot boxes. Defaults to an uniform distribution.}
 
 \item{prob}{Optional. A user-supplied probability matrix of dimension \verb{(g x c)}.
 If provided, this matrix is used directly instead of
@@ -72,7 +69,7 @@ Several optional parameters are available to control the distribution of votes:
 \item \strong{\code{group_proportions}}: A vector of length \code{num_groups} specifying
 the overall proportion of each demographic group. Entries must sum to one and be non-negative.
 \item \strong{\code{prob}}: A user-supplied probability matrix of dimension
-(\code{num_groups} x \code{num_candidates}). If provided, this matrix is used directly
+(\code{num_groups} \eqn{\times} \code{num_candidates}). If provided, this matrix is used directly
 instead of drawing from a Dirichlet distribution.
 }
 }
@@ -82,7 +79,7 @@ The shuffling step is controlled by the \code{lambda} (\eqn{\lambda}) parameter 
 \enumerate{
 \item \strong{Initial Group Assignment}: Each of the individuals (\code{I}) is evenly assigned to one of the \code{num_groups}:
 \deqn{\omega_{i}^{0} = \lceil i \cdot \lvert \text{num\_groups}\rvert \cdot I^{-1} \rceil}
-This ensures all groups initially contain an equal count of individuals.
+This ensures all groups initially contain an equal count of individuals. If \code{group_proportions} isn't uniform, it assigns \eqn{\omega_{i}^{0}} according the given parameters.
 \item \strong{Determining the Shuffling Fraction}: The fraction of individuals to shuffle is given by \eqn{\lambda \cdot I}. Hence, different \code{lambda} values are interpreted as follows:
 \itemize{
 \item \code{lambda = 0} means no one is shuffled (groups remain as is).
@@ -96,41 +93,43 @@ will have their group assignments swapped.
 }
 
 \examples{
-# Default usage with 2 ballot boxes, each having 50 voters
+# Example 1: Default usage with 2 ballot boxes, each having 50 voters
 result1 <- simulate_election(
-  num_ballots = 2,
-  num_candidates = 3,
-  num_groups = 2
+    num_ballots = 55,
+    num_candidates = 3,
+    num_groups = 5
 )
 
-# Using a custom ballot_voters vector
+# Example 2: Using a custom ballot_voters vector
 result2 <- simulate_election(
-  num_ballots = 3,
-  num_candidates = 2,
-  num_groups = 2,
-  ballot_voters = c(100, 50, 75)
+    num_ballots = 80,
+    num_candidates = 2,
+    num_groups = 7,
+    ballot_voters = c(100, 50, 75)
 )
 
-# Supplying group_proportions (skips the lambda shuffle)
+# Example 3: Supplying group_proportions
 result3 <- simulate_election(
-  num_ballots = 3,
-  num_candidates = 2,
-  num_groups = 2,
-  group_proportions = c(0.3, 0.7)
+    num_ballots = 40,
+    num_candidates = 7,
+    num_groups = 4,
+    group_proportions = c(0.3, 0.5, 0.1, 0.1)
 )
 
-# Providing a user-defined prob matrix
+# Example 4: Providing a user-defined prob matrix
 custom_prob <- matrix(c(
-  0.9, 0.1,
-  0.4, 0.6
+    0.9, 0.1,
+    0.4, 0.6
 ), nrow = 2, byrow = TRUE)
 
 result4 <- simulate_election(
-  num_ballots = 2,
-  num_candidates = 2,
-  num_groups = 2,
-  prob = custom_prob
+    num_ballots = 2,
+    num_candidates = 2,
+    num_groups = 2,
+    prob = custom_prob
 )
+
+result4$prob == custom_prob # TRUE
 }
 \references{
 The algorithm is fully explained in \href{https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834}{'Thraves, C. and Ubilla, P.: \emph{"Fast Ecological Inference Algorithm for the R×C Case"}}.

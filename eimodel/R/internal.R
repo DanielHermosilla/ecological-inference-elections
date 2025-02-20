@@ -6,7 +6,7 @@
 #' @param W A matrix representing group votes per ballot box.
 #' @return Stops execution if validation fails.
 #' @noRd
-.validate_eim <- function(X, W) {
+.validate_eim <- function(X, W, mismatch = FALSE) {
     # Ensure X and W are provided
     if (is.null(X) || is.null(W)) {
         stop("Either provide X and W matrices, or a valid JSON path containing them.")
@@ -17,7 +17,7 @@
     W <- as.matrix(W)
 
     # Check matching dimensions
-    if (nrow(X) != nrow(W)) {
+    if (!mismatch && nrow(X) != nrow(W)) {
         stop(
             "Mismatch in the number of ballot boxes: 'X' has ", nrow(X),
             " rows, but 'W' has ", nrow(W), " rows."
@@ -38,6 +38,28 @@
     }
 
     TRUE
+}
+
+#' Validates an input for a given method
+#' @noRd
+.validate_arg_compute <- function(params, param_name, default_val, int = TRUE) {
+    if (!param_name %in% names(params)) {
+        return(default_val)
+    }
+
+    value <- params[[param_name]]
+
+    # Validate non-negative value
+    if (value < 0) {
+        stop("Compute:\tThe argument '", param_name, "' isn't positive.")
+    }
+
+    # Validate integer
+    if (int && value != as.integer(value)) {
+        stop("Compute:\tThe argument '", param_name, "' must be a whole number.")
+    }
+
+    return(value)
 }
 
 #' Internal function!

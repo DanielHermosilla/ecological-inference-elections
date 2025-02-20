@@ -10,6 +10,7 @@ bootstrap(
  X = NULL,
  W = NULL,
  json_path = NULL,
+ mismatch = FALSE,
 	get_p = TRUE,
  ...
 )
@@ -18,21 +19,20 @@ bootstrap(
 \item{boot_iter}{Integer specifying how many times to run the
 EM algorithm.}
 
-\item{object}{An object of class \code{eim}, which can be created using the \code{eim()} function.
+\item{object}{An object of class \code{eim}, which can be created using the \link{eim} function.
 This parameter shouldn't be called if you prefer to supply the \code{X} and \code{W} matrices or a \code{json_path}.}
 
-\item{X}{A \verb{(b x c)} matrix representing candidate votes per ballot box. This is required if neither an
-\code{eim} object or a JSON path is provided.}
+\item{X}{A \verb{(b x c)} matrix representing candidate votes per ballot box.}
 
-\item{W}{A \verb{(b x g)} matrix representing group votes per ballot box. This is required if neither an
-\code{eim} object or a JSON path is provided.}
+\item{W}{A \verb{(b x g)} matrix representing group votes per ballot box.}
 
-\item{json_path}{A path to a JSON file containing \code{X} and \code{W}. This is required if neither an
-\code{eim} object or matrices are provided.}
+\item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays.}
+
+\item{mismatch}{Boolean to allow a mismatch between group and candidate votes. By default it is \code{FALSE}.}
 
 \item{get_p}{Boolean that determines if the probability is estimated aswell. Defaults to \code{TRUE}.}
 
-\item{...}{Additional arguments passed to the \link{compute} method that will execute the EM algorithm.}
+\item{...}{Additional arguments passed to the \link{compute} function that will execute the EM algorithm.}
 }
 \value{
 Updates the \code{eim} object with a new \code{sd} field containing the estimated
@@ -60,28 +60,57 @@ If an \code{eim} object is not provided, the function will create one internally
 supplied matrices or the data from the JSON file before executing the algorithm.
 }
 \examples{
-# Simulate data for 20 ballot boxes, 5 candidates, 3 groups
-
-simulations <- simulate_elections(
+# Example 1: Using an 'eim' object directly
+simulations <- simulate_election(
     num_ballots = 20,
     num_candidates = 5,
     num_groups = 3,
     ballot_voters = rep(100, 20)
 )
 
-# Create an eim object
+# Initialize the 'eim' object
 model <- eim(X = simulations$X, W = simulations$W)
 
-# Estimate the standard deviation using 30 EM iterations with
-# MVN PDF method
+# Run bootstrap with an existing 'eim' object
+model <- bootstrap(
+    boot_iter = 30,
+    object = model,
+    method = "mvn_cdf",
+    maxiter = 500,
+    verbose = TRUE,
+    monte_samples = 5000
+)
 
-model <- bootstrap(model, boot_iter = 30, method = "mvn_cdf")
+# Access standard deviation and probability results
+print(model$sd)
+print(model$probability)
 
-# The eim object now contains the standard deviations in model$sd
+
+# Example 2: Providing 'X' and 'W' matrices directly
+model <- bootstrap(
+    boot_iter = 50,
+    get_p = FALSE,
+    X = simulations$X,
+    W = simulations$W,
+    method = "exact",
+    maxiter = 100,
+    maxtime = 15,
+    stop_threshold = 0.01
+)
+
 print(model$sd)
 
-# Probability is estimated too
-print(model$probability)
+# Example 3: Using a JSON file as input
+\dontrun{
+model <- bootstrap(
+    boot_iter = 20,
+    json_path = "path/to/election_data.json",
+    method = "mult",
+    get_p = FALSE
+)
+
+print(model$sd)
+}
 
 }
 \seealso{

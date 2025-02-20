@@ -57,7 +57,7 @@ Rcpp::List EMAlgorithmAll(Rcpp::String em_method, Rcpp::String probability_metho
     switch (finish)
     {
     case 0:
-        stopping_reason = "Probability convergence";
+        stopping_reason = "Convergence achieved";
         break;
     case 1:
         stopping_reason = "Log-likelihood decrease";
@@ -126,7 +126,7 @@ Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method, Rcpp::IntegerVector m
     switch (finish)
     {
     case 0:
-        stopping_reason = "Probability convergence";
+        stopping_reason = "Convergence achieved";
         break;
     case 1:
         stopping_reason = "Log-likelihood decrease";
@@ -189,7 +189,7 @@ Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method, Rcpp::IntegerVe
     switch (finish)
     {
     case 0:
-        stopping_reason = "Probability convergence";
+        stopping_reason = "Convergence achieved";
         break;
     case 1:
         stopping_reason = "Log-likelihood decrease";
