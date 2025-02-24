@@ -23,33 +23,32 @@ extern "C"
 #include <Rcpp.h>
 
 /**
- * @brief Runs the Expected Maximization algorithm for the `MVN PDF`, `Multinomial` or `Exact` method.
+ * @brief Runs the Expected Maximization algorithm for the `mvn_pdf`, `mult` or `exact` method.
  *
  * Given the stopping parameters of the EM method, it calculates an approximation of the RxG ecological inference
  * probability matrix.
  *
- * @param[in] Rcpp::String em_method The method for the EM algorithm. Options: "MVN PDF", "Multinomial", "Exact".
- * (default: "Multinomial")
+ * @param[in] Rcpp::String em_method The method for the EM algorithm. Options: "mvn_pdf", "mult", "exact".
+ * (default: "mult")
  * @param[in] Rcpp::String probability_method The method for obtaining the first probability. Options: "Group
- * proportional", "Proportional", "Uniform". (default: "Group proportional")
+ * proportional", "proportional", "uniform". (default: "Group proportional")
  * @param[in] Rcpp::IntegerVector maximum_iterations A single integer value with the maximum iterations allowed for the
  * EM-algorithm. (default: 1000)
- * @param[in] Rcpp:: maximum_minutes A single integer value with the maximum minutes to run the algorithm. (default:
- * 1440)
+ * @param[in] Rcpp:: maximum_seconds A single integer value with the maximum seconds to run the algorithm. (default:
+ * 3600)
  * @param[in] Rcpp::NumericVector stopping_threshold The absolute difference between subsequent probabilities matrices
  * to stop the algorithm. (default: 0.001)
  * @param[in] Rcpp::LogicalVector verbose Boolean to determine if the algorithm will print helpful messages. (default:
  * false)
  *
- * @note For running the `Hit and Run` and `MVN CDF` method refer to its own dedicated functions.
+ * @note For running the `Hit and Run` and `mvn_cdf` method refer to its own dedicated functions.
  *
  * @return Rcpp::List A list with the final probability ("result"), log-likelihood array ("log_likelihood"), total
  * iterations that were made ("total_iterations") and the time that was taken ("total_time").
  */
-Rcpp::List EMAlgorithmAll(Rcpp::String em_method = "Multinomial",
-                          Rcpp::String probability_method = "Group proportional",
+Rcpp::List EMAlgorithmAll(Rcpp::String em_method = "mult", Rcpp::String probability_method = "group_proportional",
                           Rcpp::IntegerVector maximum_iterations = Rcpp::IntegerVector::create(1000),
-                          Rcpp::IntegerVector maximum_minutes = Rcpp::IntegerVector::create(1440),
+                          Rcpp::IntegerVector maximum_seconds = Rcpp::IntegerVector::create(3600),
                           Rcpp::NumericVector stopping_threshold = Rcpp::NumericVector::create(0.001),
                           Rcpp::LogicalVector verbose = Rcpp::LogicalVector::create(false));
 
@@ -63,10 +62,10 @@ Rcpp::List EMAlgorithmAll(Rcpp::String em_method = "Multinomial",
  * time.
  *
  * @param[in] Rcpp::String probability_method The method for obtaining the first probability. Options: "Group
- * proportional", "Proportional", "Uniform". (default: "Group proportional")
+ * proportional", "proportional", "uniform". (default: "Group proportional")
  * @param[in] Rcpp::IntegerVector maximum_iterations A single integer value with the maximum iterations allowed for the
  * EM-algorithm. (default: 1000)
- * @param[in] Rcpp:: maximum_minutes A single integer value with the maximum minutes to run the algorithm. (default:
+ * @param[in] Rcpp:: maximum_seconds A single integer value with the maximum minutes to run the algorithm. (default:
  * 1440)
  * @param[in] Rcpp::NumericVector stopping_threshold The absolute difference between subsequent probabilities matrices
  * to stop the algorithm. (default: 0.001)
@@ -86,14 +85,14 @@ Rcpp::List EMAlgorithmAll(Rcpp::String em_method = "Multinomial",
  * @return Rcpp::List A list with the final probability ("result"), log-likelihood array ("log_likelihood"), total
  * iterations that were made ("total_iterations") and the time that was taken ("total_time").
  */
-Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method = "Group proportional",
+Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method = "group_proportional",
                           Rcpp::IntegerVector maximum_iterations = Rcpp::IntegerVector::create(1000),
-                          Rcpp::IntegerVector maximum_minutes = Rcpp::IntegerVector::create(1440),
+                          Rcpp::IntegerVector maximum_seconds = Rcpp::IntegerVector::create(3600),
                           Rcpp::NumericVector stopping_threshold = Rcpp::NumericVector::create(0.001),
                           Rcpp::LogicalVector verbose = Rcpp::LogicalVector::create(false),
-                          Rcpp::String multivariate_method = "Genz2",
-                          Rcpp::NumericVector multivariate_epsilon = Rcpp::NumericVector::create(0.000001),
-                          Rcpp::IntegerVector multivariate_iterations = Rcpp::IntegerVector::create(5000));
+                          Rcpp::String monte_method = "genz2",
+                          Rcpp::NumericVector monte_error = Rcpp::NumericVector::create(0.000001),
+                          Rcpp::IntegerVector monte_iter = Rcpp::IntegerVector::create(5000));
 
 /**
  * @brief Runs the Expected Maximization algorithm for the Hit and Run method.
@@ -103,10 +102,10 @@ Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method = "Group proportional"
  * correlation between samples, making a better sampling.
  *
  * @param[in] Rcpp::String probability_method The method for obtaining the first probability. Options: "Group
- * proportional", "Proportional", "Uniform". (default: "Group proportional")
+ * proportional", "proportional", "uniform". (default: "Group proportional")
  * @param[in] Rcpp::IntegerVector maximum_iterations A single integer value with the maximum iterations allowed for
  * the EM-algorithm. (default: 1000)
- * @param[in] Rcpp:: maximum_minutes A single integer value with the maximum minutes to run the algorithm. (default:
+ * @param[in] Rcpp:: maximum_seconds A single integer value with the maximum minutes to run the algorithm. (default:
  * 1440)
  * @param[in] Rcpp::NumericVector stopping_threshold The absolute difference between subsequent probabilities
  * matrices to stop the algorithm. (default: 0.001)
@@ -121,9 +120,9 @@ Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method = "Group proportional"
  * @return Rcpp::List A list with the final probability ("result"), log-likelihood array ("log_likelihood"), total
  * iterations that were made ("total_iterations") and the time that was taken ("total_time").
  */
-Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method = "Group proportional",
+Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method = "group_proportional",
                                 Rcpp::IntegerVector maximum_iterations = Rcpp::IntegerVector::create(1000),
-                                Rcpp::IntegerVector maximum_minutes = Rcpp::IntegerVector::create(1440),
+                                Rcpp::IntegerVector maximum_seconds = Rcpp::IntegerVector::create(3600),
                                 Rcpp::NumericVector stopping_threshold = Rcpp::NumericVector::create(0.001),
                                 Rcpp::LogicalVector verbose = Rcpp::LogicalVector::create(false),
                                 Rcpp::IntegerVector step_size = Rcpp::IntegerVector::create(3000),
@@ -147,17 +146,17 @@ void RprecomputeHR(Rcpp::IntegerVector samples = Rcpp::IntegerVector::create(100
                    Rcpp::IntegerVector step_size = Rcpp::IntegerVector::create(3000));
 
 /**
- * @brief Precomputes the values from the Exact method that can be calculated before the EM algorithm.
+ * @brief Precomputes the values from the exact method that can be calculated before the EM algorithm.
  *
  * Computes all of the sets that are going to be used among all of the EM iterations. This values are independent
  * between each stage of the algorithm.
  *
  * @warning: The `X` and `W` matrices must be assigned before with the `setParameters` function.
  *
- * @note: This values must be freed with the `cleanExact()` function.
+ * @note: This values must be freed with the `cleanexact()` function.
  *
  */
-void RprecomputeExact();
+void Rprecomputeexact();
 
 /**
  * @brief Sets the `X` and `W` parameters on C

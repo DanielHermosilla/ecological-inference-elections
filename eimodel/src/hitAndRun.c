@@ -96,6 +96,35 @@ void generateOmegaSet(int M, int S, unsigned int seedNum)
      * benefits.
      */
 
+    /* UPDATE:
+     * It may be useful but dangerous to create a RNG pool before looping. It may be much faster, however
+     * the randomn numbers are dinamically asigned.
+     *
+     * The dynamic condition that creates a RNG call is g1 == g2 (with replacement) and c1 == c2. Both expected
+     * values are 1/|G| and 1/|C|. The idea would be to generate a sample pool such that 97.5% of times it doesn't
+     * crash. Hence, one loop through M uses on average 2 + (1/|C| + 1/|G| - 1/|C| * 1/|G|) -> failing probability.
+     * Given that, the expected value of RNG calls  is |B| * |S| * |M| * (2 + |C|^-1 + |G|^-1 - (|C|*|G|)^-1)
+     *
+     * On the other side, let X and Y be the failing d.r.v of |C| and |G| respectively. Then, Var(X+Y)=(|G|*|G-1| +
+     * |C|*|C-1|)/12. Then, since |B|, |S|, |M| and |2| are constants:
+     *
+     * Var( |B| * |S| * |M| * (2 + X + Y)) = |B|^2 * |S|^2 * |M|^2 Var(2 + X + Y)
+     *  								   = |B|^2 * |S|^2 * |M|^2 * (|G|*|G-1| + |C|*|C-1|)/12.
+     *  							std()  = |B| * |S| * |M| sqrt( [ |G|*|G-1| + |C|*|C-1| ] / 12 )
+     *
+     * So, ensuring a \mu + 2\sigma approach...,
+     *
+     * Pool size = |B| * |S| * |M| * (2 + |C|^-1 + |G|^-1 - (|C|*|G|)^-1) + 2|B| * |S| * |M| sqrt( [ |G|*|G-1| +
+     * |C|*|C-1| ] / 12 ) = |B| * |S| * |M| * (2 + |C|^-1 + |G|^-1 - (|C|*|G|)^-1 + 2 * sqrt( [ |G|*|G-1| + |C|*|C-1| ]
+     * / 12)
+     *
+     * Is this feasible? Let's suppose 50 ballot boxes, 1000 samples and a step size of 3000. Each of the RNG calls are
+     * stored as doubles (64bits) aswell. That's 1.2GB, just by considering the first factor and not accounting the |C|
+     * and |G| terms. If a pool cannot be allocated before the loop, maybe it could be possible to execute within
+     * distinct pools by dividing the ballot boxes and free within each big iteration. However, that's not so practical
+     * to implement, and the 2.5% failure rate still bothers me.
+     */
+
     GetRNGstate();
 
     // ---- Perform the main iterations ---- //

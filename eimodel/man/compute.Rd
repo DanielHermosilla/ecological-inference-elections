@@ -11,7 +11,7 @@ compute(
  json_path = NULL,
  mismatch = FALSE,
  method = "mult",
- initial_prob = "group proportional",
+ initial_prob = "group_proportional",
  maxiter = 1000,
  maxtime = 1440,
  stop_threshold = 0.001,
@@ -63,20 +63,20 @@ be ignored otherwise. The default value is \code{3000}.}
 \strong{Hit and Run} method. This parameter is only relevant when the \strong{Hit and Run} method is selected.
 The default value is \code{1000}.}
 
-\item{monte_method}{An optional string specifying the method used to estimate the \strong{Multivariate Normal CDF (MVN CDF)}
+\item{mc_method}{An optional string specifying the method used to estimate the \strong{Multivariate Normal CDF (MVN CDF)}
 via a Monte Carlo simulation. Accepted values are \code{genz} and \code{genz2}, with \code{genz2}
 set as the default.}
 
-\item{monte_error}{An optional numeric value defining the error threshold for the Monte Carlo
+\item{mc_error}{An optional numeric value defining the error threshold for the Monte Carlo
 simulation when estimating the \strong{MVN CDF}. The default value is \code{1e-6}.}
 
-\item{monte_samples}{An optional integer specifying the number of Monte Carlo
+\item{mc_samples}{An optional integer specifying the number of Monte Carlo
 samples for the \strong{MVN CDF} method. The default value is \code{5000}.}
 }
 \value{
 The function updates (or creates) the input object by adding the following attributes:
 \describe{
-\item{probability}{The estimated probability matrix.}
+\item{prob}{The estimated probability matrix.}
 \item{logLik}{An array containing the log-likelihood values from each iteration.}
 \item{iterations}{The total number of iterations performed by the EM algorithm.}
 \item{time}{The total execution time of the algorithm.}
@@ -90,6 +90,7 @@ The final status ID of the algorithm upon completion:
 }
 }
 \item{message}{The finishing status displayed as a message.}
+\item{method}{The method used for estimating the E-step.}
 }
 Aditionally, it will create additional parameters if the method provided is \code{hnr} or \code{mvn_cdf}.
 }

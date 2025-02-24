@@ -1,36 +1,99 @@
 # ========= Bootstrap function test ========= #
 # For avoiding long precomputations, we'll use a small sample => reduce ballots boxes
 tests <- 50
-test_that("Precomputation works", {
-  for (i in 1:tests) {
-    result <- random_samples(
-      c(45, 60), # Ballots range
-      c(2, 5), # Candidates range
-      c(2, 5), # Demographic group range
-      c(100, 150) # Votes per ballot range
+results <- vector("list", tests)
+for (i in 1:tests) {
+    results[[i]] <- eimodel:::.random_samples(
+        c(30, 50), # Ballots range
+        c(2, 4), # Candidates range
+        c(2, 4), # Demographic group range
+        c(30, 60), # Votes per ballot range
+        seed = i
     )
+}
 
-    # From the test before, we can assume the constructing function work
-    model <- eim$new(result$X, result$W)
-    model$bootstrap(bootstrap_iterations = 50, ballot_boxes = 20)
+test_that("Bootstrap accepts matrices", {
+    for (i in 1:tests) {
+        test <- bootstrap(boot_iter = 10, X = results[[i]]$X, W = results[[i]]$W)
+        expect_type(test$sd, "double")
+        expect_equal(test$X, results[[i]]$X)
+        expect_equal(test$W, results[[i]]$W)
+        expect_s3_class(test, "eim")
+    }
+})
+test_that("Bootstrap accepts 'eim' objects", {
+    for (i in 1:tests) {
+        test <- eim(results[[i]]$X, results[[i]]$W)
+        test <- bootstrap(10, test)
+        expect_type(test$sd, "double")
+        expect_s3_class(test, "eim")
+    }
+})
 
-    # We should expect a visible matrix on the standard deviation attribute
-    expect_type(model$standard_deviation, "matrix")
-    expect_equal(nrow(model$standard_deviation), ncol(model$W))
-    expect_equal(ncol(model$standard_deviation), ncol(model$X))
+test_that("Bootstrap doesn't work when providing multiple sources", {
+    for (i in 1:tests) {
+        test <- eim(results[[i]]$X, results[[i]]$W)
+        expect_error(bootstrap(boot_iter = 10, test, X = results[[i]]$X, W = results[[i]]$W))
+        expect_error(bootstrap(boot_iter = 10, test, W = results[[i]]$W))
+        expect_error(bootstrap(boot_iter = 10, test, X = results[[i]]$X))
+    }
+})
 
-    # Unusual cases
-    expect_error(model$bootstrap())
-    expect_error(model$bootstrap(bootstrap_iterations = 8, ballot_boxes = nrow(result$X)))
-    expect_invisible(model$bootstrap(main_method = "Hit and Run", step_size = 100, samples = 100))
-    expect_invisible(model$bootstrap(bootstrap_iterations = 4, ballot_boxes = 5, main_method = "MVN CDF", method = "Genz"))
+test_that("Bootstrap doesn't work when providing a single matrix", {
+    for (i in 1:tests) {
+        expect_error(bootstrap(boot_iter = 10, X = results[[i]]$X))
+    }
+})
 
-    # We should also expect that the other attributes aren't updated
-    expect_equal(model$method, NULL)
-    expect_equal(model$probability, NULL)
-    expect_error(model$samples)
-    expect_error(model$step_size)
-    rm(model)
-    gc()
-  }
+
+test_that("Bootstrap doesn't work when providing a invalid json path", {
+    for (i in 1:tests) {
+        expect_error(bootstrap(json_path = "invalid.json"))
+        expect_error(bootstrap(json_path = "invalid"))
+        expect_error(bootstrap(json_path = results[[i]]))
+    }
+})
+
+
+test_that("Bootstrap doesn't work when providing an invalid iteration parameter", {
+    for (i in 1:tests) {
+        expect_error(bootstrap(boot_iter = 1.1, X = results[[i]]$X, W = results[[i]]$W))
+        expect_error(bootstrap(boot_iter = 0.21353, X = results[[i]]$X, W = results[[i]]$W))
+        expect_error(bootstrap(boot_iter = 1e-9, X = results[[i]]$X, W = results[[i]]$W))
+        expect_error(bootstrap(boot_iter = -2, X = results[[i]]$X, W = results[[i]]$W))
+        expect_error(bootstrap(boot_iter = -2.1, X = results[[i]]$X, W = results[[i]]$W))
+        expect_error(bootstrap(boot_iter = "a", X = results[[i]]$X, W = results[[i]]$W))
+        expect_error(bootstrap(boot_iter = NULL, X = results[[i]]$X, W = results[[i]]$W))
+    }
+})
+
+test_that("Standard deviation matrix has dimensional coherence", {
+    for (i in 1:tests) {
+        test <- eim(results[[i]]$X, results[[i]]$W)
+        test <- bootstrap(10, test)
+        # Have the same group dimension
+        expect_equal(nrow(test$sd), ncol(test$W))
+        # Have the same candidate dimension
+        expect_equal(ncol(test$sd), ncol(test$X))
+    }
+})
+
+test_that("Bootstrap computes the probability matrix if required", {
+    half <- tests %/% 2
+    for (i in 1:half) {
+        test <- eim(results[[i]]$X, results[[i]]$W)
+        test <- bootstrap(10, test, get_p = TRUE)
+        expect_type(test$prob, "double")
+        expect_equal(test$method, "mult")
+        expect_gt(test$iterations, 0)
+        expect_type(logLik(test), "double")
+    }
+    for (i in 1:half) {
+        test <- eim(results[[i]]$X, results[[i]]$W)
+        test <- bootstrap(boot_iter = 30, object = test, get_p = FALSE)
+        expect_null(test$prob)
+        expect_null(test$method)
+        expect_null(test$iterations)
+        expect_null(test$logLik)
+    }
 })

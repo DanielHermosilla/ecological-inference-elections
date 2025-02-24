@@ -156,11 +156,11 @@ Matrix getInitialP(const char *p_method)
 {
 
     // ---- Validation: check the method input ----//
-    if (strcmp(p_method, "Uniform") != 0 && strcmp(p_method, "Proportional") != 0 &&
-        strcmp(p_method, "Group proportional") != 0)
+    if (strcmp(p_method, "uniform") != 0 && strcmp(p_method, "proportional") != 0 &&
+        strcmp(p_method, "group_proportional") != 0)
     {
         error("Compute: The method `%s` to calculate the initial probability doesn't exist.\nThe supported methods "
-              "are: `Uniform`, `Proportional` and `Group proportional`.\n",
+              "are: `uniform`, `proportional` and `group_proportional`.\n",
               p_method);
     }
     // ---...--- //
@@ -169,7 +169,7 @@ Matrix getInitialP(const char *p_method)
 
     // ---- Compute the uniform method ---- //
     // ---- It assumes a uniform distribution among candidates ----
-    if (strcmp(p_method, "Uniform") == 0)
+    if (strcmp(p_method, "uniform") == 0)
     {
         fillMatrix(&probabilities, 1.0 / (double)TOTAL_CANDIDATES);
     }
@@ -178,7 +178,7 @@ Matrix getInitialP(const char *p_method)
     // ---- Compute the proportional method ---- //
     // ---- It calculates the proportion of votes of each candidate, and assigns that probability to every demographic
     // group ----
-    else if (strcmp(p_method, "Proportional") == 0)
+    else if (strcmp(p_method, "proportional") == 0)
     {
         for (int c = 0; c < TOTAL_CANDIDATES; c++)
         { // --- For each candidate
@@ -192,7 +192,7 @@ Matrix getInitialP(const char *p_method)
     }
     // ---...--- //
 
-    // ---- Compute the group proportional method ---- //
+    // ---- Compute the group_proportional method ---- //
     // ---- Considers the proportion of candidates votes and demographic groups aswell ----
     else
     {
@@ -251,8 +251,8 @@ Matrix getInitialP(const char *p_method)
  *
  * Given that different `Q` methods receive different parameters, a modularized approach is given towards each method
  *
- * @input[in] q_method A char with the q_method. Currently it supports "Exact", "Hit and Run", "multinomial", "MVN CDF"
- * and "MVN PDF"
+ * @input[in] q_method A char with the q_method. Currently it supports "exact", "hnr", "mult", "mvn_cdf"
+ * and "mvn_pdf"
  * @input[in] inputParams A QMethodInput struct, that should be defined in a main function, with the parameters for the
  * distinct methods
  *
@@ -265,30 +265,30 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
 
     config.computeQ = computeQMultinomial;
 
-    if (strcmp(q_method, "Multinomial") == 0)
+    if (strcmp(q_method, "mult") == 0)
     {
         config.computeQ = computeQMultinomial;
     }
-    else if (strcmp(q_method, "Hit and Run") == 0)
+    else if (strcmp(q_method, "hnr") == 0)
     {
         config.computeQ = computeQHitAndRun;
     }
-    else if (strcmp(q_method, "Exact") == 0)
+    else if (strcmp(q_method, "exact") == 0)
     {
         config.computeQ = computeQExact;
     }
-    else if (strcmp(q_method, "MVN CDF") == 0)
+    else if (strcmp(q_method, "mvn_cdf") == 0)
     {
         config.computeQ = computeQMultivariateCDF;
     }
-    else if (strcmp(q_method, "MVN PDF") == 0)
+    else if (strcmp(q_method, "mvn_pdf") == 0)
     {
         config.computeQ = computeQMultivariatePDF;
     }
     else
     {
-        error("Compute: An invalid method was provided: `%s`\nThe supported methods are: `Exact`, `Hit and "
-              "Run`, `Multinomial`, `MVN CDF` and `MVN PDF`.\n",
+        error("Compute: An invalid method was provided: `%s`\nThe supported methods are: `exact`, `Hit and "
+              "Run`, `mult`, `mvn_cdf` and `mvn_pdf`.\n",
               q_method);
     }
 
@@ -390,11 +390,11 @@ Matrix getP(const double *q)
  * @brief Implements the whole EM algorithm.
  *
  * Given a method for estimating "q", it calculates the EM until it converges to arbitrary parameters. As of in the
- * paper, it currently supports Hit and Run, Multinomial, MVN CDF and MVN PDF methods.
+ * paper, it currently supports hnr, mult, mvn_cdf and mvn_pdf methods.
  *
  * @param[in] currentP Matrix of dimension (cxg) with the initial probabilities for the first iteration.
  * @param[in] q_method Pointer to a string that indicates the method or calculating "q". Currently it supports "Hit
- * and Run", "Multinomial", "MVN CDF", "MVN PDF" and "Exact" methods.
+ * and Run", "mult", "mvn_cdf", "mvn_pdf" and "exact" methods.
  * @param[in] convergence Threshold value for convergence. Usually it's set to 0.001.
  * @param[in] maxIter Integer with a threshold of maximum iterations. Usually it's set to 100.
  * @param[in] verbose Wether to verbose useful outputs.
@@ -404,16 +404,16 @@ Matrix getP(const double *q)
  *
  * @note This is the main function that calls every other function for "q"
  *
- * @see getInitialP() for getting initial probabilities. Group proportional method is recommended.
+ * @see getInitialP() for getting initial probabilities. group_proportional method is recommended.
  *
  * @warning
  * - Pointers shouldn't be NULL.
  * - `x` and `w` dimensions must be coherent.
  *
  */
-Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter, int maxMinutes,
-                  const bool verbose, double *time, int *iterTotal, double *logLLarr, int *finishing_reason,
-                  QMethodInput inputParams)
+Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
+                  const double maxSeconds, const bool verbose, double *time, int *iterTotal, double *logLLarr,
+                  int *finishing_reason, QMethodInput inputParams)
 {
 
     // ---- Error handling is done on getQMethodConfig! ---- //
@@ -502,14 +502,15 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         // ---- Handle the case where the log-likelihood decreases ----
         // ---- The CDF case has a lot of variance between iterations, hence, we'll leave a minimum iterations
         // threshold.
-        int minIter = (strcmp(q_method, "MVN CDF") == 0) ? 100 : 1;
+        int minIter = (strcmp(q_method, "mvn_cdf") == 0) ? 100 : 1;
+        // int minIter = 1;
         if ((i >= minIter && (logLLarr)[i] < (logLLarr)[i - 1]))
         {
             *finishing_reason = 1;
             goto results;
         }
         // ---- Handle the case where the maximum times is reached
-        if (elapsed_total / 60 > maxMinutes)
+        if (elapsed_total > maxSeconds)
         {
             *finishing_reason = 2;
             goto results;

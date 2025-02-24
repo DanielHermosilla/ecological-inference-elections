@@ -81,19 +81,18 @@ extern "C"
      *
      */
 
-    //  Matrix getP(const double *q);
-
     /**
      * @brief Implements the whole EM algorithm.
      *
      * Given a method for estimating "q", it calculates the EM until it converges to arbitrary parameters. As of in the
-     * paper, it currently supports Hit and Run, Multinomial, MVN CDF and MVN PDF methods.
+     * paper, it currently supports hnr, mult, mvn_cdf and mvn_pdf methods.
      *
      * @param[in] currentP Matrix of dimension (cxg) with the initial probabilities for the first iteration.
      * @param[in] q_method Pointer to a string that indicates the method or calculating "q". Currently it supports "Hit
-     * and Run", "Multinomial", "MVN CDF", "MVN PDF" and "Exact" methods.
+     * and Run", "mult", "mvn_cdf", "mvn_pdf" and "exact" methods.
      * @param[in] convergence Threshold value for convergence. Usually it's set to 0.001.
      * @param[in] maxIter Integer with a threshold of maximum iterations. Usually it's set to 100.
+     * @param[in] maxSeconds Double with the value of the maximum amount of seconds to use.
      * @param[in] verbose Wether to verbose useful outputs.
      * @param[in, out] time The time that the algorithm took.
      * @param[in, out] iterTotal Total amount of iterations.
@@ -107,7 +106,7 @@ extern "C"
      *
      * @note This is the main function that calls every other function for "q"
      *
-     * @see getInitialP() for getting initial probabilities. Group proportional method is recommended.
+     * @see getInitialP() for getting initial probabilities. group_proportional method is recommended.
      *
      * @warning
      * - Pointers shouldn't be NULL.
@@ -115,7 +114,7 @@ extern "C"
      *
      */
     Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
-                      int maxMinutes, const bool verbose, double *time, int *iterTotal, double *logLLarr,
+                      const double maxSeconds, const bool verbose, double *time, int *iterTotal, double *logLLarr,
                       int *finishing_reason, QMethodInput params);
 
     /**

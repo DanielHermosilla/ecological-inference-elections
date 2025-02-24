@@ -405,7 +405,7 @@ void recursion(MemoizationTable *memo, const Matrix *probabilities)
             for (size_t k = 0; k < KSETS[b][f].size; k++)
             { // ---- For each element from the K_bf set
                 // ---- If there's no existing combination, skip the loop ----
-                if (!KSETS[b][f].data || !KSETS[b][f].data[k])
+                if (!KSETS[b][f].data || !KSETS[b][f].data[k] || KSETS[b][f].data[k] == NULL)
                 {
                     continue;
                 }
@@ -601,9 +601,17 @@ double *computeQExact(const Matrix *probabilities, QMethodInput params)
             } // ---- End loop on candidates
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // ---- For each candidate
-              // ---- Compute the numerator ----
+                // ---- Compute the numerator ----
                 // ---- Store the resulting values as q_{bgc} ----
-                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num[c] / den;
+                if (den != 0)
+                {
+                    Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num[c] / den;
+                }
+                else
+                {
+                    Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = 0;
+                }
+
             } // ---- End loop on candidates
         } // ---- End loop on groups
     } // ---- End loop on ballot boxes

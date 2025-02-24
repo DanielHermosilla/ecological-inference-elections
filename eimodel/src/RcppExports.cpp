@@ -27,8 +27,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // EMAlgorithmCDF
-Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations, Rcpp::IntegerVector maximum_minutes, Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector verbose, Rcpp::String multivariate_method, Rcpp::NumericVector multivariate_epsilon, Rcpp::IntegerVector multivariate_iterations);
-RcppExport SEXP _eimodel_EMAlgorithmCDF(SEXP probability_methodSEXP, SEXP maximum_iterationsSEXP, SEXP maximum_minutesSEXP, SEXP stopping_thresholdSEXP, SEXP verboseSEXP, SEXP multivariate_methodSEXP, SEXP multivariate_epsilonSEXP, SEXP multivariate_iterationsSEXP) {
+Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations, Rcpp::IntegerVector maximum_minutes, Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector verbose, Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter);
+RcppExport SEXP _eimodel_EMAlgorithmCDF(SEXP probability_methodSEXP, SEXP maximum_iterationsSEXP, SEXP maximum_minutesSEXP, SEXP stopping_thresholdSEXP, SEXP verboseSEXP, SEXP monte_methodSEXP, SEXP monte_errorSEXP, SEXP monte_iterSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -37,10 +37,10 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type maximum_minutes(maximum_minutesSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type stopping_threshold(stopping_thresholdSEXP);
     Rcpp::traits::input_parameter< Rcpp::LogicalVector >::type verbose(verboseSEXP);
-    Rcpp::traits::input_parameter< Rcpp::String >::type multivariate_method(multivariate_methodSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type multivariate_epsilon(multivariate_epsilonSEXP);
-    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type multivariate_iterations(multivariate_iterationsSEXP);
-    rcpp_result_gen = Rcpp::wrap(EMAlgorithmCDF(probability_method, maximum_iterations, maximum_minutes, stopping_threshold, verbose, multivariate_method, multivariate_epsilon, multivariate_iterations));
+    Rcpp::traits::input_parameter< Rcpp::String >::type monte_method(monte_methodSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type monte_error(monte_errorSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type monte_iter(monte_iterSEXP);
+    rcpp_result_gen = Rcpp::wrap(EMAlgorithmCDF(probability_method, maximum_iterations, maximum_minutes, stopping_threshold, verbose, monte_method, monte_error, monte_iter));
     return rcpp_result_gen;
 END_RCPP
 }

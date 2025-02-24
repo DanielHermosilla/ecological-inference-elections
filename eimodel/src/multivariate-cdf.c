@@ -33,9 +33,85 @@ SOFTWARE.
 #include <string.h>
 #include <unistd.h>
 
+// Might implement later, has a weird bug...
+/*
+double genzMontecarloNewChunk(const Matrix *cholesky, const double *lowerBounds, const double *upperBounds,
+                              double epsilon, int iterations, int mvnDim)
+{
+    GetRNGstate();
+    //    (or do it in chunks if 'iterations * mvnDim' is very large)
+    int total_draws = iterations * mvnDim;
+    double *rand_pool = (double *)Calloc(total_draws, double);
+    for (int i = 0; i < total_draws; i++)
+    {
+        rand_pool[i] = unif_rand();
+    }
+    // ---- Initialize Montecarlo variables ---- //
+    double intsum = 0;
+    double varsum = 0;
+    double mean = 0;
+    int currentIterations = 0;
+    double a[mvnDim], b[mvnDim], y[mvnDim], currentError;
+    a[0] = pnorm(lowerBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 0.0, 1.0, 1, 0);
+    b[0] = pnorm(upperBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 0.0, 1.0, 1, 0);
+    // ---...--- //
+
+    int chunkCalls = iterations / 250;
+    if (chunkCalls % 250 != 0)
+        chunkCalls++;
+
+    for (int k = 0; k < chunkCalls; k++)
+    {
+        for (int c = 0; c < 250; c++)
+        {
+            int globalIter = k * 250 + c;
+            double aLocal[mvnDim], bLocal[mvnDim], yLocal[mvnDim];
+            aLocal[0] = a[0];
+            bLocal[0] = b[0];
+
+            double *pseudoRandom = &rand_pool[globalIter * mvnDim];
+            // ---- Compute the base case
+            yLocal[0] = qnorm(aLocal[0] + pseudoRandom[0] * (bLocal[0] - aLocal[0]), 0.0, 1.0, 1, 0);
+            double summatory;
+            double P = bLocal[0] - aLocal[0];
+
+            // ---- Do the main loop ---- //
+            for (int i = 1; i < mvnDim; i++)
+            {
+                // ---- Note that the summatory is equivalent to $\sum_{j=1}^{i-1}c_{ij}*y_{j}$.
+                summatory = 0;
+                for (int j = 0; j < i; j++)
+                {
+                    summatory += MATRIX_AT_PTR(cholesky, i, j) * yLocal[j];
+                }
+                aLocal[i] = pnorm((lowerBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 0.0, 1.0, 1, 0);
+                bLocal[i] = pnorm((upperBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 0.0, 1.0, 1, 0);
+                double difference = bLocal[i] - aLocal[i];
+                yLocal[i] = qnorm(aLocal[i] + pseudoRandom[i] * difference, 0.0, 1.0, 1, 0);
+                P *= difference;
+            }
+            // ---...--- //
+            // ---- Get the stopping parameters ---- //
+            intsum += P;
+        }
+        currentIterations += 250;
+        mean = intsum / currentIterations;
+        varsum += pow(intsum - mean, 2);
+        currentError = sqrt(varsum / (currentIterations * (currentIterations - 1)));
+        // ---...--- //
+        if (currentError < epsilon && currentIterations > iterations)
+        {
+            break;
+        }
+    }
+    Free(rand_pool);
+    PutRNGstate();
+    return mean;
+}
+*/
 // All of the conventions used are from genz paper
 /*
- * @brief Compute the Montecarlo approximation proposed by Alan Genz towards the most recent method, using univariate
+ * @brief Compute the Montecarlo approximation proposed by Alan genz towards the most recent method, using univariate
  * conditional with quasirandom numbers.
  *
  * Computes an heuristic from the first Multivariate CDF proposed. More details at the following paper:
@@ -111,97 +187,11 @@ double genzMontecarloNew(const Matrix *cholesky, const double *lowerBounds, cons
     return mean;
 }
 
-// Might implement later: has the problem of global RNG state from R's API. To be solved
-/*
-double genzMontecarloChunk(const Matrix *cholesky, const double *lowerBounds, const double *upperBounds, double epsilon,
-                           int iterations, int mvnDim)
-{
-
-    // ---- Initialize randomizer ---- //
-    GetRNGstate();
-
-    // ---- Initialize Montecarlo variables ---- //
-    double intsum = 0;
-    double varsum = 0;
-    int currentIterations = 0;
-    double currentError = 1000;
-    double d[mvnDim], e[mvnDim], f[mvnDim];
-    double diag0 = MATRIX_AT_PTR(cholesky, 0, 0);
-    d[0] = pnorm(lowerBounds[0] / diag0, 0.0, 1.0, 1, 0);
-    e[0] = pnorm(upperBounds[0] / diag0, 0.0, 1.0, 1, 0);
-    f[0] = (e[0] - d[0]);
-    //  ---...--- //
-
-    // ---- Compute the main while loop ---- //
-    for (int k = 0; k < 5; k++)
-    {
-#pragma omp parallel for schedule(static)
-        for (int j = 0; j < 250; j++)
-        {
-            // ---- Initialize the loop variables ---- //
-            d[0] = pnorm(lowerBounds[0] / diag0, 0.0, 1.0, 1, 0);
-            e[0] = pnorm(upperBounds[0] / diag0, 0.0, 1.0, 1, 0);
-            f[0] = (e[0] - d[0]);
-
-            double randomVector[mvnDim - 1];
-            for (int i = 0; i < mvnDim - 1; i++)
-            // ---...--- //
-
-            // ---- Generate the random vector ---- //
-            { // --- For each dimension
-                // ---- Generate random values in [0,1) ----
-                randomVector[i] = unif_rand();
-            }
-            // ---...--- //
-
-            // ---- Calculate the integral with their new bounds ---- //
-            double summatory;
-            double y[mvnDim];
-            for (int i = 1; i < mvnDim; i++)
-            {
-                double draw = d[i - 1] + randomVector[i - 1] * (e[i - 1] - d[i - 1]);
-                y[i - 1] = qnorm(draw, 0.0, 1.0, 1, 0);
-                // ---- Note that the summatory is equivalent to $\sum_{j=1}^{i-1}c_{ij}*y_{j}$.
-
-                summatory = 0;
-                for (int j = 0; j < i; j++)
-                {
-                    summatory += MATRIX_AT_PTR(cholesky, i, j) * y[j];
-                }
-
-                double diagii = MATRIX_AT_PTR(cholesky, i, i);
-                d[i] = pnorm((lowerBounds[i] - summatory) / diagii, 0.0, 1.0, 1, 0);
-                e[i] = pnorm((upperBounds[i] - summatory) / diagii, 0.0, 1.0, 1, 0);
-                f[i] = (e[i] - d[i]) * f[i - 1];
-            }
-            // ---...--- //
-
-            // ---- Compute the final indicators from the current loop ---- //
-#pragma omp atomic
-            intsum += f[mvnDim - 1];
-#pragma omp atomic
-            varsum += pow(f[mvnDim - 1], 2);
-        }
-        currentIterations += 250;
-        double mean = intsum / currentIterations;
-        double variance = (varsum / currentIterations) - pow(mean, 2);
-        currentError = sqrt(variance / currentIterations);
-        // ---...--- //
-        if (currentError < epsilon)
-            break;
-    }
-    // ---...--- //
-    PutRNGstate();
-
-    return intsum / currentIterations;
-}
-*/
-
 // All of the conventions used are from genz paper
 /*
- * @brief Compute the Montecarlo approximation proposed by Alan Genz
+ * @brief Compute the Montecarlo approximation proposed by Alan genz
  *
- * Compute a `manual` Montecarlo simulation, proposed by Dr. Alan Genz book "Computation of Multivariate Normal and t
+ * Compute a `manual` Montecarlo simulation, proposed by Dr. Alan genz book "Computation of Multivariate Normal and t
  * Probabilities". All of the variable names and conventions are adopted towards his proposed algorithm aswell. Refer to
  * https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities for more
  * information.
@@ -305,7 +295,7 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
  * @param[in] *upperLimits An array with the upper bounds of the integral (defined by the hypercube)
  * @param[in] mvnDim The dimensions of the multivariate normal. Usually it's C-1.
  * @param[in] maxSamples Amount of samples for the Montecarlo simulation.
- * @param[in] epsilon The error threshold used for the Genz Montecarlo.
+ * @param[in] epsilon The error threshold used for the genz Montecarlo.
  * @param[in] *method The method for calculating the Montecarlo simulation. Currently available methods are `Plain`,
  * `Miser` and `Vegas`.
  *
@@ -322,12 +312,12 @@ double Montecarlo(Matrix *chol, double *mu, double *lowerLimits, double *upperLi
     // ---...--- //
 
     // ---- Perform integration ---- //
-    if (strcmp(method, "Genz") == 0)
+    if (strcmp(method, "genz") == 0)
     {
         result = genzMontecarlo(chol, lowerLimits, upperLimits, epsilon, maxSamples, mvnDim);
         return result;
     }
-    else if (strcmp(method, "Genz2") == 0)
+    else if (strcmp(method, "genz2") == 0)
     {
         result = genzMontecarloNew(chol, lowerLimits, upperLimits, epsilon, maxSamples, mvnDim);
         return result;
@@ -336,7 +326,7 @@ double Montecarlo(Matrix *chol, double *mu, double *lowerLimits, double *upperLi
     {
         error("Multivariate CDF: An invalid method was handed to the Montecarlo simulation for calculating the "
               "Multivariate CDF "
-              "integral.\nThe method handed is:\t%s\nThe current available methods are `Genz` or `Genz2`"
+              "integral.\nThe method handed is:\t%s\nThe current available methods are `genz` or `genz2`"
               ".\n",
               method);
     }
@@ -376,7 +366,7 @@ void getMainParameters(int b, Matrix const probabilitiesReduced, Matrix **choles
  *
  * @param[in] *probabilities A pointer towards the current probabilities matrix.
  * @param[in] monteCarloSamples The amount of samples to use in the Monte Carlo simulation
- * @param[in] epsilon The error threshold used for the Genz Montecarlo method.
+ * @param[in] epsilon The error threshold used for the genz Montecarlo method.
  * @param[in] *method The method for calculating the Montecarlo simulation. Currently available methods are `Plain`,
  * `Miser` and `Vegas`.
  *

@@ -28,8 +28,6 @@ This parameter shouldn't be called if you prefer to supply the \code{X} and \cod
 
 \item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays.}
 
-\item{mismatch}{Boolean to allow a mismatch between group and candidate votes. By default it is \code{FALSE}.}
-
 \item{get_p}{Boolean that determines if the probability is estimated aswell. Defaults to \code{TRUE}.}
 
 \item{...}{Additional arguments passed to the \link{compute} function that will execute the EM algorithm.}
@@ -78,12 +76,12 @@ model <- bootstrap(
     method = "mvn_cdf",
     maxiter = 500,
     verbose = TRUE,
-    monte_samples = 5000
+    mc_samples = 5000
 )
 
 # Access standard deviation and probability results
 print(model$sd)
-print(model$probability)
+print(model$prob)
 
 
 # Example 2: Providing 'X' and 'W' matrices directly

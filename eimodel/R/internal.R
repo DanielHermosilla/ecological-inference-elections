@@ -1,4 +1,98 @@
 #' Internal function!
+#' Validates all of the 'compute' arguments
+#' @noRd
+.validate_compute <- function(args) {
+    # General checks: Vectors aren't accepted
+    # if (any(sapply(args, function(x) length(x) > 1))) {
+    #    stop("Compute:\tInvalid input: no vector inputs allowed")
+    # }
+
+    # Mismatch argument
+    if ("mismatch" %in% names(args) && !is.logical(args$mismatch)) {
+        stop("Compute:\tInvalid 'mismatch'. It has to be a boolean")
+    }
+
+    # Method argument
+    valid_methods <- c("hnr", "exact", "mvn_cdf", "mvn_pdf", "mult")
+    if ("method" %in% names(args) &&
+        (!is.character(args$method) || length(args$method) != 1 || !(args$method %in% valid_methods))) {
+        stop("Compute:\tInvalid 'method'. Must be one of: ", paste(valid_methods, collapse = ", "))
+    }
+
+    # Initial prob argument
+    valid_p_methods <- c("group_proportional", "proportional", "uniform")
+    if ("initial_prob" %in% names(args) &&
+        (!is.character(args$initial_prob) || length(args$initial_prob) != 1 || !(args$initial_prob %in% valid_p_methods))) {
+        stop("Compute:\tInvalid 'initial_prob'. Must be one of: ", paste(valid_methods, collapse = ", "))
+    }
+
+    # Maxiter argument
+    if ("maxiter" %in% names(args) &&
+        (!is.numeric(args$maxiter) || as.integer(args$maxiter) != args$maxiter || args$maxiter <= 0)) {
+        stop("Compute:\tInvalid 'maxiter'. Must be an integer and positive.")
+    }
+
+    # Maxtime argument
+    if ("maxtime" %in% names(args) &&
+        (!is.numeric(args$maxtime) || args$maxtime < 0)) {
+        stop("Compute:\tInvalid 'maxtime'. Must be positive.")
+    }
+
+    # Stop threshold argument
+    if ("stop_threshold" %in% names(args)) {
+        if (!is.numeric(args$stop_threshold) || args$stop_threshold < 0) {
+            stop("Compute:\tInvalid 'stop_threshold'. Must be positive")
+        }
+        if (args$stop_threshold >= 1) {
+            warning("Warning:\tA 'stop_threshold' greater or equal than one will always be true after the first iteration.")
+        }
+    }
+
+    # Verbose argument
+    if ("verbose" %in% names(args) && !is.logical(args$verbose)) {
+        stop("Compute:\tInvalid 'verbose'. It has to be a boolean")
+    }
+
+    # HNR: Step_size argument
+    if ("step_size" %in% names(args)) {
+        if (!is.numeric(args$step_size) || as.integer(args$step_size) != args$step_size || args$step_size < 0) {
+            stop("Compute:\tInvalid 'step_size'. Must be a positive integer.")
+        }
+        if (args$step_size < 15) {
+            warning("Warning: A small 'step_size' could lead to highly correlated samples.")
+        }
+    }
+
+    # HNR: Samples argument
+    if ("samples" %in% names(args) &&
+        (!is.numeric(args$samples) || as.integer(args$samples) != args$samples || args$samples < 0)) {
+        stop("Compute:\tInvalid 'samples'. Must be a positive integer.")
+    }
+
+    # CDF: Mc_method argument
+    valid_cdf_methods <- c("genz", "genz2")
+    if ("mc_method" %in% names(args) &&
+        (!is.character(args$mc_method) || !args$mc_method %in% valid_cdf_methods)) {
+        stop("Compute:\tInvalid 'mc_method'. Must be one of: ", paste(valid_cdf_methods, collapse = ", "))
+    }
+
+    # CDF: Mc_error argument
+    if ("mc_error" %in% names(args) &&
+        (!is.numeric(args$mc_error) || args$mc_error <= 0)) {
+        stop("Compute:\tInvalid 'mc_error'. Must be a positive number.")
+    }
+
+    # CDF: Mc_error argument
+    if ("mc_samples" %in% names(args) &&
+        (!is.numeric(args$mc_samples) || as.integer(args$mc_samples) != args$mc_samples || args$mc_samples < 0)) {
+        stop("Compute:\tInvalid 'mc_samples'. Must be a positive integer.")
+    }
+}
+
+
+
+
+#' Internal function!
 #'
 #' Validate the 'eim' object inputs
 #'
@@ -38,28 +132,6 @@
     }
 
     TRUE
-}
-
-#' Validates an input for a given method
-#' @noRd
-.validate_arg_compute <- function(params, param_name, default_val, int = TRUE) {
-    if (!param_name %in% names(params)) {
-        return(default_val)
-    }
-
-    value <- params[[param_name]]
-
-    # Validate non-negative value
-    if (value < 0) {
-        stop("Compute:\tThe argument '", param_name, "' isn't positive.")
-    }
-
-    # Validate integer
-    if (int && value != as.integer(value)) {
-        stop("Compute:\tThe argument '", param_name, "' must be a whole number.")
-    }
-
-    return(value)
 }
 
 #' Internal function!
@@ -175,6 +247,9 @@
         size = num_ballots,
         replace = TRUE
     )
+    # Randomly choose the group proportions
+    group_prop <- rgamma(num_groups, shape = 1, rate = 1)
+    group_prop <- group_prop / sum(group_prop)
 
     choosen_values <- list(
         ballots = num_ballots,
@@ -183,12 +258,13 @@
         total_votes = total_votes
     )
 
-    result <- simulate_elections(
+    result <- simulate_election(
         num_ballots = num_ballots,
         num_candidates = num_candidates,
         num_groups = num_groups,
         ballot_voters = total_votes,
-        seed = seed
+        seed = seed,
+        group_proportions = group_prop
     )
 
     appended_list <- c(result, choosen_values)

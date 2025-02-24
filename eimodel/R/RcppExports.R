@@ -5,8 +5,8 @@ EMAlgorithmAll <- function(em_method, probability_method, maximum_iterations, ma
     .Call(`_eimodel_EMAlgorithmAll`, em_method, probability_method, maximum_iterations, maximum_minutes, stopping_threshold, verbose)
 }
 
-EMAlgorithmCDF <- function(probability_method, maximum_iterations, maximum_minutes, stopping_threshold, verbose, multivariate_method, multivariate_epsilon, multivariate_iterations) {
-    .Call(`_eimodel_EMAlgorithmCDF`, probability_method, maximum_iterations, maximum_minutes, stopping_threshold, verbose, multivariate_method, multivariate_epsilon, multivariate_iterations)
+EMAlgorithmCDF <- function(probability_method, maximum_iterations, maximum_minutes, stopping_threshold, verbose, monte_method, monte_error, monte_iter) {
+    .Call(`_eimodel_EMAlgorithmCDF`, probability_method, maximum_iterations, maximum_minutes, stopping_threshold, verbose, monte_method, monte_error, monte_iter)
 }
 
 EMAlgorithmHitAndRun <- function(probability_method, maximum_iterations, maximum_minutes, stopping_threshold, verbose, step_size, samples) {

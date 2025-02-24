@@ -32,7 +32,7 @@ SOFTWARE.
 
 // [[Rcpp::export]]
 Rcpp::List EMAlgorithmAll(Rcpp::String em_method, Rcpp::String probability_method,
-                          Rcpp::IntegerVector maximum_iterations, Rcpp::IntegerVector maximum_minutes,
+                          Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
                           Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector verbose)
 {
     // ---- Get the initial probability ---- //
@@ -49,7 +49,7 @@ Rcpp::List EMAlgorithmAll(Rcpp::String em_method, Rcpp::String probability_metho
     // ---...--- //
 
     std::string EMAlg = em_method;
-    Matrix Pnew = EMAlgoritm(&pIn, EMAlg.c_str(), stopping_threshold[0], maximum_iterations[0], maximum_minutes[0],
+    Matrix Pnew = EMAlgoritm(&pIn, EMAlg.c_str(), stopping_threshold[0], maximum_iterations[0], maximum_seconds[0],
                              verbose[0], &timeIter, &totalIter, logLLarr, &finish, inputParams);
     freeMatrix(&pIn);
     std::string stopping_reason;
@@ -87,19 +87,19 @@ Rcpp::List EMAlgorithmAll(Rcpp::String em_method, Rcpp::String probability_metho
     freeMatrix(&Pnew);
 
     // ---- Final log-likelihood array ----
-    Rcpp::NumericVector RlogLikelihood(logLLarr, logLLarr + totalIter);
+    Rcpp::NumericVector RlogLikelihood(logLLarr, logLLarr + totalIter + 1);
 
     return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = RlogLikelihood,
-                              Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter,
+                              Rcpp::_["total_iterations"] = totalIter + 1, Rcpp::_["total_time"] = timeIter,
                               Rcpp::_["stopping_reason"] = stopping_reason, Rcpp::_["finish_id"] = finish);
     // ---...--- //
 }
 
 // [[Rcpp::export]]
 Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations,
-                          Rcpp::IntegerVector maximum_minutes, Rcpp::NumericVector stopping_threshold,
-                          Rcpp::LogicalVector verbose, Rcpp::String multivariate_method,
-                          Rcpp::NumericVector multivariate_epsilon, Rcpp::IntegerVector multivariate_iterations)
+                          Rcpp::IntegerVector maximum_seconds, Rcpp::NumericVector stopping_threshold,
+                          Rcpp::LogicalVector verbose, Rcpp::String monte_method, Rcpp::NumericVector monte_error,
+                          Rcpp::IntegerVector monte_iter)
 {
     // ---- Get the initial probability ---- //
     std::string probabilityM = probability_method;
@@ -107,10 +107,9 @@ Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method, Rcpp::IntegerVector m
     // ---...--- //
 
     // ---- Define the main parameters ---- //
-    std::string monteMethod = multivariate_method;
-    QMethodInput inputParams = {.monteCarloIter = multivariate_iterations[0],
-                                .errorThreshold = multivariate_epsilon[0],
-                                .simulationMethod = monteMethod.c_str()};
+    std::string monteMethod = monte_method;
+    QMethodInput inputParams = {
+        .monteCarloIter = monte_iter[0], .errorThreshold = monte_error[0], .simulationMethod = monteMethod.c_str()};
 
     double timeIter = 0;
     int totalIter = 0;
@@ -118,7 +117,7 @@ Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method, Rcpp::IntegerVector m
     double *logLLarr = (double *)R_alloc(maximum_iterations[0], sizeof(double));
     // ---...--- //
 
-    Matrix Pnew = EMAlgoritm(&pIn, "MVN CDF", stopping_threshold[0], maximum_iterations[0], maximum_minutes[0],
+    Matrix Pnew = EMAlgoritm(&pIn, "mvn_cdf", stopping_threshold[0], maximum_iterations[0], maximum_seconds[0],
                              verbose[0], &timeIter, &totalIter, logLLarr, &finish, inputParams);
     freeMatrix(&pIn);
     std::string stopping_reason;
@@ -155,17 +154,17 @@ Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method, Rcpp::IntegerVector m
     freeMatrix(&Pnew);
 
     // ---- Final log-likelihood array ----
-    Rcpp::NumericVector RlogLikelihood(logLLarr, logLLarr + totalIter);
+    Rcpp::NumericVector RlogLikelihood(logLLarr, logLLarr + totalIter + 1);
 
     return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = RlogLikelihood,
-                              Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter,
+                              Rcpp::_["total_iterations"] = totalIter + 1, Rcpp::_["total_time"] = timeIter,
                               Rcpp::_["stopping_reason"] = stopping_reason, Rcpp::_["finish_id"] = finish);
     // ---...--- //
 }
 
 // [[Rcpp::export]]
 Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations,
-                                Rcpp::IntegerVector maximum_minutes, Rcpp::NumericVector stopping_threshold,
+                                Rcpp::IntegerVector maximum_seconds, Rcpp::NumericVector stopping_threshold,
                                 Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples)
 {
     // ---- Get the initial probability ---- //
@@ -181,8 +180,8 @@ Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method, Rcpp::IntegerVe
     double *logLLarr = (double *)R_alloc(maximum_iterations[0], sizeof(double));
     // ---...--- //
 
-    Matrix Pnew = EMAlgoritm(&pIn, "Hit and Run", stopping_threshold[0], maximum_iterations[0], maximum_minutes[0],
-                             verbose[0], &timeIter, &totalIter, logLLarr, &finish, inputParams);
+    Matrix Pnew = EMAlgoritm(&pIn, "hnr", stopping_threshold[0], maximum_iterations[0], maximum_seconds[0], verbose[0],
+                             &timeIter, &totalIter, logLLarr, &finish, inputParams);
     freeMatrix(&pIn);
     std::string stopping_reason;
 
@@ -218,10 +217,10 @@ Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method, Rcpp::IntegerVe
     freeMatrix(&Pnew);
 
     // ---- Final log-likelihood array ----
-    Rcpp::NumericVector RlogLikelihood(logLLarr, logLLarr + totalIter);
+    Rcpp::NumericVector RlogLikelihood(logLLarr, logLLarr + totalIter + 1);
 
     return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = RlogLikelihood,
-                              Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter,
+                              Rcpp::_["total_iterations"] = totalIter + 1, Rcpp::_["total_time"] = timeIter,
                               Rcpp::_["stopping_reason"] = stopping_reason, Rcpp::_["finish_id"] = finish);
     // ---...--- //
 }
