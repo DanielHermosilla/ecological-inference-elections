@@ -13,8 +13,6 @@ library(jsonlite)
 #'
 #' @param json_path A path to a JSON file containing `X` and `W` fields, stored as nested arrays.
 #'
-#' @param mismatch Boolean to allow a mismatch between group and candidate votes. By default it is `FALSE`.
-#'
 #' @details
 #' If `X` and `W` are directly supplied, they must match the correct
 #' dimensions of ballot boxes (b). Alternatively, if `json_path` is provided, the function expects
@@ -33,17 +31,16 @@ library(jsonlite)
 #'
 #' @note
 #' For an alternative way to generate `X` and `W`, you can use the
-#' [simulate_election] function, which provides several parameters
-#' (such as `group_proportions`, `lambda`, and
-#' `probability`) for controlling the underlying distributions of votes.
+#' [simulate_election] function, which provides parameters
+#' for controlling the underlying distributions of votes.
 #' Afterwards, you may pass the resulting matrices to `eim()`.
 #'
 #' @section Methods:
 #' In addition to this constructor, the "eim" class provides several
 #' S3 methods for common operations. Some of these methods are fully documented,
 #' while others are ommited due to its straightfoward implementantion. The available methods are:
-#' - [compute] -- Runs the EM algorithm.
-#' - [bootstrap] -- Estimates the standard deviation of probabilities
+#' - [run_em] -- Runs the EM algorithm.
+#' - [bootstrap] -- Estimates the standard deviation of the probabilities.
 #' - [save] -- Save the results to a specified file.
 #' - `print` -- Print useful information about the object.
 #' - `summary` -- Shows, in form of a list, the most important attributes.
@@ -62,34 +59,45 @@ library(jsonlite)
 #' # Example 2: Use simulate_election with optional parameters, then create an eim object
 #' # from matrices
 #'
-#' # Simulate data for 50 ballot boxes, 4 candidates and 5 groups
+#' # Simulate data for 500 ballot boxes, 4 candidates and 5 groups
 #' sim_result <- simulate_election(
-#'     num_ballots = 50,
-#'     num_candidates = 4,
+#'     num_ballots = 500,
+#'     num_candidates = 3,
 #'     num_groups = 5,
 #'     group_proportions = c(0.2, 0.2, 0.4, 0.1, 0.1),
 #' )
 #'
 #' model2 <- eim(X = sim_result$X, W = sim_result$W)
 #'
-#' # Example 3: Create an object from a user defined matrix
+#' # Example 3: Create an object from a user defined matrix with 8 ballot boxes,
+#' 2 candidates and 7 groups.
 #'
 #' x_mat <- matrix(c(
-#'     10, 20, 30, 40,
-#'     15, 25, 35, 45,
-#'     12, 22, 32, 42
-#' ), nrow = 3, ncol = 4, byrow = TRUE)
+#'     10, 20,
+#'     15, 25,
+#'     12, 22,
+#' 	   15, 10,
+#' 	   11, 32,
+#' 	   7,  20,
+#'     13, 13,
+#'     18, 22,
+#' ), nrow = 8, ncol = 2, byrow = TRUE)
 #'
 #' w_mat <- matrix(c(
-#'     100, 150, 200, 250, 300,
-#'     110, 160, 210, 260, 310,
-#'     120, 170, 220, 270, 320
-#' ), nrow = 3, ncol = 5, byrow = TRUE)
+#'     100, 150, 200, 250, 300, 187, 87,
+#'     110, 160, 210, 260, 310, 193, 243,
+#'     120, 170, 220, 270, 320, 403, 300,
+#'     143, 220, 173, 382, 123, 281, 102,
+#'     173, 222, 101, 109, 532, 102, 87,
+#'     105, 152, 251, 143, 432, 102, 100,
+#'     104, 129, 205, 192, 124, 224, 107,
+#'     107, 204, 228, 324, 129, 234, 54
+#' ), nrow = 8, ncol = 7, byrow = TRUE)
 #'
-#' model3 <- eim(X = x_mat, W = w_mat, mismatch = TRUE)
+#' model3 <- eim(X = x_mat, W = w_mat)
 #' @export
 #' @aliases NULL
-eim <- function(X = NULL, W = NULL, json_path = NULL, mismatch = FALSE) {
+eim <- function(X = NULL, W = NULL, json_path = NULL) {
     # Load data from JSON if a path is provided
     if (!is.null(json_path) && nzchar(json_path)) {
         matrices <- .validate_json_eim(json_path) # nolint
@@ -99,7 +107,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL, mismatch = FALSE) {
         stop("Providing either 'X' or 'W' and a 'json_path' is not allowed.")
     }
     # Perform matricial validation
-    .validate_eim(X, W, mismatch) # nolint
+    .validate_eim(X, W) # nolint
 
     # Convert matrices for C API. TODO: Remove this, or use R_PreserveObject on C.
     param_X <- matrix(as.numeric(X), nrow(X), ncol(X))
@@ -110,8 +118,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL, mismatch = FALSE) {
     # Create the S3 object
     obj <- list(
         X = X,
-        W = W,
-        mismatch = mismatch
+        W = W
     )
 
     class(obj) <- "eim"
@@ -120,17 +127,21 @@ eim <- function(X = NULL, W = NULL, json_path = NULL, mismatch = FALSE) {
 #' @title Compute the Expected-Maximization Algorithm
 #'
 #' @description
-#' Executes the Expectation-Maximization (EM) algorithm using a specified method for estimating
-#' the E-step. Certain methods may require additional arguments, which can be passed through `...`.
-#'
-#' @inheritParams eim
+#' Executes the Expectation-Maximization (EM) algorithm indicating the approximation method to use in the *E*-step.
+#' Certain methods may require additional arguments, which can be passed through `...`.
 #'
 #' @param object An object of class `eim`, which can be created using the [eim] function.
-#'   This parameter shouldn't be called if you prefer to supply the `X` and `W` matrices or a `json_path`.
+#'   This parameter should not be called if you prefer to supply the `X` and `W` matrices or a `json_path`.
 #'
-#' @param method An optional string specifying the method used for estimating the E-step. Valid
-#'   options are `mult`, `mvn_cdf`, `mvn_pdf`, `hnr`, or `exact`.
-#'   The default is `mult`.
+#' @param method An optional string specifying the method used for estimating the *E*-step. Valid
+#'   options are:
+#' - `mult`: The default method, using a Multinomial distribution.
+#' - `mvn_cdf`: Uses a Multivariate Normal CDF distribution.
+#' - `mvn_pdf`: Uses a Multivariate Normal PDF distribution.
+#' - `hnr`: Uses importance sampling to approximate the exact solution.
+#' - `exact`: Uses the determinant approach.
+#'
+#' For a detailed description of each method, see **References**.
 #'
 #' @param initial_prob An optional string specifying the method used to obtain the initial
 #'   probability. Accepted values are:
@@ -138,11 +149,13 @@ eim <- function(X = NULL, W = NULL, json_path = NULL, mismatch = FALSE) {
 #' - `proportional`: Assigns probabilities to each group based on the proportion of candidates votes.
 #' - `group_proportional`: Computes the probability matrix by taking into account both group and candidate proportions. This is the default method.
 #'
+#' @param mismatch Boolean, if `TRUE` allows a mismatch between the voters and votes for each ballot-box, only works if method is `mvn_cdf`, `mvn_pdf`, and `mult`. If `FALSE`, throws an error if there is a mismatch. By default it is `FALSE`.
+#'
 #' @param maxiter An optional integer indicating the maximum number of Expected-Maximization algorithm iterations.
 #'   The default value is `1000`.
 #'
 #' @param maxtime An optional numeric specifying the maximum running time (in seconds) for the
-#'   algorithm. The default value is `3600`, which corresponds to an hour.
+#'   algorithm. This is checked at every iteration of the EM algorithm. The default value is `3600`, which corresponds to an hour.
 #'
 #' @param stop_threshold An optional numeric value indicating the minimum difference between
 #'   consecutive probability estimates required to stop iterating. The default value is `0.001`.
@@ -150,23 +163,24 @@ eim <- function(X = NULL, W = NULL, json_path = NULL, mismatch = FALSE) {
 #' @param verbose An optional boolean indicating whether to print informational messages during
 #'   iteration. The default value is `FALSE`.
 #'
-#' @param step_size An optional integer specifying the step size (`M`) for the **Hit and Run**
-#'   algorithm. This parameter is only applicable when using the **Hit and Run** method and will
+#' @param step_size An optional integer specifying the step size for the `hnr`
+#'   algorithm. This parameter is only applicable when using the `hnr` method and will
 #'   be ignored otherwise. The default value is `3000`.
 #'
-#' @param samples An optional integer indicating the number of samples (`S`) to generate for the
-#'   **Hit and Run** method. This parameter is only relevant when the **Hit and Run** method is selected.
+#' @param samples An optional integer indicating the number of samples to generate for the
+#'   **Hit and Run** method. This parameter is only relevant when the `hnr` method is selected.
 #'   The default value is `1000`.
 #'
-#' @param mc_method An optional string specifying the method used to estimate the **Multivariate Normal CDF (MVN CDF)**
+#' @param mc_method An optional string specifying the method used to estimate the `mvn_cdf` method
 #'   via a Monte Carlo simulation. Accepted values are `genz` and `genz2`, with `genz2`
-#'   set as the default.
+#'   set as the default. This parameter is only applicable when using the `mvn_cdf` method. See **References** for more details.
 #'
 #' @param mc_error An optional numeric value defining the error threshold for the Monte Carlo
-#'   simulation when estimating the **MVN CDF**. The default value is `1e-6`.
+#'   simulation when estimating the `mvn_cdf` method. The default value is `1e-6`. This parameter is only relevant
+#' when the method is `mvn_cdf`.
 #'
 #' @param mc_samples An optional integer specifying the number of Monte Carlo
-#'   samples for the **MVN CDF** method. The default value is `5000`.
+#'   samples for the `mvn_cdf` method. The default value is `5000`. This argument is only applicable when the method is `mvn_cdf`.
 #'
 #' @references
 #' [Thraves, C. and Ubilla, P.: *"Fast Ecological Inference Algorithm for the R×C Case"*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834). Aditionally, the MVN CDF is computed by the methods introduced in [Genz, A. (2000). Numerical computation of multivariate normal probabilities. *Journal of Computational and Graphical Statistics*](https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities)
@@ -191,6 +205,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL, mismatch = FALSE) {
 #' The function updates (or creates) the input object by adding the following attributes:
 #' \describe{
 #'   \item{prob}{The estimated probability matrix.}
+#' 	 \item{cond_prob}{The probability that a voter of group `g` in ballot box `b` voted for candidate `c` conditional on observed results. Stored as an array of `(g x c)` matrices.}
 #'   \item{logLik}{An array containing the log-likelihood values from each iteration.}
 #'   \item{iterations}{The total number of iterations performed by the EM algorithm.}
 #'   \item{time}{The total execution time of the algorithm.}
@@ -198,25 +213,24 @@ eim <- function(X = NULL, W = NULL, json_path = NULL, mismatch = FALSE) {
 #'     The final status ID of the algorithm upon completion:
 #'     \itemize{
 #'       \item \code{0}: Convergence achieved.
-#'       \item \code{1}: Log-likelihood decrease.
-#'       \item \code{2}: Maximum time reached.
-#'       \item \code{3}: Maximum iterations reached.
+#'       \item \code{1}: Maximum time reached.
+#'       \item \code{2}: Maximum iterations reached.
 #'     }
 #'   }
 #'   \item{message}{The finishing status displayed as a message.}
 #'   \item{method}{The method used for estimating the E-step.}
 #' }
-#' Aditionally, it will create additional parameters if the method provided is `hnr` or `mvn_cdf`.
+#' Aditionally, it will create `samples` and `step_size` parameters if the specified method is `hnr`, or `mc_method`, `mc_error` and `mc_samples` if the method is `mvn_cdf`.
 #'
 #' @usage
-#' compute(
+#' run_em(
 #' 	object = NULL,
 #'  X = NULL,
 #'  W = NULL,
 #'  json_path = NULL,
-#'  mismatch = FALSE,
 #'  method = "mult",
 #'  initial_prob = "group_proportional",
+#'  mismatch = FALSE,
 #'  maxiter = 1000,
 #'  maxtime = 3600,
 #'  stop_threshold = 0.001,
@@ -227,58 +241,65 @@ eim <- function(X = NULL, W = NULL, json_path = NULL, mismatch = FALSE) {
 #' @examples
 #' # Example 1: Compute the Expected-Maximization with default settings
 #' simulations <- simulate_elections(
-#'     num_ballots = 20,
+#'     num_ballots = 300,
 #'     num_candidates = 5,
 #'     num_groups = 3,
-#'     ballot_voters = rep(100, 20)
 #' )
 #' model <- eim(simulations$X, simulations$W)
-#' compute(model) # Retrieves the object with updated attributes
+#' model <- run_em(model) # Returns the object with updated attributes
 #'
 #' # Example 2: Compute the Expected-Maximization using the Hit and Run method
-#' \donttest{
-#' compute(
+#' model <- run_em(
 #'     object = model,
 #'     method = "hnr",
-#'     step_size = 3000,
-#'     samples = 1000
+#'     step_size = 1500,
+#'     samples = 800
 #' )
-#' }
 #'
 #' # Example 3: Run the MVN CDF method with default settings
-#' compute(object = model, method = "mvn_cdf")
+#' model <- run_em(object = model, method = "mvn_cdf")
 #'
 #' # Example 4: Perform an Exact estimation using user-defined parameters
 #' \dontrun{
-#' compute(
+#' run_em(
 #'     json_path = "a/json/file.json",
 #'     method = "exact",
 #'     initial_prob = "uniform",
-#'     maxiter = 5,
-#'     stop_threshold = 1e-3
+#'     maxiter = 10,
+#'     maxtime = 600,
+#'     stop_threshold = 1e-3,
+#'     verbose = TRUE
 #' )
 #' }
 #'
-#' @name compute
+#' @name run_em
 #' @export
-compute <- function(object = NULL,
-                    X = NULL,
-                    W = NULL,
-                    json_path = NULL,
-                    mismatch = FALSE,
-                    method = "mult",
-                    initial_prob = "group_proportional",
-                    maxiter = 1000,
-                    maxtime = 3600,
-                    stop_threshold = 0.001,
-                    verbose = FALSE, ...) {
-    all_params <- as.list(match.call(expand.dots = TRUE))
+run_em <- function(object = NULL,
+                   X = NULL,
+                   W = NULL,
+                   json_path = NULL,
+                   method = "mult",
+                   initial_prob = "group_proportional",
+                   mismatch = FALSE,
+                   maxiter = 1000,
+                   maxtime = 3600,
+                   stop_threshold = 0.001,
+                   verbose = FALSE, ...) {
+    all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint
 
     if (is.null(object)) {
         object <- eim(X, W, json_path, mismatch)
     } else if (!inherits(object, "eim")) {
-        stop("Compute:\tThe object must be initialized with the `eim()` function.")
+        stop("run_em: The object must be initialized with the `eim()` function.")
+    }
+
+    # Note: Mismatch restricted methods are checked inside .validate_compute
+    if (!mismatch && nrow(X) != nrow(W)) {
+        stop(
+            "run_em: Mismatch in the number of ballot boxes: 'X' has ", nrow(X),
+            " rows, but 'W' has ", nrow(W), " rows. To allow a mismatch, set the argument to TRUE."
+        )
     }
 
     RsetParameters(t(object$X), object$W) # TODO: Decide whether to set it on the object constructor or here.
@@ -355,74 +376,64 @@ compute <- function(object = NULL,
 #' Runs a Bootstrap to Estimate the **Standard Deviation** of Predicted Probabilities
 #'
 #' @description
-#' This function computes the Expected-Maximization (EM) algorithm "`boot_iter`" times by sampling,
+#' This function computes the Expected-Maximization (EM) algorithm "`nboot`" times by sampling,
 #' with replacement, all of the ballot boxes out of the original data for each
 #' iteration. A new sample is drawn for every iteration, and from all of these iterations,
 #' the **standard deviation** of the estimated probabilities is computed.
 #'
-#' @param boot_iter Integer specifying how many times to run the
+#' @param nboot Integer specifying how many times to run the
 #'   EM algorithm.
 #'
-#' @param get_p Boolean that determines if the probability is estimated aswell. Defaults to `TRUE`.
+#' @inheritParams run_em
 #'
-#' @inheritParams compute
+#' @param ... Additional arguments passed to the [run_em] function that will execute the EM algorithm.
 #'
-#' @param ... Additional arguments passed to the [compute] function that will execute the EM algorithm.
-#'
-#' @inherit compute note
+#' @inherit run_em note
 #'
 #' @usage
 #' bootstrap(
-#'  boot_iter,
 #'  object = NULL,
 #'  X = NULL,
 #'  W = NULL,
 #'  json_path = NULL,
-#'  mismatch = FALSE,
-#' 	get_p = TRUE,
+#'  nboot = 50
 #'  ...
 #' )
 #'
-#' @seealso The [eim] object and [compute] implementation.
+#' @seealso The [eim] object and [run_em] implementation.
 #'
 #' @return
-#' Updates the `eim` object with a new `sd` field containing the estimated
-#' standard deviations of the probabilities.
+#' Returns an 'eim' object with the 'sd' field containing the estimated standard deviations of the probabilities. If an 'eim' object is provided, its attributes (see [run_em] are retained in the returned object.
 #'
 #' @examples
 #' # Example 1: Using an 'eim' object directly
 #' simulations <- simulate_election(
-#'     num_ballots = 20,
+#'     num_ballots = 200,
 #'     num_candidates = 5,
 #'     num_groups = 3,
-#'     ballot_voters = rep(100, 20)
 #' )
 #'
-#' # Initialize the 'eim' object
 #' model <- eim(X = simulations$X, W = simulations$W)
 #'
-#' # Run bootstrap with an existing 'eim' object
 #' model <- bootstrap(
-#'     boot_iter = 30,
 #'     object = model,
+#'     nboot = 30,
 #'     method = "mvn_cdf",
 #'     maxiter = 500,
 #'     verbose = TRUE,
 #'     mc_samples = 5000
 #' )
 #'
-#' # Access standard deviation and probability results
+#' # Access standard deviation throughout 'model'
 #' print(model$sd)
-#' print(model$prob)
 #'
 #'
 #' # Example 2: Providing 'X' and 'W' matrices directly
 #' model <- bootstrap(
-#'     boot_iter = 50,
-#'     get_p = FALSE,
 #'     X = simulations$X,
 #'     W = simulations$W,
-#'     method = "exact",
+#'     nboot = 70,
+#'     method = "mvn_pdf",
 #'     maxiter = 100,
 #'     maxtime = 15,
 #'     stop_threshold = 0.01
@@ -433,10 +444,9 @@ compute <- function(object = NULL,
 #' # Example 3: Using a JSON file as input
 #' \dontrun{
 #' model <- bootstrap(
-#'     boot_iter = 20,
 #'     json_path = "path/to/election_data.json",
+#'     nboot = 70,
 #'     method = "mult",
-#'     get_p = FALSE
 #' )
 #'
 #' print(model$sd)
@@ -444,64 +454,44 @@ compute <- function(object = NULL,
 #'
 #' @name bootstrap
 #' @export
-bootstrap <- function(boot_iter,
-                      object = NULL,
+bootstrap <- function(object = NULL,
                       X = NULL,
                       W = NULL,
                       json_path = NULL,
-                      get_p = TRUE,
+                      nboot = 50,
                       ...) {
-    # Retrieve the default values from compute() as a list
-    compute_defaults <- formals(compute)
+    # Retrieve the default values from run_em() as a list
+    all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
+    .validate_compute(all_params) # nolint # It would validate nboot too.
+
+    # Retrieve the default values from run_em() as a list
+    run_em_defaults <- formals(run_em)
     # Update the values with user-handed parameters
-    compute_args <- modifyList(as.list(compute_defaults), list(...))
-    compute_args <- compute_args[names(compute_args) != "..."]
-    # Check if each source is provided
-    object_provided <- !is.null(object)
-    xw_provided <- !is.null(X) || !is.null(W)
-    json_provided <- !is.null(json_path)
-
-    if (boot_iter < 0 || as.integer(boot_iter) != boot_iter) {
-        stop("Bootstrap: Invalid 'boot_iter' value.")
-    }
-    # Ensure only one source is provided
-    if (sum(object_provided, xw_provided, json_provided) != 1) {
-        stop(
-            "Bootstrap: You must provide exactly one of the following:\n",
-            "(1)\tan `eim` object (initialized with `eim`)\n",
-            "(2)\t`X` and `W`\n",
-            "(3)\ta `json_path`"
-        )
-    }
-
-    if (!object_provided) {
-        # Create the object
+    run_em_args <- modifyList(as.list(run_em_defaults), list(...))
+    run_em_args <- run_em_args[names(run_em_args) != "..."]
+    if (is.null(object)) {
         object <- eim(X, W, json_path)
     } else if (!inherits(object, "eim")) {
         stop("Bootstrap: The object must be initialized with the `eim()` function.")
     }
 
-    if (compute_args$method == "Exact" && boot_iter >= 5 && ncol(object$X) > 3) {
-        warning("Warning: The bootstraping method may take a while.")
-    }
-
     # Array for storing intermediate results
-    results_array <- vector("list", length = boot_iter)
+    results_array <- vector("list", length = nboot)
 
     # Main loop
-    for (i in seq_len(boot_iter)) {
+    for (i in seq_len(nboot)) {
         # Sample according the ballot boxes
         sample_indices <- sample(1:nrow(object$X), size = nrow(object$X), replace = TRUE)
-        if (compute_args$verbose) {
+        if (run_em_args$verbose) {
             message("Running iteration:\t", i, "\nThe sampled ballot boxes indices are:\t", sample_indices)
         }
         iteration_X <- object$X[sample_indices, , drop = FALSE]
         iteration_W <- object$W[sample_indices, , drop = FALSE]
 
-        # Create a temporary eim object and compute
+        # Create a temporary eim object and run_em
         sample_object <- eim(X = iteration_X, W = iteration_W)
-        compute_args$object <- sample_object
-        result <- do.call(compute, compute_args)
+        run_em_args$object <- sample_object
+        result <- do.call(run_em, run_em_args)
         results_array[[i]] <- result$prob
 
         # Deallocate memory
@@ -509,27 +499,14 @@ bootstrap <- function(boot_iter,
         rm(result)
     }
 
-    # Obtain the probabilities too
-    if (get_p) {
-        if (compute_args$verbose) {
-            message("Bootstraping finished, now estimating the probabilities.")
-        }
-        compute_args$object <- object
-        object <- do.call(compute, compute_args)
-    }
-
     # Convert results into a 3D tensor
-    final_array <- array(unlist(results_array), dim = c(ncol(object$W), ncol(object$X), boot_iter))
+    final_array <- array(unlist(results_array), dim = c(ncol(object$W), ncol(object$X), nboot))
     sd_matrix <- matrix(apply(final_array, MARGIN = c(1, 2), FUN = sd), nrow = ncol(object$W), ncol = ncol(object$X))
 
-    if (compute_args$verbose) {
+    if (run_em_args$verbose) {
         message("Bootstraping finished!")
         message("Estimated standard deviation matrix:")
-        print(sd_matrix)
-        if (get_p) {
-            message("Estimated probability matrix")
-            object$prob
-        }
+        print(round(sd_matrix, 3))
     }
 
     object$sd <- sd_matrix
@@ -550,7 +527,7 @@ bootstrap <- function(boot_iter,
 #'
 #' model <- eim(simulations$X, simulations$W)
 #' print(model) # Will print the X and W matrix.
-#' compute(model)
+#' run_em(model)
 #' print(model) # Will print the X and W matrix among the EM results.
 #' @noRd
 #' @export
@@ -570,21 +547,21 @@ print.eim <- function(object, ...) {
 
     if (!is.null(object$method)) {
         cat("Estimated probability [g x c]:\n")
-        truncated_P <- (nrow(object$prob))
-        print(object$prob[1:min(5, nrow(object$prob)), ]) # nolint
+        truncated_P <- (nrow(object$prob) > 5)
+        print(round(object$prob[1:min(5, nrow(object$prob)), ], 2)) # nolint
         if (truncated_P) cat(".\n.\n.\n")
         cat("Method:\t", object$method, "\n")
         if (object$method == "Hit and Run") {
-            cat("Step size (M):\t", object$step_size)
-            cat("Samples (S):\t", object$samples)
+            cat("Step size (M):", object$step_size)
+            cat("Samples (S):", object$samples)
         } else if (object$method == "MVN PDF") {
-            cat("Montecarlo method:\t", object$mc_method)
-            cat("Montecarlo iterations:\t", object$mc_samples)
-            cat("Montecarlo error:\t", object$mc_error)
+            cat("Montecarlo method:", object$mc_method)
+            cat("Montecarlo iterations:", object$mc_samples)
+            cat("Montecarlo error:", object$mc_error)
         }
-        cat("Total Iterations:\t", object$iterations, "\n")
-        cat("Total Time (s):\t", object$time, "\n")
-        cat("Log-likelihood:\t", tail(object$logLik, 1))
+        cat("Total Iterations:", object$iterations, "\n")
+        cat("Total Time (s):", object$time, "\n")
+        cat("Log-likelihood:", tail(object$logLik, 1))
     }
 }
 
@@ -620,24 +597,24 @@ summary.eim <- function(object, ...) {
 
     # A list with attributes to display if the EM is computed.
     if (!is.null(object$method)) {
-        object_compute_attr <- list(
+        object_run_em_attr <- list(
             method = object$method,
             prob = object$prob,
             logLik = object$logLik,
             status = object$status
         )
     } else {
-        object_compute_attr <- list(
+        object_run_em_attr <- list(
             status = -1 # Not computed yet
         )
     }
 
     # Display sd if the bootstrapping method has been called.
     if (!is.null(object$sd)) {
-        object_compute_attr$sd <- object$sd
+        object_run_em_attr$sd <- object$sd
     }
 
-    final_list <- c(object_core_attr, object_compute_attr)
+    final_list <- c(object_core_attr, object_run_em_attr)
     final_list
 }
 
@@ -651,7 +628,7 @@ summary.eim <- function(object, ...) {
 as.matrix.eim <- function(object, ...) {
     if (is.null(object$prob)) {
         stop(paste0(
-            "Probability matrix not available. Run compute().",
+            "Probability matrix not available. Run run_em().",
         ))
     }
     return(object$prob)
@@ -685,7 +662,7 @@ as.matrix.eim <- function(object, ...) {
 #'
 #' model <- eim(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3))
 #'
-#' compute(model)
+#' run_em(model)
 #'
 #' # Save as RDS
 #' save_eim(model, "model_results.rds")
@@ -735,7 +712,7 @@ save_eim <- function(object, filename, ...) {
             write.csv(as.matrix(object$prob), filename, row.names = TRUE)
             message("Probability matrix saved as CSV: ", filename)
         } else {
-            stop("The `compute()` method must be called for saving a '.csv' file.")
+            stop("The `run_em()` method must be called for saving a '.csv' file.")
         }
     } else {
         stop("Unsupported file format. Use '.rds', '.json', or '.csv'.")
@@ -763,7 +740,7 @@ write.csv.eim <- function(object, filename, ...) {
         write.csv(as.matrix(object$prob), filename, row.names = TRUE)
         message("Probability matrix saved as CSV: ", filename)
     } else {
-        stop("The `compute()` method must be called for saving a '.csv' file.")
+        stop("The `run_em()` method must be called for saving a '.csv' file.")
     }
 }
 
@@ -801,7 +778,7 @@ logLik.eim <- function(object, ...) {
     }
 
     if (is.null(object$logLik)) {
-        stop("The `compute()` method must be called for getting the log-likelihood.")
+        stop("The `run_em()` method must be called for getting the log-likelihood.")
     }
     tail(object$logLik, 1)
 }

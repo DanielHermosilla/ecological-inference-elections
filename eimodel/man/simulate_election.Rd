@@ -8,7 +8,7 @@ simulate_election(
   num_ballots,
   num_candidates,
   num_groups,
-  ballot_voters = rep(50, num_ballots),
+  ballot_voters = rep(100, num_ballots),
   lambda = 0.5,
   seed = NULL,
   group_proportions = rep(1/num_groups, num_groups),
@@ -23,28 +23,22 @@ simulate_election(
 \item{num_groups}{Number of demographic groups (\code{g}).}
 
 \item{ballot_voters}{A vector of length \code{num_ballots} representing the number of voters per ballot
-box. Defaults to \code{rep(50, num_ballots)}.}
+box. Defaults to \code{rep(100, num_ballots)}.}
 
-\item{lambda}{A numeric value between \code{0} and \code{1} that controls the \strong{shuffling proportion}
-of individuals among demographic groups (\code{num_groups}). This parameter determines
-how much \strong{random reassignment} occurs among groups, affecting group heterogeneity.
+\item{lambda}{A numeric value between 0 and 1 that represents the fraction of voters that are randomly assigned to ballot-boxes. The remaining voters are assigned sequentially according to their demographic group.
 \itemize{
-\item \strong{\code{lambda = 0}}: No shuffling occurs. Individuals remain in their original
-assigned groups, leading to \strong{maximum heterogeneity}.
-\item \strong{\code{lambda = 1}}: Complete shuffling. Individuals are \strong{fully reassigned},
-leading to \strong{homogeneous groups}.
-\item \strong{Intermediate values} (e.g., \code{lambda = 0.5}): A fraction of individuals is \strong{randomly selected and reassigned}, balancing between heterogeneity and homogeneity.
+\item \code{lambda = 0}: The assignment of voters to ballot-boxes is fully sequential in terms of their demographic group. This leads to a \strong{high heterogeneity} of the voters' groups across ballot-boxes.
+\item \code{lambda = 1}: The assignment of voters to ballot-boxes is fully random. This leads to a \strong{low heterogeneity} of the voters' group across ballot-boxes.
 }
 
-Default value is set to \code{0.5}.}
+Default value is set to \code{0.5}. See \strong{Shuffling Mechanish} for more details.}
 
 \item{seed}{If provided, overrides the current global seed. Defaults to \code{NULL}.}
 
-\item{group_proportions}{Optional. A vector specifying the overall proportion of each group among all of the ballot boxes. Defaults to an uniform distribution.}
+\item{group_proportions}{Optional. A vector of of length \code{num_groups} that indicates the fraction of voters that belong to each group. Default is that all groups are of the same size.}
 
 \item{prob}{Optional. A user-supplied probability matrix of dimension \verb{(g x c)}.
-If provided, this matrix is used directly instead of
-drawing from a Dirichlet distribution with each parameter set to 1 (yielding an uninformative prior).}
+If provided, this matrix is used as the underlying voting probability distribution. If not supplied, each row is sampled from a Dirichlet distribution with each parameter set to one.}
 }
 \value{
 A list with three components:
@@ -57,14 +51,14 @@ A list with three components:
 \description{
 This function simulates an election by creating matrices representing candidate votes
 (\code{X}) and demographic group votes (\code{W}) across a specified number of ballot boxes.
-It either receives (or accepts) a probability matrix (\code{prob}) indicating how likely
+It either receives as input or generates a probability matrix (\code{prob}) indicating how likely
 each demographic group is to vote for each candidate.
 
 By default, the number of voters per ballot box (\code{ballot_voters}) is set to a vector
-of 50s with length \code{num_ballots}. You can optionally override this by providing a
+of 100 with length \code{num_ballots}. You can optionally override this by providing a
 custom vector.
 
-Several optional parameters are available to control the distribution of votes:
+Optional parameters are available to control the distribution of votes:
 \itemize{
 \item \strong{\code{group_proportions}}: A vector of length \code{num_groups} specifying
 the overall proportion of each demographic group. Entries must sum to one and be non-negative.
@@ -75,57 +69,57 @@ instead of drawing from a Dirichlet distribution.
 }
 \section{Shuffling Mechanism}{
 
-The shuffling step is controlled by the \code{lambda} (\eqn{\lambda}) parameter and operates as follows:
+Without loss of generality, consider an order relation of groups and ballot-boxes. The shuffling step is controlled by the \code{lambda} (\eqn{\lambda}) parameter and operates as follows:
 \enumerate{
-\item \strong{Initial Group Assignment}: Each of the individuals (\code{I}) is evenly assigned to one of the \code{num_groups}:
-\deqn{\omega_{i}^{0} = \lceil i \cdot \lvert \text{num\_groups}\rvert \cdot I^{-1} \rceil}
-This ensures all groups initially contain an equal count of individuals. If \code{group_proportions} isn't uniform, it assigns \eqn{\omega_{i}^{0}} according the given parameters.
-\item \strong{Determining the Shuffling Fraction}: The fraction of individuals to shuffle is given by \eqn{\lambda \cdot I}. Hence, different \code{lambda} values are interpreted as follows:
+\item \strong{Initial Assignment}: Voters are assigned to each ballot-box sequentially according to their demographic group. More specifically, the first ballot-boxes receive voters from the first group. Then, ballot-boxes receive voters from the second group. This continues until all voters have been assigned. Note that most ballot-boxes will contain voters from a single group, as long as the number of ballot-boxes is greater than the number of groups.
+\item \strong{Shuffling}: The fraction of individuals whose ballot-box assignment is shuffled is given by \code{lambda}. Hence, different \code{lambda} values are interpreted as follows:
 \itemize{
-\item \code{lambda = 0} means no one is shuffled (groups remain as is).
+\item \code{lambda = 0} means no one is shuffled (the initial assignment remains).
 \item \code{lambda = 1} means all individuals are shuffled.
-\item Intermediate values like \code{lambda = 0.5} shuffle half the population.
-}
-\item \strong{Random Selection of Individuals}: From the total population, \eqn{\lambda\cdot I} individuals are randomly sampled without replacement into a set \code{v}. This set dictates which individuals
-will have their group assignments swapped.
-\item \strong{Sorting and Swapping}: The selected indices in \code{v} are sorted into a new vector \code{v_sorted}. Then, each individual \code{v[i]} obtains the group assignment of \code{v_sorted[i]}. This approach preserves the total number of people in each group while introducing a new arrangement of individuals.
+\item Intermediate values like \code{lambda = 0.5} shuffle half the voters.
 }
 }
 
+A fraction \code{lambda} of voters who have already been assigned is selected at random. Then, the ballot-box assignment of this sample is shuffled.
+}
+
 \examples{
-# Example 1: Default usage with 2 ballot boxes, each having 50 voters
+# Example 1: Default usage with 200 ballot boxes, each having 100 voters
 result1 <- simulate_election(
-    num_ballots = 55,
+    num_ballots = 200,
     num_candidates = 3,
     num_groups = 5
 )
 
 # Example 2: Using a custom ballot_voters vector
 result2 <- simulate_election(
-    num_ballots = 80,
-    num_candidates = 2,
+    num_ballots = 340,
+    num_candidates = 3,
     num_groups = 7,
-    ballot_voters = c(100, 50, 75)
+    ballot_voters = rep(200, 340)
 )
 
 # Example 3: Supplying group_proportions
 result3 <- simulate_election(
-    num_ballots = 40,
-    num_candidates = 7,
+    num_ballots = 93,
+    num_candidates = 3,
     num_groups = 4,
     group_proportions = c(0.3, 0.5, 0.1, 0.1)
 )
 
 # Example 4: Providing a user-defined prob matrix
 custom_prob <- matrix(c(
-    0.9, 0.1,
-    0.4, 0.6
-), nrow = 2, byrow = TRUE)
+    0.9,  0.1,
+    0.4,  0.6,
+    0.25, 0.75,
+    0.32, 0.68,
+    0.2,  0.8
+), nrow = 5, byrow = TRUE)
 
 result4 <- simulate_election(
-    num_ballots = 2,
+    num_ballots = 200,
     num_candidates = 2,
-    num_groups = 2,
+    num_groups = 5,
     prob = custom_prob
 )
 

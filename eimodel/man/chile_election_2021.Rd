@@ -9,13 +9,13 @@ A data frame with 46,639 rows and 14 variables:
 \describe{
 \item{\code{ELECTORAL.DISTRICT}}{The electoral circumscription of the ballot box.}
 \item{\code{BALLOT.BOX}}{An identifier for the ballot box within the \code{ELECTORAL.DISTRICT}.}
-\item{\code{EDUARDO.ARTES}}{The number of votes cast for the candidate \emph{Eduardo Artés}.}
-\item{\code{FRANCO.ALDO.PARISI}}{The number of votes cast for the candidate \emph{Franco Parisi}.}
-\item{\code{GABRIEL.BORIC}}{The number of votes cast for the candidate \emph{Gabriel Boric}.}
-\item{\code{JOSE.ANTONIO.KAST}}{The number of votes cast for the candidate \emph{José Antonio Kast}.}
-\item{\code{MARCO.ENRIQUEZ.OMINAMI}}{The number of votes cast for the candidate \emph{Marco Enríquez-Ominami}.}
-\item{\code{SEBASTIAN.SICHEL}}{The number of votes cast for the candidate \emph{Sebastián Sichel}.}
-\item{\code{YASNA.PROVOSTE}}{The number of votes cast for the candidate \emph{Yasna Provoste}.}
+\item{\code{C1}}{The number of votes cast for the candidate \emph{Eduardo Artés}.}
+\item{\code{C2}}{The number of votes cast for the candidate \emph{Franco Parisi}.}
+\item{\code{C3}}{The number of votes cast for the candidate \emph{Gabriel Boric}.}
+\item{\code{C4}}{The number of votes cast for the candidate \emph{José Antonio Kast}.}
+\item{\code{C5}}{The number of votes cast for the candidate \emph{Marco Enríquez-Ominami}.}
+\item{\code{C6}}{The number of votes cast for the candidate \emph{Sebastián Sichel}.}
+\item{\code{C7}}{The number of votes cast for the candidate \emph{Yasna Provoste}.}
 \item{\code{BLANK.VOTES}}{The number of blank votes.}
 \item{\code{NULL.VOTES}}{The number of null votes.}
 \item{\code{X18.19}}{Number of voters aged 18--19.}
@@ -38,7 +38,7 @@ data("chile_election_2021")
 \description{
 This dataset contains the results of the first round of the 2021 Chilean presidential elections.
 It provides 9 possible voting options. Each ballot box is identified by a ballot box number
-(\code{MESA}), and an electoral circumscription
+(\code{BALLOT.BOX}), and an electoral circumscription
 (\code{ELECTORAL.DISTRICT}). Additionally, it provides demographical information of the etary range among voters within ballot boxes.
 }
 \examples{

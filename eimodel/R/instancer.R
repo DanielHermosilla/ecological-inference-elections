@@ -3,14 +3,14 @@
 #' @description
 #' This function simulates an election by creating matrices representing candidate votes
 #' (`X`) and demographic group votes (`W`) across a specified number of ballot boxes.
-#' It either receives (or accepts) a probability matrix (`prob`) indicating how likely
+#' It either receives as input or generates a probability matrix (`prob`) indicating how likely
 #' each demographic group is to vote for each candidate.
 #'
 #' By default, the number of voters per ballot box (`ballot_voters`) is set to a vector
-#' of 50s with length `num_ballots`. You can optionally override this by providing a
+#' of 100 with length `num_ballots`. You can optionally override this by providing a
 #' custom vector.
 #'
-#' Several optional parameters are available to control the distribution of votes:
+#' Optional parameters are available to control the distribution of votes:
 #' \itemize{
 #'   \item \strong{`group_proportions`}: A vector of length `num_groups` specifying
 #'         the overall proportion of each demographic group. Entries must sum to one and be non-negative.
@@ -30,50 +30,37 @@
 #'
 #' @param ballot_voters
 #'   A vector of length `num_ballots` representing the number of voters per ballot
-#'   box. Defaults to `rep(50, num_ballots)`.
+#'   box. Defaults to `rep(100, num_ballots)`.
 #'
 #' @param lambda
-#' 	A numeric value between `0` and `1` that controls the **shuffling proportion**
-#'  of individuals among demographic groups (`num_groups`). This parameter determines
-#'  how much **random reassignment** occurs among groups, affecting group heterogeneity.
+#' A numeric value between 0 and 1 that represents the fraction of voters that are randomly assigned to ballot-boxes. The remaining voters are assigned sequentially according to their demographic group.
+#'   - `lambda = 0`: The assignment of voters to ballot-boxes is fully sequential in terms of their demographic group. This leads to a **high heterogeneity** of the voters' groups across ballot-boxes.
+#'   - `lambda = 1`: The assignment of voters to ballot-boxes is fully random. This leads to a **low heterogeneity** of the voters' group across ballot-boxes.
 #'
-#'   - **`lambda = 0`**: No shuffling occurs. Individuals remain in their original
-#'     assigned groups, leading to **maximum heterogeneity**.
-#'   - **`lambda = 1`**: Complete shuffling. Individuals are **fully reassigned**,
-#'     leading to **homogeneous groups**.
-#'   - **Intermediate values** (e.g., `lambda = 0.5`): A fraction of individuals is **randomly selected and reassigned**, balancing between heterogeneity and homogeneity.
-#'
-#'  Default value is set to `0.5`.
+#'  Default value is set to `0.5`. See **Shuffling Mechanish** for more details.
 #'
 #' @param seed
 #'   If provided, overrides the current global seed. Defaults to `NULL`.
 #'
 #' @param group_proportions
-#'   Optional. A vector specifying the overall proportion of each group among all of the ballot boxes. Defaults to an uniform distribution.
-#'
+#'   Optional. A vector of of length `num_groups` that indicates the fraction of voters that belong to each group. Default is that all groups are of the same size.
 #'
 #' @param prob
 #'   Optional. A user-supplied probability matrix of dimension `(g x c)`.
-#'   If provided, this matrix is used directly instead of
-#'   drawing from a Dirichlet distribution with each parameter set to 1 (yielding an uninformative prior).
+#'   If provided, this matrix is used as the underlying voting probability distribution. If not supplied, each row is sampled from a Dirichlet distribution with each parameter set to one.
 #'
 #' @section Shuffling Mechanism:
-#' The shuffling step is controlled by the `lambda` (\eqn{\lambda}) parameter and operates as follows:
+#' Without loss of generality, consider an order relation of groups and ballot-boxes. The shuffling step is controlled by the `lambda` parameter and operates as follows:
 #'
-#' 1. **Initial Group Assignment**: Each of the individuals (`I`) is evenly assigned to one of the `num_groups`:
-#' 		\deqn{\omega_{i}^{0} = \lceil i \cdot \lvert \text{num\_groups}\rvert \cdot I^{-1} \rceil}
-#'    This ensures all groups initially contain an equal count of individuals. If `group_proportions` isn't uniform, it assigns \eqn{\omega_{i}^{0}} according the given parameters.
+#' 1. **Initial Assignment**: Voters are assigned to each ballot-box sequentially according to their demographic group. More specifically, the first ballot-boxes receive voters from the first group. Then, ballot-boxes receive voters from the second group. This continues until all voters have been assigned. Note that most ballot-boxes will contain voters from a single group, as long as the number of ballot-boxes is greater than the number of groups.
 #'
-#' 2. **Determining the Shuffling Fraction**: The fraction of individuals to shuffle is given by \eqn{\lambda \cdot I}. Hence, different `lambda` values are interpreted as follows:
+#' 2. **Shuffling**: The fraction of individuals whose ballot-box assignment is shuffled is given by `lambda`. Hence, different `lambda` values are interpreted as follows:
 #'
-#' 	- `lambda = 0` means no one is shuffled (groups remain as is).
+#' 	- `lambda = 0` means no one is shuffled (the initial assignment remains).
 #' 	- `lambda = 1` means all individuals are shuffled.
-#' 	- Intermediate values like `lambda = 0.5` shuffle half the population.
+#' 	- Intermediate values like `lambda = 0.5` shuffle half the voters.
 #'
-#' 3. **Random Selection of Individuals**: From the total population, \eqn{\lambda\cdot I} individuals are randomly sampled without replacement into a set `v`. This set dictates which individuals
-#'    will have their group assignments swapped.
-#'
-#' 4. **Sorting and Swapping**: The selected indices in `v` are sorted into a new vector `v_sorted`. Then, each individual `v[i]` obtains the group assignment of `v_sorted[i]`. This approach preserves the total number of people in each group while introducing a new arrangement of individuals.
+#' A fraction `lambda` of voters who have already been assigned is selected at random. Then, the ballot-box assignment of this sample is shuffled.
 #'
 #' @return A list with three components:
 #' \describe{
@@ -83,42 +70,45 @@
 #' }
 #'
 #' @references
-#' The algorithm is fully explained in ['Thraves, C. and Ubilla, P.: *"Fast Ecological Inference Algorithm for the R×C Case"*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834).
+#' The algorithm is fully explained in ['Thraves, C. and Ubilla, P.: *"A Fast Ecological Inference Algorithm for the R×C Case"*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834).
 #'
 #' @examples
-#' # Example 1: Default usage with 2 ballot boxes, each having 50 voters
+#' # Example 1: Default usage with 200 ballot boxes, each having 100 voters
 #' result1 <- simulate_election(
-#'     num_ballots = 55,
+#'     num_ballots = 200,
 #'     num_candidates = 3,
 #'     num_groups = 5
 #' )
 #'
 #' # Example 2: Using a custom ballot_voters vector
 #' result2 <- simulate_election(
-#'     num_ballots = 80,
-#'     num_candidates = 2,
+#'     num_ballots = 340,
+#'     num_candidates = 3,
 #'     num_groups = 7,
-#'     ballot_voters = c(100, 50, 75)
+#'     ballot_voters = rep(200, 340)
 #' )
 #'
 #' # Example 3: Supplying group_proportions
 #' result3 <- simulate_election(
-#'     num_ballots = 40,
-#'     num_candidates = 7,
+#'     num_ballots = 93,
+#'     num_candidates = 3,
 #'     num_groups = 4,
 #'     group_proportions = c(0.3, 0.5, 0.1, 0.1)
 #' )
 #'
 #' # Example 4: Providing a user-defined prob matrix
 #' custom_prob <- matrix(c(
-#'     0.9, 0.1,
-#'     0.4, 0.6
-#' ), nrow = 2, byrow = TRUE)
+#'     0.9,  0.1,
+#'     0.4,  0.6,
+#'     0.25, 0.75,
+#'     0.32, 0.68,
+#'     0.2,  0.8
+#' ), nrow = 5, byrow = TRUE)
 #'
 #' result4 <- simulate_election(
-#'     num_ballots = 2,
+#'     num_ballots = 200,
 #'     num_candidates = 2,
-#'     num_groups = 2,
+#'     num_groups = 5,
 #'     prob = custom_prob
 #' )
 #'
@@ -127,7 +117,7 @@
 simulate_election <- function(num_ballots,
                               num_candidates,
                               num_groups,
-                              ballot_voters = rep(50, num_ballots),
+                              ballot_voters = rep(100, num_ballots),
                               lambda = 0.5,
                               seed = NULL,
                               group_proportions = rep(1 / num_groups, num_groups),

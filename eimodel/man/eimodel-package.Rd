@@ -4,13 +4,12 @@
 \name{eimodel-package}
 \alias{eimodel}
 \alias{eimodel-package}
-\title{eimodel: A Fast Alternative for the R x C Ecological Inference Problem}
+\title{eimodel: Methods for "A Fast Ecological Inference Algorithm for the RxC case"}
 \description{
 Addressing the \eqn{R \times C} ecological inference problem is challenging due to
 the variety of possible approaches, including parametric probability models,
-entropy maximization, or mathematical programming. This package introduces a
-nonparametric model, based on the Expectation-Maximization (EM) algorithm, to maximize
-the likelihood given observed data. Although the \emph{M}-step can be solved
+entropy maximization, or mathematical programming. The package includes methods to solve the \eqn{R \times C} Ecological Inference problem for the non-parametric case based on the Expectation-Maximization (EM) algorithm.
+Although the \emph{M}-step can be solved
 in closed form, the \emph{E}-step can involve an exponential number of computations.
 }
 \details{
@@ -19,11 +18,11 @@ in an EM algorithm for the standard \eqn{R \times C} ecological inference proble
 It also offers a function to simulate elections under diverse parameters. These
 methods, which can be accessed via the \code{eim} object, include:
 \itemize{
-\item \verb{Hit and Run (H&R)}: Simulates a subset of samples to approximate the exact solution.
-\item \verb{Multivariate Normal PDF (MVN PDF)}: Approximates the \emph{E}-step using a multivariate normal PDF.
-\item \verb{Multivariate Normal CDF (MVN CDF)}: Uses the CDF of a multivariate normal distribution to approximate probabilities.
-\item \code{Multinomial (Mult)}: Approximates the \emph{E}-step with a multinomial distribution.
-\item \code{Exact}: Solves the determinant approach directly.
+\item \strong{Hit and Run} \code{(H&R)}: Simulates a subset of samples to approximate the exact solution.
+\item \strong{Multivariate Normal PDF} \verb{(MVN PDF)}: Approximates the \emph{E}-step using a multivariate normal PDF.
+\item \strong{Multivariate Normal CDF} \verb{(MVN CDF)}: Uses the CDF of a multivariate normal distribution to approximate probabilities.
+\item \strong{Multinomial} \code{(Mult)}: Approximates the \emph{E}-step with a multinomial distribution.
+\item \strong{Exact}: Solves the determinant approach directly.
 }
 
 On average, the \code{Multinomial} method tends to be the most efficient and precise,
@@ -37,7 +36,7 @@ browseVignettes("eimodel")
 }
 }
 \references{
-\href{https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834}{Thraves, C. and Ubilla, P.: \emph{"Fast Ecological Inference Algorithm for the R×C Case"}.}
+\href{https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834}{Thraves, C. and Ubilla, P.: \emph{"A Fast Ecological Inference Algorithm for the R×C Case"}.}
 }
 \seealso{
 Useful links:

@@ -3,12 +3,11 @@ Title: A fast alternative for the R x C ecological inference problem.
 Version: 0.0.0.1
 Author: Charles Thraves, Pablo Ubilla, Daniel Hermosilla
 Maintainer: Daniel Hermosilla <daniel.hermosilla.r@ug.uchile.cl>
-Description: Calculates the probability matrix of a R x C ecological inference problem with an Expected Maximization algorithm
+Description: Estimates the probability matrix for the R×C Ecological Inference problem using the Expectation-Maximization Algorithm with four approximation methods for the E-Step, and an exact method as well. Additionally, it provides a bootstrap function to estimate the standard deviation on the estimated probabilities.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Imports: 
     Rcpp,
-    R6,
     jsonlite
 LinkingTo: Rcpp
 NeedsCompilation: yes

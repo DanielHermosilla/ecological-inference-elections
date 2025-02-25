@@ -506,19 +506,19 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         // int minIter = 1;
         if ((i >= minIter && (logLLarr)[i] < (logLLarr)[i - 1]))
         {
-            *finishing_reason = 1;
+            *finishing_reason = 0;
             goto results;
         }
         // ---- Handle the case where the maximum times is reached
         if (elapsed_total > maxSeconds)
         {
-            *finishing_reason = 2;
+            *finishing_reason = 1;
             goto results;
         }
     }
     Rprintf("Maximum iterations reached without convergence.\n"); // Print even if there's not verbose, might change
                                                                   // later.
-    *finishing_reason = 3;
+    *finishing_reason = 2;
 results:
     *time = elapsed_total;
     // ---- Matrix must be returned without a pointer ---- //

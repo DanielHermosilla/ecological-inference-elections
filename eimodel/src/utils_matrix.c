@@ -419,9 +419,9 @@ void printMatrix(const Matrix *matrix)
         Rprintf("| ");
         for (int j = 0; j < matrix->cols - 1; j++)
         {
-            Rprintf("%.5f\t", MATRIX_AT_PTR(matrix, i, j));
+            Rprintf("%.3f\t", MATRIX_AT_PTR(matrix, i, j));
         }
-        Rprintf("%.5f", MATRIX_AT_PTR(matrix, i, matrix->cols - 1));
+        Rprintf("%.3f", MATRIX_AT_PTR(matrix, i, matrix->cols - 1));
         Rprintf(" |\n");
     }
 }
@@ -866,8 +866,8 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
     }
     if (info > 0)
     {
-        REprintf("Cholesky decomposition failed. Leading minor not positive definite.\n"
-                 "Retrying with +1 on diagonal.\n");
+        Rprintf("Cholesky decomposition failed. Leading minor not positive definite.\n"
+                "Retrying with +1 on diagonal.\n");
 
         // restore from emergencyMat, add small diagonal
         for (int i = 0; i < n; i++)

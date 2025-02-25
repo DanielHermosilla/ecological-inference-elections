@@ -5,39 +5,28 @@
 \title{Runs a Bootstrap to Estimate the \strong{Standard Deviation} of Predicted Probabilities}
 \usage{
 bootstrap(
- boot_iter,
  object = NULL,
  X = NULL,
  W = NULL,
  json_path = NULL,
- mismatch = FALSE,
-	get_p = TRUE,
+ nboot = 50
  ...
 )
 }
 \arguments{
-\item{boot_iter}{Integer specifying how many times to run the
+\item{object}{An object of class \code{eim}, which can be created using the \link{eim} function.
+This parameter should not be called if you prefer to supply the \code{X} and \code{W} matrices or a \code{json_path}.}
+
+\item{nboot}{Integer specifying how many times to run the
 EM algorithm.}
 
-\item{object}{An object of class \code{eim}, which can be created using the \link{eim} function.
-This parameter shouldn't be called if you prefer to supply the \code{X} and \code{W} matrices or a \code{json_path}.}
-
-\item{X}{A \verb{(b x c)} matrix representing candidate votes per ballot box.}
-
-\item{W}{A \verb{(b x g)} matrix representing group votes per ballot box.}
-
-\item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays.}
-
-\item{get_p}{Boolean that determines if the probability is estimated aswell. Defaults to \code{TRUE}.}
-
-\item{...}{Additional arguments passed to the \link{compute} function that will execute the EM algorithm.}
+\item{...}{Additional arguments passed to the \link{run_em} function that will execute the EM algorithm.}
 }
 \value{
-Updates the \code{eim} object with a new \code{sd} field containing the estimated
-standard deviations of the probabilities.
+Returns an 'eim' object with the 'sd' field containing the estimated standard deviations of the probabilities. If an 'eim' object is provided, its attributes (see \link{run_em} are retained in the returned object.
 }
 \description{
-This function computes the Expected-Maximization (EM) algorithm "\code{boot_iter}" times by sampling,
+This function computes the Expected-Maximization (EM) algorithm "\code{nboot}" times by sampling,
 with replacement, all of the ballot boxes out of the original data for each
 iteration. A new sample is drawn for every iteration, and from all of these iterations,
 the \strong{standard deviation} of the estimated probabilities is computed.
@@ -60,37 +49,32 @@ supplied matrices or the data from the JSON file before executing the algorithm.
 \examples{
 # Example 1: Using an 'eim' object directly
 simulations <- simulate_election(
-    num_ballots = 20,
+    num_ballots = 200,
     num_candidates = 5,
     num_groups = 3,
-    ballot_voters = rep(100, 20)
 )
 
-# Initialize the 'eim' object
 model <- eim(X = simulations$X, W = simulations$W)
 
-# Run bootstrap with an existing 'eim' object
 model <- bootstrap(
-    boot_iter = 30,
     object = model,
+    nboot = 30,
     method = "mvn_cdf",
     maxiter = 500,
     verbose = TRUE,
     mc_samples = 5000
 )
 
-# Access standard deviation and probability results
+# Access standard deviation throughout 'model'
 print(model$sd)
-print(model$prob)
 
 
 # Example 2: Providing 'X' and 'W' matrices directly
 model <- bootstrap(
-    boot_iter = 50,
-    get_p = FALSE,
     X = simulations$X,
     W = simulations$W,
-    method = "exact",
+    nboot = 70,
+    method = "mvn_pdf",
     maxiter = 100,
     maxtime = 15,
     stop_threshold = 0.01
@@ -101,10 +85,9 @@ print(model$sd)
 # Example 3: Using a JSON file as input
 \dontrun{
 model <- bootstrap(
-    boot_iter = 20,
     json_path = "path/to/election_data.json",
+    nboot = 70,
     method = "mult",
-    get_p = FALSE
 )
 
 print(model$sd)
@@ -112,5 +95,5 @@ print(model$sd)
 
 }
 \seealso{
-The \link{eim} object and \link{compute} implementation.
+The \link{eim} object and \link{run_em} implementation.
 }

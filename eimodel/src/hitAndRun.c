@@ -123,6 +123,8 @@ void generateOmegaSet(int M, int S, unsigned int seedNum)
      * and |G| terms. If a pool cannot be allocated before the loop, maybe it could be possible to execute within
      * distinct pools by dividing the ballot boxes and free within each big iteration. However, that's not so practical
      * to implement, and the 2.5% failure rate still bothers me.
+     *
+     * UPDATE: Tried diverses takes, with chunk, pooling, etc. None of them worked since samples were too similar...
      */
 
     GetRNGstate();

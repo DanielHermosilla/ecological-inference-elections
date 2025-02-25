@@ -1,62 +1,81 @@
 #' Internal function!
-#' Validates all of the 'compute' arguments
+#' Validates all of the 'run_em' arguments
 #' @noRd
 .validate_compute <- function(args) {
     # General checks: Vectors aren't accepted
     # if (any(sapply(args, function(x) length(x) > 1))) {
-    #    stop("Compute:\tInvalid input: no vector inputs allowed")
+    #    stop("run_em:\tInvalid input: no vector inputs allowed")
     # }
+
+    object_provided <- "object" %in% names(args)
+    x_provided <- "X" %in% names(args)
+    w_provided <- "W" %in% names(args)
+    xw_provided <- x_provided || w_provided
+    json_provided <- "json_path" %in% names(args)
+
+    if (x_provided + w_provided == 1) {
+        stop("run_em: If providing a matrix, 'X' and 'W' must be provided.")
+    }
+
+    if (sum(object_provided, xw_provided, json_provided) != 1) {
+        stop(
+            "run_em: You must provide exactly one of the following:\n",
+            "(1)\tan `eim` object (initialized with `eim`)\n",
+            "(2)\t`X` and `W`\n",
+            "(3)\ta `json_path`"
+        )
+    }
 
     # Mismatch argument
     if ("mismatch" %in% names(args) && !is.logical(args$mismatch)) {
-        stop("Compute:\tInvalid 'mismatch'. It has to be a boolean")
+        stop("run_em: Invalid 'mismatch'. It has to be a boolean")
     }
 
     # Method argument
     valid_methods <- c("hnr", "exact", "mvn_cdf", "mvn_pdf", "mult")
     if ("method" %in% names(args) &&
         (!is.character(args$method) || length(args$method) != 1 || !(args$method %in% valid_methods))) {
-        stop("Compute:\tInvalid 'method'. Must be one of: ", paste(valid_methods, collapse = ", "))
+        stop("run_em: Invalid 'method'. Must be one of: ", paste(valid_methods, collapse = ", "))
     }
 
     # Initial prob argument
     valid_p_methods <- c("group_proportional", "proportional", "uniform")
     if ("initial_prob" %in% names(args) &&
         (!is.character(args$initial_prob) || length(args$initial_prob) != 1 || !(args$initial_prob %in% valid_p_methods))) {
-        stop("Compute:\tInvalid 'initial_prob'. Must be one of: ", paste(valid_methods, collapse = ", "))
+        stop("run_em: Invalid 'initial_prob'. Must be one of: ", paste(valid_methods, collapse = ", "))
     }
 
     # Maxiter argument
     if ("maxiter" %in% names(args) &&
         (!is.numeric(args$maxiter) || as.integer(args$maxiter) != args$maxiter || args$maxiter <= 0)) {
-        stop("Compute:\tInvalid 'maxiter'. Must be an integer and positive.")
+        stop("run_em: Invalid 'maxiter'. Must be an integer and positive.")
     }
 
     # Maxtime argument
     if ("maxtime" %in% names(args) &&
         (!is.numeric(args$maxtime) || args$maxtime < 0)) {
-        stop("Compute:\tInvalid 'maxtime'. Must be positive.")
+        stop("run_em: Invalid 'maxtime'. Must be positive.")
     }
 
     # Stop threshold argument
     if ("stop_threshold" %in% names(args)) {
         if (!is.numeric(args$stop_threshold) || args$stop_threshold < 0) {
-            stop("Compute:\tInvalid 'stop_threshold'. Must be positive")
+            stop("run_em: Invalid 'stop_threshold'. Must be positive")
         }
         if (args$stop_threshold >= 1) {
-            warning("Warning:\tA 'stop_threshold' greater or equal than one will always be true after the first iteration.")
+            warning("Warning: A 'stop_threshold' greater or equal than one will always be true after the first iteration.")
         }
     }
 
     # Verbose argument
     if ("verbose" %in% names(args) && !is.logical(args$verbose)) {
-        stop("Compute:\tInvalid 'verbose'. It has to be a boolean")
+        stop("run_em: Invalid 'verbose'. It has to be a boolean")
     }
 
     # HNR: Step_size argument
     if ("step_size" %in% names(args)) {
         if (!is.numeric(args$step_size) || as.integer(args$step_size) != args$step_size || args$step_size < 0) {
-            stop("Compute:\tInvalid 'step_size'. Must be a positive integer.")
+            stop("run_em: Invalid 'step_size'. Must be a positive integer.")
         }
         if (args$step_size < 15) {
             warning("Warning: A small 'step_size' could lead to highly correlated samples.")
@@ -66,30 +85,46 @@
     # HNR: Samples argument
     if ("samples" %in% names(args) &&
         (!is.numeric(args$samples) || as.integer(args$samples) != args$samples || args$samples < 0)) {
-        stop("Compute:\tInvalid 'samples'. Must be a positive integer.")
+        stop("run_em: Invalid 'samples'. Must be a positive integer.")
     }
 
     # CDF: Mc_method argument
     valid_cdf_methods <- c("genz", "genz2")
     if ("mc_method" %in% names(args) &&
         (!is.character(args$mc_method) || !args$mc_method %in% valid_cdf_methods)) {
-        stop("Compute:\tInvalid 'mc_method'. Must be one of: ", paste(valid_cdf_methods, collapse = ", "))
+        stop("run_em: Invalid 'mc_method'. Must be one of: ", paste(valid_cdf_methods, collapse = ", "))
     }
 
     # CDF: Mc_error argument
     if ("mc_error" %in% names(args) &&
         (!is.numeric(args$mc_error) || args$mc_error <= 0)) {
-        stop("Compute:\tInvalid 'mc_error'. Must be a positive number.")
+        stop("run_em: Invalid 'mc_error'. Must be a positive number.")
     }
 
     # CDF: Mc_error argument
     if ("mc_samples" %in% names(args) &&
         (!is.numeric(args$mc_samples) || as.integer(args$mc_samples) != args$mc_samples || args$mc_samples < 0)) {
-        stop("Compute:\tInvalid 'mc_samples'. Must be a positive integer.")
+        stop("run_em: Invalid 'mc_samples'. Must be a positive integer.")
+    }
+
+    # Check mismatch
+    if ("mismatch" %in% names(args)) {
+        if (!is.logical(args$mismatch)) {
+            stop("run_em: Invalid 'mismatch'. Must be a boolean value.")
+        }
+        if ("method" %in% names(args) && "method" %in% c("hnr", "exact")) {
+            stop("run_em: Mismatched results are not supported when using 'hnr' or 'exact'.")
+        }
+    }
+
+
+
+    # Include nboot aswell if bootstrapping is provided
+    if ("nboot" %in% names(args) &&
+        (!is.numeric(args$nboot) || as.integer(args$nboot) != args$nboot || args$nboot < 0)) {
+        stop("Bootstrap: Invalid 'nboot'. Must be a positive integer.")
     }
 }
-
-
 
 
 #' Internal function!
@@ -100,7 +135,7 @@
 #' @param W A matrix representing group votes per ballot box.
 #' @return Stops execution if validation fails.
 #' @noRd
-.validate_eim <- function(X, W, mismatch = FALSE) {
+.validate_eim <- function(X, W) {
     # Ensure X and W are provided
     if (is.null(X) || is.null(W)) {
         stop("Either provide X and W matrices, or a valid JSON path containing them.")
@@ -111,12 +146,12 @@
     W <- as.matrix(W)
 
     # Check matching dimensions
-    if (!mismatch && nrow(X) != nrow(W)) {
-        stop(
-            "Mismatch in the number of ballot boxes: 'X' has ", nrow(X),
-            " rows, but 'W' has ", nrow(W), " rows."
-        )
-    }
+    # if (!mismatch && nrow(X) != nrow(W)) {
+    #    stop(
+    #        "Mismatch in the number of ballot boxes: 'X' has ", nrow(X),
+    #        " rows, but 'W' has ", nrow(W), " rows."
+    #    )
+    # }
 
     # Check minimum column constraints
     if (ncol(X) < 2) {

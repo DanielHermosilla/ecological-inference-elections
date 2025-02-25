@@ -3,7 +3,7 @@
 \name{eim}
 \title{S3 Object for the Expectation-Maximization Algorithm}
 \usage{
-eim(X = NULL, W = NULL, json_path = NULL, mismatch = FALSE)
+eim(X = NULL, W = NULL, json_path = NULL)
 }
 \arguments{
 \item{X}{A \verb{(b x c)} matrix representing candidate votes per ballot box.}
@@ -11,8 +11,6 @@ eim(X = NULL, W = NULL, json_path = NULL, mismatch = FALSE)
 \item{W}{A \verb{(b x g)} matrix representing group votes per ballot box.}
 
 \item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays.}
-
-\item{mismatch}{Boolean to allow a mismatch between group and candidate votes. By default it is \code{FALSE}.}
 }
 \value{
 A list of class \code{eim} containing:
@@ -39,9 +37,8 @@ further processing by the EM algorithm.
 }
 \note{
 For an alternative way to generate \code{X} and \code{W}, you can use the
-\link{simulate_election} function, which provides several parameters
-(such as \code{group_proportions}, \code{lambda}, and
-\code{probability}) for controlling the underlying distributions of votes.
+\link{simulate_election} function, which provides parameters
+for controlling the underlying distributions of votes.
 Afterwards, you may pass the resulting matrices to \code{eim()}.
 }
 \section{Methods}{
@@ -50,8 +47,8 @@ In addition to this constructor, the "eim" class provides several
 S3 methods for common operations. Some of these methods are fully documented,
 while others are ommited due to its straightfoward implementantion. The available methods are:
 \itemize{
-\item \link{compute} -- Runs the EM algorithm.
-\item \link{bootstrap} -- Estimates the standard deviation of probabilities
+\item \link{run_em} -- Runs the EM algorithm.
+\item \link{bootstrap} -- Estimates the standard deviation of the probabilities.
 \item \link{save} -- Save the results to a specified file.
 \item \code{print} -- Print useful information about the object.
 \item \code{summary} -- Shows, in form of a list, the most important attributes.
@@ -72,29 +69,40 @@ model1 <- eim(json_path = "path/to/file.json")
 # Example 2: Use simulate_election with optional parameters, then create an eim object
 # from matrices
 
-# Simulate data for 50 ballot boxes, 4 candidates and 5 groups
+# Simulate data for 500 ballot boxes, 4 candidates and 5 groups
 sim_result <- simulate_election(
-    num_ballots = 50,
-    num_candidates = 4,
+    num_ballots = 500,
+    num_candidates = 3,
     num_groups = 5,
     group_proportions = c(0.2, 0.2, 0.4, 0.1, 0.1),
 )
 
 model2 <- eim(X = sim_result$X, W = sim_result$W)
 
-# Example 3: Create an object from a user defined matrix
+# Example 3: Create an object from a user defined matrix with 8 ballot boxes,
+2 candidates and 7 groups.
 
 x_mat <- matrix(c(
-    10, 20, 30, 40,
-    15, 25, 35, 45,
-    12, 22, 32, 42
-), nrow = 3, ncol = 4, byrow = TRUE)
+    10, 20,
+    15, 25,
+    12, 22,
+	   15, 10,
+	   11, 32,
+	   7,  20,
+    13, 13,
+    18, 22,
+), nrow = 8, ncol = 2, byrow = TRUE)
 
 w_mat <- matrix(c(
-    100, 150, 200, 250, 300,
-    110, 160, 210, 260, 310,
-    120, 170, 220, 270, 320
-), nrow = 3, ncol = 5, byrow = TRUE)
+    100, 150, 200, 250, 300, 187, 87,
+    110, 160, 210, 260, 310, 193, 243,
+    120, 170, 220, 270, 320, 403, 300,
+    143, 220, 173, 382, 123, 281, 102,
+    173, 222, 101, 109, 532, 102, 87,
+    105, 152, 251, 143, 432, 102, 100,
+    104, 129, 205, 192, 124, 224, 107,
+    107, 204, 228, 324, 129, 234, 54
+), nrow = 8, ncol = 7, byrow = TRUE)
 
-model3 <- eim(X = x_mat, W = w_mat, mismatch = TRUE)
+model3 <- eim(X = x_mat, W = w_mat)
 }

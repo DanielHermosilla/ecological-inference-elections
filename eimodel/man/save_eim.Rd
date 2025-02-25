@@ -36,7 +36,7 @@ otherwise, it yields an error.
 
 model <- eim(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3))
 
-compute(model)
+run_em(model)
 
 # Save as RDS
 save_eim(model, "model_results.rds")

@@ -48,7 +48,7 @@ extern "C"
  */
 Rcpp::List EMAlgorithmAll(Rcpp::String em_method = "mult", Rcpp::String probability_method = "group_proportional",
                           Rcpp::IntegerVector maximum_iterations = Rcpp::IntegerVector::create(1000),
-                          Rcpp::IntegerVector maximum_seconds = Rcpp::IntegerVector::create(3600),
+                          Rcpp::NumericVector maximum_seconds = Rcpp::NumericVector::create(3600),
                           Rcpp::NumericVector stopping_threshold = Rcpp::NumericVector::create(0.001),
                           Rcpp::LogicalVector verbose = Rcpp::LogicalVector::create(false));
 
@@ -87,7 +87,7 @@ Rcpp::List EMAlgorithmAll(Rcpp::String em_method = "mult", Rcpp::String probabil
  */
 Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method = "group_proportional",
                           Rcpp::IntegerVector maximum_iterations = Rcpp::IntegerVector::create(1000),
-                          Rcpp::IntegerVector maximum_seconds = Rcpp::IntegerVector::create(3600),
+                          Rcpp::NumericVector maximum_seconds = Rcpp::NumericVector::create(3600),
                           Rcpp::NumericVector stopping_threshold = Rcpp::NumericVector::create(0.001),
                           Rcpp::LogicalVector verbose = Rcpp::LogicalVector::create(false),
                           Rcpp::String monte_method = "genz2",
@@ -122,7 +122,7 @@ Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method = "group_proportional"
  */
 Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method = "group_proportional",
                                 Rcpp::IntegerVector maximum_iterations = Rcpp::IntegerVector::create(1000),
-                                Rcpp::IntegerVector maximum_seconds = Rcpp::IntegerVector::create(3600),
+                                Rcpp::NumericVector maximum_seconds = Rcpp::NumericVector::create(3600),
                                 Rcpp::NumericVector stopping_threshold = Rcpp::NumericVector::create(0.001),
                                 Rcpp::LogicalVector verbose = Rcpp::LogicalVector::create(false),
                                 Rcpp::IntegerVector step_size = Rcpp::IntegerVector::create(3000),
