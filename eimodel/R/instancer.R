@@ -1,22 +1,17 @@
 #' Simulate an Election
 #'
 #' @description
-#' This function simulates an election by creating matrices representing candidate votes
-#' (`X`) and demographic group votes (`W`) across a specified number of ballot boxes.
-#' It either receives as input or generates a probability matrix (`prob`) indicating how likely
-#' each demographic group is to vote for each candidate.
+#' This function simulates an election by creating matrices representing candidate votes '(X)' and voters' demographic group '(W)' across a specified number of ballot-boxes. It either (i) receives as input or (ii) generates a probability matrix '(prob)', indicating how likely each demographic group is to vote for each candidate.
 #'
-#' By default, the number of voters per ballot box (`ballot_voters`) is set to a vector
-#' of 100 with length `num_ballots`. You can optionally override this by providing a
-#' custom vector.
+#' By default, the number of voters per ballot box '(ballot_voters)' is set to a vector of 100 with
+#' length 'num_ballots'. You can optionally override this by providing a custom vector.
 #'
 #' Optional parameters are available to control the distribution of votes:
 #' \itemize{
 #'   \item \strong{`group_proportions`}: A vector of length `num_groups` specifying
 #'         the overall proportion of each demographic group. Entries must sum to one and be non-negative.
 #'   \item \strong{`prob`}: A user-supplied probability matrix of dimension
-#'         (`num_groups` \eqn{\times} `num_candidates`). If provided, this matrix is used directly
-#'         instead of drawing from a Dirichlet distribution.
+#'         (`num_groups` \eqn{\times} `num_candidates`). If provided, this matrix is used directly. Otherwise, voting probabilities for each group are drawn from a Dirichlet distribution.
 #' }
 #'
 #' @param num_ballots
@@ -43,7 +38,7 @@
 #'   If provided, overrides the current global seed. Defaults to `NULL`.
 #'
 #' @param group_proportions
-#'   Optional. A vector of of length `num_groups` that indicates the fraction of voters that belong to each group. Default is that all groups are of the same size.
+#'   Optional. A vector of length `num_groups` that indicates the fraction of voters that belong to each group. Default is that all groups are of the same size.
 #'
 #' @param prob
 #'   Optional. A user-supplied probability matrix of dimension `(g x c)`.
@@ -52,7 +47,8 @@
 #' @section Shuffling Mechanism:
 #' Without loss of generality, consider an order relation of groups and ballot-boxes. The shuffling step is controlled by the `lambda` parameter and operates as follows:
 #'
-#' 1. **Initial Assignment**: Voters are assigned to each ballot-box sequentially according to their demographic group. More specifically, the first ballot-boxes receive voters from the first group. Then, ballot-boxes receive voters from the second group. This continues until all voters have been assigned. Note that most ballot-boxes will contain voters from a single group, as long as the number of ballot-boxes is greater than the number of groups.
+#' 1. **Initial Assignment**: Voters are assigned to each ballot-box sequentially according to their demographic
+#' group. More specifically, the first ballot-boxes receive voters from the first group. Then, the next ballot-boxes receive voters from the second group. This continues until all voters have been assigned. Note that most ballot-boxes will contain voters from a single group (as long as the number of ballot-boxes exceeds the number of groups).
 #'
 #' 2. **Shuffling**: The fraction of individuals whose ballot-box assignment is shuffled is given by `lambda`. Hence, different `lambda` values are interpreted as follows:
 #'
@@ -61,6 +57,8 @@
 #' 	- Intermediate values like `lambda = 0.5` shuffle half the voters.
 #'
 #' A fraction `lambda` of voters who have already been assigned is selected at random. Then, the ballot-box assignment of this sample is shuffled.
+#'
+#' Using a high level of `lambda` (greater than 0.6) is not recommended, as this could make identification of the voting probabilities difficult. This is because higher values of lambda induce similar ballot-boxes in terms of voters' group.
 #'
 #' @return A list with three components:
 #' \describe{
@@ -109,6 +107,7 @@
 #'     num_ballots = 200,
 #'     num_candidates = 2,
 #'     num_groups = 5,
+#'     alpha = 0.3,
 #'     prob = custom_prob
 #' )
 #'

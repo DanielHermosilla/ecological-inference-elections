@@ -26,8 +26,8 @@ This constructor creates an \code{eim} S3 object, either by using matrices
 groups) required by the underlying Expectation-Maximization algorithm.
 }
 \details{
-If \code{X} and \code{W} are directly supplied, they must match the correct
-dimensions of ballot boxes (b). Alternatively, if \code{json_path} is provided, the function expects
+If \code{X} and \code{W} are directly supplied, they must match the
+dimensions of ballot boxes \code{(b)}. Alternatively, if \code{json_path} is provided, the function expects
 the JSON file to contain elements named \code{"X"} and \code{"W"} under the
 top-level object. This two approaches are \strong{mutually exclusable}, yielding an error otherwise.
 
@@ -36,10 +36,7 @@ the low-level (C-based) API, ensuring the data is correctly registered for
 further processing by the EM algorithm.
 }
 \note{
-For an alternative way to generate \code{X} and \code{W}, you can use the
-\link{simulate_election} function, which provides parameters
-for controlling the underlying distributions of votes.
-Afterwards, you may pass the resulting matrices to \code{eim()}.
+A way to generate synthetic data for \code{X} and \code{W} is by using the \link{simulate_election} function. See Example 2 below.
 }
 \section{Methods}{
 
@@ -80,29 +77,30 @@ sim_result <- simulate_election(
 model2 <- eim(X = sim_result$X, W = sim_result$W)
 
 # Example 3: Create an object from a user defined matrix with 8 ballot boxes,
-2 candidates and 7 groups.
+# 2 candidates and 7 groups.
 
 x_mat <- matrix(c(
-    10, 20,
-    15, 25,
-    12, 22,
-	   15, 10,
-	   11, 32,
-	   7,  20,
-    13, 13,
-    18, 22,
+    57, 90,
+    60, 84,
+    43, 102,
+    72, 71,
+    63, 94,
+    52, 80,
+    60, 72,
+    54, 77,
 ), nrow = 8, ncol = 2, byrow = TRUE)
 
 w_mat <- matrix(c(
-    100, 150, 200, 250, 300, 187, 87,
-    110, 160, 210, 260, 310, 193, 243,
-    120, 170, 220, 270, 320, 403, 300,
-    143, 220, 173, 382, 123, 281, 102,
-    173, 222, 101, 109, 532, 102, 87,
-    105, 152, 251, 143, 432, 102, 100,
-    104, 129, 205, 192, 124, 224, 107,
-    107, 204, 228, 324, 129, 234, 54
+    10, 15, 25, 21, 10, 40, 26,
+    11, 21, 37, 32, 8, 23, 12,
+    17, 12, 43, 27, 12, 19, 15,
+    20, 18, 25, 15, 22, 17, 26,
+    21, 19, 27, 16, 23, 22, 29,
+    18, 16, 20, 14, 19, 22, 23,
+    10, 15, 21, 18, 20, 16, 32,
+    12, 17, 19, 22, 15, 18, 28
 ), nrow = 8, ncol = 7, byrow = TRUE)
 
 model3 <- eim(X = x_mat, W = w_mat)
+
 }

@@ -1,40 +1,36 @@
-#' eimodel: Methods for "A Fast Ecological Inference Algorithm for the RxC case"
+#' fastei: Methods for "A Fast Ecological Inference Algorithm for the R\eqn{\times}C case"
 #'
-#' Addressing the \eqn{R \times C} ecological inference problem is challenging due to
-#' the variety of possible approaches, including parametric probability models,
-#' entropy maximization, or mathematical programming. The package includes methods to solve the \eqn{R \times C} Ecological Inference problem for the non-parametric case based on the Expectation-Maximization (EM) algorithm.
-#' Although the *M*-step can be solved
-#' in closed form, the *E*-step can involve an exponential number of computations.
+#' Package that implements the methods of [Thraves, C. and Ubilla, P. (2024): *"A Fast Ecological Inference Algorithm for the R×C Case"*.](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834)
 #'
-#' The `eimodel` package provides multiple methods to estimate the *E*-step
-#' in an EM algorithm for the standard \eqn{R \times C} ecological inference problem.
-#' It also offers a function to simulate elections under diverse parameters. These
-#' methods, which can be accessed via the `eim` object, include:
+#' Includes a method ([run_em]) to solve the R\eqn{\times}C Ecological Inference problem for the non-parametric case by using the EM algorithm with different approximation methods for the *E*-Step. The standard deviation of the estimated probabilities can be computed using bootstrapping ([bootstrap]).
 #'
-#' - **Hit and Run** `(H&R)`: Simulates a subset of samples to approximate the exact solution.
-#' - **Multivariate Normal PDF** `(MVN PDF)`: Approximates the *E*-step using a multivariate normal PDF.
-#' - **Multivariate Normal CDF** `(MVN CDF)`: Uses the CDF of a multivariate normal distribution to approximate probabilities.
-#' - **Multinomial** `(Mult)`: Approximates the *E*-step with a multinomial distribution.
-#' - **Exact**: Solves the determinant approach directly.
+#' It also provides a function that generates synthetic election data ([simulate_election]) and a function that imports real election data from the Chilean first-round presidential election of 2021.
 #'
-#' On average, the `Multinomial` method tends to be the most efficient and precise,
-#' often yielding the lowest mean absolute error (MAE). Its runtime
-#' is roughly on the order of \eqn{10^{-5}} seconds.
+#' The setting in which the documentation presents the Ecological Inference problem is an election context where for a set of ballot-boxes we observe (i) the votes obtained by each candidate and (ii) the number of voters of each demographic group (for example, these can be defined by age ranges or sex). See [Thraves, C. and Ubilla, P. (2024): *"A Fast Ecological Inference Algorithm for the R×C Case"*.](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834)
 #'
-#' To learn more about `eimodel`, please consult the available vignettes:
+#' The methods to compute the conditional probabilities of the *E*-Step included in this package are the following:
+#' - **Hit and Run** `(hnr)`: Performs MCMC to sample vote outcomes for each ballot-box consistent with the observed data. This sample is used to estimate the conditional probability of the *E*-Step.
+#' - **Multivariate Normal PDF** `(mvn_pdf)`: Uses the PDF of a Multivariate Normal to approximate the conditional probability.
+#' - **Multivariate Normal CDF** `(mvn_cdf)`: Uses the CDF of a Multivariate Normal to approximate the conditional probability.
+#' - **Multinomial** `(mult)`: A single Multinomial is used to approximate the sum of Multinomial distributions.
+#' - **Exact** `(exact)`: Solves the *E*-Step exactly using the Total Probability Law, which requires enumerating an exponential number of terms.
+#'
+#' On average, the **Multinomial** method is the most efficient and precise. Its precision matches the **Exact** method.
+#'
+#' To learn more about `fastei`, please consult the available vignettes:
 #'
 #' \preformatted{
-#' browseVignettes("eimodel")
+#' browseVignettes("fastei")
 #' }
 #'
 #' @references
-#' [Thraves, C. and Ubilla, P.: *"A Fast Ecological Inference Algorithm for the R×C Case"*.](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834)
+#' [Thraves, C. and Ubilla, P. (2024): *"A Fast Ecological Inference Algorithm for the R×C Case"*.](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834)
 #' @aliases NULL
 #' @concept package
 "_PACKAGE"
 
 ## usethis namespace: start
 ## usethis namespace: end
-#' @useDynLib eimodel, .registration = TRUE
+#' @useDynLib fastei, .registration = TRUE
 # @importFrom Rcpp evalCpp
 NULL

@@ -1,5 +1,5 @@
-Package: eimodel 
-Title: A fast alternative for the R x C ecological inference problem. 
+Package: fastei 
+Title: Methods for "A Fast Ecological Inference Algorithm for the RxC case"
 Version: 0.0.0.1
 Author: Charles Thraves, Pablo Ubilla, Daniel Hermosilla
 Maintainer: Daniel Hermosilla <daniel.hermosilla.r@ug.uchile.cl>

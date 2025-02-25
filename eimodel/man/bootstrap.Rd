@@ -9,27 +9,32 @@ bootstrap(
  X = NULL,
  W = NULL,
  json_path = NULL,
- nboot = 50
+ nboot = 50,
+ seed = NULL
  ...
 )
 }
 \arguments{
-\item{object}{An object of class \code{eim}, which can be created using the \link{eim} function.
-This parameter should not be called if you prefer to supply the \code{X} and \code{W} matrices or a \code{json_path}.}
+\item{object}{An object of class \code{eim}, which can be created using the \link{eim} function. This parameter should not be used if either (i) \code{X} and \code{W} matrices or (ii) \code{json_path} is supplied. See \strong{Note}.}
+
+\item{X}{A \verb{(b x c)} matrix representing candidate votes per ballot box.}
+
+\item{W}{A \verb{(b x g)} matrix representing group votes per ballot box.}
+
+\item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays.}
 
 \item{nboot}{Integer specifying how many times to run the
 EM algorithm.}
 
+\item{seed}{If provided, overrides the current global seed. Defaults to \code{NULL}.}
+
 \item{...}{Additional arguments passed to the \link{run_em} function that will execute the EM algorithm.}
 }
 \value{
-Returns an 'eim' object with the 'sd' field containing the estimated standard deviations of the probabilities. If an 'eim' object is provided, its attributes (see \link{run_em} are retained in the returned object.
+Returns an \code{eim} object with the \code{sd} field containing the estimated standard deviations of the probabilities. If an \code{eim} object is provided, its attributes (see \link{run_em}) are retained in the returned object.
 }
 \description{
-This function computes the Expected-Maximization (EM) algorithm "\code{nboot}" times by sampling,
-with replacement, all of the ballot boxes out of the original data for each
-iteration. A new sample is drawn for every iteration, and from all of these iterations,
-the \strong{standard deviation} of the estimated probabilities is computed.
+This function computes the Expected-Maximization (EM) algorithm "\code{nboot}" times. It then computes the standard deviation from the \code{nboot} estimated probability matrices on each component.
 }
 \note{
 This function can be executed using one of three mutually exclusive approaches:

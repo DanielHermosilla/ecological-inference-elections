@@ -20,20 +20,25 @@ run_em(
 )
 }
 \arguments{
-\item{object}{An object of class \code{eim}, which can be created using the \link{eim} function.
-This parameter should not be called if you prefer to supply the \code{X} and \code{W} matrices or a \code{json_path}.}
+\item{object}{An object of class \code{eim}, which can be created using the \link{eim} function. This parameter should not be used if either (i) \code{X} and \code{W} matrices or (ii) \code{json_path} is supplied. See \strong{Note}.}
 
-\item{method}{An optional string specifying the method used for estimating the E-step. Valid
+\item{X}{A \verb{(b x c)} matrix representing candidate votes per ballot box.}
+
+\item{W}{A \verb{(b x g)} matrix representing group votes per ballot box.}
+
+\item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays.}
+
+\item{method}{An optional string specifying the method used for estimating the \emph{E}-step. Valid
 options are:
 \itemize{
-\item \code{mult}: The default method, using a Multinomial distribution.
-\item \code{mvn_cdf}: Uses a Multivariate Normal CDF distribution.
-\item \code{mvn_pdf}: Uses a Multivariate Normal PDF distribution.
-\item \code{hnr}: Uses importance sampling to approximate the exact solution.
-\item \code{exact}: Uses the determinant approach.
+\item \code{mult}: The default method, using a single sum of Multinomial distributions.
+\item \code{mvn_cdf}: Uses a Multivariate Normal CDF distribution to approximate the conditional probability.
+\item \code{mvn_pdf}: Uses a Multivariate Normal PDF distribution to approximate the conditional probability.
+\item \code{hnr}: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the \emph{E}-step.
+\item \code{exact}: Solves the \emph{E}-step using the Total Probability Law.
 }
 
-For a detailed description of each method, see \strong{References}.}
+For a detailed description of each method, see \link{fastei-package} and \strong{References}.}
 
 \item{initial_prob}{An optional string specifying the method used to obtain the initial
 probability. Accepted values are:
@@ -45,45 +50,45 @@ probability. Accepted values are:
 
 \item{mismatch}{Boolean, if \code{TRUE} allows a mismatch between the voters and votes for each ballot-box, only works if method is \code{mvn_cdf}, \code{mvn_pdf}, and \code{mult}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{FALSE}.}
 
-\item{maxiter}{An optional integer indicating the maximum number of Expected-Maximization algorithm iterations.
+\item{maxiter}{An optional integer indicating the maximum number of EM iterations.
 The default value is \code{1000}.}
 
 \item{maxtime}{An optional numeric specifying the maximum running time (in seconds) for the
 algorithm. This is checked at every iteration of the EM algorithm. The default value is \code{3600}, which corresponds to an hour.}
 
 \item{stop_threshold}{An optional numeric value indicating the minimum difference between
-consecutive probability estimates required to stop iterating. The default value is \code{0.001}.}
+consecutive log-likelihood values required to stop iterating. The default value is \code{0.001}.}
 
-\item{verbose}{An optional boolean indicating whether to print informational messages during
-iteration. The default value is \code{FALSE}.}
+\item{verbose}{An optional boolean indicating whether to print informational messages during the EM
+iterations. The default value is \code{FALSE}.}
 
 \item{step_size}{An optional integer specifying the step size for the \code{hnr}
-algorithm. This parameter is only applicable when using the \code{hnr} method and will
+algorithm. This parameter is only applicable when \code{method = hnr} and will
 be ignored otherwise. The default value is \code{3000}.}
 
 \item{samples}{An optional integer indicating the number of samples to generate for the
-\strong{Hit and Run} method. This parameter is only relevant when the \code{hnr} method is selected.
+\strong{Hit and Run} method. This parameter is only relevant when \code{method = hnr}.
 The default value is \code{1000}.}
 
 \item{mc_method}{An optional string specifying the method used to estimate the \code{mvn_cdf} method
 via a Monte Carlo simulation. Accepted values are \code{genz} and \code{genz2}, with \code{genz2}
-set as the default. This parameter is only applicable when using the \code{mvn_cdf} method. See \strong{References} for more details.}
+set as the default. This parameter is only applicable when \code{method = mvn_cdf}. See \strong{References} for more details.}
 
 \item{mc_error}{An optional numeric value defining the error threshold for the Monte Carlo
 simulation when estimating the \code{mvn_cdf} method. The default value is \code{1e-6}. This parameter is only relevant
-when the method is \code{mvn_cdf}.}
+when \code{method = mvn_cdf}.}
 
 \item{mc_samples}{An optional integer specifying the number of Monte Carlo
-samples for the \code{mvn_cdf} method. The default value is \code{5000}. This argument is only applicable when the method is \code{mvn_cdf}.}
+samples for the \code{mvn_cdf} method. The default value is \code{5000}. This argument is only applicable when \code{method = mvn_cdf}.}
 }
 \value{
-The function updates (or creates) the input object by adding the following attributes:
+The function returns an 'eim' object with the following attributes:
 \describe{
-\item{prob}{The estimated probability matrix.}
-\item{cond_prob}{The probability that a voter of group \code{g} in ballot box \code{b} voted for candidate \code{c} conditional on observed result. Stored as an array of \verb{(g x c)} matrices.}
-\item{logLik}{An array containing the log-likelihood values from each iteration.}
+\item{prob}{The estimated probability matrix \verb{(g x c)}.}
+\item{cond_prob}{A \verb{(b x g x c)} 3d-array with the probability that a at each ballot-box a voter of each group voted for each candidate, given the observed outcome at the particular ballot-box.}
+\item{logLik}{The log-likelihood value from the last iteration.}
 \item{iterations}{The total number of iterations performed by the EM algorithm.}
-\item{time}{The total execution time of the algorithm.}
+\item{time}{The total execution time of the algorithm in seconds.}
 \item{status}{
 The final status ID of the algorithm upon completion:
 \itemize{
@@ -93,13 +98,13 @@ The final status ID of the algorithm upon completion:
 }
 }
 \item{message}{The finishing status displayed as a message.}
-\item{method}{The method used for estimating the E-step.}
+\item{method}{The method for estimating the conditional probability in the E-step.}
 }
 Aditionally, it will create \code{samples} and \code{step_size} parameters if the specified method is \code{hnr}, or \code{mc_method}, \code{mc_error} and \code{mc_samples} if the method is \code{mvn_cdf}.
 }
 \description{
 Executes the Expectation-Maximization (EM) algorithm indicating the approximation method to use in the \emph{E}-step.
-Certain methods may require additional arguments, which can be passed through \code{...}.
+Certain methods may require additional arguments, which can be passed through \code{...} (see \link{fastei-package} for more details).
 }
 \note{
 This function can be executed using one of three mutually exclusive approaches:

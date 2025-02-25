@@ -141,17 +141,21 @@
         stop("Either provide X and W matrices, or a valid JSON path containing them.")
     }
 
+    if (!is.matrix(X) || !is.matrix(W)) {
+        stop("'X' and 'W' must be matrices.")
+    }
+
     # Ensure they are matrices
     X <- as.matrix(X)
     W <- as.matrix(W)
 
     # Check matching dimensions
-    # if (!mismatch && nrow(X) != nrow(W)) {
-    #    stop(
-    #        "Mismatch in the number of ballot boxes: 'X' has ", nrow(X),
-    #        " rows, but 'W' has ", nrow(W), " rows."
-    #    )
-    # }
+    if (nrow(X) != nrow(W)) {
+        stop(
+            "Mismatch in the number of ballot boxes: 'X' has ", nrow(X),
+            " rows, but 'W' has ", nrow(W), " rows."
+        )
+    }
 
     # Check minimum column constraints
     if (ncol(X) < 2) {

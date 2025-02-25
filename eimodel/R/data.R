@@ -1,9 +1,8 @@
-#' Chilean 2021 Presidential Election
+#' Chilean 2021 First Round Presidential Election
 #'
-#' This dataset contains the results of the first round of the 2021 Chilean presidential elections.
-#' It provides 9 possible voting options. Each ballot box is identified by a ballot box number
-#' (`BALLOT.BOX`), and an electoral circumscription
-#' (`ELECTORAL.DISTRICT`). Additionally, it provides demographical information of the etary range among voters within ballot boxes.
+#' This dataset contains the results of the first round of the 2021 Chilean presidential elections. It provides
+#' 9 possible voting options (7 candidates, blank, and null). Each ballot-box is identified by its id (`BALLOT.BOX`) and an electoral circumscription
+#' (`ELECTORAL.DISTRICT`). Additionally, it provides demographic information on voters' age range for each ballot box.
 #'
 #' @docType data
 #' @usage data("chile_election_2021")
@@ -12,13 +11,13 @@
 #' \describe{
 #'   \item{\code{ELECTORAL.DISTRICT}}{The electoral circumscription of the ballot box.}
 #'   \item{\code{BALLOT.BOX}}{An identifier for the ballot box within the \code{ELECTORAL.DISTRICT}.}
-#'   \item{\code{C1}}{The number of votes cast for the candidate *Eduardo Artés*.}
-#'   \item{\code{C2}}{The number of votes cast for the candidate *Franco Parisi*.}
-#'   \item{\code{C3}}{The number of votes cast for the candidate *Gabriel Boric*.}
-#'   \item{\code{C4}}{The number of votes cast for the candidate *José Antonio Kast*.}
-#'   \item{\code{C5}}{The number of votes cast for the candidate *Marco Enríquez-Ominami*.}
-#'   \item{\code{C6}}{The number of votes cast for the candidate *Sebastián Sichel*.}
-#'   \item{\code{C7}}{The number of votes cast for the candidate *Yasna Provoste*.}
+#'   \item{\code{C1}}{The number of votes cast for the candidate *Gabriel Boric*.}
+#'   \item{\code{C2}}{The number of votes cast for the candidate *José Antonio Kast*.}
+#'   \item{\code{C3}}{The number of votes cast for the candidate *Yasna Provoste*.}
+#'   \item{\code{C4}}{The number of votes cast for the candidate *Sebastián Sichel*.}
+#'   \item{\code{C5}}{The number of votes cast for the candidate *Eduardo Artés*.}
+#'   \item{\code{C6}}{The number of votes cast for the candidate *Marco Enríquez-Ominami*.}
+#'   \item{\code{C7}}{The number of votes cast for the candidate *Franco Parisi*.}
 #'   \item{\code{BLANK.VOTES}}{The number of blank votes.}
 #'   \item{\code{NULL.VOTES}}{The number of null votes.}
 #'   \item{\code{X18.19}}{Number of voters aged 18--19.}
@@ -29,7 +28,7 @@
 #'   \item{\code{X60.69}}{Number of voters aged 60--69.}
 #'   \item{\code{X70.79}}{Number of voters aged 70--79.}
 #'   \item{\code{X80.}}{Number of voters aged 80 and older.}
-#'   \item{\code{MISMATCH}}{Boolean that shows whether a ballot box has a mismatch between candidate and group votes.}
+#'   \item{\code{MISMATCH}}{Boolean that takes value `TRUE` if the ballot-box has a mismatch between the total number of votes and the total number of voters. If this is not the case, its value is `FALSE`.}
 #' }
 #'
 #' @keywords datasets
