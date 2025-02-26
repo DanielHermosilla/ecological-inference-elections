@@ -10,9 +10,20 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// EMAlgorithmAll
-Rcpp::List EMAlgorithmAll(Rcpp::String em_method, Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector verbose);
-RcppExport SEXP _eimodel_EMAlgorithmAll(SEXP em_methodSEXP, SEXP probability_methodSEXP, SEXP maximum_iterationsSEXP, SEXP maximum_secondsSEXP, SEXP stopping_thresholdSEXP, SEXP verboseSEXP) {
+// RsetParameters
+void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix);
+RcppExport SEXP _fastei_RsetParameters(SEXP candidate_matrixSEXP, SEXP group_matrixSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type candidate_matrix(candidate_matrixSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type group_matrix(group_matrixSEXP);
+    RsetParameters(candidate_matrix, group_matrix);
+    return R_NilValue;
+END_RCPP
+}
+// EMAlgorithmFull
+Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter);
+RcppExport SEXP _fastei_EMAlgorithmFull(SEXP em_methodSEXP, SEXP probability_methodSEXP, SEXP maximum_iterationsSEXP, SEXP maximum_secondsSEXP, SEXP stopping_thresholdSEXP, SEXP verboseSEXP, SEXP step_sizeSEXP, SEXP samplesSEXP, SEXP monte_methodSEXP, SEXP monte_errorSEXP, SEXP monte_iterSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -22,118 +33,23 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type maximum_seconds(maximum_secondsSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type stopping_threshold(stopping_thresholdSEXP);
     Rcpp::traits::input_parameter< Rcpp::LogicalVector >::type verbose(verboseSEXP);
-    rcpp_result_gen = Rcpp::wrap(EMAlgorithmAll(em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, verbose));
-    return rcpp_result_gen;
-END_RCPP
-}
-// EMAlgorithmCDF
-Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector verbose, Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter);
-RcppExport SEXP _eimodel_EMAlgorithmCDF(SEXP probability_methodSEXP, SEXP maximum_iterationsSEXP, SEXP maximum_secondsSEXP, SEXP stopping_thresholdSEXP, SEXP verboseSEXP, SEXP monte_methodSEXP, SEXP monte_errorSEXP, SEXP monte_iterSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::String >::type probability_method(probability_methodSEXP);
-    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type maximum_iterations(maximum_iterationsSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type maximum_seconds(maximum_secondsSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type stopping_threshold(stopping_thresholdSEXP);
-    Rcpp::traits::input_parameter< Rcpp::LogicalVector >::type verbose(verboseSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type step_size(step_sizeSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type samples(samplesSEXP);
     Rcpp::traits::input_parameter< Rcpp::String >::type monte_method(monte_methodSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type monte_error(monte_errorSEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type monte_iter(monte_iterSEXP);
-    rcpp_result_gen = Rcpp::wrap(EMAlgorithmCDF(probability_method, maximum_iterations, maximum_seconds, stopping_threshold, verbose, monte_method, monte_error, monte_iter));
+    rcpp_result_gen = Rcpp::wrap(EMAlgorithmFull(em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, verbose, step_size, samples, monte_method, monte_error, monte_iter));
     return rcpp_result_gen;
-END_RCPP
-}
-// EMAlgorithmHitAndRun
-Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples);
-RcppExport SEXP _eimodel_EMAlgorithmHitAndRun(SEXP probability_methodSEXP, SEXP maximum_iterationsSEXP, SEXP maximum_secondsSEXP, SEXP stopping_thresholdSEXP, SEXP verboseSEXP, SEXP step_sizeSEXP, SEXP samplesSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::String >::type probability_method(probability_methodSEXP);
-    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type maximum_iterations(maximum_iterationsSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type maximum_seconds(maximum_secondsSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type stopping_threshold(stopping_thresholdSEXP);
-    Rcpp::traits::input_parameter< Rcpp::LogicalVector >::type verbose(verboseSEXP);
-    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type step_size(step_sizeSEXP);
-    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type samples(samplesSEXP);
-    rcpp_result_gen = Rcpp::wrap(EMAlgorithmHitAndRun(probability_method, maximum_iterations, maximum_seconds, stopping_threshold, verbose, step_size, samples));
-    return rcpp_result_gen;
-END_RCPP
-}
-// RprecomputeHR
-void RprecomputeHR(Rcpp::IntegerVector samples, Rcpp::IntegerVector step_size);
-RcppExport SEXP _eimodel_RprecomputeHR(SEXP samplesSEXP, SEXP step_sizeSEXP) {
-BEGIN_RCPP
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type samples(samplesSEXP);
-    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type step_size(step_sizeSEXP);
-    RprecomputeHR(samples, step_size);
-    return R_NilValue;
-END_RCPP
-}
-// RprecomputeExact
-void RprecomputeExact();
-RcppExport SEXP _eimodel_RprecomputeExact() {
-BEGIN_RCPP
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    RprecomputeExact();
-    return R_NilValue;
-END_RCPP
-}
-// RsetParameters
-void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix);
-RcppExport SEXP _eimodel_RsetParameters(SEXP candidate_matrixSEXP, SEXP group_matrixSEXP) {
-BEGIN_RCPP
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type candidate_matrix(candidate_matrixSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type group_matrix(group_matrixSEXP);
-    RsetParameters(candidate_matrix, group_matrix);
-    return R_NilValue;
-END_RCPP
-}
-// clean_exact_precompute
-void clean_exact_precompute();
-RcppExport SEXP _eimodel_clean_exact_precompute() {
-BEGIN_RCPP
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    clean_exact_precompute();
-    return R_NilValue;
-END_RCPP
-}
-// clean_hr_precompute
-void clean_hr_precompute();
-RcppExport SEXP _eimodel_clean_hr_precompute() {
-BEGIN_RCPP
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    clean_hr_precompute();
-    return R_NilValue;
-END_RCPP
-}
-// clean_everything
-void clean_everything();
-RcppExport SEXP _eimodel_clean_everything() {
-BEGIN_RCPP
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    clean_everything();
-    return R_NilValue;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_eimodel_EMAlgorithmAll", (DL_FUNC) &_eimodel_EMAlgorithmAll, 6},
-    {"_eimodel_EMAlgorithmCDF", (DL_FUNC) &_eimodel_EMAlgorithmCDF, 8},
-    {"_eimodel_EMAlgorithmHitAndRun", (DL_FUNC) &_eimodel_EMAlgorithmHitAndRun, 7},
-    {"_eimodel_RprecomputeHR", (DL_FUNC) &_eimodel_RprecomputeHR, 2},
-    {"_eimodel_RprecomputeExact", (DL_FUNC) &_eimodel_RprecomputeExact, 0},
-    {"_eimodel_RsetParameters", (DL_FUNC) &_eimodel_RsetParameters, 2},
-    {"_eimodel_clean_exact_precompute", (DL_FUNC) &_eimodel_clean_exact_precompute, 0},
-    {"_eimodel_clean_hr_precompute", (DL_FUNC) &_eimodel_clean_hr_precompute, 0},
-    {"_eimodel_clean_everything", (DL_FUNC) &_eimodel_clean_everything, 0},
+    {"_fastei_RsetParameters", (DL_FUNC) &_fastei_RsetParameters, 2},
+    {"_fastei_EMAlgorithmFull", (DL_FUNC) &_fastei_EMAlgorithmFull, 11},
     {NULL, NULL, 0}
 };
 
-RcppExport void R_init_eimodel(DllInfo *dll) {
+RcppExport void R_init_fastei(DllInfo *dll) {
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);
 }

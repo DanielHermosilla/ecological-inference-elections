@@ -306,77 +306,50 @@ run_em <- function(object = NULL,
     if (is.null(object)) {
         object <- eim(X, W, json_path)
     } else if (!inherits(object, "eim")) {
-        stop("run_em: The object must be initialized with the `eim()` function.")
+        stop("run_em: The object must be initialized with the eim() function.")
     }
 
     # Note: Mismatch restricted methods are checked inside .validate_compute
-    if (!mismatch && rowSums(X) != rowSums(W)) {
+    if (!mismatch && (sum(X) != sum(W))) {
         stop(
-            "run_em: Mismatch in the number of votes: 'X' has ", rowSums(X),
-            " votes, but 'W' has ", rowSums(W), " rows. To allow a mismatch, set the argument to TRUE."
+            "run_em: Mismatch in the number of votes: 'X' has ", sum(X),
+            " votes, but 'W' has ", sum(W), " rows. To allow a mismatch, set the argument to TRUE."
         )
     }
 
-    RsetParameters(t(object$X), object$W) # TODO: Decide whether to set it on the object constructor or here.
     object$method <- method
 
+    # Default values
     if (method == "hnr") {
-        # ========= HIT AND RUN ========= #
-        # Step size: If not provided use 3000 as default
+        # Step size
         object$step_size <- as.integer(if ("step_size" %in% names(all_params)) all_params$step_size else 3000)
-        # Samples: If not provided use 1000 as default
+        # Samples
         object$samples <- as.integer(if ("samples" %in% names(all_params)) all_params$samples else 1000)
-        # Run the EM algorithm for the Hit and Run method.
-        resulting_values <- EMAlgorithmHitAndRun(
-            initial_prob,
-            maxiter,
-            maxtime,
-            stop_threshold,
-            verbose,
-            object$step_size,
-            object$samples
-        )
-        # IMPORTANT: Deallocates memory from C
-        clean_hr_precompute()
     } else if (method == "mvn_cdf") {
-        # ========= MVN CDF ========= #
-        # Mc_method: If not provided, use 'genz2' as default
+        # Montecarlo method
         object$mc_method <- if ("mc_method" %in% names(all_params)) all_params$mc_method else "genz2"
-        # Mc_samples: If not provided, use 5000 as default
+        # Montecarlo samples
         object$mc_samples <- if ("mc_samples" %in% names(all_params)) all_params$mc_samples else 5000
-        # Mc_error: If not provided, use 1e-6 as default
+        # Montecarlo error
         object$mc_error <- if ("mc_error" %in% names(all_params)) all_params$mc_error else 1e-6
-
-        # Run the EM algorithm for the MVN CDF method.
-        resulting_values <- EMAlgorithmCDF(
-            initial_prob,
-            maxiter,
-            maxtime,
-            stop_threshold,
-            verbose,
-            object$mc_method,
-            object$mc_error,
-            object$mc_samples
-        )
-    } else {
-        # ==== MULTINOMIAL | MVN PDF | EXACT ==== #
-        # Run the EM algorithm
-        resulting_values <- EMAlgorithmAll(
-            method,
-            initial_prob,
-            maxiter,
-            maxtime,
-            stop_threshold,
-            verbose
-        )
-
-        # IMPORTANT: If the method is exact, clean the exact set
-        if (method == "exact") clean_exact_precompute()
     }
-    # ---------- ... ---------- #
-    # IMPORTANT: Deallocates memory from C
-    clean_everything()
 
+    RsetParameters(t(object$X), object$W)
+
+    resulting_values <- EMAlgorithmFull(
+        method,
+        initial_prob,
+        maxiter,
+        maxtime,
+        stop_threshold,
+        verbose,
+        as.integer(if (!is.null(object$samples)) object$samples else 3000),
+        as.integer(if (!is.null(object$step_size)) object$step_size else 1000),
+        if (!is.null(object$mc_method)) object$mc_method else "genz2",
+        as.numeric(if (!is.null(object$mc_samples)) object$mc_samples else 5000),
+        as.numeric(if (!is.null(object$mc_error)) object$mc_error else 1e-6)
+    )
+    # ---------- ... ---------- #
 
     object$prob <- as.matrix(resulting_values$result)
     object$logLik <- as.numeric(resulting_values$log_likelihood)

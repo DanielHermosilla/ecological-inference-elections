@@ -45,11 +45,10 @@ extern "C"
      *
      * @param[in] M. The step size between consecutive samples. Note that the direction is assigned randomly.
      * @param[in] S. The amount of samples for each ballot box.
-     * @param[in] seedNum. An arbitrary number to seed the process.
      *
      * @return void. Written on the global variable.
      */
-    void generateOmegaSet(int M, int S, unsigned int seedNum);
+    void generateOmegaSet(int M, int S);
 
     void preComputeMultinomial();
     void cleanHitAndRun();

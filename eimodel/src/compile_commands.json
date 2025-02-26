@@ -1,0 +1,71 @@
+[
+  {
+    "arguments": [
+      "/usr/local/opt/llvm/bin/clang++",
+      "-std=gnu++17",
+      "-I/usr/local/Cellar/r/4.4.2_2/lib/R/include",
+      "-DNDEBUG",
+      "-I/usr/local/lib/R/4.4/site-library/Rcpp/include",
+      "-I/usr/local/opt/gettext/include",
+      "-I/usr/local/opt/readline/include",
+      "-I/usr/local/opt/xz/include",
+      "-I/usr/local/include",
+      "-fPIC",
+      "-g",
+      "-O2",
+      "-c",
+      "-o",
+      "RcppExports.o",
+      "RcppExports.cpp"
+    ],
+    "directory": "/Users/daniel/eimodel/src",
+    "file": "/Users/daniel/eimodel/src/RcppExports.cpp",
+    "output": "/Users/daniel/eimodel/src/RcppExports.o"
+  },
+  {
+    "arguments": [
+      "/usr/local/opt/llvm/bin/clang",
+      "-I/usr/local/Cellar/r/4.4.2_2/lib/R/include",
+      "-DNDEBUG",
+      "-I/usr/local/lib/R/4.4/site-library/Rcpp/include",
+      "-I/usr/local/opt/gettext/include",
+      "-I/usr/local/opt/readline/include",
+      "-I/usr/local/opt/xz/include",
+      "-I/usr/local/include",
+      "-fopenmp",
+      "-fPIC",
+      "-g",
+      "-O2",
+      "-c",
+      "-o",
+      "exact.o",
+      "exact.c"
+    ],
+    "directory": "/Users/daniel/eimodel/src",
+    "file": "/Users/daniel/eimodel/src/exact.c",
+    "output": "/Users/daniel/eimodel/src/exact.o"
+  },
+  {
+    "arguments": [
+      "/usr/local/opt/llvm/bin/clang",
+      "-I/usr/local/Cellar/r/4.4.2_2/lib/R/include",
+      "-DNDEBUG",
+      "-I/usr/local/lib/R/4.4/site-library/Rcpp/include",
+      "-I/usr/local/opt/gettext/include",
+      "-I/usr/local/opt/readline/include",
+      "-I/usr/local/opt/xz/include",
+      "-I/usr/local/include",
+      "-fopenmp",
+      "-fPIC",
+      "-g",
+      "-O2",
+      "-c",
+      "-o",
+      "hitAndRun.o",
+      "hitAndRun.c"
+    ],
+    "directory": "/Users/daniel/eimodel/src",
+    "file": "/Users/daniel/eimodel/src/hitAndRun.c",
+    "output": "/Users/daniel/eimodel/src/hitAndRun.o"
+  }
+]

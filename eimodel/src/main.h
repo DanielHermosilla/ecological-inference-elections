@@ -115,7 +115,7 @@ extern "C"
      */
     Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
                       const double maxSeconds, const bool verbose, double *time, int *iterTotal, double *logLLarr,
-                      int *finishing_reason, QMethodInput params);
+                      double **qVal, int *finishing_reason, QMethodInput params);
 
     /**
      * @brief Checks if a candidate didn't receive any votes.
@@ -129,7 +129,6 @@ extern "C"
      * @return bool: A boolean that shows if it exists a candidate with no votes
      *
      */
-    //   bool noVotes(int *canArray);
     void cleanup();
 #ifdef __cplusplus
 }

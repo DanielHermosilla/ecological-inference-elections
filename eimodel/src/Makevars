@@ -13,3 +13,4 @@ endif
 # Remap the current directory to a dot so that absolute paths are replaced
 CFLAGS += -fdebug-prefix-map=$(CURDIR)=.
 CXXFLAGS += -fdebug-prefix-map=$(CURDIR)=.
+

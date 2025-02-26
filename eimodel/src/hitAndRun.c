@@ -75,11 +75,10 @@ Matrix startingPoint(int b)
  *
  * @param[in] M. The step size between consecutive samples. Note that the direction is assigned randomly.
  * @param[in] S. The amount of samples for each ballot box.
- * @param[in] seedNum. An arbitrary number to seed the process.
  *
  * @return void. Written on the global variable.
  */
-void generateOmegaSet(int M, int S, unsigned int seedNum)
+void generateOmegaSet(int M, int S)
 {
     // ---- Allocate memory for the `b` index ----
     OMEGASET = Calloc(TOTAL_BALLOTS, OmegaSet *);
@@ -96,7 +95,8 @@ void generateOmegaSet(int M, int S, unsigned int seedNum)
      * benefits.
      */
 
-    /* UPDATE:
+    /*
+     * UPDATE:
      * It may be useful but dangerous to create a RNG pool before looping. It may be much faster, however
      * the randomn numbers are dinamically asigned.
      *
@@ -309,7 +309,7 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params)
     // ---- Compute the variables that can be reused ---- //
     if (OMEGASET == NULL)
     {
-        generateOmegaSet(params.M, params.S, 2);
+        generateOmegaSet(params.M, params.S);
     }
     if (multinomialVals == NULL)
     {

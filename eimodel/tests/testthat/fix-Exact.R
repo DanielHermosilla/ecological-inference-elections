@@ -1,9 +1,9 @@
-library(eimodel)
+library(fastei)
 
 tests <- 50
 results <- vector("list", tests)
 for (i in 1:tests) {
-    results[[i]] <- eimodel:::.random_samples(
+    results[[i]] <- fastei:::.random_samples(
         c(30, 50), # Ballots range
         c(2, 4), # Candidates range
         c(2, 4), # Demographic group range

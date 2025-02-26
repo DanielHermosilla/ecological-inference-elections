@@ -31,225 +31,6 @@ SOFTWARE.
 #include <vector>
 
 // [[Rcpp::export]]
-Rcpp::List EMAlgorithmAll(Rcpp::String em_method, Rcpp::String probability_method,
-                          Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
-                          Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector verbose)
-{
-    // ---- Get the initial probability ---- //
-    std::string probabilityM = probability_method;
-    Matrix pIn = getInitialP(probability_method.get_cstring());
-    // ---...--- //
-
-    // ---- Define the main parameters ---- //
-    QMethodInput inputParams = {0};
-    double timeIter = 0;
-    int totalIter = 0;
-    int finish = 0;
-    double *logLLarr = (double *)R_alloc(maximum_iterations[0], sizeof(double));
-    // ---...--- //
-
-    std::string EMAlg = em_method;
-    Matrix Pnew = EMAlgoritm(&pIn, EMAlg.c_str(), stopping_threshold[0], maximum_iterations[0], maximum_seconds[0],
-                             verbose[0], &timeIter, &totalIter, logLLarr, &finish, inputParams);
-    freeMatrix(&pIn);
-    std::string stopping_reason;
-
-    switch (finish)
-    {
-    case 0:
-        stopping_reason = "Convergence achieved";
-        break;
-    case 1:
-        stopping_reason = "Maximum time reached";
-        break;
-    case 2:
-        stopping_reason = "Maximum iterations reached";
-        break;
-        /*
-    case 1:
-        stopping_reason = "Log-likelihood decrease";
-        break;
-        */
-    default:
-        stopping_reason = "Unknown";
-        break;
-    }
-
-    if (verbose[0])
-    {
-        Rprintf("\nThe calculated matrix is\n");
-        printMatrix(&Pnew);
-        Rprintf("\nIt took %.5f seconds to run with a log-likelihood of %.5f.\n", timeIter, logLLarr[totalIter]);
-        Rprintf("\nThe reason why the algorithm ended was:\t'%s'\n", stopping_reason.c_str());
-    }
-
-    // ---- Return the results ---- //
-    // ---- Final probability ----
-    Rcpp::NumericMatrix RfinalProbability(Pnew.rows, Pnew.cols, Pnew.data);
-    freeMatrix(&Pnew);
-
-    // ---- Final log-likelihood array ----
-    totalIter++;
-    Rcpp::NumericVector RlogLikelihood(logLLarr, logLLarr + totalIter);
-
-    return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = RlogLikelihood,
-                              Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter,
-                              Rcpp::_["stopping_reason"] = stopping_reason, Rcpp::_["finish_id"] = finish);
-    // ---...--- //
-}
-
-// [[Rcpp::export]]
-Rcpp::List EMAlgorithmCDF(Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations,
-                          Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold,
-                          Rcpp::LogicalVector verbose, Rcpp::String monte_method, Rcpp::NumericVector monte_error,
-                          Rcpp::IntegerVector monte_iter)
-{
-    // ---- Get the initial probability ---- //
-    std::string probabilityM = probability_method;
-    Matrix pIn = getInitialP(probability_method.get_cstring());
-    // ---...--- //
-
-    // ---- Define the main parameters ---- //
-    std::string monteMethod = monte_method;
-    QMethodInput inputParams = {
-        .monteCarloIter = monte_iter[0], .errorThreshold = monte_error[0], .simulationMethod = monteMethod.c_str()};
-
-    double timeIter = 0;
-    int totalIter = 0;
-    int finish = 0;
-    double *logLLarr = (double *)R_alloc(maximum_iterations[0], sizeof(double));
-    // ---...--- //
-
-    Matrix Pnew = EMAlgoritm(&pIn, "mvn_cdf", stopping_threshold[0], maximum_iterations[0], maximum_seconds[0],
-                             verbose[0], &timeIter, &totalIter, logLLarr, &finish, inputParams);
-    freeMatrix(&pIn);
-    std::string stopping_reason;
-
-    switch (finish)
-    {
-    case 0:
-        stopping_reason = "Convergence achieved";
-        break;
-    case 1:
-        stopping_reason = "Log-likelihood decrease";
-        break;
-    case 2:
-        stopping_reason = "Maximum time reached";
-        break;
-    case 3:
-        stopping_reason = "Maximum iterations reached";
-        break;
-    default:
-        stopping_reason = "Unknown";
-        break;
-    }
-
-    if (verbose[0])
-    {
-        Rprintf("\nThe calculated matrix is\n");
-        printMatrix(&Pnew);
-        Rprintf("\nIt took %.5f seconds to run with a log-likelihood of %.5f.\n", timeIter, logLLarr[totalIter]);
-    }
-
-    // ---- Return the results ---- //
-    // ---- Final probability ----
-    Rcpp::NumericMatrix RfinalProbability(Pnew.rows, Pnew.cols, Pnew.data);
-    freeMatrix(&Pnew);
-
-    // ---- Final log-likelihood array ----
-    totalIter++;
-    Rcpp::NumericVector RlogLikelihood(logLLarr, logLLarr + totalIter);
-
-    return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = RlogLikelihood,
-                              Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter,
-                              Rcpp::_["stopping_reason"] = stopping_reason, Rcpp::_["finish_id"] = finish);
-    // ---...--- //
-}
-
-// [[Rcpp::export]]
-Rcpp::List EMAlgorithmHitAndRun(Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations,
-                                Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold,
-                                Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples)
-{
-    // ---- Get the initial probability ---- //
-    std::string probabilityM = probability_method;
-    Matrix pIn = getInitialP(probability_method.get_cstring());
-    // ---...--- //
-
-    // ---- Define the main parameters ---- //
-    QMethodInput inputParams = {.S = samples[0], .M = step_size[0]};
-    double timeIter = 0;
-    int totalIter = 0;
-    int finish = 0;
-    double *logLLarr = (double *)R_alloc(maximum_iterations[0], sizeof(double));
-    // ---...--- //
-
-    Matrix Pnew = EMAlgoritm(&pIn, "hnr", stopping_threshold[0], maximum_iterations[0], maximum_seconds[0], verbose[0],
-                             &timeIter, &totalIter, logLLarr, &finish, inputParams);
-    freeMatrix(&pIn);
-    std::string stopping_reason;
-
-    switch (finish)
-    {
-    case 0:
-        stopping_reason = "Convergence achieved";
-        break;
-    case 1:
-        stopping_reason = "Log-likelihood decrease";
-        break;
-    case 2:
-        stopping_reason = "Maximum time reached";
-        break;
-    case 3:
-        stopping_reason = "Maximum iterations reached";
-        break;
-    default:
-        stopping_reason = "Unknown";
-        break;
-    }
-
-    if (verbose[0])
-    {
-        Rprintf("\nThe calculated matrix is\n");
-        printMatrix(&Pnew);
-        Rprintf("\nIt took %.5f seconds to run with a log-likelihood of %.5f.\n", timeIter, logLLarr[totalIter]);
-    }
-
-    // ---- Return the results ---- //
-    // ---- Final probability ----
-    Rcpp::NumericMatrix RfinalProbability(Pnew.rows, Pnew.cols, Pnew.data);
-    freeMatrix(&Pnew);
-
-    // ---- Final log-likelihood array ----
-    totalIter++;
-    Rcpp::NumericVector RlogLikelihood(logLLarr, logLLarr + totalIter);
-
-    return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = RlogLikelihood,
-                              Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter,
-                              Rcpp::_["stopping_reason"] = stopping_reason, Rcpp::_["finish_id"] = finish);
-    // ---...--- //
-}
-
-// [[Rcpp::export]]
-void RprecomputeHR(Rcpp::IntegerVector samples, Rcpp::IntegerVector step_size)
-{
-    // ---- Precompute the Omega Set and leave it on the global variable ---- //
-    generateOmegaSet(step_size[0], samples[0], 42); // TODO: Rely on R's seed and randomizer
-    // ---- Precompute a multinomial multiplication that is constant throughout the loops ---- //
-    preComputeMultinomial();
-    return;
-}
-
-// [[Rcpp::export]]
-void RprecomputeExact()
-{
-    // ---- Precompute the H set and the K set and leave it as a global variable ---- //
-    generateHSets();
-    generateKSets();
-    return;
-}
-
-// [[Rcpp::export]]
 void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix)
 {
 
@@ -288,19 +69,98 @@ void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix gr
 }
 
 // [[Rcpp::export]]
-void clean_exact_precompute()
+Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_method,
+                           Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
+                           Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector verbose,
+                           Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method,
+                           Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter)
 {
-    cleanExact();
-}
+    // ---- Get the initial probability ---- //
+    std::string probabilityM = probability_method;
+    Matrix pIn = getInitialP(probability_method.get_cstring());
+    // ---...--- //
 
-// [[Rcpp::export]]
-void clean_hr_precompute()
-{
-    cleanHitAndRun();
-}
+    // ---- Define the main parameters ---- //
+    double timeIter = 0;
+    int totalIter = 0;
+    int finish = 0;
+    std::string EMAlg = em_method;
+    double logLLarr;
+    double *qvalue = NULL;
+    QMethodInput inputParams;
+    if (EMAlg == "hnr")
+    {
+        QMethodInput inputParams = {.S = samples[0], .M = step_size[0]};
+    }
+    else if (EMAlg == "mvn_cdf")
+    {
+        static std::string monteMethod = monte_method;
+        QMethodInput inputParams = {
+            .monteCarloIter = monte_iter[0], .errorThreshold = monte_error[0], .simulationMethod = monteMethod.c_str()};
+    }
+    else
+    {
+        QMethodInput inputParams = {0};
+    }
+    // ---...--- //
 
-// [[Rcpp::export]]
-void clean_everything()
-{
+    Matrix Pnew = EMAlgoritm(&pIn, EMAlg.c_str(), stopping_threshold[0], maximum_iterations[0], maximum_seconds[0],
+                             verbose[0], &timeIter, &totalIter, &logLLarr, &qvalue, &finish, inputParams);
+    freeMatrix(&pIn);
+    std::string stopping_reason;
+
+    switch (finish)
+    {
+    case 0:
+        stopping_reason = "Convergence achieved";
+        break;
+    case 1:
+        stopping_reason = "Log-likelihood decrease";
+        break;
+    case 2:
+        stopping_reason = "Maximum time reached";
+        break;
+    case 3:
+        stopping_reason = "Maximum iterations reached";
+        break;
+    default:
+        stopping_reason = "Unknown";
+        break;
+    }
+
+    if (verbose[0])
+    {
+        Rprintf("\nThe calculated matrix is\n");
+        printMatrix(&Pnew);
+        Rprintf("\nIt took %.5f seconds to run with a log-likelihood of %.5f.\n", timeIter, logLLarr);
+    }
+
+    // ---- Return the results ---- //
+    totalIter++;
+    // ---- Final probability
+    Rcpp::NumericMatrix RfinalProbability(Pnew.rows, Pnew.cols, Pnew.data);
+    freeMatrix(&Pnew);
+    // ---- q array
+    // TODO: Maybe the error goes with TOTAL_BALLOTS, etc..
+    Rcpp::NumericVector qTensor(qvalue, qvalue + TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS);
+    free(qvalue);
+    qvalue = NULL;
+    // ---- Memory deallocation
     cleanup();
+    if (EMAlg == "hnr")
+        cleanHitAndRun();
+    else if (EMAlg == "exact")
+        cleanExact();
+
+    return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = logLLarr,
+                              Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter,
+                              Rcpp::_["stopping_reason"] = stopping_reason, Rcpp::_["finish_id"] = finish,
+                              Rcpp::_["q"] = qTensor);
 }
+
+/*
+Rcpp::List bootstrapAlg(Rcpp::IntegerVector nboot, Rcpp::String probability_method, Rcpp::IntegerVector
+maximum_iterations, Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector
+verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector
+monte_error, Rcpp::IntegerVector monte_iter) {
+*/

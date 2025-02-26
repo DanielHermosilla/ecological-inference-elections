@@ -12,3 +12,5 @@ export(save_eim)
 export(simulate_election)
 export(write.csv.eim)
 useDynLib(fastei, .registration = TRUE)
+importFrom(Rcpp, evalCpp)
+

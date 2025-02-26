@@ -413,10 +413,9 @@ Matrix getP(const double *q)
  */
 Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
                   const double maxSeconds, const bool verbose, double *time, int *iterTotal, double *logLLarr,
-                  int *finishing_reason, QMethodInput inputParams)
+                  double **qVal, int *finishing_reason, QMethodInput inputParams)
 {
-
-    // ---- Error handling is done on getQMethodConfig! ---- //
+    // ---- Error handling is done on getQMethodConfig!
     if (verbose)
     {
         Rprintf("Starting the EM algorithm.\n");
@@ -424,135 +423,83 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
                 "parameters:\nConvergence threshold:\t%.6f\nMaximum iterations:\t%d\n",
                 q_method, convergence, maxIter);
     }
-    // ---...--- //
 
     // ---- Define the parameters for the main loop ---- //
     QMethodConfig config = getQMethodConfig(q_method, inputParams);
-
-    // ---...--- //
-
-    // Start timer
+    double oldLL = 99999;
+    double newLL;
+    // ---- Start timer
     struct timespec start, end, iter_start, iter_end; // Declare timers for overall and per-iteration
     clock_gettime(CLOCK_MONOTONIC_RAW, &start);
     double elapsed_total = 0;
-
+    // ---...--- //
     // ---- Execute the EM-iterations ---- //
     for (int i = 0; i < maxIter; i++)
     {
-        // Timer for the current iteration
+        // ---- Timer for the current iteration
         clock_gettime(CLOCK_MONOTONIC, &iter_start);
         *iterTotal = i;
+        Free(*qVal);
         if (verbose)
         {
             Rprintf("\nThe current probability matrix at the %dth iteration is:\n", i);
             printMatrix(currentP);
         }
 
-        // ---- Compute the `q` value ---- //
-        double *q = config.computeQ(currentP, config.params);
-        Matrix newProbability = getP(q);
+        // ---- Compute the `q`, `p` and `log-likelihood` ---- //
+        *qVal = config.computeQ(currentP, config.params);
+        freeMatrix(currentP);
+        *currentP = getP(*qVal);
+        newLL = logLikelihood(currentP, *qVal);
         // ---...--- //
 
         // ---- Check convergence ---- //
-        if (convergeMatrix(&newProbability, currentP, convergence))
+        // Usually the CDF do really SMALL steps, so at least impose some iterations...
+        int minIter = (strcmp(q_method, "mvn_cdf") == 0) ? 65 : 0;
+        if (fabs(newLL - oldLL) < convergence && i >= minIter)
         {
-            // ---- End timer ---- //
+            // ---- End timer ----
             clock_gettime(CLOCK_MONOTONIC_RAW, &end);
-            // ---...--- //
 
-            logLLarr[i] = logLikelihood(&newProbability, q);
             if (verbose)
             {
                 Rprintf("The convergence was found on iteration %d, with a log-likelihood of %.4f  and took %.5f "
                         "seconds!\n",
-                        i + 1, logLLarr[i], elapsed_total);
+                        i + 1, newLL, elapsed_total);
             }
-
-            // ---- Calculate the final values ---- //
             *finishing_reason = 0;
-            *time = elapsed_total;
-            // ---...--- //
-
-            freeMatrix(currentP);
-            Free(q);
-            return newProbability;
+            goto results;
         }
-        // ---- Convergence wasn't found ----
-        // ---- Stop the timer for external calculations that aren't related to the algorithm ----
+        // ---- Convergence wasn't found
+        // ---- Stop the timer for verbose calls that aren't related to the algorithm
         clock_gettime(CLOCK_MONOTONIC, &iter_end);
         double elapsed_iter = (iter_end.tv_sec - iter_start.tv_sec) + (iter_end.tv_nsec - iter_start.tv_nsec) / 1e9;
         elapsed_total += elapsed_iter;
         R_CheckUserInterrupt();
 
         if (verbose)
-        {
             Rprintf("Iteration %d took %.5f seconds.\n", i + 1, elapsed_iter);
-        }
 
-        // ---- Calculate the log-likelihood before freeing the array ----
-        logLLarr[i] = logLikelihood(&newProbability, q);
-        Free(q);
-        freeMatrix(currentP);
-
-        // ---- Redefine the current probability matrix ----
-        *currentP = createMatrix(newProbability.rows, newProbability.cols);
-        memcpy(currentP->data, newProbability.data, sizeof(double) * newProbability.rows * newProbability.cols);
-        freeMatrix(&newProbability);
-
-        // ---- Handle the case where the log-likelihood decreases ----
-        // ---- The CDF case has a lot of variance between iterations, hence, we'll leave a minimum iterations
-        // threshold.
-        int minIter = (strcmp(q_method, "mvn_cdf") == 0) ? 100 : 1;
-        // int minIter = 1;
-        if ((i >= minIter && (logLLarr)[i] < (logLLarr)[i - 1]))
+        // ---- The maximum time was reached
+        if (elapsed_total >= maxSeconds)
         {
-            *finishing_reason = 0;
-            goto results;
-        }
-        // ---- Handle the case where the maximum times is reached
-        if (elapsed_total > maxSeconds)
-        {
+            if (verbose)
+                Rprintf("Maximum time limit reached.\n");
             *finishing_reason = 1;
             goto results;
         }
+        oldLL = newLL;
     }
     Rprintf("Maximum iterations reached without convergence.\n"); // Print even if there's not verbose, might change
                                                                   // later.
     *finishing_reason = 2;
 results:
+    *logLLarr = newLL;
     *time = elapsed_total;
-    // ---- Matrix must be returned without a pointer ---- //
+    // ---- Matrix must be returned without a pointer
     Matrix finalProbability = copyMatrix(currentP);
     freeMatrix(currentP);
-    // ---...--- //
     return finalProbability;
-}
-
-/**
- * @brief Checks if a candidate didn't receive any votes.
- *
- * Given an array of size TOTAL_CANDIDATES, it sets to "1" the index where a possible candidate haven't received any
- * vote. It also returns a boolean indicating whether a candidate hasn't receive any vote
- *
- * @param[in,out] *canArray Array of size TOTAL_CANDIDATES full of zeroes, indicating with a "1" on the index where a
- * given candidate haven't received a vote
- *
- * @return bool: A boolean that shows if it exists a candidate with no votes
- *
- */
-
-bool noVotes(int *canArray)
-{
-    bool toReturn = false;
-    for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-    {
-        if (CANDIDATES_VOTES[c] == 0)
-        {
-            toReturn = true;
-            canArray[c] = 1;
-        }
-    }
-    return toReturn;
 }
 
 // ---- Clean all of the global variables ---- //

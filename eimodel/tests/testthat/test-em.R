@@ -4,7 +4,7 @@
 tests <- 5
 results <- vector("list", tests)
 for (i in 1:tests) {
-    results[[i]] <- eimodel:::.random_samples(
+    results[[i]] <- fastei:::.random_samples(
         c(15, 25), # Ballots range
         c(2, 4), # Candidates range
         c(2, 4), # Demographic group range
@@ -15,8 +15,8 @@ for (i in 1:tests) {
 # For precision tests, we'll use big samples, except for the exact and hnr (whom time of computation would be very long)
 precisionTests <- 50
 precisionsResults <- vector("list", precisionTests)
-for (i in 1:tests) {
-    precisionsResults[[i]] <- eimodel:::.random_samples(
+for (i in 1:precisionTests) {
+    precisionsResults[[i]] <- fastei:::.random_samples(
         c(200, 400), # Ballots range
         c(2, 10), # Candidates range
         c(2, 10), # Demographic group range
@@ -351,7 +351,7 @@ test_that("run_em: Errors when an invalid verbose is provided", {
 
 test_that("run_em: Multiple samples runs without any error", {
     for (i in 1:1000) {
-        sample <- eimodel:::.random_samples(
+        sample <- fastei:::.random_samples(
             c(400, 500), # Ballots range
             c(2, 10), # Candidates range
             c(2, 10), # Demographic group range
