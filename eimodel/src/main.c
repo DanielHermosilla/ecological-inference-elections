@@ -287,8 +287,8 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
     }
     else
     {
-        error("Compute: An invalid method was provided: `%s`\nThe supported methods are: `exact`, `Hit and "
-              "Run`, `mult`, `mvn_cdf` and `mvn_pdf`.\n",
+        error("Compute: An invalid method was provided: `%s`\nThe supported methods are: `exact`, `hnr`"
+              ", `mult`, `mvn_cdf` and `mvn_pdf`.\n",
               q_method);
     }
 
@@ -326,9 +326,9 @@ double logLikelihood(Matrix *prob, double *q)
                 double num = MATRIX_AT_PTR(prob, g, c);
                 double den = Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES);
                 if (den == 0)
-                    den = 1e-9;
+                    continue;
                 if (num == 0)
-                    num = 1e-9;
+                    continue;
                 double qval = den;
                 cSummatory += qval * log(num / den);
             } // --- End c loop
@@ -426,8 +426,13 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
 
     // ---- Define the parameters for the main loop ---- //
     QMethodConfig config = getQMethodConfig(q_method, inputParams);
-    double oldLL = 99999;
     double newLL;
+    double oldLL = -999999;
+    /*
+    *qVal = config.computeQ(currentP, config.params); // Calcula el Q
+    double oldLL = logLikelihood(currentP, *qVal); // Loglikelihood con P INICIAL
+    double newLL;
+    */
     // ---- Start timer
     struct timespec start, end, iter_start, iter_end; // Declare timers for overall and per-iteration
     clock_gettime(CLOCK_MONOTONIC_RAW, &start);
@@ -439,7 +444,6 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         // ---- Timer for the current iteration
         clock_gettime(CLOCK_MONOTONIC, &iter_start);
         *iterTotal = i;
-        Free(*qVal);
         if (verbose)
         {
             Rprintf("\nThe current probability matrix at the %dth iteration is:\n", i);
@@ -447,16 +451,20 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         }
 
         // ---- Compute the `q`, `p` and `log-likelihood` ---- //
+        Free(*qVal);
         *qVal = config.computeQ(currentP, config.params);
-        freeMatrix(currentP);
-        *currentP = getP(*qVal);
         newLL = logLikelihood(currentP, *qVal);
+        // logLikelyArray[i] = newLL;
+        // CONDICION DE PARADA ACÁ
+        freeMatrix(currentP);
+        *currentP = getP(*qVal); // MSTEP
         // ---...--- //
 
         // ---- Check convergence ---- //
         // Usually the CDF do really SMALL steps, so at least impose some iterations...
         int minIter = (strcmp(q_method, "mvn_cdf") == 0) ? 65 : 0;
         if (fabs(newLL - oldLL) < convergence && i >= minIter)
+        // if (false)
         {
             // ---- End timer ----
             clock_gettime(CLOCK_MONOTONIC_RAW, &end);
@@ -500,6 +508,7 @@ results:
     Matrix finalProbability = copyMatrix(currentP);
     freeMatrix(currentP);
     return finalProbability;
+    // return *currentP;
 }
 
 // ---- Clean all of the global variables ---- //

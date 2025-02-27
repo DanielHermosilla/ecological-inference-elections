@@ -357,6 +357,7 @@ run_em <- function(object = NULL,
     object$time <- resulting_values$total_time
     object$message <- resulting_values$stopping_reason
     object$status <- as.integer(resulting_values$finish_id)
+    object$q <- resulting_values$q
 
     invisible(object) # Updates the object.
 }
@@ -453,57 +454,59 @@ bootstrap <- function(object = NULL,
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint # It would validate nboot too.
 
-    # Retrieve the default values from run_em() as a list
+    # Retrieve default values from run_em() and update with user parameters
     run_em_defaults <- formals(run_em)
-    # Update the values with user-handed parameters
-    run_em_args <- modifyList(as.list(run_em_defaults), list(...))
-    run_em_args <- run_em_args[names(run_em_args) != "..."]
-    # Set the seed if it's provided
-    if (!is.null(seed)) {
-        set.seed(seed)
-    }
+    run_em_args <- modifyList(as.list(run_em_defaults), all_params)
+    run_em_args <- run_em_args[names(run_em_args) != "..."] # Remove ellipsis
+
+    # Set seed for reproducibility
+    if (!is.null(seed)) set.seed(seed)
+
+    # Initialize eim object if needed
     if (is.null(object)) {
         object <- eim(X, W, json_path)
     } else if (!inherits(object, "eim")) {
         stop("Bootstrap: The object must be initialized with the `eim()` function.")
     }
 
-    # Array for storing intermediate results
-    results_array <- vector("list", length = nboot)
+    # Extract parameters with defaults if missing
+    method <- all_params$method %||% "mult"
+    initial_prob <- all_params$initial_prob %||% "group_proportional"
+    maxiter <- as.integer(all_params$maxiter %||% 1000)
+    maxtime <- as.numeric(all_params$maxtime %||% 3600)
+    stop_threshold <- as.numeric(all_params$stop_threshold %||% 0.01)
+    verbose <- as.logical(all_params$verbose %||% FALSE)
 
-    # Main loop
-    for (i in seq_len(nboot)) {
-        # Sample according the ballot boxes
-        sample_indices <- sample(1:nrow(object$X), size = nrow(object$X), replace = TRUE)
-        if (run_em_args$verbose) {
-            message("Running iteration:\t", i, "\nThe sampled ballot boxes indices are:\t", sample_indices)
-        }
-        iteration_X <- object$X[sample_indices, , drop = FALSE]
-        iteration_W <- object$W[sample_indices, , drop = FALSE]
-
-        # Create a temporary eim object and run_em
-        sample_object <- eim(X = iteration_X, W = iteration_W)
-        run_em_args$object <- sample_object
-        result <- do.call(run_em, run_em_args)
-        results_array[[i]] <- result$prob
-
-        # Deallocate memory
-        rm(sample_object)
-        rm(result)
+    # Handle method-specific defaults
+    if (method == "hnr") {
+        step_size <- as.integer(all_params$step_size %||% 3000)
+        samples <- as.integer(all_params$samples %||% 1000)
+    } else if (method == "mvn_cdf") {
+        mc_method <- all_params$mc_method %||% "genz2"
+        mc_samples <- as.integer(all_params$mc_samples %||% 5000)
+        mc_error <- as.numeric(all_params$mc_error %||% 1e-6)
+    } else {
+        step_size <- 0L
+        samples <- 0L
+        mc_method <- ""
+        mc_samples <- 0L
+        mc_error <- 0.0
     }
 
-    # Convert results into a 3D tensor
-    final_array <- array(unlist(results_array), dim = c(ncol(object$W), ncol(object$X), nboot))
-    sd_matrix <- matrix(apply(final_array, MARGIN = c(1, 2), FUN = sd), nrow = ncol(object$W), ncol = ncol(object$X))
+    # Call C++ bootstrap function
+    result <- bootstrapAlg(
+        t(object$X), object$W, as.integer(nboot),
+        method, initial_prob, as.integer(maxiter),
+        maxtime, stop_threshold, verbose,
+        as.integer(step_size), as.integer(samples),
+        mc_method, mc_error, as.integer(mc_samples)
+    )
 
-    if (run_em_args$verbose) {
-        message("Bootstraping finished!")
-        message("Estimated standard deviation matrix:")
-        print(round(sd_matrix, 3))
-    }
+    # Compute standard deviation from the bootstrapped probability matrices
+    reshaped_result <- array(result, dim = c(nrow(object$X), ncol(object$W), nboot))
+    object$sd <- apply(reshaped_result, c(1, 2), sd)
 
-    object$sd <- sd_matrix
-    invisible(object) # Updates the object
+    return(object)
 }
 
 #' @description According to the state of the algorithm (either computed or not), it prints a message with its most relevant parameters

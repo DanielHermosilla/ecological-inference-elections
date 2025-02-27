@@ -13,6 +13,7 @@
 extern "C"
 {
 #endif
+#include "bootstrap.h"
 #include "exact.h"
 #include "hitAndRun.h"
 #include "main.h"
@@ -86,4 +87,34 @@ Rcpp::List EMAlgorithmFull(Rcpp::String em_method = "mult", Rcpp::String probabi
  */
 void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix);
 
+/**
+ *  Returns an array of col-major matrices with bootstrapped matrices.
+ *
+ * @param[in] xmat The original X array
+ * @param[in] wmat The original W array
+ * @param[in] bootiter The amount of iterations for bootstrapping
+ * @param[in] p_method The method for obtaining the initial probability
+ * @param[in] q_method Pointer to a string that indicates the method or calculating "q". Currently it supports "Hit
+ * and Run", "mult", "mvn_cdf", "mvn_pdf" and "exact" methods.
+ * @param[in] convergence Threshold value for convergence. Usually it's set to 0.001.
+ * @param[in] maxIter Integer with a threshold of maximum iterations. Usually it's set to 100.
+ * @param[in] maxSeconds Double with the value of the maximum amount of seconds to use.
+ * @param[in] verbose Wether to verbose useful outputs.
+ * @param[in, out] time The time that the algorithm took.
+ * @param[in, out] iterTotal Total amount of iterations.
+ * @param[in, out] logLLarr The loglikelihood array
+ * @param[in, out] finishing_reason The reason that the algorithm has been stopped. It can either be 0, 1, 2, 3,
+ * representing a normal convergence, log likelihood decrease, maximum time reached and maximum iterations reached,
+ * respectively.
+ *
+ *
+ * @return An allocated array of size bootiter * TOTAL_BALLOTS that stores matrices.
+ */
+
+Rcpp::NumericVector bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                                 Rcpp::IntegerVector nboot, Rcpp::String em_method, Rcpp::String probability_method,
+                                 Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
+                                 Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector verbose,
+                                 Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method,
+                                 Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter);
 #endif // WRAPPER_H

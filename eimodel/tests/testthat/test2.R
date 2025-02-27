@@ -33,7 +33,7 @@ total_time <- 0
 total_iterations <- 0
 for (i in 1:precisionTests) {
     model <- eim(precisionsResults[[i]]$X, precisionsResults[[i]]$W)
-    result <- run_em(model, stop_threshold = 0.05, maxiter = 10000, method = "mvn_cdf")
+    result <- run_em(model, stop_threshold = 0.00000000000000000005, maxiter = 2500, method = "hnr")
 
     # Compute error
     difference <- difference + mean(abs(result$prob - precisionsResults[[i]]$prob))
