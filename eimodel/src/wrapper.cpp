@@ -126,7 +126,7 @@ Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_meth
 
 // ---- Run Bootstrapping Algorithm ---- //
 // [[Rcpp::export]]
-Rcpp::NumericVector bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
                                  Rcpp::IntegerVector nboot, Rcpp::String em_method, Rcpp::String probability_method,
                                  Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
                                  Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector verbose,
@@ -148,15 +148,17 @@ Rcpp::NumericVector bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
     QMethodInput inputParams =
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], monte_method);
 
-    double *result = bootstrapA(&XR, &WR, nboot[0], EMAlg.c_str(), probabilityM.c_str(), stopping_threshold[0],
-                                maximum_iterations[0], maximum_seconds[0], verbose[0], inputParams);
+    Matrix sdResult = bootstrapA(&XR, &WR, nboot[0], EMAlg.c_str(), probabilityM.c_str(), stopping_threshold[0],
+                                 maximum_iterations[0], maximum_seconds[0], verbose[0], inputParams);
 
-    // double *bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const char *q_method, const char
-    // *p_method, const double convergence, const int maxIter, const double maxSeconds, const bool verbose, QMethodInput
-    // inputParams);
-    int result_size = nboot[0] * XR.rows * WR.cols;
-    Rcpp::NumericVector output(result, result + result_size);
-    free(result);
+    // Convert to R's matrix
+    Rcpp::NumericMatrix output(sdResult.rows, sdResult.cols);
+
+    std::memcpy(output.begin(), // where to copy
+                sdResult.data,  // source
+                sdResult.rows * sdResult.cols * sizeof(double));
+
+    freeMatrix(&sdResult);
 
     return output;
 }

@@ -478,22 +478,27 @@ bootstrap <- function(object = NULL,
     verbose <- as.logical(all_params$verbose %||% FALSE)
 
     # Handle method-specific defaults
+    step_size <- 0L
+    samples <- 0L
+    mc_method <- ""
+    mc_samples <- 0L
+    mc_error <- 0.0
+
     if (method == "hnr") {
         step_size <- as.integer(all_params$step_size %||% 3000)
         samples <- as.integer(all_params$samples %||% 1000)
+        mc_method <- ""
+        mc_samples <- 0L
+        mc_error <- 0.0
     } else if (method == "mvn_cdf") {
         mc_method <- all_params$mc_method %||% "genz2"
         mc_samples <- as.integer(all_params$mc_samples %||% 5000)
         mc_error <- as.numeric(all_params$mc_error %||% 1e-6)
-    } else {
         step_size <- 0L
         samples <- 0L
-        mc_method <- ""
-        mc_samples <- 0L
-        mc_error <- 0.0
     }
 
-    # Call C++ bootstrap function
+    # Call C bootstrap function
     result <- bootstrapAlg(
         t(object$X), object$W, as.integer(nboot),
         method, initial_prob, as.integer(maxiter),
@@ -502,9 +507,7 @@ bootstrap <- function(object = NULL,
         mc_method, mc_error, as.integer(mc_samples)
     )
 
-    # Compute standard deviation from the bootstrapped probability matrices
-    reshaped_result <- array(result, dim = c(nrow(object$X), ncol(object$W), nboot))
-    object$sd <- apply(reshaped_result, c(1, 2), sd)
+    object$sd <- result
 
     return(object)
 }

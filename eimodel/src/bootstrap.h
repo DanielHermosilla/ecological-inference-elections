@@ -34,9 +34,9 @@ extern "C"
      *
      * @return An allocated array of size bootiter * TOTAL_BALLOTS that stores matrices.
      */
-    double *bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const char *q_method, const char *p_method,
-                       const double convergence, const int maxIter, const double maxSeconds, const bool verbose,
-                       QMethodInput inputParams);
+    Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const char *q_method, const char *p_method,
+                      const double convergence, const int maxIter, const double maxSeconds, const bool verbose,
+                      QMethodInput inputParams);
 
 #ifdef __cplusplus
 }

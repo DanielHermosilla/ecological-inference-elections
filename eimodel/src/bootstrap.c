@@ -24,6 +24,46 @@ Matrix *iterMat(const Matrix *originalMatrix, const int *indexArr, bool sampleCo
     }
     return finalMat;
 }
+
+Matrix standardDeviations(Matrix *bootstrapResults, Matrix *sumMatrix, int totalIter)
+{
+
+    // Get the mean for each component
+    for (int i = 0; i < sumMatrix->rows; i++)
+    {
+        for (int j = 0; j < sumMatrix->cols; j++)
+        {
+            MATRIX_AT_PTR(sumMatrix, i, j) /= totalIter;
+        }
+    }
+
+    Matrix sdMatrix = createMatrix(sumMatrix->rows, sumMatrix->cols);
+
+    // Get the summatory (x_i - \mu)^2
+    for (int h = 0; h < totalIter; h++)
+    {
+        // Yields the summatory for each dimension
+        for (int i = 0; i < sdMatrix.rows; i++)
+        {
+            for (int j = 0; j < sdMatrix.cols; j++)
+            {
+                MATRIX_AT(sdMatrix, i, j) +=
+                    R_pow_di(MATRIX_AT(bootstrapResults[h], i, j) - MATRIX_AT_PTR(sumMatrix, i, j), 2);
+            }
+        }
+        freeMatrix(&bootstrapResults[h]);
+    }
+
+    // Make the division and get the square root
+    for (int i = 0; i < sdMatrix.rows; i++)
+    {
+        for (int j = 0; j < sdMatrix.cols; j++)
+        {
+            MATRIX_AT(sdMatrix, i, j) = R_pow(MATRIX_AT(sdMatrix, i, j) / (totalIter - 1), 0.5);
+        }
+    }
+    return sdMatrix;
+}
 /**
  *  Returns an array of col-major matrices with bootstrapped matrices.
  *
@@ -47,9 +87,9 @@ Matrix *iterMat(const Matrix *originalMatrix, const int *indexArr, bool sampleCo
  *
  * @return An allocated array of size bootiter * TOTAL_BALLOTS that stores matrices.
  */
-double *bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const char *q_method, const char *p_method,
-                   const double convergence, const int maxIter, const double maxSeconds, const bool verbose,
-                   QMethodInput inputParams)
+Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const char *q_method, const char *p_method,
+                  const double convergence, const int maxIter, const double maxSeconds, const bool verbose,
+                  QMethodInput inputParams)
 {
 
     // ---- Initial variables
@@ -67,7 +107,8 @@ double *bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const c
     // ---...--- //
 
     // ---- Execute the bootstrap algorithm ---- //
-    double *results = Calloc(bootiter * matsize, double);
+    Matrix sumMat = createMatrix(wmat->cols, xmat->rows);
+    Matrix *results = Calloc(bootiter, Matrix);
     for (int i = 0; i < bootiter; i++)
     {
         if (verbose)
@@ -83,13 +124,23 @@ double *bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const c
         double time, logLLarr;
         double *qval = NULL;
         int finishing_reason, iterTotal;
-        Matrix resultP = EMAlgoritm(&iterP, q_method, convergence, maxIter, maxSeconds, true, &time, &iterTotal,
+        Matrix resultP = EMAlgoritm(&iterP, q_method, convergence, maxIter, maxSeconds, false, &time, &iterTotal,
                                     &logLLarr, &qval, &finishing_reason, inputParams);
-        memcpy(&results[i * matsize], resultP.data, matsize * sizeof(double));
+
+        // Sum each value so later we can get the mean
+        for (int j = 0; j < wmat->cols; j++)
+        {
+            for (int k = 0; k < xmat->rows; k++)
+            {
+                MATRIX_AT(sumMat, j, k) += MATRIX_AT(resultP, j, k);
+            }
+        }
+
+        results[i] = resultP;
+        // memcpy(&results[i * matsize], resultP.data, matsize * sizeof(double));
 
         // ---- Release loop allocated variables ---- //
         // freeMatrix(&iterP);
-        printf("first here\n");
         cleanup();
         if (strcmp(q_method, "exact") == 0)
         {
@@ -99,15 +150,21 @@ double *bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const c
         {
             cleanHitAndRun();
         }
-        printf("second here\n");
         freeMatrix(iterX);
         freeMatrix(iterW);
-        printf("third here\n");
         free(iterX);
         free(iterW);
         // ---...--- //
     }
     Free(indices);
+    Matrix sdReturn = standardDeviations(results, &sumMat, bootiter);
+    if (verbose)
+    {
+        Rprintf("Bootstrapping finished!\nThe estimated standard deviation matrix (g x c) is:\n");
+        printMatrix(&sdReturn);
+    }
+    freeMatrix(&sumMat);
+    Free(results);
 
-    return results;
+    return sdReturn;
 }

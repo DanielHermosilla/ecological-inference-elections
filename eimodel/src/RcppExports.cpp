@@ -43,7 +43,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // bootstrapAlg
-Rcpp::NumericVector bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix, Rcpp::IntegerVector nboot, Rcpp::String em_method, Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter);
+Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix, Rcpp::IntegerVector nboot, Rcpp::String em_method, Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter);
 RcppExport SEXP _fastei_bootstrapAlg(SEXP candidate_matrixSEXP, SEXP group_matrixSEXP, SEXP nbootSEXP, SEXP em_methodSEXP, SEXP probability_methodSEXP, SEXP maximum_iterationsSEXP, SEXP maximum_secondsSEXP, SEXP stopping_thresholdSEXP, SEXP verboseSEXP, SEXP step_sizeSEXP, SEXP samplesSEXP, SEXP monte_methodSEXP, SEXP monte_errorSEXP, SEXP monte_iterSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;

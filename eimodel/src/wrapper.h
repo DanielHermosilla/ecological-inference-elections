@@ -111,7 +111,7 @@ void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix gr
  * @return An allocated array of size bootiter * TOTAL_BALLOTS that stores matrices.
  */
 
-Rcpp::NumericVector bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
                                  Rcpp::IntegerVector nboot, Rcpp::String em_method, Rcpp::String probability_method,
                                  Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
                                  Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector verbose,
