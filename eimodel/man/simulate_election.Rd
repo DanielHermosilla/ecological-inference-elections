@@ -43,13 +43,13 @@ If provided, this matrix is used as the underlying voting probability distributi
 \value{
 A list with three components:
 \describe{
-\item{\code{W}}{A \code{(b x g)} matrix of demographic votes per ballot box.}
-\item{\code{X}}{A \code{(b x c)} matrix of candidate votes per ballot box.}
-\item{\code{prob}}{A \code{(g x c)} matrix of probabilities that each group votes for each candidate. If \code{prob} is provided, it would equal such probability.}
+\item{\code{X}}{A \code{(b x c)} matrix with candidates' votes for each ballot box.}
+\item{\code{W}}{A \code{(b x g)} matrix with voters' groups for each ballot-box.}
+\item{\code{prob}}{A \code{(g x c)} matrix with the probability that a voter from each group votes for each candidate. If prob is provided, it would equal such probability.}
 }
 }
 \description{
-This function simulates an election by creating matrices representing candidate votes '(X)' and voters' demographic group '(W)' across a specified number of ballot-boxes. It either (i) receives as input or (ii) generates a probability matrix '(prob)', indicating how likely each demographic group is to vote for each candidate.
+This function simulates an election by creating matrices representing candidate votes \code{(X)} and voters' demographic group \code{(W)} across a specified number of ballot-boxes. It either (i) receives as input or (ii) generates a probability matrix \code{(prob)}, indicating how likely each demographic group is to vote for each candidate.
 
 By default, the number of voters per ballot box '(ballot_voters)' is set to a vector of 100 with
 length 'num_ballots'. You can optionally override this by providing a custom vector.
@@ -68,15 +68,13 @@ Without loss of generality, consider an order relation of groups and ballot-boxe
 \enumerate{
 \item \strong{Initial Assignment}: Voters are assigned to each ballot-box sequentially according to their demographic
 group. More specifically, the first ballot-boxes receive voters from the first group. Then, the next ballot-boxes receive voters from the second group. This continues until all voters have been assigned. Note that most ballot-boxes will contain voters from a single group (as long as the number of ballot-boxes exceeds the number of groups).
-\item \strong{Shuffling}: The fraction of individuals whose ballot-box assignment is shuffled is given by \code{lambda}. Hence, different \code{lambda} values are interpreted as follows:
+\item \strong{Shuffling}: A fraction \code{lambda} of voters who have already been assigned is selected at random. Then, the ballot-box assignment of this sample is shuffled. Hence, different \code{lambda} values are interpreted as follows:
 \itemize{
 \item \code{lambda = 0} means no one is shuffled (the initial assignment remains).
 \item \code{lambda = 1} means all individuals are shuffled.
 \item Intermediate values like \code{lambda = 0.5} shuffle half the voters.
 }
 }
-
-A fraction \code{lambda} of voters who have already been assigned is selected at random. Then, the ballot-box assignment of this sample is shuffled.
 
 Using a high level of \code{lambda} (greater than 0.6) is not recommended, as this could make identification of the voting probabilities difficult. This is because higher values of lambda induce similar ballot-boxes in terms of voters' group.
 }

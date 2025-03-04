@@ -463,6 +463,24 @@ extern "C"
      * The caller is responsible for freeing the memory (using free) when it is no longer needed.
      */
     Matrix *copyMatrixPtr(const Matrix *orig);
+
+    /*
+     * Given an array of actions, it merges columns by summing the row values, generating a new matrix.
+     * For example, if boundaries = {2, 4, 8} and wmat has 8 columns,
+     * the function will merge columns as follows:
+     * - New column 0: sum of columns 0 to 2
+     * - New column 1: sum of columns 3 to 4
+     * - New column 2: sum of columns 5 to 7
+     *
+     * We assume that always the last index is included in boundaries.
+     *
+     * @param[in] wmat A pointer to the original matrix. Won't be changed
+     * @param[in] boundaries An array with the indices of boundaries.
+     * @param[in] numBoundaries The size of the 'boundaries' array.
+     *
+     * @return A new matrix merged by columns
+     */
+    Matrix mergeColumns(const Matrix *wmat, const int *boundaries, int numBoundaries);
 #ifdef __cplusplus
 }
 #endif

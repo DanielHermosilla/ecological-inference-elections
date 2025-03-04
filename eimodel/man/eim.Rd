@@ -47,6 +47,7 @@ while others are ommited due to its straightfoward implementantion. The availabl
 \item \link{run_em} -- Runs the EM algorithm.
 \item \link{bootstrap} -- Estimates the standard deviation of the probabilities.
 \item \link{save} -- Save the results to a specified file.
+\item \link{get_agg_proxy} -- Estimates an ideal group aggregation given their standard deviations.
 \item \code{print} -- Print useful information about the object.
 \item \code{summary} -- Shows, in form of a list, the most important attributes.
 \item \code{as.matrix} -- Returns the probability matrix.

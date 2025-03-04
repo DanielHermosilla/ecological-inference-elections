@@ -39,6 +39,7 @@ library(jsonlite)
 #' - [run_em] -- Runs the EM algorithm.
 #' - [bootstrap] -- Estimates the standard deviation of the probabilities.
 #' - [save] -- Save the results to a specified file.
+#' - [get_agg_proxy] -- Estimates an ideal group aggregation given their standard deviations.
 #' - `print` -- Print useful information about the object.
 #' - `summary` -- Shows, in form of a list, the most important attributes.
 #' - `as.matrix` -- Returns the probability matrix.
@@ -141,7 +142,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' @title Compute the Expected-Maximization Algorithm
 #'
 #' @description
-#' Executes the Expectation-Maximization (EM) algorithm indicating the approximation method to use in the *E*-step.
+#' Executes the Expectation-Maximization (EM) algorithm indicating the approximation method to use in the E-step.
 #' Certain methods may require additional arguments, which can be passed through `...` (see [fastei-package] for more details).
 #'
 #' @param object An object of class `eim`, which can be created using the [eim] function. This parameter should not be used if either (i) `X` and `W` matrices or (ii) `json_path` is supplied. See **Note**.
@@ -164,7 +165,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' - `proportional`: Assigns probabilities to each group based on the proportion of candidates votes.
 #' - `group_proportional`: Computes the probability matrix by taking into account both group and candidate proportions. This is the default method.
 #'
-#' @param mismatch Boolean, if `TRUE` allows a mismatch between the voters and votes for each ballot-box, only works if method is `mvn_cdf`, `mvn_pdf`, and `mult`. If `FALSE`, throws an error if there is a mismatch. By default it is `FALSE`.
+#' @param allow_mismatch Boolean, if `TRUE`, allows a mismatch between the voters and votes for each ballot-box, only works if method is `mvn_cdf`, `mvn_pdf`, and `mult`. If `FALSE`, throws an error if there is a mismatch. By default it is `FALSE`.
 #'
 #' @param maxiter An optional integer indicating the maximum number of EM iterations.
 #'   The default value is `1000`.
@@ -220,7 +221,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' The function returns an 'eim' object with the following attributes:
 #' \describe{
 #'   \item{prob}{The estimated probability matrix `(g x c)`.}
-#' 	 \item{cond_prob}{A `(b x g x c)` 3d-array with the probability that a at each ballot-box a voter of each group voted for each candidate, given the observed outcome at the particular ballot-box.}
+#' 	 \item{cond_prob}{A `(buuuuuuuc)` 3d-array with the probability that a at each ballot-box a voter of each group voted for each candidate, given the observed outcome at the particular ballot-box.}
 #'   \item{logLik}{The log-likelihood value from the last iteration.}
 #'   \item{iterations}{The total number of iterations performed by the EM algorithm.}
 #'   \item{time}{The total execution time of the algorithm in seconds.}
@@ -245,7 +246,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'  json_path = NULL,
 #'  method = "mult",
 #'  initial_prob = "group_proportional",
-#'  mismatch = FALSE,
+#'  allow_mismatch = FALSE,
 #'  maxiter = 1000,
 #'  maxtime = 3600,
 #'  stop_threshold = 0.001,
@@ -295,7 +296,7 @@ run_em <- function(object = NULL,
                    json_path = NULL,
                    method = "mult",
                    initial_prob = "group_proportional",
-                   mismatch = FALSE,
+                   allow_mismatch = FALSE,
                    maxiter = 1000,
                    maxtime = 3600,
                    stop_threshold = 0.001,
@@ -310,10 +311,10 @@ run_em <- function(object = NULL,
     }
 
     # Note: Mismatch restricted methods are checked inside .validate_compute
-    if (!mismatch && (sum(X) != sum(W))) {
+    if (!allow_mismatch && (sum(X) != sum(W))) {
         stop(
             "run_em: Mismatch in the number of votes: 'X' has ", sum(X),
-            " votes, but 'W' has ", sum(W), " rows. To allow a mismatch, set the argument to TRUE."
+            " votes, but 'W' has ", sum(W), " votes. To allow a mismatch, set the argument to TRUE."
         )
     }
 
@@ -511,6 +512,120 @@ bootstrap <- function(object = NULL,
 
     return(object)
 }
+
+#' Runs the EM algorithm aggregating adjacent groups, maximizing the variability of macro-group allocation in ballot boxes.
+#'
+#' This function estimates the voting probabilities (computed using [run_em]) aggregating adjacent groups so that the estimated probabilities' standard deviation (computed using [bootstrap]) is below a given threshold.
+#'
+#' Groups need to have an order relation so that adjacent groups can be merged. For example, consider the following seven groups defined by voters' age ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, even for a fixed number of macro-groups, a Dynamic Program (DP) mechanism is used to find the group aggregation that maximizes the sum of the standard deviation of the macro-groups proportions among ballot boxes for a specific number of macro-groups.
+#'
+#' In order to find the best group aggregation, the function runs the DP iteratively, starting with all groups (this case is trivial since, in this case, the group aggregation is such that all macro-groups match exactly the original groups). If the standard deviation statistic is below a threshold, it stops. Otherwise, it runs the DP such that the number of macro-groups is one unit less than the original number of macro-groups. If the standard deviation statistic is below a threshold, it stops. And so on until either the algorithm stops, or until the group aggregation composed of a single macro-group does not meet the stopping condition, in which case the output is the EM algorithm run over a single macro-group.
+#'
+#' @param sd_statisctic  String indicates the statistic for the standard deviation `(g x c)` matrix. It can take the value `maximum`, in which case computes the maximum over the standard deviation matrix, or `average`, in which case computes the average.
+#'
+#' @param sd_threshold Numeric with the value to use as a threshold for the statistic (`sc_statistic`) of the standard deviation of the estimated probabilities. Defaults to 0.05.
+#'
+#' @inheritParams run_em
+#'
+#' @inheritParams simulate_election
+#'
+#' @inheritParams bootstrap
+#'
+#' @param ... Additional arguments passed to the [run_em] function that will execute the EM algorithm.
+#'
+#' @inherit run_em note
+#'
+#' @return
+#' It returns an eim object with the same attributes as the output of [run_em], plus the attributes:
+#'
+#' - sd: A `(g x c)` matrix with the standard deviation of the estimated probabilities computed with bootstrapping.
+#' - sd_statistic: The statistic used as input.
+#' - sd_threshold: The threshold used as input.
+#' - group_agg: Array with the group aggregation used.
+#' @export
+get_agg_proxy <- function(object = NULL,
+                          X = NULL,
+                          W = NULL,
+                          json_path = NULL,
+                          sd_statistic = "maximum",
+                          sd_threshold = 0.05,
+                          nboot = 50,
+                          seed = NULL, ...) {
+    # Retrieve the default values from run_em() as a list
+    all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
+    .validate_compute(all_params) # nolint # It would validate nboot too.
+
+    # Retrieve default values from run_em() and update with user parameters
+    run_em_defaults <- formals(run_em)
+    run_em_args <- modifyList(as.list(run_em_defaults), all_params)
+    run_em_args <- run_em_args[names(run_em_args) != "..."] # Remove ellipsis
+
+    # Set seed for reproducibility
+    if (!is.null(seed)) set.seed(seed)
+
+    # Initialize eim object if needed
+    if (is.null(object)) {
+        object <- eim(X, W, json_path)
+    } else if (!inherits(object, "eim")) {
+        stop("Bootstrap: The object must be initialized with the `eim()` function.")
+    }
+
+    # Extract parameters with defaults if missing
+    method <- all_params$method %||% "mult"
+    initial_prob <- all_params$initial_prob %||% "group_proportional"
+    maxiter <- as.integer(all_params$maxiter %||% 1000)
+    maxtime <- as.numeric(all_params$maxtime %||% 3600)
+    stop_threshold <- as.numeric(all_params$stop_threshold %||% 0.01)
+    verbose <- as.logical(all_params$verbose %||% FALSE)
+
+    # Handle method-specific defaults
+    step_size <- 0L
+    samples <- 0L
+    mc_method <- ""
+    mc_samples <- 0L
+    mc_error <- 0.0
+
+    if (method == "hnr") {
+        step_size <- as.integer(all_params$step_size %||% 3000)
+        samples <- as.integer(all_params$samples %||% 1000)
+        mc_method <- ""
+        mc_samples <- 0L
+        mc_error <- 0.0
+    } else if (method == "mvn_cdf") {
+        mc_method <- all_params$mc_method %||% "genz2"
+        mc_samples <- as.integer(all_params$mc_samples %||% 5000)
+        mc_error <- as.numeric(all_params$mc_error %||% 1e-6)
+        step_size <- 0L
+        samples <- 0L
+    }
+
+    result <- groupAgg(
+        sd_statistic,
+        sd_threshold,
+        t(object$X),
+        object$W,
+        as.integer(nboot),
+        method,
+        initial_prob,
+        as.integer(maxiter),
+        maxtime,
+        stop_threshold,
+        verbose,
+        as.integer(step_size),
+        as.integer(samples),
+        mc_method,
+        mc_error,
+        as.integer(mc_samples)
+    )
+
+    object$sd <- result$bootstrap_result
+    object$group_agg <- result$indices
+    object$sd_statistic <- sd_statistic
+    object$sd_threshold <- sd_threshold
+
+    return(object)
+}
+
 
 #' @description According to the state of the algorithm (either computed or not), it prints a message with its most relevant parameters
 #'

@@ -11,7 +11,7 @@ run_em(
  json_path = NULL,
  method = "mult",
  initial_prob = "group_proportional",
- mismatch = FALSE,
+ allow_mismatch = FALSE,
  maxiter = 1000,
  maxtime = 3600,
  stop_threshold = 0.001,
@@ -48,7 +48,7 @@ probability. Accepted values are:
 \item \code{group_proportional}: Computes the probability matrix by taking into account both group and candidate proportions. This is the default method.
 }}
 
-\item{mismatch}{Boolean, if \code{TRUE} allows a mismatch between the voters and votes for each ballot-box, only works if method is \code{mvn_cdf}, \code{mvn_pdf}, and \code{mult}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{FALSE}.}
+\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box, only works if method is \code{mvn_cdf}, \code{mvn_pdf}, and \code{mult}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{FALSE}.}
 
 \item{maxiter}{An optional integer indicating the maximum number of EM iterations.
 The default value is \code{1000}.}
@@ -103,7 +103,7 @@ The final status ID of the algorithm upon completion:
 Aditionally, it will create \code{samples} and \code{step_size} parameters if the specified method is \code{hnr}, or \code{mc_method}, \code{mc_error} and \code{mc_samples} if the method is \code{mvn_cdf}.
 }
 \description{
-Executes the Expectation-Maximization (EM) algorithm indicating the approximation method to use in the \emph{E}-step.
+Executes the Expectation-Maximization (EM) algorithm indicating the approximation method to use in the E-step.
 Certain methods may require additional arguments, which can be passed through \code{...} (see \link{fastei-package} for more details).
 }
 \note{

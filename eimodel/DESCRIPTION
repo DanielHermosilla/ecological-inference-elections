@@ -1,5 +1,5 @@
 Package: fastei 
-Title: Methods for "A Fast Ecological Inference Algorithm for the RxC case"
+Title: Methods for a Fast Alternative for the R x C Ecological Inference Problem. 
 Version: 0.0.0.1
 Author: Charles Thraves, Pablo Ubilla, Daniel Hermosilla
 Maintainer: Daniel Hermosilla <daniel.hermosilla.r@ug.uchile.cl>

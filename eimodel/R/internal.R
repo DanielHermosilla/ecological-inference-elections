@@ -27,8 +27,8 @@
     }
 
     # Mismatch argument
-    if ("mismatch" %in% names(args) && !is.logical(args$mismatch)) {
-        stop("run_em: Invalid 'mismatch'. It has to be a boolean")
+    if ("allow_mismatch" %in% names(args) && !is.logical(args$allow_mismatch)) {
+        stop("run_em: Invalid 'allow_mismatch'. It has to be a boolean")
     }
 
     # Method argument

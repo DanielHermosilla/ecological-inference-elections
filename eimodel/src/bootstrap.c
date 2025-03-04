@@ -7,22 +7,25 @@
 #include <string.h>
 #include <unistd.h>
 
-Matrix *iterMat(const Matrix *originalMatrix, const int *indexArr, bool sampleCols, int indexStart)
+void iterMat(const Matrix *originalX, const Matrix *originalW, Matrix *newX, Matrix *newW, const int *indexArr,
+             int indexStart)
 {
-    Matrix *finalMat = malloc(sizeof(Matrix));                            // Allocate space for the Matrix struct
-    *finalMat = createMatrix(originalMatrix->rows, originalMatrix->cols); // Allocate data
-
-    for (int j = 0; j < originalMatrix->cols; j++)
+    // The amount of ballot boxes
+    int ballotBoxes = originalW->rows;
+    for (int b = 0; b < ballotBoxes; b++)
     {
-        for (int i = 0; i < originalMatrix->rows; i++)
-        {
-            if (sampleCols)
-                MATRIX_AT_PTR(finalMat, i, j) = MATRIX_AT_PTR(originalMatrix, i, indexArr[indexStart + j]);
-            else
-                MATRIX_AT_PTR(finalMat, i, j) = MATRIX_AT_PTR(originalMatrix, indexArr[indexStart + i], j);
+        int sampledIndex = indexArr[indexStart + b];
+        // For the 'w' matrix
+        for (int g = 0; g < originalW->cols; g++)
+        { // --- For each group given a ballot box
+            MATRIX_AT_PTR(newW, b, g) = MATRIX_AT_PTR(originalW, sampledIndex, g);
+        }
+        // For the 'x' matrix
+        for (int c = 0; c < originalX->rows; c++)
+        { // --- For each candidate given a ballot box
+            MATRIX_AT_PTR(newX, c, b) = MATRIX_AT_PTR(originalX, c, sampledIndex);
         }
     }
-    return finalMat;
 }
 
 Matrix standardDeviations(Matrix *bootstrapResults, Matrix *sumMatrix, int totalIter)
@@ -101,7 +104,7 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
     GetRNGstate();
     for (int j = 0; j < samples; j++)
     {
-        indices[j] = (int)(bdim * unif_rand()) % bdim;
+        indices[j] = (int)(unif_rand() * bdim);
     }
     PutRNGstate();
     // ---...--- //
@@ -114,9 +117,10 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
         if (verbose)
             Rprintf("Executing the %dth iteration.\n", i);
         // ---- Declare variables for the current iteration
-        Matrix *iterX = iterMat(xmat, indices, true, i * bdim);
-        Matrix *iterW = iterMat(wmat, indices, false, i * bdim);
-        setParameters(iterX, iterW);
+        Matrix iterX = createMatrix(xmat->rows, xmat->cols);
+        Matrix iterW = createMatrix(wmat->rows, wmat->cols);
+        iterMat(xmat, wmat, &iterX, &iterW, indices, i * bdim);
+        setParameters(&iterX, &iterW);
         Matrix iterP = getInitialP(p_method);
 
         // Declare EM variables, they're not used in this case...
@@ -150,20 +154,23 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
         {
             cleanHitAndRun();
         }
-        freeMatrix(iterX);
-        freeMatrix(iterW);
-        free(iterX);
-        free(iterW);
+        freeMatrix(&iterX);
+        freeMatrix(&iterW);
         // ---...--- //
     }
-    Free(indices);
     Matrix sdReturn = standardDeviations(results, &sumMat, bootiter);
     if (verbose)
     {
         Rprintf("Bootstrapping finished!\nThe estimated standard deviation matrix (g x c) is:\n");
         printMatrix(&sdReturn);
     }
+
+    Free(indices);
     freeMatrix(&sumMat);
+    for (int i = 0; i < bootiter; i++)
+    {
+        freeMatrix(&results[i]);
+    }
     Free(results);
 
     return sdReturn;

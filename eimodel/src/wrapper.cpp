@@ -21,8 +21,8 @@ SOFTWARE.
 */
 
 #include "wrapper.h"
-#include "Rcpp/vector/instantiation.h"
 #include "bootstrap.h"
+#include "dynamic_program.h"
 #include "main.h"
 #include <Rcpp.h>
 #include <vector>
@@ -161,4 +161,59 @@ Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
     freeMatrix(&sdResult);
 
     return output;
+}
+
+// ---- Run Group Aggregation Algorithm ---- //
+// [[Rcpp::export]]
+Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold, Rcpp::NumericMatrix candidate_matrix,
+                    Rcpp::NumericMatrix group_matrix, Rcpp::IntegerVector nboot, Rcpp::String em_method,
+                    Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations,
+                    Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold,
+                    Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples,
+                    Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter)
+{
+    if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
+        Rcpp::stop("Error: X matrix has zero dimensions!");
+
+    if (group_matrix.nrow() == 0 || group_matrix.ncol() == 0)
+        Rcpp::stop("Error: W matrix has zero dimensions!");
+
+    Matrix XR = convertToMatrix(candidate_matrix);
+    Matrix WR = convertToMatrix(group_matrix);
+
+    std::string probabilityM = probability_method;
+    std::string EMAlg = em_method;
+    std::string aggMet = sd_statistic;
+
+    QMethodInput inputParams =
+        initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], monte_method);
+
+    // We'll hold the boundary indices here
+    int G = WR.cols;
+    int *cuttingBuffer = new int[G - 1];
+    int usedCuts = 0; // how many boundaries we actually use
+    Matrix sdResult = aggregateGroups(&XR, &WR, cuttingBuffer, &usedCuts, sd_threshold[0], aggMet.c_str(), nboot[0],
+                                      probabilityM.c_str(), EMAlg.c_str(), stopping_threshold[0], maximum_iterations[0],
+                                      maximum_seconds[0], verbose[0], inputParams);
+
+    // Convert to R's matrix
+    Rcpp::NumericMatrix output(sdResult.rows, sdResult.cols);
+
+    std::memcpy(output.begin(), // where to copy
+                sdResult.data,  // source
+                sdResult.rows * sdResult.cols * sizeof(double));
+
+    // Convert to R's integer vector
+    Rcpp::IntegerVector result(usedCuts);
+    for (int i = 0; i < usedCuts; i++)
+    {
+        result[i] = cuttingBuffer[i];
+    }
+
+    // Free native memory
+    freeMatrix(&sdResult);
+    // free(cuttingBuffer);
+    delete[] cuttingBuffer;
+
+    return Rcpp::List::create(Rcpp::_["bootstrap_result"] = output, Rcpp::_["indices"] = result);
 }

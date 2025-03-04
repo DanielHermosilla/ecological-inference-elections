@@ -5,7 +5,7 @@ library(ggplot2)
 json_dir <- "/Users/daniel/ecological-inference-elections/instances"
 
 # Get a list of all JSON files containing "G2" and "I2"
-json_files <- list.files(json_dir, pattern = "G2.*I2.*\\.json$", full.names = TRUE)
+json_files <- list.files(json_dir, pattern = "G5.*I2.*\\.json$", full.names = TRUE)
 
 # Initialize a list to store all q arrays
 q_list <- list()
@@ -29,7 +29,8 @@ for (file in json_files) {
         }
 
         # Run EM algorithm
-        result <- run_em(X = data$X, W = data$W, method = "exact", stop_threshold = 0.001)
+        result <- run_em(X = data$X, W = data$W, method = "mult", stop_threshold = 0.001)
+        result <- get_agg_proxy(object = result, verbose = TRUE, sd_threshold = 0.001)
 
         # Store the q array
         q_list[[seed]] <- result$q

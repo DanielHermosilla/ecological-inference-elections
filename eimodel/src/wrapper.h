@@ -91,18 +91,30 @@ void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix gr
  *  Returns an array of col-major matrices with bootstrapped matrices.
  *
  * @param[in] xmat The original X array
+ *
  * @param[in] wmat The original W array
+ *
  * @param[in] bootiter The amount of iterations for bootstrapping
+ *
  * @param[in] p_method The method for obtaining the initial probability
+ *
  * @param[in] q_method Pointer to a string that indicates the method or calculating "q". Currently it supports "Hit
  * and Run", "mult", "mvn_cdf", "mvn_pdf" and "exact" methods.
+ *
  * @param[in] convergence Threshold value for convergence. Usually it's set to 0.001.
+ *
  * @param[in] maxIter Integer with a threshold of maximum iterations. Usually it's set to 100.
+ *
  * @param[in] maxSeconds Double with the value of the maximum amount of seconds to use.
+ *
  * @param[in] verbose Wether to verbose useful outputs.
+ *
  * @param[in, out] time The time that the algorithm took.
+ *
  * @param[in, out] iterTotal Total amount of iterations.
+ *
  * @param[in, out] logLLarr The loglikelihood array
+ *
  * @param[in, out] finishing_reason The reason that the algorithm has been stopped. It can either be 0, 1, 2, 3,
  * representing a normal convergence, log likelihood decrease, maximum time reached and maximum iterations reached,
  * respectively.
@@ -117,4 +129,58 @@ Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
                                  Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector verbose,
                                  Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method,
                                  Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter);
+
+/*
+ * Returns a list with an heuristic-optimal bootstrapped matrix with an ideal group aggregation.
+ *
+ * @param[in] sd_statistic String indicates the statistic for the standard deviation (gxc) matrix. It can take the value
+ * 'maximum', in which case computes the maximum over the standard deviation matrix, or 'average', in which case
+ * computes the average.
+ *
+ * @param[in] String indicates the statistic for the standard deviation (gxc) matrix. It can take the value 'maximum',
+ * in which case computes the maximum over the standard deviation matrix, or 'average', in which case computes the
+ * average.
+ *
+ * @param[in] candidate_matrix The 'X' matrix of dimension (cxb).
+ *
+ * @param[in] group_matrix The 'W' matrix of dimension (bxg).
+ *
+ * @param[in] xmat The original X array
+ *
+ * @param[in] wmat The original W array
+ *
+ * @param[in] nboot The amount of iterations for bootstrapping
+ *
+ * @param[in] probability_method The method for obtaining the initial probability
+ *
+ * @param[in] em_method Pointer to a string that indicates the method or calculating "q". Currently it supports "Hit
+ * and Run", "mult", "mvn_cdf", "mvn_pdf" and "exact" methods.
+ *
+ * @param[in] stopping_threshold Threshold value for convergence. Usually it's set to 0.001.
+ *
+ * @param[in] maximum_iterations Integer with a threshold of maximum iterations. Usually it's set to 100.
+ *
+ * @param[in] maximum_seconds Double with the value of the maximum amount of seconds to use.
+ *
+ * @param[in] verbose Wether to verbose useful outputs.
+ *
+ * @param[in] step_size The step size for the hnr method.
+ *
+ * @param[in] samples The amount of samples for the hnr method.
+ *
+ * @param[in] monte_method The method for the montecarlo simulation.
+ *
+ * @param[in] monte_error The error threshold for the montecarlo simulation.
+ *
+ * @param[in] monte_iter The amount of iterations for the montecarlo simulation
+ *
+ * @return A key-value list with 'bootstrap_result' and the cutting 'indices'.
+ */
+Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold, Rcpp::NumericMatrix candidate_matrix,
+                    Rcpp::NumericMatrix group_matrix, Rcpp::IntegerVector nboot, Rcpp::String em_method,
+                    Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations,
+                    Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold,
+                    Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples,
+                    Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter);
+
 #endif // WRAPPER_H

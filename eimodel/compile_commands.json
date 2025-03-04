@@ -61,6 +61,29 @@
       "-O2",
       "-c",
       "-o",
+      "dynamic_program.o",
+      "dynamic_program.c"
+    ],
+    "directory": "/Users/daniel/eimodel/src",
+    "file": "/Users/daniel/eimodel/src/dynamic_program.c",
+    "output": "/Users/daniel/eimodel/src/dynamic_program.o"
+  },
+  {
+    "arguments": [
+      "/usr/local/opt/llvm/bin/clang",
+      "-I/usr/local/Cellar/r/4.4.2_2/lib/R/include",
+      "-DNDEBUG",
+      "-I/usr/local/lib/R/4.4/site-library/Rcpp/include",
+      "-I/usr/local/opt/gettext/include",
+      "-I/usr/local/opt/readline/include",
+      "-I/usr/local/opt/xz/include",
+      "-I/usr/local/include",
+      "-fopenmp",
+      "-fPIC",
+      "-g",
+      "-O2",
+      "-c",
+      "-o",
       "exact.o",
       "exact.c"
     ],

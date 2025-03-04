@@ -1403,3 +1403,45 @@ Matrix *copyMatrixPtr(const Matrix *orig)
 
     return copy;
 }
+
+/*
+ * Given an array of actions, it merges columns by summing the row values, generating a new matrix.
+ * For example, if boundaries = {2, 4, 8} and wmat has 8 columns,
+ * the function will merge columns as follows:
+ * - New column 0: sum of columns 0 to 2
+ * - New column 1: sum of columns 3 to 4
+ * - New column 2: sum of columns 5 to 7
+ *
+ * @param[in] wmat A pointer to the original matrix. Won't be changed
+ * @param[in] boundaries An array with the indices of boundaries.
+ * @param[in] numBoundaries The size of the 'boundaries' array.
+ *
+ * @return A new matrix merged by columns
+ */
+Matrix mergeColumns(const Matrix *wmat, const int *boundaries, int numBoundaries)
+{
+    int newCols = numBoundaries; // Total merged column groups
+    int rows = wmat->rows;
+    Matrix newMat = createMatrix(rows, newCols);
+
+    int start = 0; // First group starts from column 0
+
+    for (int g = 0; g < newCols; g++)
+    {
+        int end = (g < numBoundaries) ? boundaries[g] : wmat->cols; // Adjust end index
+
+        for (int r = 0; r < rows; r++)
+        {
+            double sum = 0.0;
+            for (int c = start; c <= end; c++) // Ensure correct summation range
+            {
+                sum += MATRIX_AT_PTR(wmat, r, c);
+            }
+            MATRIX_AT(newMat, r, g) = sum;
+        }
+
+        start = end + 1; // Move start to the next segment
+    }
+
+    return newMat;
+}
