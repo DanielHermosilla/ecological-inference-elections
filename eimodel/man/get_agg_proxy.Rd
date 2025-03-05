@@ -10,7 +10,7 @@ get_agg_proxy(
   W = NULL,
   json_path = NULL,
   sd_statistic = "maximum",
-  sd_threshold = 0.015,
+  sd_threshold = 0.05,
   nboot = 50,
   seed = NULL,
   ...
@@ -25,7 +25,7 @@ get_agg_proxy(
 
 \item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays.}
 
-\item{sd_threshold}{Numeric with the value to use as a threshold for the statistic (\code{sc_statistic}) of the standard deviation of the estimated probabilities.}
+\item{sd_threshold}{Numeric with the value to use as a threshold for the statistic (\code{sc_statistic}) of the standard deviation of the estimated probabilities. Defaults to 0.05.}
 
 \item{nboot}{Integer specifying how many times to run the
 EM algorithm.}
@@ -67,4 +67,51 @@ these options. Attempting to provide more than one or none of these inputs will 
 When called with an \code{eim} object, the function updates the object with the computed results.
 If an \code{eim} object is not provided, the function will create one internally using either the
 supplied matrices or the data from the JSON file before executing the algorithm.
+}
+\examples{
+# Example 1: Using a simulated instance
+simulations <- simulate_election(
+    num_ballots = 400,
+    num_candidates = 3,
+    num_groups = 6,
+    group_proportions = c(0.4, 0.1, 0.1, 0.1, 0.2, 0.1),
+    lambda = 0.7
+)
+
+result <- get_agg_proxy(
+    X = simulations$X,
+    W = simulations$W,
+    sd_threshold = 0.01
+)
+
+result$group_agg # c(2, 6)
+# This would mean that the ideal group aggregation would
+# be {[1, 2], [3, 6]}
+
+# Example 2: Using the chilean election results
+data(chile_election_2021)
+
+niebla_df <- chile_election_2021[chile_election_2021$ELECTORAL.DISTRICT == "NIEBLA", ]
+
+# Create the X matrix with selected columns
+X <- as.matrix(niebla_df[, c("C1", "C2", "C3", "C4", "C5", "C6", "C7")])
+
+# Create the W matrix with selected columns
+W <- as.matrix(niebla_df[, c(
+    "X18.19", "X20.29",
+    "X30.39", "X40.49",
+    "X50.59", "X60.69",
+    "X70.79", "X80."
+)])
+
+solution <- get_agg_proxy(
+    X = X, W = W,
+    allow_mismatch = TRUE, sd_threshold = 0.03,
+    sd_statistic = "average", nboot = 100
+)
+
+solution$group_agg # c(3, 4, 5, 6, 7)
+# This would mean that the ideal group aggregation would
+# be {[1, 3], [4], [5], [6], [7, 8]}
+
 }

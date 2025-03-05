@@ -37,5 +37,6 @@
 ## usethis namespace: start
 ## usethis namespace: end
 #' @useDynLib fastei, .registration = TRUE
-# @importFrom Rcpp evalCpp
+#' @import Rcpp
+#' @importFrom Rcpp evalCpp
 NULL

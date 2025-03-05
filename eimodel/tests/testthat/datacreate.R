@@ -35,7 +35,7 @@ library(dplyr)
 
 # Filter rows where ELECTORAL.DISTRICT == "ANTOFAGASTA NORTE"
 filtered_df <- chile_election_2021 %>%
-    filter(ELECTORAL.DISTRICT == "LOS ANDES")
+    filter(ELECTORAL.DISTRICT == "NIEBLA")
 
 # Create the X matrix with selected columns
 X <- as.matrix(filtered_df[, c("C1", "C2", "C3", "C4", "C5", "C6", "C7")])
@@ -44,8 +44,8 @@ X <- as.matrix(filtered_df[, c("C1", "C2", "C3", "C4", "C5", "C6", "C7")])
 W <- as.matrix(filtered_df[, c("X18.19", "X20.29", "X30.39", "X40.49", "X50.59", "X60.69", "X70.79", "X80.")])
 
 # Print the matrices to verify
-print(X)
-print(W)
+# print(X)
+# print(W)
 
 solution <- run_em(X = X, W = W, allow_mismatch = TRUE)
-solution2 <- get_agg_proxy(X = X, W = W, allow_mismatch = TRUE, verbose = TRUE, sd_threshold = 0.05, sd_statistic = "mean")
+solution2 <- get_agg_proxy(X = X, W = W, allow_mismatch = TRUE, verbose = TRUE, sd_threshold = 0.0001, sd_statistic = "mean", seed = 1, nboot = 400)

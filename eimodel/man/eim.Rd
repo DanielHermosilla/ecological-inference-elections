@@ -72,7 +72,7 @@ sim_result <- simulate_election(
     num_ballots = 500,
     num_candidates = 3,
     num_groups = 5,
-    group_proportions = c(0.2, 0.2, 0.4, 0.1, 0.1),
+    group_proportions = c(0.2, 0.2, 0.4, 0.1, 0.1)
 )
 
 model2 <- eim(X = sim_result$X, W = sim_result$W)

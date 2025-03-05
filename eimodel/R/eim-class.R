@@ -62,7 +62,7 @@ library(jsonlite)
 #'     num_ballots = 500,
 #'     num_candidates = 3,
 #'     num_groups = 5,
-#'     group_proportions = c(0.2, 0.2, 0.4, 0.1, 0.1),
+#'     group_proportions = c(0.2, 0.2, 0.4, 0.1, 0.1)
 #' )
 #'
 #' model2 <- eim(X = sim_result$X, W = sim_result$W)
@@ -107,11 +107,11 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
     }
 
     if (sum(xw_provided, json_provided) != 1) {
-        stop(
+        stop(paste(
             "eim: You must provide exactly one of the following:\n",
-            "(1)\tan `eim` object (initialized with `eim`)\n",
-            "(2)\t`X` and `W`\n"
-        )
+            "(1)\tAn `eim` object (initialized with `eim`)\n",
+            "(2)\t`X` and `W`"
+        ))
     }
 
     # Load data from JSON if a path is provided
@@ -221,7 +221,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' The function returns an 'eim' object with the following attributes:
 #' \describe{
 #'   \item{prob}{The estimated probability matrix `(g x c)`.}
-#' 	 \item{cond_prob}{A `(buuuuuuuc)` 3d-array with the probability that a at each ballot-box a voter of each group voted for each candidate, given the observed outcome at the particular ballot-box.}
+#' 	 \item{cond_prob}{A `(b x g x c)` 3d-array with the probability that a at each ballot-box a voter of each group voted for each candidate, given the observed outcome at the particular ballot-box.}
 #'   \item{logLik}{The log-likelihood value from the last iteration.}
 #'   \item{iterations}{The total number of iterations performed by the EM algorithm.}
 #'   \item{time}{The total execution time of the algorithm in seconds.}
@@ -538,10 +538,57 @@ bootstrap <- function(object = NULL,
 #' @return
 #' It returns an eim object with the same attributes as the output of [run_em], plus the attributes:
 #'
-#' - sd: A `(g x c)` matrix with the standard deviation of the estimated probabilities computed with bootstrapping.
+#' - sd: A `(g x a)` matrix with the standard deviation of the estimated probabilities computed with bootstrapping.
 #' - sd_statistic: The statistic used as input.
 #' - sd_threshold: The threshold used as input.
 #' - group_agg: Array with the group aggregation used.
+#'
+#' @examples
+#' # Example 1: Using a simulated instance
+#' simulations <- simulate_election(
+#'     num_ballots = 400,
+#'     num_candidates = 3,
+#'     num_groups = 6,
+#'     group_proportions = c(0.4, 0.1, 0.1, 0.1, 0.2, 0.1),
+#'     lambda = 0.7
+#' )
+#'
+#' result <- get_agg_proxy(
+#'     X = simulations$X,
+#'     W = simulations$W,
+#'     sd_threshold = 0.01
+#' )
+#'
+#' result$group_agg # c(2, 6)
+#' # This would mean that the ideal group aggregation would
+#' # be {[1, 2], [3, 6]}
+#'
+#' # Example 2: Using the chilean election results
+#' data(chile_election_2021)
+#'
+#' niebla_df <- chile_election_2021[chile_election_2021$ELECTORAL.DISTRICT == "NIEBLA", ]
+#'
+#' # Create the X matrix with selected columns
+#' X <- as.matrix(niebla_df[, c("C1", "C2", "C3", "C4", "C5", "C6", "C7")])
+#'
+#' # Create the W matrix with selected columns
+#' W <- as.matrix(niebla_df[, c(
+#'     "X18.19", "X20.29",
+#'     "X30.39", "X40.49",
+#'     "X50.59", "X60.69",
+#'     "X70.79", "X80."
+#' )])
+#'
+#' solution <- get_agg_proxy(
+#'     X = X, W = W,
+#'     allow_mismatch = TRUE, sd_threshold = 0.03,
+#'     sd_statistic = "average", nboot = 100
+#' )
+#'
+#' solution$group_agg # c(3, 4, 5, 6, 7)
+#' # This would mean that the ideal group aggregation would
+#' # be {[1, 3], [4], [5], [6], [7, 8]}
+#'
 #' @export
 get_agg_proxy <- function(object = NULL,
                           X = NULL,

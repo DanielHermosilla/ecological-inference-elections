@@ -455,7 +455,7 @@ Matrix testBootstrap(double *quality, const char *set_method, const Matrix *xmat
     // ---...--- //
 
     // ---- Maximum method ---- //
-    if (strcmp(p_method, "maximum") == 0)
+    if (strcmp(set_method, "maximum") == 0)
     {
         double maxval = maxElement(&standardMat);
         *quality = maxval;
@@ -530,9 +530,11 @@ Matrix aggregateGroups(const Matrix *xmat, const Matrix *wmat, int *results, int
             Rprintf("Optimal actions:\t[");
             for (int k = 0; k < i - 1; k++)
             {
-                Rprintf("%d, ", boundaries[k]);
+                // Sum 1 to the index for using R's indexing
+                Rprintf("%d, ", boundaries[k] + 1);
             }
             Rprintf("%d]\n", boundaries[i - 1]);
+            Rprintf("Objective function:\t%.4f\n", bestVal);
         }
         // ---- Calculate the bootstrap matrix according the cutting boundaries
         bootstrapMatrix = testBootstrap(&quality, set_method, xmat, wmat, boundaries, i, bootiter, q_method, p_method,

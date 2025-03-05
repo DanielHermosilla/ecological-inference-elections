@@ -437,6 +437,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     struct timespec start, end, iter_start, iter_end; // Declare timers for overall and per-iteration
     clock_gettime(CLOCK_MONOTONIC_RAW, &start);
     double elapsed_total = 0;
+    Matrix newProbability;
     // ---...--- //
     // ---- Execute the EM-iterations ---- //
     for (int i = 0; i < maxIter; i++)
@@ -456,6 +457,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         newLL = logLikelihood(currentP, *qVal);
         // logLikelyArray[i] = newLL;
         // CONDICION DE PARADA ACÁ
+        newProbability = copyMatrix(currentP);
         freeMatrix(currentP);
         *currentP = getP(*qVal); // MSTEP
         // ---...--- //
@@ -463,8 +465,9 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         // ---- Check convergence ---- //
         // Usually the CDF do really SMALL steps, so at least impose some iterations...
         int minIter = (strcmp(q_method, "mvn_cdf") == 0) ? 65 : 0;
-        if (fabs(newLL - oldLL) < convergence && i >= minIter)
+        // if (fabs(newLL - oldLL) < convergence && i >= minIter)
         // if (false)
+        if (convergeMatrix(&newProbability, currentP, convergence))
         {
             // ---- End timer ----
             clock_gettime(CLOCK_MONOTONIC_RAW, &end);
@@ -507,6 +510,7 @@ results:
     // ---- Matrix must be returned without a pointer
     Matrix finalProbability = copyMatrix(currentP);
     freeMatrix(currentP);
+    freeMatrix(&newProbability);
     return finalProbability;
     // return *currentP;
 }
