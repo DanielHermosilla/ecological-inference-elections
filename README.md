@@ -31,24 +31,41 @@ A continuación una documentación traducida y resumida de las funciones más im
 
 1. `run_em()`: Corre el algoritmo para estimar las probabilidades agregadas:
 - `object`: Objeto de tipo `eim` (creado con la función `eim()`) que tienen las matrices a calcular. Opcional en caso de otorgar las matrices `X` y `W` de forma manual o un archivo `json`.
+
 - `X`: Matriz de candidatos, donde las filas corresponden a las urnas y las columnas a la indexación del candidato. Cada campo serían los votos que obtuvo cierto candidato para una urna en específico.
+
 - `W`: Matriz de grupos, donde las filas corresponden a las urnas y las columnas a grupos demográficos (i.e partidos políticos, sexo, etc). Los campos son los votos que hizo cada grupo para cierta urna.
+
 - `json_path`: Ruta con un archivo `.json` con la información de las votaciones. Este parámetro es opcional si se optó por usar alguna de las opciones anteriores (otorgar un objeto o las dos matrices).
+
 - `method`: El método a utilizar para las estimaciones. Está disponible: `mult`, `mvn_cdf`, `mvn_pdf`, `hnr` y `exact`. Por defecto se utiliza `mult`, que es el más eficiente.
+
 - `initial_prob`: Método para calcular la probabilidad inicial. Están disponibles: `group_proportional`, `proportional` y `uniform`. Por defecto se utiliza el primer método mencionado.
+
 - `allow_mismatch`: Boolean que indica al algoritmo si hay un descuadre entre los votos de las mesas. Por defecto es `false`.
+
 - `maxiter`: Máximas iteraciones permitidas, por defecto, 1000.
+
 - `stop_threshold`: Valor indicador para terminar las iteraciones. Si la diferencia entre probabilidades es menor a `stop_threshold`, se deja de iterar. Por defecto es 0.01.
+
 - `log_threshold`: Valor indicador para terminar las iteraciones, en base al log-likelihood. Si la diferencia entre log-likelihoods es menor a `log_threshold` se deja de iterar. En caso de utilizarse, el algoritmo deja de iterar en base a qué se cumple primero (`stop_threshold` o `log_threshold`). Por defecto viene desactivado, con un valor `-Inf`.
+
 - `verbose`: Boolean que indica si hay que printear información que podría llegar a ser útil. Por defecto está desactivado.
+
 - `step_size`: El tamaño del "paso" en caso de utilizar `method=hnr`, por defecto se utiliza 3000.
+
 - `samples`: Cantidad de samples en caso de utilizar `method=hnr`, por defecto se utilizan 1000.
+
 - `mc_method`: El método para simular la Normal Multivariada en `method=mvn_cdf`. Puede ser `genz` o `genz2`. Por defecto se utiliza `genz2`, que tiende a ser más rápida.
+
 - `mc_error`: Threshold para detener la simulación de la Normal Multivariada, por defecto, 1e-6.
+
 - `mc_samples`: Cantidad máxima de sampleos para la simulación, por defecto, 5000.
 
 2. `bootstrap()`: Corre un algoritmo de bootstrapping para simular la desviación estándar. Hereda todos los argumentos de `run_em()` y adicionalmente considera:
+
 - `nboot`: Cantidad de iteraciones a utilizar. Por defecto son 50.
+
 - `seed`: La semilla para fijar las simulaciones. Por defecto, no existe impone ninguna semilla.
 
 ## Uso
