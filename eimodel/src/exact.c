@@ -350,12 +350,12 @@ double prod(const size_t *hElement, const Matrix *probabilities, const int f)
 double multinomialCoeff(const int b, const int f, const size_t *hElement)
 {
     // --- Compute ln(w_bf!). When adding by one, it considers the last element too ---
-    double result = lgamma1p((int)MATRIX_AT_PTR(W, b, f) + 1);
+    double result = lgamma1p((int)MATRIX_AT_PTR(W, b, f));
 
     for (uint16_t i = 0; i < TOTAL_CANDIDATES; i++)
     { // ---- For each candidate
         // ---- Divide by each h_i! ----
-        result -= lgamma1p(hElement[i] + 1);
+        result -= lgamma1p(hElement[i]);
     }
     // ---- Return the original result by exponentiating ----
     return exp(result);
@@ -518,6 +518,31 @@ void recursion(MemoizationTable *memo, const Matrix *probabilities)
     } // ---- End ballot boxes loop
 }
 
+/*
+ * Gets the log-likelihood of the exact method, assuming the computation of the exact method is ongoing.
+ *
+ * TODO: Make an alternative version where we do not assume the exact method is being computed.
+ */
+double exactLL(MemoizationTable *memo)
+{
+    double sum = 0;
+    // Note that CANDIDATEARRAYS should be initialized
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    {
+// Note that G must be different than f
+// getMemoValue(table, b, TOTAL_GROUPS - 1, g, c, CANDIDATEARRAYS[b], TOTAL_CANDIDATES)
+#ifdef _OPENMP
+#pragma omp critical
+#endif
+        {
+            double px =
+                getMemoValue(memo, b, TOTAL_GROUPS - 1, 0, TOTAL_CANDIDATES - 1, CANDIDATEARRAYS[b], TOTAL_CANDIDATES);
+            sum += log(px);
+        }
+    }
+    return sum;
+}
+
 /**
  * @brief Calculate the value of `q_{bgc}`.
  *
@@ -532,7 +557,7 @@ void recursion(MemoizationTable *memo, const Matrix *probabilities)
  * @note: A single pointer is used to store the array continously. This is for using cBLAS operations later.
  *
  */
-double *computeQExact(const Matrix *probabilities, QMethodInput params)
+double *computeQExact(const Matrix *probabilities, QMethodInput params, double *ll)
 {
 
     // ---- Initialize CANDIDATEARRAYS, which corresponds as a copy of `X` but in size_t. ---- //
@@ -602,7 +627,7 @@ double *computeQExact(const Matrix *probabilities, QMethodInput params)
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // ---- For each candidate
                 // ---- Compute the numerator ----
-                // ---- Store the resulting values as q_{bgc} ----
+                // ---- Store the resulting values as q_{bgc} ----;
                 if (den != 0)
                 {
                     Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num[c] / den;
@@ -615,6 +640,8 @@ double *computeQExact(const Matrix *probabilities, QMethodInput params)
             } // ---- End loop on candidates
         } // ---- End loop on groups
     } // ---- End loop on ballot boxes
+
+    *ll = exactLL(table);
     freeMemo(table);
     return array2;
     // ---...--- //

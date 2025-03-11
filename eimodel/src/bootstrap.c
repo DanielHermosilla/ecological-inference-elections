@@ -91,8 +91,8 @@ Matrix standardDeviations(Matrix *bootstrapResults, Matrix *sumMatrix, int total
  * @return An allocated array of size bootiter * TOTAL_BALLOTS that stores matrices.
  */
 Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const char *q_method, const char *p_method,
-                  const double convergence, const int maxIter, const double maxSeconds, const bool verbose,
-                  QMethodInput inputParams)
+                  const double convergence, const double log_convergence, const int maxIter, const double maxSeconds,
+                  const bool verbose, QMethodInput inputParams)
 {
 
     // ---- Initial variables
@@ -125,12 +125,12 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
 
         // Declare EM variables, they're not used in this case...
         // It could be useful to yield a mean if the user wants to (logLL mean?)
-        double time, logLLarr;
+        double time;
+        double logLLarr[maxIter];
         double *qval = NULL;
         int finishing_reason, iterTotal;
-        Matrix resultP = EMAlgoritm(&iterP, q_method, convergence, maxIter, maxSeconds, false, &time, &iterTotal,
-                                    &logLLarr, &qval, &finishing_reason, inputParams);
-
+        Matrix resultP = EMAlgoritm(&iterP, q_method, convergence, log_convergence, maxIter, maxSeconds, false, &time,
+                                    &iterTotal, logLLarr, &qval, &finishing_reason, inputParams);
         // Sum each value so later we can get the mean
         for (int j = 0; j < wmat->cols; j++)
         {
@@ -154,6 +154,8 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
         {
             cleanHitAndRun();
         }
+        Free(qval);         // Check, for a possible segmentation fault
+        freeMatrix(&iterP); // Check, for a possible segmentation fault
         freeMatrix(&iterX);
         freeMatrix(&iterW);
         // ---...--- //

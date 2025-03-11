@@ -8,6 +8,7 @@ extern "C"
 #endif
 #include "bootstrap.h"
 #include "globals.h"
+#include "main.h"
 #include "utils_matrix.h"
     /*
      * Main function to obtain the heuristical best group aggregation, using dynamic programming. Tries every
@@ -32,8 +33,8 @@ extern "C"
      */
     Matrix aggregateGroups(const Matrix *xmat, const Matrix *wmat, int *results, int *cuts, double set_threshold,
                            const char *set_method, int bootiter, const char *p_method, const char *q_method,
-                           const double convergence, const int maxIter, double maxSeconds, const bool verbose,
-                           QMethodInput inputParams);
+                           const double convergence, const double log_convergence, const int maxIter, double maxSeconds,
+                           const bool verbose, QMethodInput inputParams);
 
 #ifdef __cplusplus
 }

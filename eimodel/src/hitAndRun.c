@@ -216,13 +216,13 @@ double preMultinomialCoeff(const int b, Matrix *currentMatrix)
     {
         // --- Compute ln(w_bf!). When adding by one, it considers the last element too ---
         // result += gsl_sf_lngamma((int)MATRIX_AT_PTR(W, b, g) + 1);
-        result += lgamma1p((int)MATRIX_AT_PTR(W, b, g) + 1);
+        result += lgamma1p((int)MATRIX_AT_PTR(W, b, g));
 
         for (uint16_t i = 0; i < TOTAL_CANDIDATES; i++)
         { // ---- For each candidate
             // ---- Divide by each h_i! ----
             // result -= gsl_sf_lngamma(MATRIX_AT_PTR(currentMatrix, g, i) + 1);
-            result -= lgamma1p(MATRIX_AT_PTR(currentMatrix, g, i) + 1);
+            result -= lgamma1p(MATRIX_AT_PTR(currentMatrix, g, i));
         }
     }
     // ---- Return the original result by exponentiating ----
@@ -292,6 +292,50 @@ void preComputeMultinomial()
     }
 }
 
+/*
+ * Computes the big 'Q' for the log-likelihood.
+ *
+ */
+double computeQ(double *q, Matrix const *probabilities)
+{
+    double total = 0;
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+        {
+            int w_bg = (int)MATRIX_AT_PTR(W, b, g);
+            double qsum = 0;
+            double firstTerm = 0;
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            {
+                double q_bgc = Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES);
+                firstTerm += q_bgc * log(MATRIX_AT_PTR(probabilities, g, c));
+
+                // ---- Summatory on k ---- //
+                double binom_coeff = 1.0; // Start with binomial coefficient for k=1
+                for (int k = 0; k < w_bg; k++)
+                {
+                    // Compute binomial probability term
+                    double term = binom_coeff * pow(q_bgc, k) * pow(1 - q_bgc, w_bg - k);
+
+                    // Multiply by a_k
+                    qsum += lgamma1p(k) * term;
+
+                    // Update binomial coefficient and a_k for next k using recurrence relation:
+                    binom_coeff *= (w_bg - k) / (double)(k + 1);
+                }
+                // ---...--- //
+            }
+            // First term
+            total += firstTerm * w_bg;
+            // Second term
+            total += lgamma1p(w_bg);
+            // Third term
+            total -= qsum;
+        }
+    }
+    return total;
+}
 /**
  * @brief Computes the `q` values for all the ballot boxes given a probability matrix. Uses the Hit and Run method.
  *
@@ -304,7 +348,7 @@ void preComputeMultinomial()
  * @return A pointer towards the flattened tensor.
  *
  */
-double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params)
+double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, double *ll)
 {
     // ---- Compute the variables that can be reused ---- //
     if (OMEGASET == NULL)
@@ -321,39 +365,55 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params)
     double *array2 = (double *)Calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, double); // Array to return
     // ---- Use a static assignment since the workload is even between threads ----
 
-#ifdef _OPENMP
-#pragma omp parallel for collapse(3) schedule(static)
-#endif
+    *ll = 0;
+#pragma omp parallel for collapse(2)
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // --- For each ballot box
         OmegaSet *currentSet = OMEGASET[b];
+        double *multiplicationValues = (currentSet->size <= 10000) ? (double[10000]){1}                // Stack
+                                                                   : Calloc(currentSet->size, double); // Heap
+
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         { // --- For each group given a ballot box
-            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-            { // --- For each candidate given a group and a ballot box
-                // ---- If there's a division by zero, assign probability 0 and skip the iteration ----
-                if (MATRIX_AT_PTR(W, b, g) == 0)
+            double W_bg = MATRIX_AT_PTR(W, b, g);
+            if (W_bg == 0)
+            {
+                for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
                 {
                     Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = 0;
-                    continue;
                 }
-                // ---- Initialize variables for the multiplications. The terms are the outer parenthesis. ----
-                double firstTerm = 0;
+                continue;
+            }
+
+            // --- Precompute multiplicationValues for this (b, g) combination ---
+            double firstTerm = 0;
+            for (size_t s = 0; s < currentSet->size; s++)
+            { // --- For each sample given a group and a ballot box
+                Matrix *currentMatrix = currentSet->data[s];
+                multiplicationValues[s] = logarithmicProduct(probabilities, b, s) * multinomialVals[b][s];
+                firstTerm += multiplicationValues[s];
+            }
+
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            { // --- For each candidate given a group and a ballot box
                 double secondTerm = 0;
                 for (size_t s = 0; s < currentSet->size; s++)
-                { // --- For each sample given a ballot box, group and candidate
-                    // ---- Perform the summatory ---- //
+                { // --- For each sample given a candidate, group and ballot box
                     Matrix *currentMatrix = currentSet->data[s];
-                    double multiplications = logarithmicProduct(probabilities, b, s) * multinomialVals[b][s];
-                    firstTerm += multiplications;
-                    secondTerm += multiplications * (MATRIX_AT_PTR(currentMatrix, g, c) / MATRIX_AT_PTR(W, b, g));
-                    // ---...--- //
+                    secondTerm += multiplicationValues[s] * (MATRIX_AT_PTR(currentMatrix, g, c) / W_bg);
+                    // This is for the log-likelihood, doesn't really depend on 'c' nor 'g', but it needs
+                    // to pass for an 's' loop beforehand for having the denominator
+                    double gb = multiplicationValues[s] / firstTerm;
+                    *ll -= gb * log(gb);
                 }
-                // ---- Add the element to the array ---- //
                 Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = (1 / firstTerm) * secondTerm;
             }
         }
+        if (currentSet->size > 10000)
+            Free(multiplicationValues);
     }
+    *ll += computeQ(array2, probabilities);
+
     return array2;
 }
 

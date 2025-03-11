@@ -17,13 +17,15 @@ get_agg_proxy(
 )
 }
 \arguments{
-\item{object}{An object of class \code{eim}, which can be created using the \link{eim} function. This parameter should not be used if either (i) \code{X} and \code{W} matrices or (ii) \code{json_path} is supplied. See \strong{Note}.}
+\item{object}{An object of class \code{eim}, which can be created using the \link{eim} function. This parameter should not be used if either (i) \code{X} and \code{W} matrices or (ii) \code{json_path} is supplied. See \strong{Note} in \link{run_em}.}
 
 \item{X}{A \verb{(b x c)} matrix representing candidate votes per ballot box.}
 
 \item{W}{A \verb{(b x g)} matrix representing group votes per ballot box.}
 
 \item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays.}
+
+\item{sd_statistic}{String indicates the statistic for the standard deviation \verb{(g x c)} matrix for the stopping condition, i.e., the algorithm stops when the statistic is below the threshold. It can take the value \code{maximum}, in which case computes the maximum over the standard deviation matrix, or \code{average}, in which case computes the average.}
 
 \item{sd_threshold}{Numeric with the value to use as a threshold for the statistic (\code{sc_statistic}) of the standard deviation of the estimated probabilities. Defaults to 0.05.}
 
@@ -33,40 +35,25 @@ EM algorithm.}
 \item{seed}{If provided, overrides the current global seed. Defaults to \code{NULL}.}
 
 \item{...}{Additional arguments passed to the \link{run_em} function that will execute the EM algorithm.}
-
-\item{sd_statisctic}{String indicates the statistic for the standard deviation \verb{(g x c)} matrix. It can take the value \code{maximum}, in which case computes the maximum over the standard deviation matrix, or \code{average}, in which case computes the average.}
 }
 \value{
 It returns an eim object with the same attributes as the output of \link{run_em}, plus the attributes:
 \itemize{
-\item sd: A \verb{(g x c)} matrix with the standard deviation of the estimated probabilities computed with bootstrapping.
+\item sd: A \verb{(g x a)} matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that \code{a} denotes the number of macro-groups of the resulting group aggregation, it should be between \code{2} and \code{g}.
 \item sd_statistic: The statistic used as input.
 \item sd_threshold: The threshold used as input.
-\item group_agg: Array with the group aggregation used.
+\item group_agg: Vector with the resulting group aggregation. See \strong{Examples} for more details.
 }
+
+Aditionally, it will update the \code{W} attribute with the aggregated groups.
 }
 \description{
-This function estimates the voting probabilities (computed using \link{run_em}) aggregating adjacent groups so that the estimated probabilities' standard deviation (computed using \link{bootstrap}) is below a given threshold.
+This function estimates the voting probabilities (computed using \link{run_em}) aggregating adjacent groups so that the estimated probabilities' standard deviation (computed using \link{bootstrap}) is below a given threshold. See \strong{Details} for more information.
 }
 \details{
 Groups need to have an order relation so that adjacent groups can be merged. For example, consider the following seven groups defined by voters' age ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, even for a fixed number of macro-groups, a Dynamic Program (DP) mechanism is used to find the group aggregation that maximizes the sum of the standard deviation of the macro-groups proportions among ballot boxes for a specific number of macro-groups.
 
-In order to find the best group aggregation, the function runs the DP iteratively, starting with all groups (this case is trivial since, in this case, the group aggregation is such that all macro-groups match exactly the original groups). If the standard deviation statistic is below a threshold, it stops. Otherwise, it runs the DP such that the number of macro-groups is one unit less than the original number of macro-groups. If the standard deviation statistic is below a threshold, it stops. And so on until either the algorithm stops, or until the group aggregation composed of a single macro-group does not meet the stopping condition, in which case the output is the EM algorithm run over a single macro-group.
-}
-\note{
-This function can be executed using one of three mutually exclusive approaches:
-\enumerate{
-\item By providing an existing \code{eim} object.
-\item By supplying both input matrices (\code{X} and \code{W}) directly.
-\item By specifying a JSON file (\code{json_path}) containing the matrices.
-}
-
-These input methods are \strong{mutually exclusive}, meaning that you must provide \strong{exactly one} of
-these options. Attempting to provide more than one or none of these inputs will result in an error.
-
-When called with an \code{eim} object, the function updates the object with the computed results.
-If an \code{eim} object is not provided, the function will create one internally using either the
-supplied matrices or the data from the JSON file before executing the algorithm.
+In order to find the best group aggregation, the function runs the DP iteratively, starting with all groups (this case is trivial since, in this case, the group aggregation is such that all macro-groups match exactly the original groups). If the standard deviation statistic is below a threshold, it stops. Otherwise, it runs the DP such that the number of macro-groups is one unit less than the original number of macro-groups. If the standard deviation statistic (\code{sd_statistic}) is below the threshold (\code{sd_threshold}), it stops. And so on until either the algorithm stops, or until the group aggregation composed of a single macro-group does not meet the stopping condition, in which case the output is the EM algorithm run over a single macro-group.
 }
 \examples{
 # Example 1: Using a simulated instance
@@ -114,4 +101,7 @@ solution$group_agg # c(3, 4, 5, 6, 7)
 # This would mean that the ideal group aggregation would
 # be {[1, 3], [4], [5], [6], [7, 8]}
 
+}
+\seealso{
+The \link{eim} object and \link{run_em} implementation.
 }

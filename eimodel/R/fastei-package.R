@@ -21,6 +21,7 @@
 #' - `b`: number of ballot-boxes.
 #' - `g`: number of demographic groups.
 #' - `c`: number of candidates.
+#' - `a`: number of aggregated macro-groups.
 #'
 #' To learn more about `fastei`, please consult the available vignettes:
 #'

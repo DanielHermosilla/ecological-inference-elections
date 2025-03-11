@@ -23,9 +23,9 @@ SOFTWARE.
 #include "multivariate-pdf.h"
 #include <R.h>
 #include <R_ext/Memory.h>
+#include <Rmath.h>
 #include <math.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <unistd.h>
 
 /**
@@ -42,7 +42,7 @@ SOFTWARE.
  *
  */
 
-Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *probabilitiesReduced)
+Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *probabilitiesReduced, double *ll)
 {
 
     // --- Get the mu and sigma --- //
@@ -62,10 +62,17 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
     // ---- Get the inverse matrix for each sigma ---- //
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     { // ---- For each group ----
-      // ---- Calculates the Cholensky matrix TODO, IT DOESN'T DO THAT, FIX ---- //
         inverseSymmetricPositiveMatrix(sigma[g]);
     }
     // ---- ... ----
+    // ---- Get the determinant FOR THE LOG-LIKELIHOOD ---- //
+    double det = 1;
+    for (uint16_t c = 0; c < TOTAL_CANDIDATES - 1; c++)
+    {
+        det *= MATRIX_AT_PTR(sigma[0], c, c);
+    }
+    det = 1.0 / (det * det);
+    double normalizeConstant = R_pow(R_pow_di(M_2_PI, (int)(TOTAL_CANDIDATES - 1)) * det, 0.5);
 
     // --- Calculate the mahanalobis distance --- //
     double **mahanalobisDistances = (double **)Calloc(TOTAL_GROUPS, double *);
@@ -106,6 +113,7 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
             // ---- Add the values towards the denominator to later divide by it ----
             den += QC[c];
         }
+        *ll += g == 0 ? log(den) * normalizeConstant : 0;
         for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
         { // ---- For each candidate given a group
             // ---- Store each value, divided by the denominator ----
@@ -135,7 +143,7 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
  * @return A pointer towards the flattened tensor.
  *
  */
-double *computeQMultivariatePDF(Matrix const *probabilities, QMethodInput params)
+double *computeQMultivariatePDF(Matrix const *probabilities, QMethodInput params, double *ll)
 {
     // ---- Initialize values ---- //
     // ---- The probabilities without the last column will be used for each iteration ----
@@ -143,12 +151,13 @@ double *computeQMultivariatePDF(Matrix const *probabilities, QMethodInput params
     double *array2 = (double *)Calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, double); // Array to return
                                                                                                 // --- ... --- //
 
+    *ll = 0;
     // ---- Fill the array with the results ---- //
     // #pragma omp parallel for
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For each ballot
         // ---- Call the function for calculating the `q` results for a given ballot
-        Matrix resultsForB = computeQforABallot((int)b, probabilities, &probabilitiesReduced);
+        Matrix resultsForB = computeQforABallot((int)b, probabilities, &probabilitiesReduced, ll);
         // #pragma omp parallel for collapse(2)
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         { // ---- For each group given a ballot box

@@ -396,6 +396,7 @@ Matrix getP(const double *q)
  * @param[in] q_method Pointer to a string that indicates the method or calculating "q". Currently it supports "Hit
  * and Run", "mult", "mvn_cdf", "mvn_pdf" and "exact" methods.
  * @param[in] convergence Threshold value for convergence. Usually it's set to 0.001.
+ * @param[in] LLconvergence Threshold for the log-likelihood convergence regarding its variation.
  * @param[in] maxIter Integer with a threshold of maximum iterations. Usually it's set to 100.
  * @param[in] verbose Wether to verbose useful outputs.
  *
@@ -411,28 +412,25 @@ Matrix getP(const double *q)
  * - `x` and `w` dimensions must be coherent.
  *
  */
-Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
-                  const double maxSeconds, const bool verbose, double *time, int *iterTotal, double *logLLarr,
-                  double **qVal, int *finishing_reason, QMethodInput inputParams)
+Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const double LLconvergence,
+                  const int maxIter, const double maxSeconds, const bool verbose, double *time, int *iterTotal,
+                  double *logLLarr, double **qVal, int *finishing_reason, QMethodInput inputParams)
 {
     // ---- Error handling is done on getQMethodConfig!
     if (verbose)
     {
         Rprintf("Starting the EM algorithm.\n");
         Rprintf("The method to calculate the conditional probability will be %s method with the following "
-                "parameters:\nConvergence threshold:\t%.6f\nMaximum iterations:\t%d\n",
-                q_method, convergence, maxIter);
+                "parameters:\nProbability convergence threshold:\t%.6f\nLog-likelihood convergence "
+                "threshold:\t%.6f\nMaximum iterations:\t%d\n",
+                q_method, convergence, LLconvergence, maxIter);
     }
 
     // ---- Define the parameters for the main loop ---- //
     QMethodConfig config = getQMethodConfig(q_method, inputParams);
     double newLL;
     double oldLL = -999999;
-    /*
-    *qVal = config.computeQ(currentP, config.params); // Calcula el Q
-    double oldLL = logLikelihood(currentP, *qVal); // Loglikelihood con P INICIAL
-    double newLL;
-    */
+
     // ---- Start timer
     struct timespec start, end, iter_start, iter_end; // Declare timers for overall and per-iteration
     clock_gettime(CLOCK_MONOTONIC_RAW, &start);
@@ -452,22 +450,19 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         }
 
         // ---- Compute the `q`, `p` and `log-likelihood` ---- //
-        Free(*qVal);
-        *qVal = config.computeQ(currentP, config.params);
-        newLL = logLikelihood(currentP, *qVal);
-        // logLikelyArray[i] = newLL;
-        // CONDICION DE PARADA ACÁ
+        if (i != 0)
+            Free(*qVal);
+        double newLL;
+        *qVal = config.computeQ(currentP, config.params, &newLL);
+        logLLarr[i] = newLL;
+
         newProbability = copyMatrix(currentP);
         freeMatrix(currentP);
-        *currentP = getP(*qVal); // MSTEP
+        *currentP = getP(*qVal); // M-Step
         // ---...--- //
 
         // ---- Check convergence ---- //
-        // Usually the CDF do really SMALL steps, so at least impose some iterations...
-        int minIter = (strcmp(q_method, "mvn_cdf") == 0) ? 65 : 0;
-        // if (fabs(newLL - oldLL) < convergence && i >= minIter)
-        // if (false)
-        if (convergeMatrix(&newProbability, currentP, convergence))
+        if (i >= 1 && (fabs(newLL - oldLL) < LLconvergence || convergeMatrix(&newProbability, currentP, convergence)))
         {
             // ---- End timer ----
             clock_gettime(CLOCK_MONOTONIC_RAW, &end);
@@ -499,10 +494,12 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             *finishing_reason = 1;
             goto results;
         }
+
         oldLL = newLL;
     }
-    Rprintf("Maximum iterations reached without convergence.\n"); // Print even if there's not verbose, might change
-                                                                  // later.
+    if (verbose)
+        Rprintf("Maximum iterations reached without convergence.\n"); // Print even if there's not verbose, might change
+                                                                      // later.
     *finishing_reason = 2;
 results:
     *logLLarr = newLL;
@@ -512,7 +509,6 @@ results:
     freeMatrix(currentP);
     freeMatrix(&newProbability);
     return finalProbability;
-    // return *currentP;
 }
 
 // ---- Clean all of the global variables ---- //

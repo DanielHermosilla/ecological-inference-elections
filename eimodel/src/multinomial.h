@@ -24,7 +24,7 @@ extern "C"
      * but it's fundamental to be a continuos array in memory for simplificating the posteriors calculations.
      *
      */
-    double *computeQMultinomial(Matrix const *probabilities, QMethodInput params);
+    double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, double *ll);
 #ifdef __cplusplus
 }
 #endif

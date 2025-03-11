@@ -19,13 +19,13 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+
 #include "multinomial.h"
 #include "globals.h"
 #include <R.h>
 #include <R_ext/BLAS.h>
 #include <R_ext/Memory.h>
 #include <stdint.h>
-#include <stdio.h>
 
 /**
  * @brief Computes the value of `r` without the denominator.
@@ -46,6 +46,50 @@ double computeR(Matrix const *probabilities, Matrix const *mult, int const b, in
     return MATRIX_AT_PTR(mult, b, c) - MATRIX_AT_PTR(probabilities, g, c);
 }
 
+/*
+ * Computes the WHOLE log-likelihood using the Multinomial method.
+ *
+ * @note: The *ll of the original algorithm will take care of the \Delta log-likelihood, not needing
+ * to compute the lgamma function
+ *
+ * This would be called outside the computing function, so it is not designed to "save" some calculations.
+ */
+/*
+double computeLLMultinomial(Matrix const *probabilities, double *r)
+{
+    // ---- Get the matrix of multiplications
+    double ll = 0;
+    Matrix WP = createMatrix((int)TOTAL_BALLOTS, (int)TOTAL_CANDIDATES);
+
+    double alpha = 1.0;
+    double beta = 0.0;
+    BLAS_INT m = (BLAS_INT)TOTAL_BALLOTS;
+    BLAS_INT k = (BLAS_INT)TOTAL_GROUPS;
+    BLAS_INT n = (BLAS_INT)TOTAL_CANDIDATES;
+    char noTranspose = 'N';
+
+    // WP = alpha * W * probabilities + beta * WP
+    F77_CALL(dgemm)
+    (&noTranspose, &noTranspose, // transA = 'N', transB = 'N'
+     &m, &n, &k,                 // M, N, K
+     &alpha, W->data, &m,        // A, LDA = m
+     probabilities->data, &k,    // B, LDB = k
+     &beta, WP.data, &m,         // C, LDC = m
+     (BLAS_INT)1, (BLAS_INT)1    // string lengths for 'N', 'N'
+    );
+
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        ll += lgamma(BALLOTS_VOTES[b]);
+        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+        {
+            ll -= lgamma(CANDIDATES_VOTES[c]);
+            ll += log(computeR(probabilities, &WP, b, c, 0));
+        }
+    }
+    return ll;
+}
+*/
 /**
  * @brief Computes an approximate of the conditional probability by using a Multinomial approach.
  *
@@ -60,10 +104,10 @@ double computeR(Matrix const *probabilities, Matrix const *mult, int const b, in
  * it's fundamental to be a continuos array in memory for simplificating the posteriors calculations.
  *
  */
-double *computeQMultinomial(Matrix const *probabilities, QMethodInput params)
+double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, double *ll)
 {
     double *array2 = (double *)Calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, double); // Array to return
-
+    *ll = 0;
     // -- Summatory calculation for g --
     // This is a simple matrix calculation, to be computed once.
     Matrix WP = createMatrix((int)TOTAL_BALLOTS, (int)TOTAL_CANDIDATES);
@@ -85,6 +129,7 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params)
      (BLAS_INT)1, (BLAS_INT)1    // string lengths for 'N', 'N'
     );
 
+    // Maybe try to obtain log-likelihood with lgamma
     // ---- Do not parallelize ----
     for (int b = 0; b < (int)TOTAL_BALLOTS; b++)
     { // --- For each ballot box
@@ -100,10 +145,9 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params)
                 // ---- Compute x*p*r^{-1} ---- //
                 double numerator = MATRIX_AT_PTR(probabilities, g, c) * (int)MATRIX_AT_PTR(X, c, b);
                 double denominator = computeR(probabilities, &WP, b, c, g);
-                if (denominator != 0) // --- Edge case
-                    finalNumerator[c] = numerator / denominator;
-                else
-                    finalNumerator[c] = 0;
+
+                finalNumerator[c] = denominator != 0 ? numerator / denominator : 0;
+
                 // ---- Store the value for reusing it later ----
                 tempSum += finalNumerator[c];
                 // ---...--- //
@@ -119,6 +163,7 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params)
                     Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = 0;
                 // ---- Store the value ----
             }
+            *ll += (g == 0 && tempSum != 0) ? log(tempSum) : 0;
         }
     }
 

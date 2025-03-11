@@ -35,7 +35,7 @@ extern "C"
      * @return A pointer towards the flattened tensor.
      *
      */
-    double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params);
+    double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, double *ll);
 
     /*
      * @brief Precomputes the sets used for the simulation.

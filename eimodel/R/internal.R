@@ -14,12 +14,12 @@
     json_provided <- "json_path" %in% names(args)
 
     if (x_provided + w_provided == 1) {
-        stop("run_em: If providing a matrix, 'X' and 'W' must be provided.")
+        stop("If providing a matrix, 'X' and 'W' must be provided.")
     }
 
     if (sum(object_provided, xw_provided, json_provided) != 1) {
         stop(
-            "run_em: You must provide exactly one of the following:\n",
+            "You must provide exactly one of the following:\n",
             "(1)\tan `eim` object (initialized with `eim`)\n",
             "(2)\t`X` and `W`\n",
             "(3)\ta `json_path`"
@@ -35,26 +35,26 @@
     valid_methods <- c("hnr", "exact", "mvn_cdf", "mvn_pdf", "mult")
     if ("method" %in% names(args) &&
         (!is.character(args$method) || length(args$method) != 1 || !(args$method %in% valid_methods))) {
-        stop("run_em: Invalid 'method'. Must be one of: ", paste(valid_methods, collapse = ", "))
+        stop("Invalid 'method'. Must be one of: ", paste(valid_methods, collapse = ", "))
     }
 
     # Initial prob argument
     valid_p_methods <- c("group_proportional", "proportional", "uniform")
     if ("initial_prob" %in% names(args) &&
         (!is.character(args$initial_prob) || length(args$initial_prob) != 1 || !(args$initial_prob %in% valid_p_methods))) {
-        stop("run_em: Invalid 'initial_prob'. Must be one of: ", paste(valid_methods, collapse = ", "))
+        stop("Invalid 'initial_prob'. Must be one of: ", paste(valid_methods, collapse = ", "))
     }
 
     # Maxiter argument
     if ("maxiter" %in% names(args) &&
         (!is.numeric(args$maxiter) || as.integer(args$maxiter) != args$maxiter || args$maxiter <= 0)) {
-        stop("run_em: Invalid 'maxiter'. Must be an integer and positive.")
+        stop("Invalid 'maxiter'. Must be an integer and positive.")
     }
 
     # Maxtime argument
     if ("maxtime" %in% names(args) &&
         (!is.numeric(args$maxtime) || args$maxtime < 0)) {
-        stop("run_em: Invalid 'maxtime'. Must be positive.")
+        stop("Invalid 'maxtime'. Must be positive.")
     }
 
     # Stop threshold argument
@@ -67,9 +67,16 @@
         }
     }
 
+    # Stop threshold argument
+    if ("log_threshold" %in% names(args)) {
+        if (!is.numeric(args$log_threshold)) {
+            stop("run_em: Invalid 'log_threshold'. Must be a number.")
+        }
+    }
+
     # Verbose argument
     if ("verbose" %in% names(args) && !is.logical(args$verbose)) {
-        stop("run_em: Invalid 'verbose'. It has to be a boolean")
+        stop("run_em: Invalid 'verbose'. It has to be a boolean.")
     }
 
     # HNR: Step_size argument
@@ -117,12 +124,21 @@
         }
     }
 
-
-
     # Include nboot aswell if bootstrapping is provided
     if ("nboot" %in% names(args) &&
         (!is.numeric(args$nboot) || as.integer(args$nboot) != args$nboot || args$nboot < 0)) {
         stop("Bootstrap: Invalid 'nboot'. Must be a positive integer.")
+    }
+
+    valid_sd_methods <- c("maximum", "average")
+    if ("sd_statistic" %in% names(args) &&
+        (!is.character(args$sd_statistic) || length(args$sd_statistic) != 1 || !(args$sd_statistic %in% valid_sd_methods))) {
+        stop("Invalid 'sd_statistic'. Must be one of: ", paste(valid_sd_methods, collapse = ", "))
+    }
+
+    if ("sd_threshold" %in% names(args) &&
+        (!is.numeric(args$sd_threshold) || args$sd_threshold <= 0)) {
+        stop("Invalid 'sd_threshold'. Must be a positive number.")
     }
 }
 

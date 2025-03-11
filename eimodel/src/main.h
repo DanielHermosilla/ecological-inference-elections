@@ -20,8 +20,8 @@ extern "C"
     // ----  It is defined here since it's not used globally ----
     typedef struct
     {
-        double *(*computeQ)(const Matrix *, QMethodInput); // Function pointer for computing q
-        QMethodInput params;                               // Holds method-specific parameters
+        double *(*computeQ)(const Matrix *, QMethodInput, double *); // Function pointer for computing q
+        QMethodInput params;                                         // Holds method-specific parameters
     } QMethodConfig;
     // ---...--- //
 
@@ -91,6 +91,7 @@ extern "C"
      * @param[in] q_method Pointer to a string that indicates the method or calculating "q". Currently it supports "Hit
      * and Run", "mult", "mvn_cdf", "mvn_pdf" and "exact" methods.
      * @param[in] convergence Threshold value for convergence. Usually it's set to 0.001.
+     * @param[in] LLconvergence Threshold regarding the convergence of the log-likelihood between iterations.
      * @param[in] maxIter Integer with a threshold of maximum iterations. Usually it's set to 100.
      * @param[in] maxSeconds Double with the value of the maximum amount of seconds to use.
      * @param[in] verbose Wether to verbose useful outputs.
@@ -113,9 +114,9 @@ extern "C"
      * - `x` and `w` dimensions must be coherent.
      *
      */
-    Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const int maxIter,
-                      const double maxSeconds, const bool verbose, double *time, int *iterTotal, double *logLLarr,
-                      double **qVal, int *finishing_reason, QMethodInput params);
+    Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const double LLconvergence,
+                      const int maxIter, const double maxSeconds, const bool verbose, double *time, int *iterTotal,
+                      double *logLLarr, double **qVal, int *finishing_reason, QMethodInput params);
 
     /**
      * @brief Checks if a candidate didn't receive any votes.

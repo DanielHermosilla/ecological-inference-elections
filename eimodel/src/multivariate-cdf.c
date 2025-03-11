@@ -372,8 +372,9 @@ void getMainParameters(int b, Matrix const probabilitiesReduced, Matrix **choles
  *
  * @return A contiguos array with all the new probabilities
  */
-double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params)
+double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params, double *ll)
 {
+    *ll = 0.0;
     int monteCarloSamples = params.monteCarloIter;
     double epsilon = params.errorThreshold;
     const char *method = params.simulationMethod;
@@ -381,6 +382,7 @@ double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params
     // ---- Define initial variables ---- //
     Matrix probabilitiesReduced = removeLastColumn(probabilities);
     double *array2 = (double *)Calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, double); // Array to return
+    double *logArray = (double *)Calloc(TOTAL_BALLOTS, double);
     // --- ... --- //
 
 #ifdef _OPENMP
@@ -438,16 +440,17 @@ double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params
                 // ---- Save the results and add them to the denominator ---- //
                 if (TOTAL_CANDIDATES != 2)
                     montecarloResults[c] = Montecarlo(currentCholesky, currentMu, featureCopyA, featureCopyB,
-                                                      (int)TOTAL_CANDIDATES - 1, monteCarloSamples, epsilon, method) *
-                                           MATRIX_AT_PTR(probabilities, g, c);
+                                                      (int)TOTAL_CANDIDATES - 1, monteCarloSamples, epsilon, method);
 
                 else
                 {
-                    montecarloResults[c] = (pnorm(featureCopyA[0], 0.0, MATRIX_AT_PTR(currentCholesky, 0, 0), 1, 0) -
-                                            pnorm(featureCopyB[0], 0.0, MATRIX_AT_PTR(currentCholesky, 0, 0), 1, 0)) *
-                                           MATRIX_AT_PTR(probabilities, g, c);
+                    montecarloResults[c] =
+                        (pnorm(featureCopyB[0], 0.0, sqrt(MATRIX_AT_PTR(currentCholesky, 0, 0)), 1, 0) -
+                         pnorm(featureCopyA[0], 0.0, sqrt(MATRIX_AT_PTR(currentCholesky, 0, 0)), 1, 0));
                 }
+                montecarloResults[c] *= MATRIX_AT_PTR(probabilities, g, c);
                 denominator += montecarloResults[c];
+                logArray[b] += g == 0 ? montecarloResults[c] : 0;
                 // TODO: Make an arena for this loop
                 Free(featureCopyA);
                 Free(featureCopyB);
@@ -472,5 +475,15 @@ double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params
         Free(choleskyVals);
     } // --- End b loop
     freeMatrix(&probabilitiesReduced);
+
+    // Compute the log-likelihood
+    double finalLikelihood = 0;
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        finalLikelihood += log(logArray[b]);
+    }
+    *ll = finalLikelihood;
+    // *ll = log(*ll);
+    free(logArray);
     return array2;
 }

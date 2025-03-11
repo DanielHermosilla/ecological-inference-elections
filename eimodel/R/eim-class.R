@@ -149,13 +149,13 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'
 #' @inheritParams eim
 #'
-#' @param method An optional string specifying the method used for estimating the *E*-step. Valid
+#' @param method An optional string specifying the method used for estimating the E-step. Valid
 #'   options are:
 #' - `mult`: The default method, using a single sum of Multinomial distributions.
 #' - `mvn_cdf`: Uses a Multivariate Normal CDF distribution to approximate the conditional probability.
 #' - `mvn_pdf`: Uses a Multivariate Normal PDF distribution to approximate the conditional probability.
-#' - `hnr`: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the *E*-step.
-#' - `exact`: Solves the *E*-step using the Total Probability Law.
+#' - `hnr`: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the E-step.
+#' - `exact`: Solves the E-step using the Total Probability Law.
 #'
 #' For a detailed description of each method, see [fastei-package] and **References**.
 #'
@@ -174,7 +174,10 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'   algorithm. This is checked at every iteration of the EM algorithm. The default value is `3600`, which corresponds to an hour.
 #'
 #' @param stop_threshold An optional numeric value indicating the minimum difference between
-#'   consecutive log-likelihood values required to stop iterating. The default value is `0.001`.
+#'   consecutive probability values required to stop iterating. The default value is `0.001`. Note that the algorithm will stop if either `log_threshold` **or** `stop_threshold` is accomplished.
+#'
+#' @param log_threshold An optional numeric value indicating the minimum difference between consecutive log-likelihood values to stop iterating. The default value is `inf`, essentially deactivating
+#' the threshold. Note that the algorithm will stop if either `log_threshold` **or** `stop_threshold` is accomplished.
 #'
 #' @param verbose An optional boolean indicating whether to print informational messages during the EM
 #'   iterations. The default value is `FALSE`.
@@ -241,8 +244,6 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' @usage
 #' run_em(
 #' 	object = NULL,
-#'  X = NULL,
-#'  W = NULL,
 #'  json_path = NULL,
 #'  method = "mult",
 #'  initial_prob = "group_proportional",
@@ -250,6 +251,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'  maxiter = 1000,
 #'  maxtime = 3600,
 #'  stop_threshold = 0.001,
+#'  log_threshold = as.double(-Inf),
 #'  verbose = FALSE,
 #'  ...
 #' )
@@ -284,6 +286,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'     maxiter = 10,
 #'     maxtime = 600,
 #'     stop_threshold = 1e-3,
+#'     log_threshold = 1e-5,
 #'     verbose = TRUE
 #' )
 #' }
@@ -300,6 +303,7 @@ run_em <- function(object = NULL,
                    maxiter = 1000,
                    maxtime = 3600,
                    stop_threshold = 0.001,
+                   log_threshold = as.double(-Inf),
                    verbose = FALSE, ...) {
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint
@@ -343,6 +347,7 @@ run_em <- function(object = NULL,
         maxiter,
         maxtime,
         stop_threshold,
+        log_threshold,
         verbose,
         as.integer(if (!is.null(object$samples)) object$samples else 3000),
         as.integer(if (!is.null(object$step_size)) object$step_size else 1000),
@@ -476,7 +481,15 @@ bootstrap <- function(object = NULL,
     maxiter <- as.integer(all_params$maxiter %||% 1000)
     maxtime <- as.numeric(all_params$maxtime %||% 3600)
     stop_threshold <- as.numeric(all_params$stop_threshold %||% 0.01)
+    # log_threshold <- as.double(all_params$log_threshold) %||% as.double(-Inf)
     verbose <- as.logical(all_params$verbose %||% FALSE)
+
+    # R does a subtle type conversion when handing -Inf. Hence, we'll use a direct assignment
+    if ("log_threshold" %in% names(all_params)) {
+        log_threshold <- as.double(all_params$log_threshold)
+    } else {
+        log_threshold <- as.double(-Inf)
+    }
 
     # Handle method-specific defaults
     step_size <- 0L
@@ -503,7 +516,7 @@ bootstrap <- function(object = NULL,
     result <- bootstrapAlg(
         t(object$X), object$W, as.integer(nboot),
         method, initial_prob, as.integer(maxiter),
-        maxtime, stop_threshold, verbose,
+        maxtime, stop_threshold, log_threshold, verbose,
         as.integer(step_size), as.integer(samples),
         mc_method, mc_error, as.integer(mc_samples)
     )
@@ -515,33 +528,33 @@ bootstrap <- function(object = NULL,
 
 #' Runs the EM algorithm aggregating adjacent groups, maximizing the variability of macro-group allocation in ballot boxes.
 #'
-#' This function estimates the voting probabilities (computed using [run_em]) aggregating adjacent groups so that the estimated probabilities' standard deviation (computed using [bootstrap]) is below a given threshold.
+#' This function estimates the voting probabilities (computed using [run_em]) aggregating adjacent groups so that the estimated probabilities' standard deviation (computed using [bootstrap]) is below a given threshold. See **Details** for more information.
 #'
 #' Groups need to have an order relation so that adjacent groups can be merged. For example, consider the following seven groups defined by voters' age ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, even for a fixed number of macro-groups, a Dynamic Program (DP) mechanism is used to find the group aggregation that maximizes the sum of the standard deviation of the macro-groups proportions among ballot boxes for a specific number of macro-groups.
 #'
-#' In order to find the best group aggregation, the function runs the DP iteratively, starting with all groups (this case is trivial since, in this case, the group aggregation is such that all macro-groups match exactly the original groups). If the standard deviation statistic is below a threshold, it stops. Otherwise, it runs the DP such that the number of macro-groups is one unit less than the original number of macro-groups. If the standard deviation statistic is below a threshold, it stops. And so on until either the algorithm stops, or until the group aggregation composed of a single macro-group does not meet the stopping condition, in which case the output is the EM algorithm run over a single macro-group.
+#' In order to find the best group aggregation, the function runs the DP iteratively, starting with all groups (this case is trivial since, in this case, the group aggregation is such that all macro-groups match exactly the original groups). If the standard deviation statistic is below a threshold, it stops. Otherwise, it runs the DP such that the number of macro-groups is one unit less than the original number of macro-groups. If the standard deviation statistic (`sd_statistic`) is below the threshold (`sd_threshold`), it stops. And so on until either the algorithm stops, or until the group aggregation composed of a single macro-group does not meet the stopping condition, in which case the output is the EM algorithm run over a single macro-group.
 #'
-#' @param sd_statisctic  String indicates the statistic for the standard deviation `(g x c)` matrix. It can take the value `maximum`, in which case computes the maximum over the standard deviation matrix, or `average`, in which case computes the average.
+#' @param object An object of class `eim`, which can be created using the [eim] function. This parameter should not be used if either (i) `X` and `W` matrices or (ii) `json_path` is supplied. See **Note** in [run_em].
+#'
+#' @param sd_statistic String indicates the statistic for the standard deviation `(g x c)` matrix for the stopping condition, i.e., the algorithm stops when the statistic is below the threshold. It can take the value `maximum`, in which case computes the maximum over the standard deviation matrix, or `average`, in which case computes the average.
 #'
 #' @param sd_threshold Numeric with the value to use as a threshold for the statistic (`sc_statistic`) of the standard deviation of the estimated probabilities. Defaults to 0.05.
-#'
-#' @inheritParams run_em
-#'
-#' @inheritParams simulate_election
 #'
 #' @inheritParams bootstrap
 #'
 #' @param ... Additional arguments passed to the [run_em] function that will execute the EM algorithm.
 #'
-#' @inherit run_em note
+#' @seealso The [eim] object and [run_em] implementation.
 #'
 #' @return
 #' It returns an eim object with the same attributes as the output of [run_em], plus the attributes:
 #'
-#' - sd: A `(g x a)` matrix with the standard deviation of the estimated probabilities computed with bootstrapping.
+#' - sd: A `(g x a)` matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that `a` denotes the number of macro-groups of the resulting group aggregation, it should be between `2` and `g`.
 #' - sd_statistic: The statistic used as input.
 #' - sd_threshold: The threshold used as input.
-#' - group_agg: Array with the group aggregation used.
+#' - group_agg: Vector with the resulting group aggregation. See **Examples** for more details.
+#'
+#' Aditionally, it will update the `W` attribute with the aggregated groups.
 #'
 #' @examples
 #' # Example 1: Using a simulated instance
@@ -623,7 +636,17 @@ get_agg_proxy <- function(object = NULL,
     maxiter <- as.integer(all_params$maxiter %||% 1000)
     maxtime <- as.numeric(all_params$maxtime %||% 3600)
     stop_threshold <- as.numeric(all_params$stop_threshold %||% 0.01)
+    # log_threshold <- as.double(all_params$log_threshold %||% as.double(-Inf))
     verbose <- as.logical(all_params$verbose %||% FALSE)
+
+    # R does a subtle type conversion when handing -Inf. Hence, we'll use a direct assignment
+    if ("log_threshold" %in% names(all_params)) {
+        log_threshold <- as.double(all_params$log_threshold)
+    } else {
+        log_threshold <- as.double(-Inf)
+    }
+
+
 
     # Handle method-specific defaults
     step_size <- 0L
@@ -657,6 +680,7 @@ get_agg_proxy <- function(object = NULL,
         as.integer(maxiter),
         maxtime,
         stop_threshold,
+        log_threshold,
         verbose,
         as.integer(step_size),
         as.integer(samples),
@@ -665,8 +689,14 @@ get_agg_proxy <- function(object = NULL,
         as.integer(mc_samples)
     )
 
+    # Convert the 'W' matrix by merging columns
+    # We add '2' to indices since it's originally 0-based.
+    col_groups <- split(seq_len(ncol(object$W)), findInterval(seq_len(ncol(object$W)), c(1, result$indices + 2)))
+    # Lambda function to add the columns
+    object$W <- sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
+
     object$sd <- result$bootstrap_result
-    object$group_agg <- result$indices
+    object$group_agg <- result$indices + 1 # Use R's index system
     object$sd_statistic <- sd_statistic
     object$sd_threshold <- sd_threshold
 
@@ -700,17 +730,18 @@ print.eim <- function(object, ...) {
 
     cat("Candidate matrix (X) [b x c]:\n")
     print(object$X[1:min(5, nrow(object$X)), ]) # nolint
-    if (truncated_X) cat(".\n.\n.\n")
+    if (truncated_X) cat(".\n.\n.\n") else cat("\n")
 
     cat("Group matrix (W) [b x g]:\n")
     print(object$W[1:min(5, nrow(object$W)), ]) # nolint
-    if (truncated_W) cat(".\n.\n.\n")
+    if (truncated_W) cat(".\n.\n.\n") else cat("\n")
 
     if (!is.null(object$method)) {
         cat("Estimated probability [g x c]:\n")
         truncated_P <- (nrow(object$prob) > 5)
         print(round(object$prob[1:min(5, nrow(object$prob)), ], 2)) # nolint
-        if (truncated_P) cat(".\n.\n.\n")
+        if (truncated_P) cat(".\n.\n.\n") else cat("\n")
+
         cat("Method:\t", object$method, "\n")
         if (object$method == "Hit and Run") {
             cat("Step size (M):", object$step_size)
@@ -723,6 +754,12 @@ print.eim <- function(object, ...) {
         cat("Total Iterations:", object$iterations, "\n")
         cat("Total Time (s):", object$time, "\n")
         cat("Log-likelihood:", tail(object$logLik, 1))
+    }
+    if (!is.null(object$sd)) {
+        cat("Bootstrapped matrix [g x c]:\n")
+        truncated_boot <- (nrow(object$sd) > 5)
+        print(round(object$sd[1:min(5, nrow(object$sd)), ], 2)) # nolint
+        if (truncated_boot) cat(".\n.\n.\n") else cat("\n")
     }
 }
 
@@ -789,7 +826,7 @@ summary.eim <- function(object, ...) {
 as.matrix.eim <- function(object, ...) {
     if (is.null(object$prob)) {
         stop(paste0(
-            "Probability matrix not available. Run run_em()."
+            "Probability matrix not available. Run 'run_em()'."
         ))
     }
     return(object$prob)

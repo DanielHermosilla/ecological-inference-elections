@@ -31,6 +31,7 @@ The documentation uses the following notation:
 \item \code{b}: number of ballot-boxes.
 \item \code{g}: number of demographic groups.
 \item \code{c}: number of candidates.
+\item \code{a}: number of aggregated macro-groups.
 }
 
 To learn more about \code{fastei}, please consult the available vignettes:

@@ -66,6 +66,7 @@ Rcpp::List EMAlgorithmFull(Rcpp::String em_method = "mult", Rcpp::String probabi
                            Rcpp::IntegerVector maximum_iterations = Rcpp::IntegerVector::create(1000),
                            Rcpp::NumericVector maximum_seconds = Rcpp::NumericVector::create(3600),
                            Rcpp::NumericVector stopping_threshold = Rcpp::NumericVector::create(0.001),
+                           Rcpp::NumericVector log_threshold = Rcpp::NumericVector::create(-1000),
                            Rcpp::LogicalVector verbose = Rcpp::LogicalVector::create(false),
                            Rcpp::IntegerVector step_size = Rcpp::IntegerVector::create(3000),
                            Rcpp::IntegerVector samples = Rcpp::IntegerVector::create(1000),
@@ -126,8 +127,9 @@ void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix gr
 Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
                                  Rcpp::IntegerVector nboot, Rcpp::String em_method, Rcpp::String probability_method,
                                  Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
-                                 Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector verbose,
-                                 Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method,
+                                 Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_threshold,
+                                 Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size,
+                                 Rcpp::IntegerVector samples, Rcpp::String monte_method,
                                  Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter);
 
 /*
@@ -180,7 +182,8 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
                     Rcpp::NumericMatrix group_matrix, Rcpp::IntegerVector nboot, Rcpp::String em_method,
                     Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations,
                     Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold,
-                    Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples,
-                    Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter);
+                    Rcpp::NumericVector log_threshold, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size,
+                    Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error,
+                    Rcpp::IntegerVector monte_iter);
 
 #endif // WRAPPER_H

@@ -3,7 +3,7 @@
     "arguments": [
       "/usr/local/opt/llvm/bin/clang++",
       "-std=gnu++17",
-      "-I/usr/local/Cellar/r/4.4.2_2/lib/R/include",
+      "-I/usr/local/Cellar/r/4.4.3/lib/R/include",
       "-DNDEBUG",
       "-I/usr/local/lib/R/4.4/site-library/Rcpp/include",
       "-I/usr/local/opt/gettext/include",
@@ -25,7 +25,7 @@
   {
     "arguments": [
       "/usr/local/opt/llvm/bin/clang",
-      "-I/usr/local/Cellar/r/4.4.2_2/lib/R/include",
+      "-I/usr/local/Cellar/r/4.4.3/lib/R/include",
       "-DNDEBUG",
       "-I/usr/local/lib/R/4.4/site-library/Rcpp/include",
       "-I/usr/local/opt/gettext/include",
@@ -48,7 +48,7 @@
   {
     "arguments": [
       "/usr/local/opt/llvm/bin/clang",
-      "-I/usr/local/Cellar/r/4.4.2_2/lib/R/include",
+      "-I/usr/local/Cellar/r/4.4.3/lib/R/include",
       "-DNDEBUG",
       "-I/usr/local/lib/R/4.4/site-library/Rcpp/include",
       "-I/usr/local/opt/gettext/include",
@@ -71,7 +71,7 @@
   {
     "arguments": [
       "/usr/local/opt/llvm/bin/clang",
-      "-I/usr/local/Cellar/r/4.4.2_2/lib/R/include",
+      "-I/usr/local/Cellar/r/4.4.3/lib/R/include",
       "-DNDEBUG",
       "-I/usr/local/lib/R/4.4/site-library/Rcpp/include",
       "-I/usr/local/opt/gettext/include",
@@ -94,7 +94,7 @@
   {
     "arguments": [
       "/usr/local/opt/llvm/bin/clang",
-      "-I/usr/local/Cellar/r/4.4.2_2/lib/R/include",
+      "-I/usr/local/Cellar/r/4.4.3/lib/R/include",
       "-DNDEBUG",
       "-I/usr/local/lib/R/4.4/site-library/Rcpp/include",
       "-I/usr/local/opt/gettext/include",
@@ -117,7 +117,7 @@
   {
     "arguments": [
       "/usr/local/opt/llvm/bin/clang",
-      "-I/usr/local/Cellar/r/4.4.2_2/lib/R/include",
+      "-I/usr/local/Cellar/r/4.4.3/lib/R/include",
       "-DNDEBUG",
       "-I/usr/local/lib/R/4.4/site-library/Rcpp/include",
       "-I/usr/local/opt/gettext/include",
@@ -140,7 +140,7 @@
   {
     "arguments": [
       "/usr/local/opt/llvm/bin/clang",
-      "-I/usr/local/Cellar/r/4.4.2_2/lib/R/include",
+      "-I/usr/local/Cellar/r/4.4.3/lib/R/include",
       "-DNDEBUG",
       "-I/usr/local/lib/R/4.4/site-library/Rcpp/include",
       "-I/usr/local/opt/gettext/include",
@@ -163,7 +163,7 @@
   {
     "arguments": [
       "/usr/local/opt/llvm/bin/clang",
-      "-I/usr/local/Cellar/r/4.4.2_2/lib/R/include",
+      "-I/usr/local/Cellar/r/4.4.3/lib/R/include",
       "-DNDEBUG",
       "-I/usr/local/lib/R/4.4/site-library/Rcpp/include",
       "-I/usr/local/opt/gettext/include",
@@ -186,7 +186,7 @@
   {
     "arguments": [
       "/usr/local/opt/llvm/bin/clang",
-      "-I/usr/local/Cellar/r/4.4.2_2/lib/R/include",
+      "-I/usr/local/Cellar/r/4.4.3/lib/R/include",
       "-DNDEBUG",
       "-I/usr/local/lib/R/4.4/site-library/Rcpp/include",
       "-I/usr/local/opt/gettext/include",
@@ -209,7 +209,7 @@
   {
     "arguments": [
       "/usr/local/opt/llvm/bin/clang",
-      "-I/usr/local/Cellar/r/4.4.2_2/lib/R/include",
+      "-I/usr/local/Cellar/r/4.4.3/lib/R/include",
       "-DNDEBUG",
       "-I/usr/local/lib/R/4.4/site-library/Rcpp/include",
       "-I/usr/local/opt/gettext/include",
@@ -232,7 +232,7 @@
   {
     "arguments": [
       "/usr/local/opt/llvm/bin/clang",
-      "-I/usr/local/Cellar/r/4.4.2_2/lib/R/include",
+      "-I/usr/local/Cellar/r/4.4.3/lib/R/include",
       "-DNDEBUG",
       "-I/usr/local/lib/R/4.4/site-library/Rcpp/include",
       "-I/usr/local/opt/gettext/include",
@@ -255,7 +255,7 @@
   {
     "arguments": [
       "/usr/local/opt/llvm/bin/clang",
-      "-I/usr/local/Cellar/r/4.4.2_2/lib/R/include",
+      "-I/usr/local/Cellar/r/4.4.3/lib/R/include",
       "-DNDEBUG",
       "-I/usr/local/lib/R/4.4/site-library/Rcpp/include",
       "-I/usr/local/opt/gettext/include",
@@ -279,7 +279,7 @@
     "arguments": [
       "/usr/local/opt/llvm/bin/clang++",
       "-std=gnu++17",
-      "-I/usr/local/Cellar/r/4.4.2_2/lib/R/include",
+      "-I/usr/local/Cellar/r/4.4.3/lib/R/include",
       "-DNDEBUG",
       "-I/usr/local/lib/R/4.4/site-library/Rcpp/include",
       "-I/usr/local/opt/gettext/include",

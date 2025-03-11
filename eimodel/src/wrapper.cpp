@@ -76,24 +76,26 @@ void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix gr
 // [[Rcpp::export]]
 Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_method,
                            Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
-                           Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector verbose,
-                           Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method,
-                           Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter)
+                           Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold,
+                           Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples,
+                           Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter)
 {
     std::string probabilityM = probability_method;
     std::string EMAlg = em_method;
 
     Matrix pIn = getInitialP(probabilityM.c_str());
 
-    double timeIter = 0, logLLarr = 0;
+    double timeIter = 0;
     int totalIter = 0, finish = 0;
     double *qvalue = NULL;
+    double logLLarr[maximum_iterations[0]];
 
     QMethodInput inputParams =
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], monte_method);
 
-    Matrix Pnew = EMAlgoritm(&pIn, EMAlg.c_str(), stopping_threshold[0], maximum_iterations[0], maximum_seconds[0],
-                             verbose[0], &timeIter, &totalIter, &logLLarr, &qvalue, &finish, inputParams);
+    Matrix Pnew =
+        EMAlgoritm(&pIn, EMAlg.c_str(), stopping_threshold[0], log_stopping_threshold[0], maximum_iterations[0],
+                   maximum_seconds[0], verbose[0], &timeIter, &totalIter, logLLarr, &qvalue, &finish, inputParams);
 
     // ---- Create human-readable stopping reason ---- //
     std::vector<std::string> stop_reasons = {"Convergence achieved", "Log-likelihood decrease", "Maximum time reached",
@@ -104,13 +106,14 @@ Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_meth
     {
         Rprintf("\nThe calculated matrix is:\n");
         printMatrix(&Pnew);
-        Rprintf("\nExecution Time: %.5f seconds | Log-likelihood: %.5f.\n", timeIter, logLLarr);
+        // Rprintf("\nExecution Time: %.5f seconds | Log-likelihood: %.5f.\n", timeIter, logLLarr);
     }
 
     Rcpp::NumericMatrix RfinalProbability(Pnew.rows, Pnew.cols, Pnew.data);
     freeMatrix(&Pnew);
 
     Rcpp::NumericVector condProb(qvalue, qvalue + TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS);
+    Rcpp::NumericVector logArray(logLLarr, logLLarr + totalIter - 1);
     free(qvalue);
     cleanup();
     if (EMAlg == "hnr")
@@ -118,7 +121,7 @@ Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_meth
     else if (EMAlg == "exact")
         cleanExact();
 
-    return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = logLLarr,
+    return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = logArray,
                               Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter,
                               Rcpp::_["stopping_reason"] = stopping_reason, Rcpp::_["finish_id"] = finish,
                               Rcpp::_["q"] = condProb);
@@ -129,8 +132,9 @@ Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_meth
 Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
                                  Rcpp::IntegerVector nboot, Rcpp::String em_method, Rcpp::String probability_method,
                                  Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
-                                 Rcpp::NumericVector stopping_threshold, Rcpp::LogicalVector verbose,
-                                 Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method,
+                                 Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold,
+                                 Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size,
+                                 Rcpp::IntegerVector samples, Rcpp::String monte_method,
                                  Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter)
 {
     if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
@@ -148,8 +152,9 @@ Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
     QMethodInput inputParams =
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], monte_method);
 
-    Matrix sdResult = bootstrapA(&XR, &WR, nboot[0], EMAlg.c_str(), probabilityM.c_str(), stopping_threshold[0],
-                                 maximum_iterations[0], maximum_seconds[0], verbose[0], inputParams);
+    Matrix sdResult =
+        bootstrapA(&XR, &WR, nboot[0], EMAlg.c_str(), probabilityM.c_str(), stopping_threshold[0],
+                   log_stopping_threshold[0], maximum_iterations[0], maximum_seconds[0], verbose[0], inputParams);
 
     // Convert to R's matrix
     Rcpp::NumericMatrix output(sdResult.rows, sdResult.cols);
@@ -169,8 +174,9 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
                     Rcpp::NumericMatrix group_matrix, Rcpp::IntegerVector nboot, Rcpp::String em_method,
                     Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations,
                     Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold,
-                    Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples,
-                    Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter)
+                    Rcpp::NumericVector log_stopping_threshold, Rcpp::LogicalVector verbose,
+                    Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method,
+                    Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter)
 {
     if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
         Rcpp::stop("Error: X matrix has zero dimensions!");
@@ -192,9 +198,10 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
     int G = WR.cols;
     int *cuttingBuffer = new int[G - 1];
     int usedCuts = 0; // how many boundaries we actually use
-    Matrix sdResult = aggregateGroups(&XR, &WR, cuttingBuffer, &usedCuts, sd_threshold[0], aggMet.c_str(), nboot[0],
-                                      probabilityM.c_str(), EMAlg.c_str(), stopping_threshold[0], maximum_iterations[0],
-                                      maximum_seconds[0], verbose[0], inputParams);
+    Matrix sdResult =
+        aggregateGroups(&XR, &WR, cuttingBuffer, &usedCuts, sd_threshold[0], aggMet.c_str(), nboot[0],
+                        probabilityM.c_str(), EMAlg.c_str(), stopping_threshold[0], log_stopping_threshold[0],
+                        maximum_iterations[0], maximum_seconds[0], verbose[0], inputParams);
 
     // Convert to R's matrix
     Rcpp::NumericMatrix output(sdResult.rows, sdResult.cols);

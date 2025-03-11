@@ -28,14 +28,14 @@ run_em(
 
 \item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays.}
 
-\item{method}{An optional string specifying the method used for estimating the \emph{E}-step. Valid
+\item{method}{An optional string specifying the method used for estimating the E-step. Valid
 options are:
 \itemize{
 \item \code{mult}: The default method, using a single sum of Multinomial distributions.
 \item \code{mvn_cdf}: Uses a Multivariate Normal CDF distribution to approximate the conditional probability.
 \item \code{mvn_pdf}: Uses a Multivariate Normal PDF distribution to approximate the conditional probability.
-\item \code{hnr}: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the \emph{E}-step.
-\item \code{exact}: Solves the \emph{E}-step using the Total Probability Law.
+\item \code{hnr}: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the E-step.
+\item \code{exact}: Solves the E-step using the Total Probability Law.
 }
 
 For a detailed description of each method, see \link{fastei-package} and \strong{References}.}

@@ -70,113 +70,6 @@ Matrix buildRewards(const Matrix *xmat, const Matrix *wmat, int setSize)
     return table;
 }
 
-/*
- * Computes, via Dynamic Programming, the optimal slicing for group aggregations towards standard deviations.
- *
- */
-/*
-int *idealSet(const Matrix *xmat, const Matrix *wmat, int A)
-{
-
-    int G = wmat->cols;
-    // Call the reward table:
-    Matrix reward = buildRewards(xmat, wmat, G);
-    Rprintf("The reward matrix is:\n");
-    printMatrix(&reward);
-    Matrix choice = createMatrix(G + 1, A + 1);
-    // Let DP be a (t x a) matrix that defines the maximum reward if we partition the first 't' groups in 'a'
-    // macrogroups.
-    // As base conditions;
-    // 1. DP[0,0] = 0. Partition 0 groups in 0 macrogroups is null.
-    // 2. DP[0,a] = -inf. It's impossible to make macrogroups without partitioning
-    // 3. DP[t,0] = -inf. It's impossible to make 0 macrogroups if we make a partition.
-    Matrix DP = createMatrix(G + 1, A + 1);
-    fillMatrix(&DP, -1.0e9);
-    MATRIX_AT(DP, G, 0) = 0.0;
-    // IF DP[G][a>0], -\infty
-
-    for (int t = G - 1; t >= 0; t--)
-    {
-        for (int a = 1; a <= A; a++)
-        {
-            if (a == 1)
-            { // Only one macro group left
-                MATRIX_AT(DP, t, a) = MATRIX_AT(reward, t, G - 1);
-                MATRIX_AT(choice, t, a) = (double)G;
-            }
-            else
-            { // This will ONLY execute when a \in [2,A], i.e, I can make a decition to either close or open
-                double max_value = -1.0e9;
-                int best_choice = -1;
-                for (int k = t + 1; k <= G; k++)
-                { // ---- For each group CONNECTION that can be made
-                    // i.e, this will check the reward for closing the current group to a given
-                    // group (must be bigger)
-                    double candidate = MATRIX_AT(reward, t, k - 1) + MATRIX_AT(DP, k, a - 1);
-                    // DP[k][a-1] IS THE + REMAINING OF CLOSING THE REST
-                    // This will set the maximum possible value, i.e, the best choice of closing
-                    if (candidate > max_value)
-                    {
-                        max_value = candidate;
-                        best_choice = k;
-                    }
-                }
-                MATRIX_AT(DP, t, a) = max_value;
-                MATRIX_AT(choice, t, a) = best_choice;
-            }
-        }
-    }
-
-    Rprintf("\nThe DP matrix is:\n");
-    printMatrix(&DP);
-    Rprintf("\nThe choice matrix is:\n");
-    printMatrix(&choice);
-    int *boundaries = Calloc(A, int);
-    int t0 = 0;
-    for (int a = A; a > 0; a--)
-    {
-        // boundary from choice[t0,a0]
-        int k = (int)MATRIX_AT(choice, t0, a);
-        // store in boundaries[a0-1]
-        boundaries[a - 1] = k;
-        t0 = k; // next segment starts at k
-        if (t0 >= G)
-        {
-            break;
-        }
-    }
-    freeMatrix(&DP);
-    freeMatrix(&choice);
-    freeMatrix(&reward);
-
-    return boundaries;
-}
-*/
-/*
-Matrix bellman(Matrix state, Matrix decition, Matrix lastReward, int lt, int ut, int t, int G, int A) {
-
-
-    if (t == G) {
-        return MATRIX_AT(lastReward, G-lt, G-1);
-    }
-    else {
-
-    }
-
-}
-*/
-/**
- * DP made with memoization
- *   s: start index of the current macro-group (0-based)
- *   t: current single-age-range index we are deciding on. Basically, the current state where we want to see if we'll
- * close. u: how many macro-groups have been closed so far. Note that u <= A. G: total # of single-age-ranges A: total #
- * of macro-groups we want
- *
- * lastReward is a matrix of the values of the std deviations from closing group 'i' to 'j'.
- *
- * memo[] and used[] are 1D arrays sized for (G+1)*(G+1)*(A+1).
- * action[] is likewise sized and will store 0 or 1 (open/close).
- */
 double dpReward(int s, int t, int u, int G, int A, const Matrix *lastReward, double *memo, bool *used, int *action)
 {
     // Base case: if we've gone beyond the last index:
@@ -413,36 +306,15 @@ int *solveDP(int G, int A, const Matrix *lastReward,
     // Return the array with A closure indices
     return cuts;
 }
-/*
-int *idealSet(const Matrix *xmat, const Matrix *wmat, int A)
-{
-// There are 1 to G-1 stages 't'.
-// Each stage represented by the tuple s = (l, u), where:
-// l \in \lbrace 1,\dots, \min\lbrace t, G-1\rbrace\rbrace
-    // u \in \lbrace 1, \dots, A-1\rbrace
-    // l is the number of CONSECUTIVE INDIVIDUAL RANGES from the last open macro group
-    // u is the number of macro groups already formed
-    // The action is a binary that takes 1 if group `t` closes the last open macro group
 
-    // Amount of groups
-int G = wmat->cols;
-    // Defining the state matrix
-    Matrix state = createMatrix(G, A); // Even though l goes to \min (t, G-1)
-    MATRIX_AT(state, 0, 0) =
-    //
-    // The utility from stage t given st and action at is
-    // Vt(st, at) = \sigma_{t-lt+1, t}\cdot at + V_t*(st+1(st, at))
-
-
-}
-*/
 /*
  * Obtain the bootstrapping values of the group aggregations and the convergence value
  *
  */
 Matrix testBootstrap(double *quality, const char *set_method, const Matrix *xmat, const Matrix *wmat,
                      const int *boundaries, int A, int bootiter, const char *q_method, const char *p_method,
-                     const double convergence, const int maxIter, const double maxSeconds, QMethodInput inputParams)
+                     const double convergence, const double log_convergence, const int maxIter, const double maxSeconds,
+                     QMethodInput inputParams)
 {
 
     // ---- Merge within macrogroups ---- //
@@ -450,8 +322,8 @@ Matrix testBootstrap(double *quality, const char *set_method, const Matrix *xmat
     // ---...--- //
 
     // ---- Obtain the bootstrapped results ---- //
-    Matrix standardMat = bootstrapA(xmat, &mergedMat, bootiter, q_method, p_method, convergence, maxIter, maxSeconds,
-                                    false, inputParams);
+    Matrix standardMat = bootstrapA(xmat, &mergedMat, bootiter, q_method, p_method, convergence, log_convergence,
+                                    maxIter, maxSeconds, false, inputParams);
     // ---...--- //
 
     // ---- Maximum method ---- //
@@ -486,7 +358,7 @@ Matrix testBootstrap(double *quality, const char *set_method, const Matrix *xmat
  *
  * @param[in] xmat The candidate (c x b) matrix.
  * @param[in] wmat The group (b x g) matrix.
- * @param[in, out] results An array with the slicing indices.
+ * @param[in, out results An array with the slicing indices.
  * @param[in] set_threshold The threshold of the proposed method
  * @param[in] set_method The method for evaluating the bootstrapping threshold.
  * @param[in] bootiter The amount of bootstrap iterations
@@ -502,8 +374,8 @@ Matrix testBootstrap(double *quality, const char *set_method, const Matrix *xmat
  */
 Matrix aggregateGroups(const Matrix *xmat, const Matrix *wmat, int *results, int *cuts, double set_threshold,
                        const char *set_method, int bootiter, const char *p_method, const char *q_method,
-                       const double convergence, const int maxIter, double maxSeconds, const bool verbose,
-                       QMethodInput inputParams)
+                       const double convergence, const double log_convergence, const int maxIter, double maxSeconds,
+                       const bool verbose, QMethodInput inputParams)
 {
 
     // ---- Define initial parameters ---- //
@@ -538,7 +410,149 @@ Matrix aggregateGroups(const Matrix *xmat, const Matrix *wmat, int *results, int
         }
         // ---- Calculate the bootstrap matrix according the cutting boundaries
         bootstrapMatrix = testBootstrap(&quality, set_method, xmat, wmat, boundaries, i, bootiter, q_method, p_method,
-                                        convergence, maxIter, maxSeconds, inputParams);
+                                        convergence, log_convergence, maxIter, maxSeconds, inputParams);
+        if (verbose)
+        {
+            Rprintf("Bootstrapped matrix:\n");
+            printMatrix(&bootstrapMatrix);
+            Rprintf("Threshold value:\t%.4f\n", quality);
+        }
+        // --- Case it converges
+        if (quality <= set_threshold)
+        {
+            for (int b = 0; b < i; b++)
+            {
+                results[b] = boundaries[b];
+            }
+            *cuts = i;
+            Free(boundaries);
+            return bootstrapMatrix;
+        }
+        // --- Case it is a better candidate than before
+        if (quality < bestValue)
+        {
+            for (int b = 0; b < i; b++)
+            {
+                results[b] = boundaries[b];
+            }
+            Free(boundaries);
+            bestMatrix = bootstrapMatrix;
+            *cuts = i;
+            bestValue = quality;
+        }
+        else
+        {
+            Free(boundaries);
+            freeMatrix(&bootstrapMatrix);
+        }
+    }
+    freeMatrix(&lastReward);
+    if (verbose)
+    {
+        Rprintf("\nThe maximum threshold value was not accomplished. Returning the results of having %d macro-groups, "
+                "having an statistic of %.4f, corresponding to the lesser threshold.\n",
+                *cuts, bestValue);
+    }
+    // ---...--- //
+    return bestMatrix;
+}
+
+/**
+ *
+ * GREEDY APPROACH: We try every possible combination
+ *
+ */
+
+/*
+ *
+ * Tries a matrix combination and replaces the algorithm values in case the new log-likelihood is greater.
+ *
+ */
+void obtain_loglikelihood(double originalLL, Matrix originalP, Matrix *xmat, Matrix *wmat, const char *p_method,
+                          const char *q_method, const double convergence, const double log_convergence,
+                          const int maxIter, double maxSeconds, QMethodInput inputParams, double time, double *qval,
+                          int finishingReason, int iterTotal)
+{
+
+    // ---- First, we obtain the new values. Before replacing we check that the log-likelihood is better ----
+    setParameters(xmat, wmat);
+    Matrix iterP = getInitialP(p_method);
+    double timeNew;
+    double logLLarr[maxIter];
+    double *qvalNew = NULL;
+    int finishingReasonNew, iterTotalNew;
+    Matrix resultP = EMAlgoritm(&iterP, q_method, convergence, log_convergence, maxIter, maxSeconds, false, &timeNew,
+                                &iterTotalNew, logLLarr, &qvalNew, &finishingReasonNew, inputParams);
+
+    // ---- Release loop allocated variables
+    cleanup();
+    if (strcmp(q_method, "exact") == 0)
+    {
+        cleanExact();
+    }
+    else if (strcmp(q_method, "hnr") == 0)
+    {
+        cleanHitAndRun();
+    }
+    freeMatrix(&iterP);
+    // ---...--- //
+
+    // ---- Check if the condition is met for replacing the values ---- //
+    if (logLLarr[maxIter] < originalLL)
+    {
+        freeMatrix(&resultP);
+        Free(qvalNew);
+    }
+    else
+    {
+        time = timeNew;
+        *qval = *qvalNew;
+        finishingReason = finishingReasonNew;
+        iterTotal = iterTotalNew;
+        originalP = resultP;
+        originalLL = logLLarr[maxIter];
+    }
+}
+
+Matrix aggregateGroupsGreedy(const Matrix *xmat, const Matrix *wmat, int *results, int *cuts, double set_threshold,
+                             const char *set_method, int bootiter, const char *p_method, const char *q_method,
+                             const double convergence, const double log_convergence, const int maxIter,
+                             double maxSeconds, const bool verbose, QMethodInput inputParams)
+{
+
+    // ---- Define initial parameters ---- //
+    double bestValue = DBL_MAX;
+    Matrix bestMatrix, bootstrapMatrix;
+    Matrix lastReward = buildRewards(xmat, wmat, wmat->cols);
+    int *boundaries;
+    double quality;
+    // ---...--- //
+
+    // ---- Loop through all possible macrogroups, starting from |G| cuts to 2 ---- //
+    for (int i = wmat->cols; i > 1; i--)
+    { // --- For every macrogroup cut
+        // --- Base case, try with |A| = |G|, basically, get the bootstrap of the whole matrix.
+        if (verbose)
+        {
+            Rprintf("\nCalculating %d macro-groups\n", i);
+        }
+        double bestVal;
+        boundaries = solveDP(wmat->cols, i, &lastReward, &bestVal);
+
+        if (verbose)
+        {
+            Rprintf("Optimal actions:\t[");
+            for (int k = 0; k < i - 1; k++)
+            {
+                // Sum 1 to the index for using R's indexing
+                Rprintf("%d, ", boundaries[k] + 1);
+            }
+            Rprintf("%d]\n", boundaries[i - 1]);
+            Rprintf("Objective function:\t%.4f\n", bestVal);
+        }
+        // ---- Calculate the bootstrap matrix according the cutting boundaries
+        bootstrapMatrix = testBootstrap(&quality, set_method, xmat, wmat, boundaries, i, bootiter, q_method, p_method,
+                                        convergence, log_convergence, maxIter, maxSeconds, inputParams);
         if (verbose)
         {
             Rprintf("Bootstrapped matrix:\n");

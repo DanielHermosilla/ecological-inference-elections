@@ -36,7 +36,7 @@ extern "C"
      * @note: A single pointer is used to store the array continously. This is for using cBLAS operations later.
      *
      */
-    double *computeQExact(const Matrix *probabilities, QMethodInput params);
+    double *computeQExact(const Matrix *probabilities, QMethodInput params, double *ll);
 
     /**
      * @brief Cleans all of the allocated memory associated with the exact method
