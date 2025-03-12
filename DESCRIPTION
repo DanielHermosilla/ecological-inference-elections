@@ -1,0 +1,23 @@
+Package: fastei 
+Title: Methods for a Fast Alternative for the R x C Ecological Inference Problem. 
+Version: 0.0.0.1
+Author: Charles Thraves, Pablo Ubilla, Daniel Hermosilla
+Maintainer: Daniel Hermosilla <daniel.hermosilla.r@ug.uchile.cl>
+Description: Estimates the probability matrix for the R×C Ecological Inference problem using the Expectation-Maximization Algorithm with four approximation methods for the E-Step, and an exact method as well. Additionally, it provides a bootstrap function to estimate the standard deviation on the estimated probabilities.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Imports: 
+    Rcpp,
+    jsonlite
+LinkingTo: Rcpp
+NeedsCompilation: yes
+BugReports: https://github.com/DanielHermosilla/ecological-inference-elections/issues
+Suggests: 
+    knitr,
+    rmarkdown
+Roxygen: list(markdown = TRUE, load = "source")
+VignetteBuilder: knitr
+Depends: 
+    R (>= 3.5)
+LazyData: true
+RoxygenNote: 7.3.2

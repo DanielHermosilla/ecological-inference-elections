@@ -1,0 +1,3 @@
+Run with 50 bootstraps
+
+6466.205229759216 seconds to run

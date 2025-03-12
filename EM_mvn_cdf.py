@@ -1,0 +1,454 @@
+import numpy as np
+import time
+import matplotlib.pyplot as plt
+from scipy.stats import multivariate_normal, multinomial
+from helper_functions import *
+from time import perf_counter
+
+# from model_elections import compute_qm_list
+from multiprocessing import Pool
+
+# from helper_functions import combinations
+import time
+from tqdm import tqdm
+
+# import rpy2.robjects as robjects
+from EM_algorithm import EM_algorithm, get_p_est
+
+# from EM_full import EM_full
+from scipy.stats import norm
+import json
+import threading
+
+# r = robjects.r
+# r_code = """
+# library(mvtnorm)
+# """
+# r(r_code)
+
+# from EM_algorithm import EM_algorithm, get_p_est
+# from EM_full import EM_full, compute_q_list
+# from EM_mvn_pdf import EM_mvn_pdf, compute_q_mvn_pdf
+# from EM_mult import EM_mult, compute_q_multinomial
+np.random.seed(42)
+
+
+def processFiles(s, g, c):
+    with open(f"instances/J100_M50_G{g}_I{c}_L50_seed{s}.json") as f:
+        instance = json.load(f)
+
+    X = np.array(instance["X"])
+    b = np.array(instance["W"])
+    p = np.array(instance["p"])
+
+    start_time = perf_counter()
+
+    answer = EM_mvn_cdf(
+        X,
+        b,
+        convergence_value=0.001,
+        p_method="group_proportional",
+        max_iterations=1000,
+        verbose=True,
+        load_bar=True,
+    )
+    print(answer)
+
+
+def process_instance(s, loglikelihood_list):
+    """Function to process each instance in a separate thread."""
+    with open(f"instances/J100_M50_G2_I2_L50_seed{s}.json") as f:
+        instance = json.load(f)
+
+    X = np.array(instance["X"])
+    b = np.array(instance["W"])
+    p = np.array(instance["p"])
+
+    start_time = perf_counter()
+
+    answer = EM_mvn_cdf(
+        X,
+        b,
+        convergence_value=0.001,
+        p_method="group_proportional",
+        max_iterations=1,
+        verbose=False,
+        load_bar=True,
+    )
+
+    end_time = perf_counter()
+    run_time = end_time - start_time
+
+    loglikelihood_list[s - 1] = answer[3]  # Store result in correct position
+
+
+def compute_q_mvn_cdf(n, p, b, parallel=False, R=False):
+    """
+    Computes the matrix with the probabilities that a voter of group "g" in ballot box "b" voted for candidate "c" (referred as "q" on the paper).
+
+    Parameters:
+        n (numpy.ndarray): Matrix with the amount of votes for each candidate (referred as "X" on the paper)
+        p (numpy.ndarray): Matrix with the prior M-step probabilities.
+        b (numpy.ndarray): Matrix with the amount of votes per demographic group.
+
+    Returns:
+        numpy.ndarray: Matrix with all the values of "q".
+    """
+    M_size, G_size, I_size = b.shape[0], b.shape[1], n.shape[1]
+    q = np.zeros(shape=(M_size, G_size, I_size))
+    p_trunc = p[
+        :, :-1
+    ]  # For simplicity, removes the last multivariate normal (maybe include another method for dropping redundant MVN)
+    n_trunc = n[:, :-1]
+    diag_p = [np.diag(p_g) for p_g in p_trunc]
+    p_g_squared = np.einsum("ij,ik->ijk", p_trunc, p_trunc)
+    # if M_size >= 100:
+    #     parallel = True
+    # if parallel:
+    #     q_args = [(n[m], p, b[m], I_size, G_size, use_pdf) for m in range(M_size)]
+    #     with Pool() as pool:
+    #         q = pool.starmap(compute_qm_mvn, q_args)
+    #     return np.array(q)
+    for m in range(
+        M_size
+    ):  # Note that M_size is b.shape[0], use pointer in C. M are ballots aparrently
+        print("\n-----------\n B={}\n-----------\n".format(m))
+        q_m = compute_qm_mvn_cdf(
+            n[m], n_trunc[m], p, p_trunc, b[m], I_size, G_size, diag_p, p_g_squared
+        )
+        q[m] = q_m
+    return q
+
+
+def compute_qm_mvn_cdf(
+    n_m, n_m_trunc, p, p_trunc, b_m, I_size, G_size, diag_p, p_g_squared
+):
+    """
+    Computes the matrix with the probabilities that a voter of group "g" in ballot box "b" voted for candidate "c" per ballot box (referred as "q" on the paper) using the MVN CDF approximation.
+
+    Parameters:
+        n_m (numpy.ndarray): Matrix with the amount of votes for each candidate per ballot box.
+        n_m_trunc (numpy.ndarray): Matrix with the amount of votes for each candidate per ballot box except the last one (might be redundant).
+        p (numpy.ndarray): Matrix with the prior M-step probabilities.
+        p_trunc (numpy.ndarray): Matrix with the prior M-step probabilities except the last one (might be redundant).
+        I_size (int): Amount of candidates.
+        G_size (int): Amount of demographic groups.
+        diag_p (numpy.ndarray): A diagonal matrix with the values of "p".
+        p_g_squared (numpy.ndarray): A matrix with the output of matrix multiplication between "p"
+
+    Returns:
+        float: The probability that a voter from group "g" in ballot box "b" voted for candidate "c" using the MVN CDF approximation.
+
+    """
+
+    mu = b_m @ p_trunc  # (1,G_size) @ (G_size, I_size-1) = I_size - 1
+    cov = np.diag(mu) - p_trunc.T @ np.diag(b_m) @ p_trunc  # (I_size-1, I_size-1)
+
+    covs_U = (
+        cov - diag_p + p_g_squared
+    )  # (G_size, I_size-1, I_size-1) # For each G, matrix (i-1, i-1).
+    mus_U = mu - p_trunc  # (G_size, I_size-1)
+
+    if I_size > 2:
+        Chols_U = np.linalg.cholesky(covs_U)  # Tensor grado 3.
+
+    qm = np.zeros(shape=(G_size, I_size))
+    for i in range(I_size):
+        n_i = (
+            n_m_trunc.copy()
+        )  # Corresponds to the X[b] vector without the last candidate
+        if i < I_size - 1:  # If it's from the `c-1` candidates..
+            n_i[i] -= 1  # Substract one at the candidate position
+        for g in range(G_size):
+
+            if I_size == 2:
+                qm[g, i] = norm.cdf(n_i + 0.5, mus_U[g], np.sqrt(covs_U[g])) - norm.cdf(
+                    n_i - 0.5, mus_U[g], np.sqrt(covs_U[g])
+                )
+                print(
+                    "A (upper limit): {}\nB (lower limit): {}\nPhi(A) = {}\nPhi(B)={}".format(
+                        n_i + 0.5 - mus_U[g],
+                        n_i - 0.5 - mus_U[g],
+                        norm.cdf(n_i + 0.5, mus_U[g], np.sqrt(covs_U[g])),
+                        norm.cdf(n_i - 0.5, mus_U[g], np.sqrt(covs_U[g])),
+                    )
+                )
+                print("Matriz de covarianza")
+                print(covs_U[g])
+            else:
+                n_i_center = (
+                    n_i - mus_U[g]
+                )  # Substracts the average from the multinomial according to the group
+                # print("If I normalize them")
+                # print("The lower limit is:")
+                # print(Chols_U[g].diagonal(i) * (n_i_center - 0.5))
+                # print("The upper limit is:")
+                # print(Chols_U[g].diagonal(i) * (n_i_center + 0.5))
+
+                qm[g, i] = (
+                    MonteCarlo_cdf_matrix(  # Cada combinación G,I tiene su propio \sigma, cov cambia => propio hipercubo => se debe calcular GxI
+                        Chols_U[g],
+                        n_i_center - 0.5,
+                        n_i_center + 0.5,
+                        I_size - 1,
+                        0.00001,
+                    )
+                )
+            print("Resultado:\tq_{},{}={}".format(i, g, qm[g, i]))
+    if np.all(qm == 0):
+        qm = np.ones(shape=(G_size, I_size))
+    # print(qm)
+    # print('----')
+    qm = qm * p  # agregar término p
+    print("Denominador: {} Numerador: {}".format(np.sum(qm, axis=1)[:, None], qm))
+    qm = qm / np.sum(qm, axis=1)[:, None]  # normalize
+    print("Resultado final:\tq={}\n-----".format(qm))
+    # check if nan
+    # if np.isnan(qm).any():
+    #     exit()
+    return qm
+
+
+# def compute_qm_mvn_cdf_R(n_m, n_m_trunc, p, p_trunc, b_m, I_size, G_size, diag_p, p_g_squared, s = 100000):
+#     mu = b_m @ p_trunc   # (1,G_size) @ (G_size, I_size-1) = I_size - 1
+#     cov = np.diag(mu) - p_trunc.T @ np.diag(b_m) @ p_trunc # (I_size-1, I_size-1)
+
+#     covs_U = cov - diag_p + p_g_squared # (G_size, I_size-1, I_size-1)
+#     mus_U = mu - p_trunc # (G_size, I_size-1)
+
+#     qm = np.zeros(shape=(G_size, I_size))
+#     for i in range(I_size):
+#         n_i = n_m_trunc.copy()
+#         if i < I_size - 1:
+#             n_i[i] -= 1
+#         for g in range(G_size):
+#             mean_vector = robjects.FloatVector(mus_U[g])
+#             cov_matrix = robjects.r.matrix(covs_U[g], nrow=I_size-1, ncol=I_size-1)
+#             lower_bound = robjects.FloatVector(n_i - 0.5)
+#             upper_bound = robjects.FloatVector(n_i + 0.5)
+#             qm_gi = r.mvtnorm.pmvnorm(lower_bound, upper_bound, mean_vector, cov_matrix)
+#             print(qm_gi)
+#             qm[g,i] = qm_gi
+#             # X = np.random.multivariate_normal(mus_U[g], covs_U[g], s)
+#             # inside_cube = (X >= n_i - 0.5) * (X <= n_i + 0.5)
+#             # fav_cases = np.all(inside_cube, axis=1)
+#             # qm[g,i] = np.sum(fav_cases)/s
+
+#     qm = qm * p # agregar término p
+#     qm = qm/np.sum(qm, axis=1)[:,None] # normalize
+
+#     return qm
+
+
+def MonteCarlo_cdf(Chol, a, b, mvn_dim, epsilon, alpha, Nmax):
+    intsum = 0
+    N = 1
+    varsum = 0
+    d = np.zeros(mvn_dim)
+    e = np.zeros(mvn_dim)
+    f = np.zeros(mvn_dim)
+    y = np.zeros(mvn_dim)
+    d[0] = norm.cdf(a[0] / Chol[0, 0])
+    e[0] = norm.cdf(b[0] / Chol[0, 0])
+    f[0] = e[0] - d[0]
+    error = 1
+    while error > epsilon and N < Nmax:
+        w = np.random.uniform(0, 1, mvn_dim - 1)
+        for i in range(1, mvn_dim):
+            y[i - 1] = norm.ppf(d[i - 1] + w[i - 1] * (e[i - 1] - d[i - 1]))
+            Chol_cum = np.dot(Chol[i, :i], y[:i])
+            d[i] = norm.cdf((a[i] - Chol_cum) / Chol[i, i])
+            e[i] = norm.cdf((b[i] - Chol_cum) / Chol[i, i])
+            f[i] = (e[i] - d[i]) * f[i - 1]
+        N = N + 1
+        # print(f[mvn_dim-1])
+        varsum = varsum + f[mvn_dim - 1] ** 2
+        intsum = intsum + f[mvn_dim - 1]
+        error = alpha * np.sqrt((varsum / N - (intsum / N) ** 2) / N)
+    return intsum / N
+
+
+def MonteCarlo_cdf_matrix(Chol, a, b, mvn_dim, epsilon, min_order=2, max_order=5):
+    """
+    Computes the CDF integral with Monte Carlo simulation over one demographic group within a ballot box. It approximates to the conditional distribution of the votation outcomes given a certain group preference.
+
+    Parameters:
+        Chol (numpy.ndarray): Cholesky decomposition of the variance.
+        a (numpy.ndarray): First components of the unitary hypercube.
+        b (numpy.ndarray): Second components of the unitary hipercube.
+        mvn_dim (int): Dimension of the Multivariate Normal.
+        epsilon (float): Error threshold.
+        min_order (int, optional): Minimum amount of samples for the simulation, expressed as exponents of base 10.
+            default value: 2
+        max_order (int, optional): Maximum amount of samples for the simulation, expressed as exponents of base 10.
+            default value: 5
+
+    Returns:
+        float: Approximation of the probability of the candidate votation outcome given the preferrence of an arbitrary group.
+
+    """
+    intsum = 0
+    varsum = 0
+    total_sim = 0
+    N = [10**i for i in range(min_order, max_order + 1)]
+    d_0 = norm.cdf(a[0] / Chol[0, 0])  # La probabilidad de obtener el primer intervalo
+    e_0 = norm.cdf(b[0] / Chol[0, 0])  # La probabilidad de obtener el segundo intervalo
+    f_0 = e_0 - d_0
+    for n in N:
+        d = np.zeros((mvn_dim, n))
+        e = np.zeros((mvn_dim, n))
+        f = np.zeros((mvn_dim, n))  # Should be a scalar, only the last value is used
+        y = np.zeros(
+            (mvn_dim, n)
+        )  # Y es una matriz donde la fila es la dimension de la multivariada y "n" es la n-esima simulacion
+        d[0, :] = d_0
+        e[0, :] = e_0
+        f[0, :] = f_0  # e_0 - d_0 => espacio entre intervalo
+        w = np.random.uniform(0, 1, (mvn_dim - 1, n))
+        for i in range(1, mvn_dim):  # Por cada dimension
+            y[i - 1, :] = norm.ppf(
+                d[i - 1, :] + w[i - 1, :] * (e[i - 1, :] - d[i - 1, :])
+            )
+            # Cota inferior + w * (espacio entre intervalo), la primera coordenada es la dimension de la mvn, las columnas el num de simulación
+            # Por lo tanto, selecciona TODA la fila "i-1"
+
+            # Así, y[i-1, simulacion]() recibe como argumento puros intervalos con espacios random. Luego, los evalua en Z^{-1} para saber el valor (i.e 1.96) de ese intervalo
+            Chol_cum = np.einsum("j,js->s", Chol[i, :i], y[:i, :])
+            d[i, :] = norm.cdf((a[i] - Chol_cum) / Chol[i, i])
+            e[i, :] = norm.cdf((b[i] - Chol_cum) / Chol[i, i])
+            f[i, :] = (e[i, :] - d[i, :]) * f[i - 1, :]
+        total_sim += n
+        varsum = varsum + np.sum(f[mvn_dim - 1, :] ** 2)
+        intsum = intsum + np.sum(f[mvn_dim - 1, :])
+        error = np.sqrt((varsum / total_sim - (intsum / total_sim) ** 2) / total_sim)
+        if error < epsilon:
+            break
+
+    return intsum / total_sim
+
+    # d[0] = norm.cdf(a[0]/Chol[0,0])
+    # e[0] = norm.cdf(b[0]/Chol[0,0])
+    # f[0] = e[0] - d[0]
+    # error = 1
+    # while error > epsilon and N < Nmax:
+    #     w = np.random.uniform(0,1,mvn_dim-1)
+    #     for i in range(1,mvn_dim):
+    #         y[i-1] = norm.ppf(d[i-1] + w[i-1]*(e[i-1]-d[i-1]))
+    #         Chol_cum = np.dot(Chol[i,:i],y[:i])
+    #         d[i] = norm.cdf((a[i]-Chol_cum)/Chol[i,i])
+    #         e[i] = norm.cdf((b[i]-Chol_cum)/Chol[i,i])
+    #         f[i] = (e[i] - d[i])*f[i-1]
+    #     N = N + 1
+    #     # print(f[mvn_dim-1])
+    #     varsum = varsum + f[mvn_dim-1]**2
+    #     intsum = intsum + f[mvn_dim-1]
+    #     error = alpha*np.sqrt((varsum/N - (intsum/N)**2)/N)
+    # return intsum/N
+
+
+# (g,i) compute estimate of p using EM algorithm with parameters X and b
+def EM_mvn_cdf(
+    X,
+    b,
+    p_est=None,
+    convergence_value=0.0001,
+    max_iterations=100,
+    p_method="group_proportional",
+    load_bar=True,
+    verbose=True,
+    dict_results={},
+    save_dict=False,
+    dict_file=None,
+):
+    """
+
+    Implements the whole EM algorithm within the Multivariate CDF method.
+
+    Parameters:
+        X (numpy.ndarray): Matrix of dimension (cxb) that stores the results of candidate "c" on ballot box "b".
+        b (numpy.ndarray): Matrix of dimension (bxg) that stores the amount of votes from demographic group "g".
+        p_est (numpy.ndarray): Matrix of initial probabilities.
+        q_method (string): Method for estimating the probability that a voter of group "g" in ballot box "b" voted for candidate "c" conditional on the observed result. Currently, it supports
+        the "", "", "" and "" methods.
+        convergence_value (float, optional): The epsilon value of convergence.
+            default value: 0.001
+        max_iterations (int, optional): The maximum amount of iterations.
+            default value: 100
+        load_bar (bool, optional): Print a progress bar of the process.
+            default value: True
+        verbose (bool, optional): Print indicating messages.
+            default value: True
+        dict_results (dict, optional): Dictionary that stores the progress of the algorithm, including the initial parameters, ending criteria, run time and amount of iterations.
+            default value: {}
+        save_dict (bool, optional): Save the dictionary that stores the progress of the algorithm.
+            default value: False
+        dict_file (str, optional): The file extension of the resulting file.
+            default value: None.
+    """
+
+    if p_est is None:
+        p_est = get_p_est(X, b, p_method)
+    return EM_algorithm(
+        X,
+        b,
+        p_est,
+        compute_q_mvn_cdf,
+        convergence_value,
+        max_iterations,
+        load_bar,
+        verbose,
+        dict_results=dict_results,
+        save_dict=save_dict,
+        dict_file=dict_file,
+    )
+
+
+if __name__ == "__main__":
+    processFiles(14, 2, 2)
+    """
+    num_threads = 20  # Number of JSON files to process
+    loglikelihood_list = [None] * num_threads  # Pre-allocate storage for results
+    threads = []
+
+    start_global = perf_counter()  # Global timer
+    # Create and start threads
+    for s in range(1, num_threads + 1):
+        t = threading.Thread(target=process_instance, args=(s, loglikelihood_list))
+        threads.append(t)
+        t.start()
+
+    # Wait for all threads to finish
+    for t in threads:
+        t.join()
+
+    end_global = perf_counter()
+    print(f"Total execution time: {end_global - start_global:.2f} seconds")
+    # Convert loglikelihood results to NumPy array
+    # loglikelihood_matrix = np.array(loglikelihood_list)
+
+    # Compute mean log-likelihood per iteration
+    # loglikelihood_mean = np.mean(loglikelihood_matrix, axis=0)
+    # iterations = np.arange(1, 1001)  # Avoid zero, since log(0) is undefined
+    loglikelihood_list = [
+        np.random.normal(loc=-100, scale=20, size=1000) for _ in range(20)
+    ]
+
+    # Convert list of arrays into a NumPy array (shape: (20, 1000))
+    loglikelihood_matrix = np.array(loglikelihood_list)
+
+    # Create iteration indices (from 1 to 1000)
+    iterations = np.arange(1, loglikelihood_matrix.shape[1] + 1)
+
+    # Plot all 20 lines
+    plt.figure(figsize=(10, 6))
+    for i in range(loglikelihood_matrix.shape[0]):
+        plt.plot(iterations, loglikelihood_matrix[i, :], alpha=0.6, label=f"Seed {i+1}")
+    plt.xlabel("Iteration")
+    plt.ylabel("Log-Likelihood")
+    plt.xscale("log")
+    plt.title("Log-Likelihood en MVN-CDF (C2, G2)")
+    # plt.ylim(-45, 150)
+    plt.legend()
+    plt.grid(True, which="both")
+    plt.show()
+    """
