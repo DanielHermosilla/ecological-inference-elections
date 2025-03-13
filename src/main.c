@@ -423,16 +423,16 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     if (verbose)
     {
         Rprintf("Starting the EM algorithm.\n");
-        Rprintf("The method to calculate the conditional probability will be %s method with the following "
-                "parameters:\nProbability convergence threshold:\t%.6f\nLog-likelihood convergence "
-                "threshold:\t%.6f\nMaximum iterations:\t%d\n",
+        Rprintf("The method to calculate the conditional probability will be '%s' with the following "
+                "parameters:\nProbability convergence threshold:\t%f\nLog-likelihood convergence "
+                "threshold:\t%f\nMaximum iterations:\t%d\n",
                 q_method, convergence, LLconvergence, maxIter);
     }
 
     // ---- Define the parameters for the main loop ---- //
     QMethodConfig config = getQMethodConfig(q_method, inputParams);
     double newLL;
-    double oldLL = -999999;
+    double oldLL = -DBL_MAX;
 
     // ---- Start timer
     struct timespec start, end, iter_start, iter_end; // Declare timers for overall and per-iteration
@@ -446,11 +446,6 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         // ---- Timer for the current iteration
         clock_gettime(CLOCK_MONOTONIC, &iter_start);
         *iterTotal = i;
-        if (verbose)
-        {
-            Rprintf("\nThe current probability matrix at the %dth iteration is:\n", i);
-            printMatrix(currentP);
-        }
 
         // ---- Compute the `q`, `p` and `log-likelihood` ---- //
         if (i != 0)
@@ -458,10 +453,18 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         double newLL;
         *qVal = config.computeQ(currentP, config.params, &newLL);
         logLLarr[i] = newLL;
-
         newProbability = copyMatrix(currentP);
         freeMatrix(currentP);
         *currentP = getP(*qVal); // M-Step
+
+        if (verbose)
+        {
+            Rprintf("\n----------\nIteration: %d\nProbability matrix:\n", i + 1);
+            printMatrix(currentP);
+            Rprintf("Log-likelihood: %f\n", newLL);
+            if (i != 0)
+                Rprintf("Delta log-likelihood: %f", fabs(newLL - oldLL));
+        }
         // ---...--- //
 
         // ---- Check convergence ---- //
@@ -487,7 +490,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         R_CheckUserInterrupt();
 
         if (verbose)
-            Rprintf("Iteration %d took %.5f seconds.\n", i + 1, elapsed_iter);
+            Rprintf("Time spent: %f\n----------\n", elapsed_total);
 
         // ---- The maximum time was reached
         if (elapsed_total >= maxSeconds)
@@ -500,10 +503,12 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
 
         oldLL = newLL;
     }
+    // ---- Handle case where maxiter is achieved ----
     if (verbose)
-        Rprintf("Maximum iterations reached without convergence.\n"); // Print even if there's not verbose, might change
-                                                                      // later.
+        Rprintf("Maximum iterations reached without convergence.\n");
+
     *finishing_reason = 2;
+    // ---...--- //
 results:
     *logLLarr = newLL;
     *time = elapsed_total;
