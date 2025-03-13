@@ -23,12 +23,14 @@ SOFTWARE.
 #include "multivariate-cdf.h"
 #include <R.h>
 #include <R_ext/Memory.h>
+#include <R_ext/RS.h> /* for R_Calloc/R_Free, F77_CALL */
 #include <R_ext/Random.h>
 #include <Rmath.h>
 #include <math.h>
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>

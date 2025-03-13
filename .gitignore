@@ -1,0 +1,18 @@
+# Ignore everything
+*
+
+# Allow specific files/directories
+!.gitignore
+!README.md
+!src/
+!src/*
+!R/
+!R/*
+!man/
+!man/*
+!LICENSE
+!LICENSE.md
+!DESCRIPTION
+!NAMESPACE
+!data/
+!data/*

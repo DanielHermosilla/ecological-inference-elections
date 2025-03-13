@@ -23,14 +23,11 @@ SOFTWARE.
 #include "multivariate-pdf.h"
 #include <R.h>
 #include <R_ext/Memory.h>
+#include <R_ext/RS.h> /* for R_Calloc/R_Free, F77_CALL */
 #include <Rmath.h>
 #include <math.h>
 #include <stdint.h>
 #include <unistd.h>
-
-#ifndef BLAS_INT
-#define BLAS_INT int
-#endif
 
 /**
  * @brief Computes the `q` values for a given ballot box.

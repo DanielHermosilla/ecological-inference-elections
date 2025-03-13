@@ -25,6 +25,7 @@ SOFTWARE.
 #include <R.h>
 #include <R_ext/BLAS.h>
 #include <R_ext/Memory.h>
+#include <R_ext/RS.h> /* for R_Calloc/R_Free, F77_CALL */
 #include <stdint.h>
 
 #ifndef BLAS_INT
@@ -125,12 +126,12 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, do
 
     // WP = alpha * W * probabilities + beta * WP
     F77_CALL(dgemm)
-    (&noTranspose, &noTranspose, // transA = 'N', transB = 'N'
-     &m, &n, &k,                 // M, N, K
-     &alpha, W->data, &m,        // A, LDA = m
-     probabilities->data, &k,    // B, LDB = k
-     &beta, WP.data, &m,         // C, LDC = m
-     (BLAS_INT)1, (BLAS_INT)1    // string lengths for 'N', 'N'
+    (&noTranspose, &noTranspose,    // transA = 'N', transB = 'N'
+     &m, &n, &k,                    // M, N, K
+     &alpha, W->data, &m,           // A, LDA = m
+     probabilities->data, &k,       // B, LDB = k
+     &beta, WP.data, &m FCONE FCONE // C, LDC = m
+                                    // string lengths for 'N', 'N'
     );
 
     // Maybe try to obtain log-likelihood with lgamma

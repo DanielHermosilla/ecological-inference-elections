@@ -20,7 +20,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#undef R_NO_REMAP
 #include "exact.h"
 #include <R.h>
 #include <R_ext/Memory.h>

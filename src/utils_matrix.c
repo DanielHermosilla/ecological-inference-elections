@@ -25,6 +25,7 @@ SOFTWARE.
 #include <R_ext/BLAS.h>
 #include <R_ext/Lapack.h>
 #include <R_ext/Memory.h>
+#include <R_ext/RS.h> /* for R_Calloc/R_Free, F77_CALL */
 #include <math.h>
 #ifdef _OPENMP
 #include <omp.h> // Parallelization
@@ -57,207 +58,6 @@ static void transposeMatrix(const double *src, int rows, int cols, double *dst)
             dst[c * rows + r] = src[r * cols + c];
         }
     }
-}
-
-// ----------------------------------------------------------------------------
-// BLAS wrappers for row major matrices.
-// ----------------------------------------------------------------------------
-static void rowMajor_dcopy(int size, const double *src, int incSrc, double *dst, int incDst)
-{
-    F77_CALL(dcopy)(&size, src, &incSrc, dst, &incDst);
-}
-
-static void rowMajor_daxpy(int size, double alpha, const double *x, int incx, double *y, int incy)
-{
-    F77_CALL(daxpy)(&size, &alpha, x, &incx, y, &incy);
-}
-
-static void rowMajor_dgemv(char trans, // 'N' or 'T' from row-major perspective
-                           int M, int N, double alpha, const double *A, int lda, const double *x, int incx, double beta,
-                           double *y, int incy)
-{
-    char transF;
-    int M_f, N_f;
-    if (trans == 'N')
-    {
-        // row-major "NoTrans" => Fortran sees 'T', swap M<->N
-        transF = 'T';
-        M_f = N;
-        N_f = M;
-    }
-    else
-    {
-        // row-major "Trans" => Fortran sees 'N', swap M<->N
-        transF = 'N';
-        M_f = N;
-        N_f = M;
-    }
-    F77_CALL(dgemv)(&transF, &M_f, &N_f, &alpha, A, &lda, x, &incx, &beta, y, &incy, (BLAS_INT)1);
-}
-
-static void rowMajor_dgemm(char transA, char transB, int M, int N, int K, double alpha, const double *A, int lda,
-                           const double *B, int ldb, double beta, double *C, int ldc)
-{
-    char fA, fB;
-    int Am, An, Bm, Bn;
-
-    // Interpret A
-    if (transA == 'N')
-    {
-        fA = 'T'; // Fortran call uses 'T'
-        Am = K;   // shape in Fortran
-        An = M;
-    }
-    else
-    {
-        fA = 'N';
-        Am = M;
-        An = K;
-    }
-    // Interpret B
-    if (transB == 'N')
-    {
-        fB = 'T';
-        Bm = N;
-        Bn = K;
-    }
-    else
-    {
-        fB = 'N';
-        Bm = K;
-        Bn = N;
-    }
-    F77_CALL(dgemm)(&fA, &fB, &Am, &Bm, &An, &alpha, A, &lda, B, &ldb, &beta, C, &ldc, (BLAS_INT)1, (BLAS_INT)1);
-}
-
-// ----------------------------------------------------------------------------
-// Wrappers for LAPACK that require transposing into column-major (can't be avoided)
-// ----------------------------------------------------------------------------
-
-static int rowMajor_dsyev(char jobz, char uplo, int n, double *Arow, double *W)
-{
-    double *Acol = (double *)Calloc(n * n, double);
-    if (!Acol)
-        return -1;
-
-    // row->col
-    transposeMatrix(Arow, n, n, Acol);
-
-    // workspace query
-    int info, lwork = -1;
-    double wkopt;
-    F77_CALL(dsyev)(&jobz, &uplo, &n, Acol, &n, W, &wkopt, &lwork, &info, (La_INT)1, (La_INT)1);
-    if (info != 0)
-    {
-        Free(Acol);
-        return info;
-    }
-    lwork = (int)wkopt;
-    double *work = (double *)Calloc(lwork, double);
-    if (!work)
-    {
-        Free(Acol);
-        return -2;
-    }
-
-    F77_CALL(dsyev)(&jobz, &uplo, &n, Acol, &n, W, work, &lwork, &info, (La_INT)1, (La_INT)1);
-    Free(work);
-
-    if (info == 0 && jobz == 'V')
-    {
-        // eigenvectors in Acol => transpose back to row-major
-        transposeMatrix(Acol, n, n, Arow);
-    }
-    Free(Acol);
-    return info;
-}
-
-static int rowMajor_dpotrf(char uplo, int n, double *Arow)
-{
-    double *Acol = (double *)Calloc(n * n, double);
-    if (!Acol)
-        return -1;
-    transposeMatrix(Arow, n, n, Acol);
-
-    int info;
-    F77_CALL(dpotrf)(&uplo, &n, Acol, &n, &info, (La_INT)1);
-
-    if (info == 0)
-    {
-        transposeMatrix(Acol, n, n, Arow);
-    }
-    Free(Acol);
-    return info;
-}
-
-static int rowMajor_dpotri(char uplo, int n, double *Arow)
-{
-    double *Acol = (double *)Calloc(n * n, double);
-    if (!Acol)
-        return -1;
-    transposeMatrix(Arow, n, n, Acol);
-
-    int info;
-    F77_CALL(dpotri)(&uplo, &n, Acol, &n, &info, (La_INT)1);
-
-    if (info == 0)
-    {
-        transposeMatrix(Acol, n, n, Arow);
-    }
-    Free(Acol);
-    return info;
-}
-
-static int rowMajor_dgetrf(int m, int n, double *Arow, int *ipiv)
-{
-    double *Acol = (double *)Calloc(m * n, double);
-    if (!Acol)
-        return -1;
-    transposeMatrix(Arow, m, n, Acol);
-
-    int info;
-    F77_CALL(dgetrf)(&n, &m, Acol, &n, ipiv, &info);
-
-    // dgetrf in Fortran dimension is (n x m) because we swapped...
-    // The pivot array also may differ, so usually we cannot simply re-use
-    // the same IPIV.  But for normal usage it works out as long as you
-    // interpret pivoting carefully.
-    // In practice, many codes just do the real transpose approach on
-    // both the matrix and the pivoting.
-    // We'll do a naive approach:
-
-    if (info == 0)
-    {
-        // transpose back
-        transposeMatrix(Acol, n, m, Arow);
-    }
-    Free(Acol);
-    return info;
-}
-
-static int rowMajor_dgetri(int n, double *Arow, int *ipiv)
-{
-    double *Acol = (double *)Calloc(n * n, double);
-    if (!Acol)
-        return -1;
-    transposeMatrix(Arow, n, n, Acol);
-
-    int info, lwork = n * 64; // or do a workspace query
-    double *work = (double *)Calloc(lwork, double);
-    if (!work)
-    {
-        Free(Acol);
-        return -2;
-    }
-    F77_CALL(dgetri)(&n, Acol, &n, ipiv, work, &lwork, &info);
-    Free(work);
-
-    if (info == 0)
-    {
-        transposeMatrix(Acol, n, n, Arow);
-    }
-    Free(Acol);
-    return info;
 }
 
 // ----------------------------------------------------------------------------
@@ -492,7 +292,7 @@ void rowSum(const Matrix *matrix, double *result)
     (&trans, &(matrix->rows), &(matrix->cols), // Matrix dimensions (M, N)
      &alpha, matrix->data, &(matrix->rows),    // Matrix and leading dimension
      ones, &incX,                              // Vector of ones
-     &beta, result, &incY, (BLAS_INT)1);       // Output row sum
+     &beta, result, &incY FCONE);              // Output row sum
 
     Free(ones);
 }
@@ -560,7 +360,7 @@ void colSum(const Matrix *matrix, double *result)
     (&trans, &(matrix->rows), &(matrix->cols), // (M, N) dimensions
      &alpha, matrix->data, &(matrix->rows),    // Matrix and leading dimension
      ones, &incX,                              // Vector of ones
-     &beta, result, &incY, (BLAS_INT)1);       // Output column sum
+     &beta, result, &incY FCONE);              // Output column sum
 
     Free(ones);
 }
@@ -860,7 +660,7 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
     Matrix emergencyMat = copyMatrix(matrix);
 
     int info;
-    F77_CALL(dpotrf)(&lCh, &n, matrix->data, &n, &info, (La_INT)1);
+    F77_CALL(dpotrf)(&lCh, &n, matrix->data, &n, &info FCONE);
     // Cholesky => ('L', n, matrix->data)
 
     if (info < 0)
@@ -889,7 +689,7 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
 
     // Now invert the Cholesky => rowMajor_dpotri('L', n, matrix->data)
     int info2;
-    F77_CALL(dpotri)(&lCh, &n, matrix->data, &n, &info2, (La_INT)1);
+    F77_CALL(dpotri)(&lCh, &n, matrix->data, &n, &info2 FCONE);
     if (info2 != 0)
     {
         error("Matrix handling: Matrix inversion failed after Cholesky. info=%d\n", info2);
@@ -937,7 +737,7 @@ void inverseMatrixEigen(Matrix *matrix)
     char vCh = 'V';
     char uCh = 'U';
 
-    F77_CALL(dsyev)(&vCh, &uCh, &n, matrix->data, &n, eigenvals, &query_work, &lwork, &info, (La_INT)1, (La_INT)1);
+    F77_CALL(dsyev)(&vCh, &uCh, &n, matrix->data, &n, eigenvals, &query_work, &lwork, &info FCONE FCONE);
 
     if (info != 0)
     {
@@ -949,7 +749,7 @@ void inverseMatrixEigen(Matrix *matrix)
     double *work = (double *)Calloc(lwork, double);
 
     // Step 3: Compute Eigen decomposition
-    F77_CALL(dsyev)(&vCh, &uCh, &n, matrix->data, &n, eigenvals, work, &lwork, &info, (La_INT)1, (La_INT)1);
+    F77_CALL(dsyev)(&vCh, &uCh, &n, matrix->data, &n, eigenvals, work, &lwork, &info FCONE FCONE);
 
     if (info != 0)
     {
@@ -981,7 +781,7 @@ void inverseMatrixEigen(Matrix *matrix)
     F77_CALL(dgemm)
     (&noTranspose, &noTranspose,           // Column-major perspective => No-trans x No-trans
      &n, &n, &n, &alpha, matrix->data, &n, // Q (eigenvectors) in column-major
-     Dinv.data, &n, &beta, temp.data, &n, (BLAS_INT)1, (BLAS_INT)1);
+     Dinv.data, &n, &beta, temp.data, &n FCONE FCONE);
 
     // A_inv = temp * Q^T
     Matrix temp2 = createMatrix(n, n);
@@ -989,7 +789,7 @@ void inverseMatrixEigen(Matrix *matrix)
     (&noTranspose, &yTranspose,         // Column-major perspective => No-trans x Transposed
      &n, &n, &n, &alpha, temp.data, &n, // `temp` in column-major
      matrix->data, &n,                  // `Q^T` is achieved by using 'T' (BLAS transposes internally)
-     &beta, temp2.data, &n, (BLAS_INT)1, (BLAS_INT)1);
+     &beta, temp2.data, &n FCONE FCONE);
 
     // copy result back
     memcpy(matrix->data, temp2.data, n * n * sizeof(double));

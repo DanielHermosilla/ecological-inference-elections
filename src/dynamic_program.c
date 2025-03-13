@@ -1,6 +1,5 @@
 #include "dynamic_program.h"
 #include <R.h>
-#include <R_ext/BLAS.h>
 #include <R_ext/Memory.h>
 #include <Rmath.h>
 #include <dirent.h>
@@ -9,10 +8,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
-
-#ifndef BLAS_INT
-#define BLAS_INT int
-#endif
 
 double getSigmaForRange(const Matrix *xmat, const Matrix *wmat, int g1, int g2, double *ballotVotes)
 {

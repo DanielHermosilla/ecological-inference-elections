@@ -24,6 +24,7 @@ SOFTWARE.
 #include <R.h>
 #include <R_ext/BLAS.h>
 #include <R_ext/Memory.h>
+#include <R_ext/RS.h> /* for R_Calloc/R_Free, F77_CALL */
 #include <float.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -92,7 +93,7 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
      &n,     // C-1
      &alpha, probabilitiesReduced->data,
      &lda, // G
-     groupVotesPerBallot, &incx, &beta, mu, &incy, (BLAS_INT)1);
+     groupVotesPerBallot, &incx, &beta, mu, &incy FCONE);
 
     // ---- Computation of sigma ----
     // ---- Get a diagonal matrix with the group votes on a given ballot ----
@@ -114,7 +115,7 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
 
     F77_CALL(dgemm)
     (&transA, &transB, &m, &n, &k, &alpha, probabilitiesReduced->data, &lda, diagonalVotesPerBallot.data, &ldb, &beta,
-     temp.data, &ldc, (BLAS_INT)1, (BLAS_INT)1);
+     temp.data, &ldc FCONE FCONE);
 
     transA = 'N';             // no transpose
     transB = 'N';             // no transpose
@@ -129,8 +130,8 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
     ldc = m;            // = C-1, C is (C-1) x (C-1)
 
     F77_CALL(dgemm)
-    (&transA, &transB, &m, &n, &k, &alpha, temp.data, &lda, probabilitiesReduced->data, &ldb, &beta, sigma->data, &ldc,
-     (BLAS_INT)1, (BLAS_INT)1);
+    (&transA, &transB, &m, &n, &k, &alpha, temp.data, &lda, probabilitiesReduced->data, &ldb, &beta, sigma->data,
+     &ldc FCONE FCONE);
 
     // ---- Substract the diagonal with the average ----
     // ---- Note: This could be optimized with a cBLAS call too ----
@@ -305,7 +306,7 @@ void getMahanalobisDist(double *x, double *mu, Matrix *inverseSigma, double *mah
     // In column-major, LDA = #rows = n
     int lda = n;
 
-    F77_CALL(dsymv)(&uplo, &n, &alpha, inverseSigma->data, &lda, diff, &incx, &beta, temp, &incy, (BLAS_INT)1);
+    F77_CALL(dsymv)(&uplo, &n, &alpha, inverseSigma->data, &lda, diff, &incx, &beta, temp, &incy FCONE);
 
     // --- ... --- //
 
