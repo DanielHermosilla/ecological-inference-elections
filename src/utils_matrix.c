@@ -457,7 +457,7 @@ bool convergeMatrix(const Matrix *matrixA, const Matrix *matrixB, const double c
 
     if (convergence <= 0)
     {
-        error("Matrix handling: An invalid value was handed to convergence, it must be greater than cero.\n");
+        return false; // We will acept -Inf values
     }
 
     if (matrixA->cols != matrixB->cols || matrixA->rows != matrixB->rows)

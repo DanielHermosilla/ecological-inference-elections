@@ -98,7 +98,7 @@ Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_meth
                    maximum_seconds[0], verbose[0], &timeIter, &totalIter, logLLarr, &qvalue, &finish, inputParams);
 
     // ---- Create human-readable stopping reason ---- //
-    std::vector<std::string> stop_reasons = {"Convergence achieved", "Log-likelihood decrease", "Maximum time reached",
+    std::vector<std::string> stop_reasons = {"Converged", "Log-likelihood decrease", "Maximum time reached",
                                              "Maximum iterations reached"};
     std::string stopping_reason = (finish >= 0 && finish < 4) ? stop_reasons[finish] : "Unknown";
 
@@ -114,7 +114,7 @@ Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_meth
 
     Rcpp::NumericVector condProb(qvalue, qvalue + TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS);
     condProb.attr("dim") = Rcpp::IntegerVector::create(TOTAL_BALLOTS, TOTAL_GROUPS, TOTAL_CANDIDATES);
-    Rcpp::NumericVector logArray(logLLarr, logLLarr + totalIter - 1);
+    Rcpp::NumericVector logArray(logLLarr, logLLarr + totalIter);
     free(qvalue);
     cleanup();
     if (EMAlg == "hnr")
@@ -264,14 +264,13 @@ Rcpp::List groupAggGreedy(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMat
     QMethodInput inputParams =
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], monte_method);
 
-    Rprintf("Entering aggregateGroupsExhaustive\n");
     Matrix greedyP = aggregateGroupsExhaustive(&XR, &WR, boundaries, &numCuts, probabilityM.c_str(), EMAlg.c_str(),
                                                stopping_threshold[0], log_stopping_threshold[0], verbose[0],
                                                maximum_iterations[0], maximum_seconds[0], inputParams, &bestLogLL,
                                                &bestQ, &bestTime, &finishReason, &totalIter);
 
     // ---- Create human-readable stopping reason ---- //
-    std::vector<std::string> stop_reasons = {"Convergence achieved", "Log-likelihood decrease", "Maximum time reached",
+    std::vector<std::string> stop_reasons = {"Converged", "Log-likelihood decrease", "Maximum time reached",
                                              "Maximum iterations reached"};
     std::string stopping_reason = (finishReason >= 0 && finishReason < 4) ? stop_reasons[finishReason] : "Unknown";
 

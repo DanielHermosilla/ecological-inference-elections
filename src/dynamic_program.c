@@ -520,7 +520,7 @@ static void enumerateAllPartitions(int start, const int G, int *currentBoundarie
                                    &timeUsed, &totalIter, logLLs, &qvals, &finishingReason, inputParams);
 
         double currentLL = (totalIter > 0) ? logLLs[totalIter - 1] : -DBL_MAX;
-        Rprintf("current LL:%f\n", currentLL);
+
         // ---- Save the results if the value is better
         if (currentLL > g_bestLogLikelihood)
         {

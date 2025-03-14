@@ -231,7 +231,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'   \item{status}{
 #'     The final status ID of the algorithm upon completion:
 #'     \itemize{
-#'       \item \code{0}: Convergence achieved.
+#'       \item \code{0}: Convergenced.
 #'       \item \code{1}: Maximum time reached.
 #'       \item \code{2}: Maximum iterations reached.
 #'     }
@@ -476,17 +476,17 @@ bootstrap <- function(object = NULL,
     }
 
     # Extract parameters with defaults if missing
-    method <- all_params$method %||% "mult"
-    initial_prob <- all_params$initial_prob %||% "group_proportional"
-    maxiter <- as.integer(all_params$maxiter %||% 1000)
-    maxtime <- as.numeric(all_params$maxtime %||% 3600)
-    stop_threshold <- as.numeric(all_params$stop_threshold %||% 0.01)
-    # log_threshold <- as.double(all_params$log_threshold) %||% as.double(-Inf)
-    verbose <- as.logical(all_params$verbose %||% FALSE)
+
+    method <- if (!is.null(all_params$method)) all_params$method else "mult"
+    initial_prob <- if (!is.null(all_params$initial_prob)) all_params$initial_prob else "group_proportional"
+    maxiter <- if (!is.null(all_params$maxiter)) all_params$maxiter else 1000
+    maxtime <- if (!is.null(all_params$maxtime)) all_params$maxtime else 3600
+    stop_threshold <- if (!is.null(all_params$stop_threshold)) all_params$stop_threshold else 0.01
+    verbose <- if (!is.null(all_params$verbose)) all_params$verbose else FALSE
 
     # R does a subtle type conversion when handing -Inf. Hence, we'll use a direct assignment
     if ("log_threshold" %in% names(all_params)) {
-        log_threshold <- as.double(all_params$log_threshold)
+        log_threshold <- all_params$log_threshold
     } else {
         log_threshold <- as.double(-Inf)
     }
@@ -499,26 +499,36 @@ bootstrap <- function(object = NULL,
     mc_error <- 0.0
 
     if (method == "hnr") {
-        step_size <- as.integer(all_params$step_size %||% 3000)
-        samples <- as.integer(all_params$samples %||% 1000)
+        step_size <- if (!is.null(all_params$step_size)) all_params$step_size else 3000
+        samples <- if (!is.null(all_params$samples)) all_params$samples else 1000
         mc_method <- ""
         mc_samples <- 0L
         mc_error <- 0.0
     } else if (method == "mvn_cdf") {
-        mc_method <- all_params$mc_method %||% "genz2"
-        mc_samples <- as.integer(all_params$mc_samples %||% 5000)
-        mc_error <- as.numeric(all_params$mc_error %||% 1e-6)
+        mc_method <- if (!is.null(all_params$mc_method)) all_params$method else "genz2"
+        mc_samples <- if (!is.null(all_params$mc_samples)) all_params$mc_samples else 5000
+        mc_error <- if (!is.null(all_params$mc_error)) all_params$mc_error else 1e-6
         step_size <- 0L
         samples <- 0L
     }
 
     # Call C bootstrap function
     result <- bootstrapAlg(
-        t(object$X), object$W, as.integer(nboot),
-        method, initial_prob, as.integer(maxiter),
-        maxtime, stop_threshold, log_threshold, verbose,
-        as.integer(step_size), as.integer(samples),
-        mc_method, mc_error, as.integer(mc_samples)
+        t(object$X),
+        object$W,
+        as.integer(nboot),
+        as.character(method),
+        as.character(initial_prob),
+        as.integer(maxiter),
+        as.double(maxtime),
+        as.double(stop_threshold),
+        as.double(log_threshold),
+        as.logical(verbose),
+        as.integer(step_size),
+        as.integer(samples),
+        as.character(mc_method),
+        as.double(mc_error),
+        as.integer(mc_samples)
     )
 
     object$sd <- result
@@ -631,22 +641,19 @@ get_agg_proxy <- function(object = NULL,
     }
 
     # Extract parameters with defaults if missing
-    method <- all_params$method %||% "mult"
-    initial_prob <- all_params$initial_prob %||% "group_proportional"
-    maxiter <- as.integer(all_params$maxiter %||% 1000)
-    maxtime <- as.numeric(all_params$maxtime %||% 3600)
-    stop_threshold <- as.numeric(all_params$stop_threshold %||% 0.01)
-    # log_threshold <- as.double(all_params$log_threshold %||% as.double(-Inf))
-    verbose <- as.logical(all_params$verbose %||% FALSE)
+    method <- if (!is.null(all_params$method)) all_params$method else "mult"
+    initial_prob <- if (!is.null(all_params$initial_prob)) all_params$initial_prob else "group_proportional"
+    maxiter <- if (!is.null(all_params$maxiter)) all_params$maxiter else 1000
+    maxtime <- if (!is.null(all_params$maxtime)) all_params$maxtime else 3600
+    stop_threshold <- if (!is.null(all_params$stop_threshold)) all_params$stop_threshold else 0.01
+    verbose <- if (!is.null(all_params$verbose)) all_params$verbose else FALSE
 
     # R does a subtle type conversion when handing -Inf. Hence, we'll use a direct assignment
     if ("log_threshold" %in% names(all_params)) {
-        log_threshold <- as.double(all_params$log_threshold)
+        log_threshold <- all_params$log_threshold
     } else {
         log_threshold <- as.double(-Inf)
     }
-
-
 
     # Handle method-specific defaults
     step_size <- 0L
@@ -656,36 +663,36 @@ get_agg_proxy <- function(object = NULL,
     mc_error <- 0.0
 
     if (method == "hnr") {
-        step_size <- as.integer(all_params$step_size %||% 3000)
-        samples <- as.integer(all_params$samples %||% 1000)
+        step_size <- if (!is.null(all_params$step_size)) all_params$step_size else 3000
+        samples <- if (!is.null(all_params$samples)) all_params$samples else 1000
         mc_method <- ""
         mc_samples <- 0L
         mc_error <- 0.0
     } else if (method == "mvn_cdf") {
-        mc_method <- all_params$mc_method %||% "genz2"
-        mc_samples <- as.integer(all_params$mc_samples %||% 5000)
-        mc_error <- as.numeric(all_params$mc_error %||% 1e-6)
+        mc_method <- if (!is.null(all_params$mc_method)) all_params$method else "genz2"
+        mc_samples <- if (!is.null(all_params$mc_samples)) all_params$mc_samples else 5000
+        mc_error <- if (!is.null(all_params$mc_error)) all_params$mc_error else 1e-6
         step_size <- 0L
         samples <- 0L
     }
 
     result <- groupAgg(
-        sd_statistic,
-        sd_threshold,
+        as.character(sd_statistic),
+        as.double(sd_threshold),
         t(object$X),
         object$W,
         as.integer(nboot),
-        method,
-        initial_prob,
+        as.character(method),
+        as.character(initial_prob),
         as.integer(maxiter),
-        maxtime,
-        stop_threshold,
-        log_threshold,
-        verbose,
+        as.double(maxtime),
+        as.double(stop_threshold),
+        as.double(log_threshold),
+        as.logical(verbose),
         as.integer(step_size),
         as.integer(samples),
-        mc_method,
-        mc_error,
+        as.character(mc_method),
+        as.double(mc_error),
         as.integer(mc_samples)
     )
 
@@ -725,18 +732,16 @@ get_agg_opt <- function(object = NULL,
         stop("get_agg_opt: The object must be initialized with the `eim()` function.")
     }
 
-    # Extract parameters with defaults if missing
-    method <- all_params$method %||% "mult"
-    initial_prob <- all_params$initial_prob %||% "group_proportional"
-    maxiter <- as.integer(all_params$maxiter %||% 1000)
-    maxtime <- as.numeric(all_params$maxtime %||% 3600)
-    stop_threshold <- as.numeric(all_params$stop_threshold %||% 0.01)
-    # log_threshold <- as.double(all_params$log_threshold %||% as.double(-Inf))
-    verbose <- as.logical(all_params$verbose %||% FALSE)
+    method <- if (!is.null(all_params$method)) all_params$method else "mult"
+    initial_prob <- if (!is.null(all_params$initial_prob)) all_params$initial_prob else "group_proportional"
+    maxiter <- if (!is.null(all_params$maxiter)) all_params$maxiter else 1000
+    maxtime <- if (!is.null(all_params$maxtime)) all_params$maxtime else 3600
+    stop_threshold <- if (!is.null(all_params$stop_threshold)) all_params$stop_threshold else 0.01
+    verbose <- if (!is.null(all_params$verbose)) all_params$verbose else FALSE
 
     # R does a subtle type conversion when handing -Inf. Hence, we'll use a direct assignment
     if ("log_threshold" %in% names(all_params)) {
-        log_threshold <- as.double(all_params$log_threshold)
+        log_threshold <- all_params$log_threshold
     } else {
         log_threshold <- as.double(-Inf)
     }
@@ -751,19 +756,19 @@ get_agg_opt <- function(object = NULL,
     object$method <- method
 
     if (method == "hnr") {
-        step_size <- as.integer(all_params$step_size %||% 3000)
-        object$step_size
-        samples <- as.integer(all_params$samples %||% 1000)
-        object$samples
+        step_size <- if (!is.null(all_params$step_size)) all_params$step_size else 3000
+        object$step_size <- step_size
+        samples <- if (!is.null(all_params$samples)) all_params$samples else 1000
+        object$samples <- samples
         mc_method <- ""
         mc_samples <- 0L
         mc_error <- 0.0
     } else if (method == "mvn_cdf") {
-        mc_method <- all_params$mc_method %||% "genz2"
+        mc_method <- if (!is.null(all_params$mc_method)) all_params$mc_method else "genz2"
         object$mc_method <- mc_method
-        mc_samples <- as.integer(all_params$mc_samples %||% 5000)
+        mc_samples <- if (!is.null(all_params$mc_samples)) all_params$mc_samples else 5000
         object$mc_samples <- mc_samples
-        mc_error <- as.numeric(all_params$mc_error %||% 1e-6)
+        mc_error <- if (!is.null(all_params$mc_error)) all_params$mc_error else 1e-6
         object$mc_error <- mc_error
         step_size <- 0L
         samples <- 0L
@@ -772,17 +777,17 @@ get_agg_opt <- function(object = NULL,
     result <- groupAggGreedy(
         t(object$X),
         object$W,
-        method,
-        initial_prob,
+        as.character(method),
+        as.character(initial_prob),
         as.integer(maxiter),
-        maxtime,
-        stop_threshold,
-        log_threshold,
-        verbose,
+        as.double(maxtime),
+        as.double(stop_threshold),
+        as.double(log_threshold),
+        as.logical(verbose),
         as.integer(step_size),
         as.integer(samples),
-        mc_method,
-        mc_error,
+        as.character(mc_method),
+        as.double(mc_error),
         as.integer(mc_samples)
     )
 
@@ -828,11 +833,11 @@ print.eim <- function(object, ...) {
     truncated_X <- (nrow(object$X) > 5)
     truncated_W <- (nrow(object$W) > 5)
 
-    cat("Candidate matrix (X) [b x c]:\n")
+    cat("Candidates' vote matrix (X) [b x c]:\n")
     print(object$X[1:min(5, nrow(object$X)), ]) # nolint
     if (truncated_X) cat(".\n.\n.\n") else cat("\n")
 
-    cat("Group matrix (W) [b x g]:\n")
+    cat("Group-level voter matrix (W) [b x g]:\n")
     print(object$W[1:min(5, nrow(object$W)), ]) # nolint
     if (truncated_W) cat(".\n.\n.\n") else cat("\n")
 
@@ -889,7 +894,6 @@ summary.eim <- function(object, ...) {
         candidates = ncol(object$X),
         groups = ncol(object$W),
         ballots = nrow(object$X),
-        votes = sum(object$X)
     )
 
     # A list with attributes to display if the EM is computed.

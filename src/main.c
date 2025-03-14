@@ -464,7 +464,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             printMatrix(currentP);
             Rprintf("Log-likelihood: %f\n", newLL);
             if (i != 0)
-                Rprintf("Delta log-likelihood: %f", fabs(newLL - oldLL));
+                Rprintf("Delta log-likelihood: %f\n", fabs(newLL - oldLL));
         }
         // ---...--- //
 

@@ -216,7 +216,7 @@ double preMultinomialCoeff(const int b, Matrix *currentMatrix)
     {
         // --- Compute ln(w_bf!). When adding by one, it considers the last element too ---
         // result += gsl_sf_lngamma((int)MATRIX_AT_PTR(W, b, g) + 1);
-        result += lgamma1p((int)MATRIX_AT_PTR(W, b, g));
+        result += lgamma1p((int)MATRIX_AT_PTR(W, b, g)); // TODO: Could be saved
 
         for (uint16_t i = 0; i < TOTAL_CANDIDATES; i++)
         { // ---- For each candidate
@@ -226,7 +226,7 @@ double preMultinomialCoeff(const int b, Matrix *currentMatrix)
         }
     }
     // ---- Return the original result by exponentiating ----
-    return exp(result);
+    return exp(result); // TODO: This can be avoided!
 }
 
 /**
@@ -245,6 +245,7 @@ double preMultinomialCoeff(const int b, Matrix *currentMatrix)
  */
 double logarithmicProduct(const Matrix *probabilities, const int b, const int setIndex)
 {
+    // TODO: logPRod
     // ---- Define initial parameters ---- //
     double log_result = 0;
     Matrix *currentMatrix = OMEGASET[b]->data[setIndex];
@@ -253,7 +254,9 @@ double logarithmicProduct(const Matrix *probabilities, const int b, const int se
     for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
     { // ---- For each candidate
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-        { // ---- For each group
+        {   // ---- For each group
+            // Cambiar a log(1) if probabilidad 0
+            // Producto punto
             log_result += MATRIX_AT_PTR(currentMatrix, g, c) * log(MATRIX_AT_PTR(probabilities, g, c));
         }
     }
@@ -313,7 +316,7 @@ double computeQ(double *q, Matrix const *probabilities)
 
                 // ---- Summatory on k ---- //
                 double binom_coeff = 1.0; // Start with binomial coefficient for k=1
-                for (int k = 0; k < w_bg; k++)
+                for (int k = 1; k < w_bg; k++)
                 {
                     // Compute binomial probability term
                     double term = binom_coeff * pow(q_bgc, k) * pow(1 - q_bgc, w_bg - k);
@@ -325,6 +328,7 @@ double computeQ(double *q, Matrix const *probabilities)
                     binom_coeff *= (w_bg - k) / (double)(k + 1);
                 }
                 // ---...--- //
+                // q = 0; caso esquina
             }
             // First term
             total += firstTerm * w_bg;
@@ -387,12 +391,30 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
 
             // --- Precompute multiplicationValues for this (b, g) combination ---
             double firstTerm = 0;
+            /*
+             * Calcular log(a), max M, b
+             * guardar
+             *
+             */
             for (size_t s = 0; s < currentSet->size; s++)
             { // --- For each sample given a group and a ballot box
                 Matrix *currentMatrix = currentSet->data[s];
-                multiplicationValues[s] = logarithmicProduct(probabilities, b, s) * multinomialVals[b][s];
+                multiplicationValues[s] = logarithmicProduct(probabilities, b, s) * multinomialVals[b][s]; // exp()
                 firstTerm += multiplicationValues[s];
+                // TODO: Look underflows ****
+                // el maximo tb
             }
+            /*
+             * 2do for:
+             * log(a) shifteado
+             *
+             */
+
+            /*
+             * 3er
+             * llamar funcion *sin max, sin restar M*
+             *
+             */
 
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // --- For each candidate given a group and a ballot box
@@ -403,7 +425,7 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
                     secondTerm += multiplicationValues[s] * (MATRIX_AT_PTR(currentMatrix, g, c) / W_bg);
                     // This is for the log-likelihood, doesn't really depend on 'c' nor 'g', but it needs
                     // to pass for an 's' loop beforehand for having the denominator
-                    double gb = multiplicationValues[s] / firstTerm;
+                    double gb = multiplicationValues[s] / firstTerm; // TODO: Underflow *****
                     *ll -= gb * log(gb);
                 }
                 Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = (1 / firstTerm) * secondTerm;

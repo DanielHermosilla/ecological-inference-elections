@@ -45,10 +45,16 @@
         stop("Invalid 'initial_prob'. Must be one of: ", paste(valid_methods, collapse = ", "))
     }
 
-    # Maxiter argument
-    if ("maxiter" %in% names(args) &&
-        (!is.numeric(args$maxiter) || as.integer(args$maxiter) != args$maxiter || args$maxiter <= 0)) {
-        stop("Invalid 'maxiter'. Must be an integer and positive.")
+    if ("maxiter" %in% names(args)) {
+        if (!is.numeric(args$maxiter) || as.integer(args$maxiter) != args$maxiter || args$maxiter < 1) { # Infinite are valid, skip this case
+            stop("Invalid 'maxiter'. Must be a positive integer.")
+        }
+    }
+
+    if ("log_threshold" %in% names(args)) {
+        if (!is.infinite(args$log_threshold) && (!is.numeric(args$log_threshold) || args$log_threshold < 0)) { # Infinite are valid, skip this case
+            stop("Invalid 'log_threshold'. Must be a positive numeric or infinite value.")
+        }
     }
 
     # Maxtime argument
@@ -59,18 +65,11 @@
 
     # Stop threshold argument
     if ("stop_threshold" %in% names(args)) {
-        if (!is.numeric(args$stop_threshold) || args$stop_threshold < 0) {
-            stop("run_em: Invalid 'stop_threshold'. Must be positive")
+        if (!is.infinite(args$stop_threshold) && (!is.numeric(args$stop_threshold) || args$stop_threshold < 0)) {
+            stop("run_em: Invalid 'stop_threshold'. Must be a positive numeric or an infinite value.")
         }
         if (args$stop_threshold >= 1) {
             warning("Warning: A 'stop_threshold' greater or equal than one will always be true after the first iteration.")
-        }
-    }
-
-    # Stop threshold argument
-    if ("log_threshold" %in% names(args)) {
-        if (!is.numeric(args$log_threshold)) {
-            stop("run_em: Invalid 'log_threshold'. Must be a number.")
         }
     }
 
