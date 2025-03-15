@@ -712,7 +712,8 @@ void freeKSet()
     }
 }
 
-__attribute__((destructor)) void cleanExact()
+// __attribute__((destructor))
+void cleanExact()
 {
     // ---- Destroy the candidate array of size_t ---- //
     // ---- If the array was created ----

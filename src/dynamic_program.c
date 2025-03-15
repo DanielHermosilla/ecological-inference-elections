@@ -399,7 +399,7 @@ Matrix aggregateGroups(
         // --- Base case, try with |A| = |G|, basically, get the bootstrap of the whole matrix.
         if (verbose)
         {
-            Rprintf("\nCalculating %d macro-groups\n", i);
+            Rprintf("\n----------\nCalculating %d macro-groups\n", i);
         }
         double bestVal;
         boundaries = solveDP(wmat->cols, i, &lastReward, &bestVal);
@@ -422,7 +422,7 @@ Matrix aggregateGroups(
         {
             Rprintf("Bootstrapped matrix:\n");
             printMatrix(&bootstrapMatrix);
-            Rprintf("Threshold value:\t%.4f\n", quality);
+            Rprintf("Threshold value:\t%.4f\n----------\n", quality);
         }
         // --- Case it converges
         if (quality <= set_threshold)

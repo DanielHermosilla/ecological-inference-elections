@@ -131,9 +131,9 @@ void generateOmegaSet(int M, int S)
 
     // ---- Perform the main iterations ---- //
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    {                   // ---- For every ballot box
-        if (b % 5 == 0) // Checks condition every 5 iterations
-            R_CheckUserInterrupt();
+    {                               // ---- For every ballot box
+        if (b % 5 == 0)             // Checks condition every 5 iterations
+            R_CheckUserInterrupt(); // This might be fatal, since it doesn't free global memory
         // ---- Define a seed, that will be unique per thread ----
         //    unsigned int seed = rand_r(&seedNum) + omp_get_thread_number();
         // ---- Allocate memory for the OmegaSet ---- //
@@ -254,7 +254,7 @@ double logarithmicProduct(const Matrix *probabilities, const int b, const int se
     for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
     { // ---- For each candidate
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-        {   // ---- For each group
+        { // ---- For each group
             // Cambiar a log(1) if probabilidad 0
             // Producto punto
             log_result += MATRIX_AT_PTR(currentMatrix, g, c) * log(MATRIX_AT_PTR(probabilities, g, c));
@@ -441,22 +441,35 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
 
 void cleanHitAndRun()
 {
-    if (OMEGASET != NULL && multinomialVals != NULL)
+    if (OMEGASET != NULL)
     {
         for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-        { // --- For each ballot box
-            for (size_t s = 0; s < OMEGASET[b]->size; s++)
-            {                                     // For each sample given a ballot box
-                freeMatrix(OMEGASET[b]->data[s]); // Free individual matrices
-                Free(OMEGASET[b]->data[s]);       // Free the pointers to matrices
+        {
+            if (OMEGASET[b] != NULL) // Ensure it's valid before freeing
+            {
+                for (size_t s = 0; s < OMEGASET[b]->size; s++)
+                {
+                    if (OMEGASET[b]->data[s] != NULL)
+                    {
+                        freeMatrix(OMEGASET[b]->data[s]); // Free individual matrices
+                        OMEGASET[b]->data[s] = NULL;      // Avoid dangling pointers
+                    }
+                }
+
+                Free(OMEGASET[b]->data); // Free the data array
+                OMEGASET[b]->data = NULL;
+
+                Free(OMEGASET[b]); // Free the OmegaSet struct
+                OMEGASET[b] = NULL;
             }
-            Free(OMEGASET[b]->data); // Free the data array
-            Free(OMEGASET[b]);       // Free the OmegaSet struct
-            Free(multinomialVals[b]);
         }
-        Free(multinomialVals); // Free the precomputed multinomial values
-        Free(OMEGASET);        // Free the OMEGASET array
+
+        Free(OMEGASET); // Free the OMEGASET array
         OMEGASET = NULL;
+    }
+    if (multinomialVals != NULL)
+    {
+        Free(multinomialVals);
         multinomialVals = NULL;
     }
 }

@@ -56,6 +56,17 @@ QMethodInput initializeQMethodInput(const std::string &EMAlg, int samples, int s
     return inputParams;
 }
 
+void cleanGlobals(const std::string &EMAlg, bool everything)
+{
+    // Everything alludes to clean RsetParameters, if it's false, cleans leftovers
+    if (everything)
+        cleanup();
+    if (EMAlg == "hnr")
+        cleanHitAndRun();
+    else if (EMAlg == "exact")
+        cleanExact();
+}
+
 // ---- Set Parameters ---- //
 // [[Rcpp::export]]
 void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix)
@@ -82,6 +93,7 @@ Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_meth
 {
     std::string probabilityM = probability_method;
     std::string EMAlg = em_method;
+    cleanGlobals(EMAlg, false); // Cleans leftovers from previous iterations, in case there was an abort.
 
     Matrix pIn = getInitialP(probabilityM.c_str());
 
@@ -102,13 +114,6 @@ Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_meth
                                              "Maximum iterations reached"};
     std::string stopping_reason = (finish >= 0 && finish < 4) ? stop_reasons[finish] : "Unknown";
 
-    if (verbose[0])
-    {
-        Rprintf("\nThe calculated matrix is:\n");
-        printMatrix(&Pnew);
-        Rprintf("\nExecution Time: %.5f seconds | Log-likelihood: %.5f.\n", timeIter, logLLarr[totalIter - 1]);
-    }
-
     Rcpp::NumericMatrix RfinalProbability(Pnew.rows, Pnew.cols, Pnew.data);
     freeMatrix(&Pnew);
 
@@ -116,11 +121,7 @@ Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_meth
     condProb.attr("dim") = Rcpp::IntegerVector::create(TOTAL_BALLOTS, TOTAL_GROUPS, TOTAL_CANDIDATES);
     Rcpp::NumericVector logArray(logLLarr, logLLarr + totalIter);
     free(qvalue);
-    cleanup();
-    if (EMAlg == "hnr")
-        cleanHitAndRun();
-    else if (EMAlg == "exact")
-        cleanExact();
+    cleanGlobals(EMAlg, true);
 
     return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = logArray,
                               Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter,
@@ -149,6 +150,7 @@ Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
 
     std::string probabilityM = probability_method;
     std::string EMAlg = em_method;
+    cleanGlobals(EMAlg, false); // Cleans leftovers
 
     QMethodInput inputParams =
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], monte_method);
@@ -191,6 +193,7 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
     std::string probabilityM = probability_method;
     std::string EMAlg = em_method;
     std::string aggMet = sd_statistic;
+    cleanGlobals(EMAlg, false); // Cleans leftovers
 
     QMethodInput inputParams =
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], monte_method);
@@ -247,6 +250,7 @@ Rcpp::List groupAggGreedy(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMat
 
     std::string probabilityM = probability_method;
     std::string EMAlg = em_method;
+    cleanGlobals(EMAlg, false); // Cleans leftovers
 
     // Prepare the out-parameters as C++ local variables
     double bestLogLL = 0.0;

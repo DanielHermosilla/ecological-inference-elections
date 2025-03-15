@@ -114,8 +114,11 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
     Matrix *results = Calloc(bootiter, Matrix);
     for (int i = 0; i < bootiter; i++)
     {
-        if (verbose)
-            Rprintf("Executing the %dth iteration.\n", i);
+        if (verbose && (i % (bootiter / 20) == 0)) // Print every 5% (20 intervals)
+        {
+            double progress = (double)i / bootiter * 100;
+            Rprintf("An %.0f%% of iterations have been done.\n", progress);
+        }
         // ---- Declare variables for the current iteration
         Matrix iterX = createMatrix(xmat->rows, xmat->cols);
         Matrix iterW = createMatrix(wmat->rows, wmat->cols);
