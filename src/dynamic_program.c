@@ -476,6 +476,7 @@ Matrix aggregateGroups(
 static double g_bestLogLikelihood = -DBL_MAX;
 static double *g_bestq = NULL;
 static Matrix *g_bestMat = NULL;
+static Matrix *g_bootstrap = NULL;
 static double g_besttime = 0;
 static int g_bestFinishReason = 0;
 static int g_bestIterTotal = 0;
@@ -493,9 +494,9 @@ static int g_bestGroupCount = 0;     // how many groups in best partition
    - Once `start == G`, we have a complete partition to evaluate.
 */
 static void enumerateAllPartitions(int start, const int G, int *currentBoundaries, int currentSize, Matrix *xmat,
-                                   const Matrix *wmat, const char *p_method, const char *q_method, double convergence,
-                                   double log_convergence, bool verbose, int maxIter, double maxSeconds,
-                                   QMethodInput inputParams)
+                                   const Matrix *wmat, const char *set_method, int bootiter, const char *p_method,
+                                   const char *q_method, double max_qual, double convergence, double log_convergence,
+                                   bool verbose, int maxIter, double maxSeconds, QMethodInput inputParams)
 {
     // ---- BASE CASE: We have closed a combination ---- //
     if (start == G)
@@ -521,9 +522,34 @@ static void enumerateAllPartitions(int start, const int G, int *currentBoundarie
 
         double currentLL = (totalIter > 0) ? logLLs[totalIter - 1] : -DBL_MAX;
 
+        // ---- Clean every allocated memory ---- //
+        cleanup();
+        if (strcmp(q_method, "exact") == 0)
+        {
+            cleanExact();
+        }
+        else if (strcmp(q_method, "hnr") == 0)
+        {
+            cleanHitAndRun();
+        }
+        freeMatrix(&initP);
+        // free the merged aggregator:
+        freeMatrix(&merged);
+
         // ---- Save the results if the value is better
         if (currentLL > g_bestLogLikelihood)
         {
+            // --- Now it would be convenient to evaluate within the SD, later, goto notBestValue
+            double qual;
+            Matrix bootstrapedMat =
+                testBootstrap(&qual, set_method, xmat, wmat, currentBoundaries, currentSize, bootiter, q_method,
+                              p_method, convergence, log_convergence, maxIter, maxSeconds, inputParams);
+            freeMatrix(&bootstrapedMat);
+
+            // TODO: ver condicion de calidad
+            if (qual > max_qual)
+                goto notBestValue;
+
             // -- Free previous best data if it exists -- //
             if (g_bestMat != NULL)
             {
@@ -579,6 +605,7 @@ static void enumerateAllPartitions(int start, const int G, int *currentBoundarie
         }
         else
         {
+        notBestValue:
             freeMatrix(&finalP);
             if (qvals != NULL)
             {
@@ -586,21 +613,6 @@ static void enumerateAllPartitions(int start, const int G, int *currentBoundarie
                 qvals = NULL;
             }
         }
-
-        // ---- Clean every allocated memory ---- //
-        cleanup();
-        if (strcmp(q_method, "exact") == 0)
-        {
-            cleanExact();
-        }
-        else if (strcmp(q_method, "hnr") == 0)
-        {
-            cleanHitAndRun();
-        }
-        freeMatrix(&initP);
-        // free the merged aggregator:
-        freeMatrix(&merged);
-
         return;
     }
 
@@ -618,8 +630,9 @@ static void enumerateAllPartitions(int start, const int G, int *currentBoundarie
         currentBoundaries[currentSize] = end;
 
         // ---- Recurse with the next subrange starting at 'end+1':
-        enumerateAllPartitions(end + 1, G, currentBoundaries, currentSize + 1, xmat, wmat, p_method, q_method,
-                               convergence, log_convergence, verbose, maxIter, maxSeconds, inputParams);
+        enumerateAllPartitions(end + 1, G, currentBoundaries, currentSize + 1, xmat, wmat, set_method, bootiter,
+                               p_method, q_method, max_qual, convergence, log_convergence, verbose, maxIter, maxSeconds,
+                               inputParams);
     }
 }
 
@@ -636,6 +649,9 @@ Matrix aggregateGroupsExhaustive(
     // ---- Partition boundaries
     int *results, // Cutting array
     int *cuts,    // Amount of cuts
+
+    // ---- Bootstrap parameters
+    const char *set_method, int bootiter, double max_qual,
 
     // ---- EM parameters
     const char *p_method, const char *q_method, double convergence, double log_convergence, bool verbose, int maxIter,
@@ -673,13 +689,13 @@ Matrix aggregateGroupsExhaustive(
     enumerateAllPartitions(0, // start from column 0
                            G, tempBoundaries,
                            0, // current partition is empty initially
-                           xmat, wmat, p_method, q_method, convergence, log_convergence, verbose, maxIter, maxSeconds,
-                           inputParams);
+                           xmat, wmat, set_method, bootiter, p_method, q_method, max_qual, convergence, log_convergence,
+                           verbose, maxIter, maxSeconds, inputParams);
 
     Free(tempBoundaries);
 
     // g_bestBoundaries[] has the best partition, and g_bestGroupCount is how many groups.
-    // --- Case where any group is feasible. I'm not even sure if it's possible...
+    // --- Case where any group is feasible.
     if (g_bestGroupCount == 0)
     {
         // Means we never found anything feasible or G=0 case.
@@ -688,7 +704,9 @@ Matrix aggregateGroupsExhaustive(
         {
             results[0] = -1; // or some sentinel
         }
-        Matrix empty = createMatrix(0, 0);
+        if (verbose)
+            Rprintf("An feasible macro-group was not found. Returning the original object.\n");
+        Matrix empty = createMatrix(1, 1);
         return empty;
     }
 

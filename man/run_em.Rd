@@ -94,7 +94,7 @@ The function returns an 'eim' object with the following attributes:
 \item{status}{
 The final status ID of the algorithm upon completion:
 \itemize{
-\item \code{0}: Convergence achieved.
+\item \code{0}: Convergenced.
 \item \code{1}: Maximum time reached.
 \item \code{2}: Maximum iterations reached.
 }

@@ -17,7 +17,7 @@ groupAgg <- function(sd_statistic, sd_threshold, candidate_matrix, group_matrix,
     .Call(`_fastei_groupAgg`, sd_statistic, sd_threshold, candidate_matrix, group_matrix, nboot, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, verbose, step_size, samples, monte_method, monte_error, monte_iter)
 }
 
-groupAggGreedy <- function(candidate_matrix, group_matrix, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, verbose, step_size, samples, monte_method, monte_error, monte_iter) {
-    .Call(`_fastei_groupAggGreedy`, candidate_matrix, group_matrix, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, verbose, step_size, samples, monte_method, monte_error, monte_iter)
+groupAggGreedy <- function(sd_statistic, sd_threshold, candidate_matrix, group_matrix, nboot, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, verbose, step_size, samples, monte_method, monte_error, monte_iter) {
+    .Call(`_fastei_groupAggGreedy`, sd_statistic, sd_threshold, candidate_matrix, group_matrix, nboot, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, verbose, step_size, samples, monte_method, monte_error, monte_iter)
 }
 

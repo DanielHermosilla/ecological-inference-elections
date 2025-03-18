@@ -220,8 +220,9 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
  * simulation. (default: 5000)
  *
  */
-Rcpp::List groupAggGreedy(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
-                          Rcpp::String em_method, Rcpp::String probability_method,
+Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
+                          Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                          Rcpp::IntegerVector nboot, Rcpp::String em_method, Rcpp::String probability_method,
                           Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
                           Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold,
                           Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples,

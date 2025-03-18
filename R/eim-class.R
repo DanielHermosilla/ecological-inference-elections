@@ -40,6 +40,7 @@ library(jsonlite)
 #' - [bootstrap] -- Estimates the standard deviation of the probabilities.
 #' - [save] -- Save the results to a specified file.
 #' - [get_agg_proxy] -- Estimates an ideal group aggregation given their standard deviations.
+#' - [get_agg_opt] -- Estimates an ideal group aggregation among all combinations, given the log-likelihood.
 #' - `print` -- Print useful information about the object.
 #' - `summary` -- Shows, in form of a list, the most important attributes.
 #' - `as.matrix` -- Returns the probability matrix.
@@ -710,11 +711,70 @@ get_agg_proxy <- function(object = NULL,
     return(object)
 }
 
+#' Runs the EM algorithm **over all possible group aggregating**, returning the one with higher likelihood while constraining the standard deviation of the probabilities.
+#'
+#' This function estimates the voting probabilities (computed using [run_em]) by trying all group aggregations (of adjacent groups), choosing
+#' the one that achieves the higher likelihood as long as the standard deviation (computed using [bootstrap]) of the estimated probabilities
+#' is below a given threshold.
+#'
+#' Groups need to have an order relation so that adjacent groups can be merged. For example, consider the following seven groups defined by voters' age
+#' ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age
+#' ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, the method evaluates all possible group aggregations (merging only adjacent groups).
+#'
+#' @inheritParams get_agg_proxy
+#'
+#' @param ... Additional arguments passed to the [run_em] function that will execute the EM algorithm.
+#'
+#' @return
+#' It returns an eim object with the same attributes as the output of [run_em], plus the attributes:
+#'
+#' - sd: A `(g x a)` matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that `a` denotes the number of macro-groups of the resulting group aggregation, it should be between `2` and `g`.
+#' - sd_statistic: The statistic used as input.
+#' - sd_threshold: The threshold used as input.
+#' - group_agg: Vector with the resulting group aggregation. See **Examples** for more details.
+#'
+#' Aditionally, it will update the `W` attribute with the aggregated groups.
+#'
+#' @examples
+#' # Example 1: Using a simulated instance
+#' data <- simulate_election(
+#'     num_ballots = 100,
+#'     num_candidates = 3,
+#'     num_groups = 8,
+#'     seed = 42
+#' )
+#'
+#' result <- get_agg_opt(
+#'     X = simulations$X,
+#'     W = simulations$W,
+#'     sd_threshold = 0.05
+#' )
+#'
+#' result$group_agg # c(3,8)
+#' # This would mean that the ideal group aggregation would
+#' # be {[1, 2, 3], [4, 5, 6, 7, 8]}
+#'
+#' \dontrun{
+#' # Example 2: Getting an unfeasible result
+#' result2 <- get_agg_opt(
+#'     X = simulations$X,
+#'     W = simulations$W,
+#'     sd_threshold = 0.001
+#' )
+#'
+#' result2$group_agg # Error
+#' result2$X # Input candidates' vote matrix
+#' result2$W # Input group-level voter matrix
+#' }
 #' @export
 get_agg_opt <- function(object = NULL,
                         X = NULL,
                         W = NULL,
                         json_path = NULL,
+                        sd_statistic = "maximum",
+                        sd_threshold = 0.05,
+                        nboot = 50,
+                        seed = NULL,
                         ...) {
     # Retrieve the default values from run_em() as a list
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
@@ -753,30 +813,26 @@ get_agg_opt <- function(object = NULL,
     mc_samples <- 0L
     mc_error <- 0.0
 
-    object$method <- method
-
     if (method == "hnr") {
         step_size <- if (!is.null(all_params$step_size)) all_params$step_size else 3000
-        object$step_size <- step_size
         samples <- if (!is.null(all_params$samples)) all_params$samples else 1000
-        object$samples <- samples
         mc_method <- ""
         mc_samples <- 0L
         mc_error <- 0.0
     } else if (method == "mvn_cdf") {
         mc_method <- if (!is.null(all_params$mc_method)) all_params$mc_method else "genz2"
-        object$mc_method <- mc_method
         mc_samples <- if (!is.null(all_params$mc_samples)) all_params$mc_samples else 5000
-        object$mc_samples <- mc_samples
         mc_error <- if (!is.null(all_params$mc_error)) all_params$mc_error else 1e-6
-        object$mc_error <- mc_error
         step_size <- 0L
         samples <- 0L
     }
 
     result <- groupAggGreedy(
+        as.character(sd_statistic),
+        as.double(sd_threshold),
         t(object$X),
         object$W,
+        as.integer(nboot),
         as.character(method),
         as.character(initial_prob),
         as.integer(maxiter),
@@ -791,6 +847,10 @@ get_agg_opt <- function(object = NULL,
         as.integer(mc_samples)
     )
 
+    if (result$indices[[1]] == -1) {
+        return(object)
+    }
+
     # Convert the 'W' matrix by merging columns
     # We add '2' to indices since it's originally 0-based.
     col_groups <- split(seq_len(ncol(object$W)), findInterval(seq_len(ncol(object$W)), c(1, result$indices + 2)))
@@ -804,6 +864,16 @@ get_agg_opt <- function(object = NULL,
     object$message <- result$stopping_reason
     object$status <- as.integer(result$finish_id)
     object$q <- result$q
+    object$method <- method
+
+    if (method == "mvn_cdf") {
+        object$mc_error <- mc_error
+        object$mc_samples <- mc_samples
+        object$mc_method <- mc_method
+    } else if (method == "hnr") {
+        object$step_size <- step_size
+        object$samples <- samples
+    }
 
     return(object)
 }
@@ -846,12 +916,6 @@ print.eim <- function(object, ...) {
         truncated_P <- (nrow(object$prob) > 5)
         print(round(object$prob[1:min(5, nrow(object$prob)), ], 3)) # nolint
         if (truncated_P) cat(".\n.\n.\n") else cat("\n")
-        if (!is.null(object$sd)) {
-            cat("Bootstrapped matrix [g x c]:\n")
-            truncated_boot <- (nrow(object$sd) > 5)
-            print(round(object$sd[1:min(5, nrow(object$sd)), ], 3)) # nolint
-            if (truncated_boot) cat(".\n.\n.\n") else cat("\n")
-        }
         cat("Method:\t", object$method, "\n")
         if (object$method == "Hit and Run") {
             cat("Step size (M):", object$step_size)
@@ -863,7 +927,13 @@ print.eim <- function(object, ...) {
         }
         cat("Total Iterations:", object$iterations, "\n")
         cat("Total Time (s):", object$time, "\n")
-        cat("Log-likelihood:", tail(object$logLik, 1))
+        cat("Log-likelihood:", tail(object$logLik, 1), "\n")
+    }
+    if (!is.null(object$sd)) {
+        cat("Bootstrapped matrix [g x c]:\n")
+        truncated_boot <- (nrow(object$sd) > 5)
+        print(round(object$sd[1:min(5, nrow(object$sd)), ], 3)) # nolint
+        if (truncated_boot) cat(".\n.\n.\n") else cat("\n")
     }
 }
 
@@ -893,7 +963,7 @@ summary.eim <- function(object, ...) {
     object_core_attr <- list(
         candidates = ncol(object$X),
         groups = ncol(object$W),
-        ballots = nrow(object$X),
+        ballots = nrow(object$X)
     )
 
     # A list with attributes to display if the EM is computed.

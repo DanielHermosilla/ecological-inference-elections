@@ -67,6 +67,9 @@ Matrix startingPoint(int b)
     return toReturn;
 }
 
+void allocateRandoms(int M, int S, char *array)
+{
+}
 /*
  * @brief Precomputes the sets used for the simulation.
  *

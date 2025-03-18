@@ -231,8 +231,9 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
 
 // ---- Run Greedy Group Aggregation Algorithm ---- //
 // [[Rcpp::export]]
-Rcpp::List groupAggGreedy(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
-                          Rcpp::String em_method, Rcpp::String probability_method,
+Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
+                          Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                          Rcpp::IntegerVector nboot, Rcpp::String em_method, Rcpp::String probability_method,
                           Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
                           Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold,
                           Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples,
@@ -250,6 +251,7 @@ Rcpp::List groupAggGreedy(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMat
 
     std::string probabilityM = probability_method;
     std::string EMAlg = em_method;
+    std::string set_method = sd_statistic;
     cleanGlobals(EMAlg, false); // Cleans leftovers
 
     // Prepare the out-parameters as C++ local variables
@@ -268,10 +270,18 @@ Rcpp::List groupAggGreedy(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMat
     QMethodInput inputParams =
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], monte_method);
 
-    Matrix greedyP = aggregateGroupsExhaustive(&XR, &WR, boundaries, &numCuts, probabilityM.c_str(), EMAlg.c_str(),
-                                               stopping_threshold[0], log_stopping_threshold[0], verbose[0],
-                                               maximum_iterations[0], maximum_seconds[0], inputParams, &bestLogLL,
-                                               &bestQ, &bestTime, &finishReason, &totalIter);
+    Matrix greedyP = aggregateGroupsExhaustive(
+        &XR, &WR, boundaries, &numCuts, set_method.c_str(), nboot[0], sd_threshold[0], probabilityM.c_str(),
+        EMAlg.c_str(), stopping_threshold[0], log_stopping_threshold[0], verbose[0], maximum_iterations[0],
+        maximum_seconds[0], inputParams, &bestLogLL, &bestQ, &bestTime, &finishReason, &totalIter);
+
+    if (numCuts == 0) // Case where there's not any match
+    {
+        freeMatrix(&greedyP);
+        freeMatrix(&XR);
+        freeMatrix(&WR);
+        return Rcpp::List::create(Rcpp::_["indices"] = Rcpp::IntegerVector::create(-1));
+    }
 
     // ---- Create human-readable stopping reason ---- //
     std::vector<std::string> stop_reasons = {"Converged", "Log-likelihood decrease", "Maximum time reached",

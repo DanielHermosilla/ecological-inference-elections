@@ -60,10 +60,11 @@ extern "C"
      * @param[in] outIterTotal The total amount of iterations of the EM
      *
      */
-    Matrix aggregateGroupsExhaustive(Matrix *xmat, const Matrix *wmat, int *results, int *cuts, const char *p_method,
-                                     const char *q_method, double convergence, double log_convergence, bool verbose,
-                                     int maxIter, double maxSeconds, QMethodInput inputParams, double *outBestLL,
-                                     double **outBestQ, double *outBestTime, int *outFinishReason, int *outIterTotal);
+    Matrix aggregateGroupsExhaustive(Matrix *xmat, const Matrix *wmat, int *results, int *cuts, const char *set_method,
+                                     int bootiter, double max_qual, const char *p_method, const char *q_method,
+                                     double convergence, double log_convergence, bool verbose, int maxIter,
+                                     double maxSeconds, QMethodInput inputParams, double *outBestLL, double **outBestQ,
+                                     double *outBestTime, int *outFinishReason, int *outIterTotal);
 #ifdef __cplusplus
 }
 #endif
