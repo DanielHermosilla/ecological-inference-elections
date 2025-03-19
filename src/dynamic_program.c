@@ -528,7 +528,7 @@ static void enumerateAllPartitions(int start, const int G, int *currentBoundarie
         {
             cleanExact();
         }
-        else if (strcmp(q_method, "hnr") == 0)
+        else if (strcmp(q_method, "mcmc") == 0)
         {
             cleanHitAndRun();
         }

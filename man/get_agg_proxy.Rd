@@ -23,7 +23,7 @@ get_agg_proxy(
 
 \item{W}{A \verb{(b x g)} matrix representing group votes per ballot box.}
 
-\item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays.}
+\item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.}
 
 \item{sd_statistic}{String indicates the statistic for the standard deviation \verb{(g x c)} matrix for the stopping condition, i.e., the algorithm stops when the statistic is below the threshold. It can take the value \code{maximum}, in which case computes the maximum over the standard deviation matrix, or \code{average}, in which case computes the average.}
 
@@ -39,13 +39,13 @@ EM algorithm.}
 \value{
 It returns an eim object with the same attributes as the output of \link{run_em}, plus the attributes:
 \itemize{
-\item sd: A \verb{(g x a)} matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that \code{a} denotes the number of macro-groups of the resulting group aggregation, it should be between \code{2} and \code{g}.
-\item sd_statistic: The statistic used as input.
-\item sd_threshold: The threshold used as input.
-\item group_agg: Vector with the resulting group aggregation. See \strong{Examples} for more details.
+\item \strong{sd}: A \verb{(g x a)} matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that \code{a} denotes the number of macro-groups of the resulting group aggregation, it should be between \code{2} and \code{g}.
+\item \strong{sd_statistic}: The statistic used as input.
+\item \strong{sd_threshold}: The threshold used as input.
+\item \strong{group_agg}: Vector with the resulting group aggregation. See \strong{Examples} for more details.
 }
 
-Aditionally, it will update the \code{W} attribute with the aggregated groups.
+Aditionally, it will create the \code{W_agg} attribute with the aggregated groups.
 }
 \description{
 This function estimates the voting probabilities (computed using \link{run_em}) aggregating adjacent groups so that the estimated probabilities' standard deviation (computed using \link{bootstrap}) is below a given threshold. See \strong{Details} for more information.

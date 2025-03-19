@@ -41,7 +41,7 @@ QMethodInput initializeQMethodInput(const std::string &EMAlg, int samples, int s
 {
     QMethodInput inputParams = {0}; // Default initialization
 
-    if (EMAlg == "hnr")
+    if (EMAlg == "mcmc")
     {
         inputParams.S = samples;
         inputParams.M = step_size;
@@ -61,7 +61,7 @@ void cleanGlobals(const std::string &EMAlg, bool everything)
     // Everything alludes to clean RsetParameters, if it's false, cleans leftovers
     if (everything)
         cleanup();
-    if (EMAlg == "hnr")
+    if (EMAlg == "mcmc")
         cleanHitAndRun();
     else if (EMAlg == "exact")
         cleanExact();

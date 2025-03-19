@@ -11,7 +11,7 @@ library(jsonlite)
 #'
 #' @param W A `(b x g)` matrix representing group votes per ballot box.
 #'
-#' @param json_path A path to a JSON file containing `X` and `W` fields, stored as nested arrays.
+#' @param json_path A path to a JSON file containing `X` and `W` fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.
 #'
 #' @details
 #' If `X` and `W` are directly supplied, they must match the
@@ -120,6 +120,31 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
         matrices <- .validate_json_eim(json_path) # nolint
         X <- as.matrix(matrices$X)
         W <- as.matrix(matrices$W)
+        allowed_params <- c(
+            "prob",
+            "initial_prob",
+            "iterations",
+            "nboot",
+            "logLik",
+            "convergence",
+            "maxiter",
+            "maxtime",
+            "log_threshold",
+            "cond_prob",
+            "sd",
+            "group_agg",
+            "message",
+            "status",
+            "time",
+            "method",
+            "W_agg",
+            "samples",
+            "step_size",
+            "mc_method",
+            "mc_samples",
+            "mc_error"
+        )
+        extra_params <- matrices[names(matrices) %in% allowed_params] # TODO: Validate them
     }
 
     # Perform matricial validation
@@ -136,6 +161,11 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
         X = X,
         W = W
     )
+
+    # Add optional parameters if they exist
+    if (length(extra_params) > 0) {
+        obj <- c(obj, extra_params)
+    }
 
     class(obj) <- "eim"
     obj
@@ -155,7 +185,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' - `mult`: The default method, using a single sum of Multinomial distributions.
 #' - `mvn_cdf`: Uses a Multivariate Normal CDF distribution to approximate the conditional probability.
 #' - `mvn_pdf`: Uses a Multivariate Normal PDF distribution to approximate the conditional probability.
-#' - `hnr`: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the E-step.
+#' - `mcmc`: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the E-step.
 #' - `exact`: Solves the E-step using the Total Probability Law.
 #'
 #' For a detailed description of each method, see [fastei-package] and **References**.
@@ -183,12 +213,12 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' @param verbose An optional boolean indicating whether to print informational messages during the EM
 #'   iterations. The default value is `FALSE`.
 #'
-#' @param step_size An optional integer specifying the step size for the `hnr`
-#'   algorithm. This parameter is only applicable when `method = hnr` and will
+#' @param step_size An optional integer specifying the step size for the `mcmc`
+#'   algorithm. This parameter is only applicable when `method = mcmc` and will
 #'   be ignored otherwise. The default value is `3000`.
 #'
 #' @param samples An optional integer indicating the number of samples to generate for the
-#'   **Hit and Run** method. This parameter is only relevant when `method = hnr`.
+#'   **MCMC** method. This parameter is only relevant when `method = mcmc`.
 #'   The default value is `1000`.
 #'
 #' @param mc_method An optional string specifying the method used to estimate the `mvn_cdf` method
@@ -222,7 +252,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' @seealso The [eim] object implementation.
 #'
 #' @return
-#' The function returns an 'eim' object with the following attributes:
+#' The function returns an `eim` object with the function arguments and the following attributes:
 #' \describe{
 #'   \item{prob}{The estimated probability matrix `(g x c)`.}
 #' 	 \item{cond_prob}{A `(b x g x c)` 3d-array with the probability that a at each ballot-box a voter of each group voted for each candidate, given the observed outcome at the particular ballot-box.}
@@ -240,7 +270,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'   \item{message}{The finishing status displayed as a message.}
 #'   \item{method}{The method for estimating the conditional probability in the E-step.}
 #' }
-#' Aditionally, it will create `samples` and `step_size` parameters if the specified method is `hnr`, or `mc_method`, `mc_error` and `mc_samples` if the method is `mvn_cdf`.
+#' Aditionally, it will create `samples` and `step_size` parameters if the specified method is `mcmc`, or `mc_method`, `mc_error` and `mc_samples` if the method is `mvn_cdf`.
 #'
 #' @usage
 #' run_em(
@@ -267,10 +297,10 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' model <- eim(simulations$X, simulations$W)
 #' model <- run_em(model) # Returns the object with updated attributes
 #'
-#' # Example 2: Compute the Expected-Maximization using the Hit and Run method
+#' # Example 2: Compute the Expected-Maximization using the MCMC method
 #' model <- run_em(
 #'     object = model,
-#'     method = "hnr",
+#'     method = "mcmc",
 #'     step_size = 1500,
 #'     samples = 800
 #' )
@@ -326,7 +356,7 @@ run_em <- function(object = NULL,
     object$method <- method
 
     # Default values
-    if (method == "hnr") {
+    if (method == "mcmc") {
         # Step size
         object$step_size <- as.integer(if ("step_size" %in% names(all_params)) all_params$step_size else 3000)
         # Samples
@@ -364,7 +394,13 @@ run_em <- function(object = NULL,
     object$time <- resulting_values$total_time
     object$message <- resulting_values$stopping_reason
     object$status <- as.integer(resulting_values$finish_id)
-    object$q <- resulting_values$q
+    object$cond_prob <- resulting_values$q
+    # Add function arguments
+    object$maxiter <- maxiter
+    object$maxiter <- maxtime
+    object$stop_threshold <- stop_threshold
+    object$log_threshold <- log_threshold
+    object$initial_prob <- initial_prob
 
     invisible(object) # Updates the object.
 }
@@ -399,7 +435,7 @@ run_em <- function(object = NULL,
 #' @seealso The [eim] object and [run_em] implementation.
 #'
 #' @return
-#' Returns an `eim` object with the `sd` field containing the estimated standard deviations of the probabilities. If an `eim` object is provided, its attributes (see [run_em]) are retained in the returned object.
+#' Returns an `eim` object with the `sd` field containing the estimated standard deviations of the probabilities and the amount of iterations that were made. If an `eim` object is provided, its attributes (see [run_em]) are retained in the returned object.
 #'
 #' @examples
 #' # Example 1: Using an 'eim' object directly
@@ -499,7 +535,7 @@ bootstrap <- function(object = NULL,
     mc_samples <- 0L
     mc_error <- 0.0
 
-    if (method == "hnr") {
+    if (method == "mcmc") {
         step_size <- if (!is.null(all_params$step_size)) all_params$step_size else 3000
         samples <- if (!is.null(all_params$samples)) all_params$samples else 1000
         mc_method <- ""
@@ -533,6 +569,7 @@ bootstrap <- function(object = NULL,
     )
 
     object$sd <- result
+    object$nboot <- nboot
 
     return(object)
 }
@@ -560,12 +597,12 @@ bootstrap <- function(object = NULL,
 #' @return
 #' It returns an eim object with the same attributes as the output of [run_em], plus the attributes:
 #'
-#' - sd: A `(g x a)` matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that `a` denotes the number of macro-groups of the resulting group aggregation, it should be between `2` and `g`.
-#' - sd_statistic: The statistic used as input.
-#' - sd_threshold: The threshold used as input.
-#' - group_agg: Vector with the resulting group aggregation. See **Examples** for more details.
+#' - **sd**: A `(g x a)` matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that `a` denotes the number of macro-groups of the resulting group aggregation, it should be between `2` and `g`.
+#' - **sd_statistic**: The statistic used as input.
+#' - **sd_threshold**: The threshold used as input.
+#' - **group_agg**: Vector with the resulting group aggregation. See **Examples** for more details.
 #'
-#' Aditionally, it will update the `W` attribute with the aggregated groups.
+#' Aditionally, it will create the `W_agg` attribute with the aggregated groups.
 #'
 #' @examples
 #' # Example 1: Using a simulated instance
@@ -663,7 +700,7 @@ get_agg_proxy <- function(object = NULL,
     mc_samples <- 0L
     mc_error <- 0.0
 
-    if (method == "hnr") {
+    if (method == "mcmc") {
         step_size <- if (!is.null(all_params$step_size)) all_params$step_size else 3000
         samples <- if (!is.null(all_params$samples)) all_params$samples else 1000
         mc_method <- ""
@@ -701,9 +738,10 @@ get_agg_proxy <- function(object = NULL,
     # We add '2' to indices since it's originally 0-based.
     col_groups <- split(seq_len(ncol(object$W)), findInterval(seq_len(ncol(object$W)), c(1, result$indices + 2)))
     # Lambda function to add the columns
-    object$W <- sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
+    object$W_agg <- sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
 
     object$sd <- result$bootstrap_result
+    object$nboot <- nboot
     object$group_agg <- result$indices + 1 # Use R's index system
     object$sd_statistic <- sd_statistic
     object$sd_threshold <- sd_threshold
@@ -717,7 +755,7 @@ get_agg_proxy <- function(object = NULL,
 #' the one that achieves the higher likelihood as long as the standard deviation (computed using [bootstrap]) of the estimated probabilities
 #' is below a given threshold.
 #'
-#' Groups need to have an order relation so that adjacent groups can be merged. For example, consider the following seven groups defined by voters' age
+#' Groups of consecutive row indices in the matrix `W` are considered adjacent. For example, consider the following seven groups defined by voters' age
 #' ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age
 #' ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, the method evaluates all possible group aggregations (merging only adjacent groups).
 #'
@@ -728,12 +766,12 @@ get_agg_proxy <- function(object = NULL,
 #' @return
 #' It returns an eim object with the same attributes as the output of [run_em], plus the attributes:
 #'
-#' - sd: A `(g x a)` matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that `a` denotes the number of macro-groups of the resulting group aggregation, it should be between `2` and `g`.
-#' - sd_statistic: The statistic used as input.
-#' - sd_threshold: The threshold used as input.
-#' - group_agg: Vector with the resulting group aggregation. See **Examples** for more details.
+#' - **sd**: A `(g x a)` matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that `a` denotes the number of macro-groups of the resulting group aggregation, it should be between `2` and `g`.
+#' - **sd_statistic**: The statistic used as input.
+#' - **sd_threshold**: The threshold used as input.
+#' - **group_agg**: Vector with the resulting group aggregation. See **Examples** for more details.
 #'
-#' Aditionally, it will update the `W` attribute with the aggregated groups.
+#' Aditionally, it will create the `W_agg` attribute with the aggregated groups.
 #'
 #' @examples
 #' # Example 1: Using a simulated instance
@@ -813,7 +851,7 @@ get_agg_opt <- function(object = NULL,
     mc_samples <- 0L
     mc_error <- 0.0
 
-    if (method == "hnr") {
+    if (method == "mcmc") {
         step_size <- if (!is.null(all_params$step_size)) all_params$step_size else 3000
         samples <- if (!is.null(all_params$samples)) all_params$samples else 1000
         mc_method <- ""
@@ -855,7 +893,7 @@ get_agg_opt <- function(object = NULL,
     # We add '2' to indices since it's originally 0-based.
     col_groups <- split(seq_len(ncol(object$W)), findInterval(seq_len(ncol(object$W)), c(1, result$indices + 2)))
     # Lambda function to add the columns
-    object$W <- sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
+    object$W_agg <- sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
     object$group_agg <- result$indices + 1 # Use R's index system
     object$prob <- as.matrix(result$probabilities)
     object$logLik <- as.numeric(result$log_likelihood)
@@ -863,14 +901,19 @@ get_agg_opt <- function(object = NULL,
     object$time <- result$total_time
     object$message <- result$stopping_reason
     object$status <- as.integer(result$finish_id)
-    object$q <- result$q
+    object$cond_prob <- result$q
     object$method <- method
+    object$log_threshold <- log_threshold
+    object$stop_threshold <- stop_threshold
+    object$maxtime <- maxtime
+    object$maxiter <- maxiter
+    object$initial_prob <- initial_prob
 
     if (method == "mvn_cdf") {
         object$mc_error <- mc_error
         object$mc_samples <- mc_samples
         object$mc_method <- mc_method
-    } else if (method == "hnr") {
+    } else if (method == "mcmc") {
         object$step_size <- step_size
         object$samples <- samples
     }
@@ -917,10 +960,10 @@ print.eim <- function(object, ...) {
         print(round(object$prob[1:min(5, nrow(object$prob)), ], 3)) # nolint
         if (truncated_P) cat(".\n.\n.\n") else cat("\n")
         cat("Method:\t", object$method, "\n")
-        if (object$method == "Hit and Run") {
+        if (object$method == "mcmc") {
             cat("Step size (M):", object$step_size)
             cat("Samples (S):", object$samples)
-        } else if (object$method == "MVN PDF") {
+        } else if (object$method == "mvn_cdf") {
             cat("Montecarlo method:", object$mc_method)
             cat("Montecarlo iterations:", object$mc_samples)
             cat("Montecarlo error:", object$mc_error)

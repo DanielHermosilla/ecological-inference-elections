@@ -255,7 +255,7 @@ Matrix getInitialP(const char *p_method)
  *
  * Given that different `Q` methods receive different parameters, a modularized approach is given towards each method
  *
- * @input[in] q_method A char with the q_method. Currently it supports "exact", "hnr", "mult", "mvn_cdf"
+ * @input[in] q_method A char with the q_method. Currently it supports "exact", "mcmc", "mult", "mvn_cdf"
  * and "mvn_pdf"
  * @input[in] inputParams A QMethodInput struct, that should be defined in a main function, with the parameters for the
  * distinct methods
@@ -273,7 +273,7 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
     {
         config.computeQ = computeQMultinomial;
     }
-    else if (strcmp(q_method, "hnr") == 0)
+    else if (strcmp(q_method, "mcmc") == 0)
     {
         config.computeQ = computeQHitAndRun;
     }
@@ -291,7 +291,7 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
     }
     else
     {
-        error("Compute: An invalid method was provided: `%s`\nThe supported methods are: `exact`, `hnr`"
+        error("Compute: An invalid method was provided: `%s`\nThe supported methods are: `exact`, `mcmc`"
               ", `mult`, `mvn_cdf` and `mvn_pdf`.\n",
               q_method);
     }
@@ -394,7 +394,7 @@ Matrix getP(const double *q)
  * @brief Implements the whole EM algorithm.
  *
  * Given a method for estimating "q", it calculates the EM until it converges to arbitrary parameters. As of in the
- * paper, it currently supports hnr, mult, mvn_cdf and mvn_pdf methods.
+ * paper, it currently supports mcmc, mult, mvn_cdf and mvn_pdf methods.
  *
  * @param[in] currentP Matrix of dimension (cxg) with the initial probabilities for the first iteration.
  * @param[in] q_method Pointer to a string that indicates the method or calculating "q". Currently it supports "Hit

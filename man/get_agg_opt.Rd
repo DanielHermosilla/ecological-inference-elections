@@ -2,7 +2,7 @@
 % Please edit documentation in R/eim-class.R
 \name{get_agg_opt}
 \alias{get_agg_opt}
-\title{Runs the EM algorithm over all possible group aggregating, returning the one with higher likelihood while constraining the standard deviation of the probabilities.}
+\title{Runs the EM algorithm \strong{over all possible group aggregating}, returning the one with higher likelihood while constraining the standard deviation of the probabilities.}
 \usage{
 get_agg_opt(
   object = NULL,
@@ -23,7 +23,7 @@ get_agg_opt(
 
 \item{W}{A \verb{(b x g)} matrix representing group votes per ballot box.}
 
-\item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays.}
+\item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.}
 
 \item{sd_statistic}{String indicates the statistic for the standard deviation \verb{(g x c)} matrix for the stopping condition, i.e., the algorithm stops when the statistic is below the threshold. It can take the value \code{maximum}, in which case computes the maximum over the standard deviation matrix, or \code{average}, in which case computes the average.}
 
@@ -39,13 +39,13 @@ EM algorithm.}
 \value{
 It returns an eim object with the same attributes as the output of \link{run_em}, plus the attributes:
 \itemize{
-\item sd: A \verb{(g x a)} matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that \code{a} denotes the number of macro-groups of the resulting group aggregation, it should be between \code{2} and \code{g}.
-\item sd_statistic: The statistic used as input.
-\item sd_threshold: The threshold used as input.
-\item group_agg: Vector with the resulting group aggregation. See \strong{Examples} for more details.
+\item \strong{sd}: A \verb{(g x a)} matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that \code{a} denotes the number of macro-groups of the resulting group aggregation, it should be between \code{2} and \code{g}.
+\item \strong{sd_statistic}: The statistic used as input.
+\item \strong{sd_threshold}: The threshold used as input.
+\item \strong{group_agg}: Vector with the resulting group aggregation. See \strong{Examples} for more details.
 }
 
-Aditionally, it will update the \code{W} attribute with the aggregated groups.
+Aditionally, it will create the \code{W_agg} attribute with the aggregated groups.
 }
 \description{
 This function estimates the voting probabilities (computed using \link{run_em}) by trying all group aggregations (of adjacent groups), choosing
@@ -53,7 +53,7 @@ the one that achieves the higher likelihood as long as the standard deviation (c
 is below a given threshold.
 }
 \details{
-Groups need to have an order relation so that adjacent groups can be merged. For example, consider the following seven groups defined by voters' age
+Groups of consecutive row indices in the matrix \code{W} are considered adjacent. For example, consider the following seven groups defined by voters' age
 ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age
 ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, the method evaluates all possible group aggregations (merging only adjacent groups).
 }

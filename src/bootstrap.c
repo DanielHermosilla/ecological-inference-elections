@@ -153,7 +153,7 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
         {
             cleanExact();
         }
-        else if (strcmp(q_method, "hnr") == 0)
+        else if (strcmp(q_method, "mcmc") == 0)
         {
             cleanHitAndRun();
         }

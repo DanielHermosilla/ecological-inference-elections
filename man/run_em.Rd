@@ -25,7 +25,7 @@ run_em(
 
 \item{W}{A \verb{(b x g)} matrix representing group votes per ballot box.}
 
-\item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays.}
+\item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.}
 
 \item{method}{An optional string specifying the method used for estimating the E-step. Valid
 options are:
@@ -33,7 +33,7 @@ options are:
 \item \code{mult}: The default method, using a single sum of Multinomial distributions.
 \item \code{mvn_cdf}: Uses a Multivariate Normal CDF distribution to approximate the conditional probability.
 \item \code{mvn_pdf}: Uses a Multivariate Normal PDF distribution to approximate the conditional probability.
-\item \code{hnr}: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the E-step.
+\item \code{mcmc}: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the E-step.
 \item \code{exact}: Solves the E-step using the Total Probability Law.
 }
 
@@ -64,12 +64,12 @@ the threshold. Note that the algorithm will stop if either \code{log_threshold} 
 \item{verbose}{An optional boolean indicating whether to print informational messages during the EM
 iterations. The default value is \code{FALSE}.}
 
-\item{step_size}{An optional integer specifying the step size for the \code{hnr}
-algorithm. This parameter is only applicable when \code{method = hnr} and will
+\item{step_size}{An optional integer specifying the step size for the \code{mcmc}
+algorithm. This parameter is only applicable when \code{method = mcmc} and will
 be ignored otherwise. The default value is \code{3000}.}
 
 \item{samples}{An optional integer indicating the number of samples to generate for the
-\strong{Hit and Run} method. This parameter is only relevant when \code{method = hnr}.
+\strong{MCMC} method. This parameter is only relevant when \code{method = mcmc}.
 The default value is \code{1000}.}
 
 \item{mc_method}{An optional string specifying the method used to estimate the \code{mvn_cdf} method
@@ -84,7 +84,7 @@ when \code{method = mvn_cdf}.}
 samples for the \code{mvn_cdf} method. The default value is \code{5000}. This argument is only applicable when \code{method = mvn_cdf}.}
 }
 \value{
-The function returns an 'eim' object with the following attributes:
+The function returns an \code{eim} object with the function arguments and the following attributes:
 \describe{
 \item{prob}{The estimated probability matrix \verb{(g x c)}.}
 \item{cond_prob}{A \verb{(b x g x c)} 3d-array with the probability that a at each ballot-box a voter of each group voted for each candidate, given the observed outcome at the particular ballot-box.}
@@ -102,7 +102,7 @@ The final status ID of the algorithm upon completion:
 \item{message}{The finishing status displayed as a message.}
 \item{method}{The method for estimating the conditional probability in the E-step.}
 }
-Aditionally, it will create \code{samples} and \code{step_size} parameters if the specified method is \code{hnr}, or \code{mc_method}, \code{mc_error} and \code{mc_samples} if the method is \code{mvn_cdf}.
+Aditionally, it will create \code{samples} and \code{step_size} parameters if the specified method is \code{mcmc}, or \code{mc_method}, \code{mc_error} and \code{mc_samples} if the method is \code{mvn_cdf}.
 }
 \description{
 Executes the Expectation-Maximization (EM) algorithm indicating the approximation method to use in the E-step.
@@ -133,10 +133,10 @@ simulations <- simulate_elections(
 model <- eim(simulations$X, simulations$W)
 model <- run_em(model) # Returns the object with updated attributes
 
-# Example 2: Compute the Expected-Maximization using the Hit and Run method
+# Example 2: Compute the Expected-Maximization using the MCMC method
 model <- run_em(
     object = model,
-    method = "hnr",
+    method = "mcmc",
     step_size = 1500,
     samples = 800
 )

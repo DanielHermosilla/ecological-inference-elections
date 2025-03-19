@@ -10,7 +10,7 @@ eim(X = NULL, W = NULL, json_path = NULL)
 
 \item{W}{A \verb{(b x g)} matrix representing group votes per ballot box.}
 
-\item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays.}
+\item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.}
 }
 \value{
 A list of class \code{eim} containing:
