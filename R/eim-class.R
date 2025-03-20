@@ -114,6 +114,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
             "(2)\t`X` and `W`"
         ))
     }
+    extra_params <- list()
 
     # Load data from JSON if a path is provided
     if (json_provided) {

@@ -32,6 +32,8 @@ SOFTWARE.
 
 OmegaSet **OMEGASET = NULL; // Global pointer to store all H sets
 double **multinomialVals = NULL;
+double *logGammaArr = NULL;
+double *loglogGammaArr = NULL;
 
 /**
  *  @brief Yields an initial point of the polytope given a ballot
@@ -229,7 +231,7 @@ double preMultinomialCoeff(const int b, Matrix *currentMatrix)
         }
     }
     // ---- Return the original result by exponentiating ----
-    return exp(result); // TODO: This can be avoided!
+    return result; // TODO: This can be avoided!
 }
 
 /**
@@ -265,7 +267,21 @@ double logarithmicProduct(const Matrix *probabilities, const int b, const int se
     }
     // --- ... --- //
     // ---- Exponetiate the final result ----
-    return exp(log_result);
+    return log_result;
+}
+
+void precomputeLogGammas()
+{
+    // We must get the biggest W_{bg}
+    int biggestW = (int)maxElement(W);
+    logGammaArr = (double *)Calloc(biggestW + 1, double);
+    loglogGammaArr = (double *)Calloc(biggestW + 1, double);
+
+    for (int i = 0; i <= biggestW; i++)
+    {
+        logGammaArr[i] = lgamma1p(i);
+        loglogGammaArr[i] = log(logGammaArr[i]);
+    }
 }
 
 /**
@@ -298,50 +314,107 @@ void preComputeMultinomial()
     }
 }
 
+double underflowSum(double *q)
+{
+    // If it takes too long, it can be parallelized, but result must be atomic or be merged as an array
+    double result = 0;
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+        {
+            for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+            {
+                double currentMax = -DBL_MAX;
+                int w_bg = (int)MATRIX_AT_PTR(W, b, g);
+                double q_bgc = Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES);
+                if (q_bgc == 0)
+                {
+                    continue;
+                }
+                // Obtain the maximum value and also save the sums
+                double sums[w_bg + 1];
+
+                for (int i = 1; i <= w_bg; i++)
+                {
+                    double bigsum1 = loglogGammaArr[i] + logGammaArr[w_bg] - logGammaArr[i] - logGammaArr[w_bg - i];
+                    bigsum1 += i * log(q_bgc) + (w_bg - i) * log(1 - q_bgc);
+                    sums[i] = bigsum1;
+                    if (bigsum1 > currentMax)
+                    {
+                        currentMax = bigsum1;
+                    }
+                }
+                // Shift every value by the sum and exp(max)
+                double partialSum = 0;
+                for (int i = 1; i <= w_bg; i++)
+                {
+                    partialSum += exp(sums[i] - currentMax);
+                }
+                result += exp(currentMax) * partialSum;
+            }
+        }
+    }
+    return result;
+}
 /*
  * Computes the big 'Q' for the log-likelihood.
- *
+ * This value needs to be aggregated to the log-likelihood
  */
 double computeQ(double *q, Matrix const *probabilities)
 {
-    double total = 0;
+
+    double thirdTerm = underflowSum(q);
+    double total = -thirdTerm;
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         {
             int w_bg = (int)MATRIX_AT_PTR(W, b, g);
+            total += logGammaArr[w_bg]; // Second term
             double qsum = 0;
             double firstTerm = 0;
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             {
                 double q_bgc = Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES);
-                firstTerm += q_bgc * log(MATRIX_AT_PTR(probabilities, g, c));
-
-                // ---- Summatory on k ---- //
-                double binom_coeff = 1.0; // Start with binomial coefficient for k=1
-                for (int k = 1; k < w_bg; k++)
-                {
-                    // Compute binomial probability term
-                    double term = binom_coeff * pow(q_bgc, k) * pow(1 - q_bgc, w_bg - k);
-
-                    // Multiply by a_k
-                    qsum += lgamma1p(k) * term;
-
-                    // Update binomial coefficient and a_k for next k using recurrence relation:
-                    binom_coeff *= (w_bg - k) / (double)(k + 1);
-                }
-                // ---...--- //
-                // q = 0; caso esquina
+                double p_gc = MATRIX_AT_PTR(probabilities, g, c);
+                firstTerm += (p_gc == 0.0 || q_bgc == 0.0) ? 0 : q_bgc * log(MATRIX_AT_PTR(probabilities, g, c));
             }
             // First term
             total += firstTerm * w_bg;
-            // Second term
-            total += lgamma1p(w_bg);
-            // Third term
-            total -= qsum;
         }
     }
     return total;
+}
+
+double logsumexp(double *log_a_shift, OmegaSet *currentSet, int g, int c, double wbg, double *ll)
+{
+    // Compute log-sum-exp of numerator and denominator to compute q
+    int size = currentSet->size;
+    // b[i] should be z_bgc/w_bg
+    double sum_exp_num = 0.0;
+    double sum_exp_den = 0.0;
+    double v;
+    for (int i = 0; i < size; i++)
+    {
+        v = exp(log_a_shift[i]);
+        sum_exp_num += v;
+        Matrix *currentMatrix = currentSet->data[i];
+
+        sum_exp_den += (MATRIX_AT_PTR(currentMatrix, g, c) / wbg) * v;
+    }
+    double log_sum_exp_num = log(sum_exp_num);
+
+    // update the log-likelihood with the terms of H
+    // *ll = 0;
+    for (int i = 0; i < size; i++)
+    {
+        double val = log_a_shift[i] - log_sum_exp_num;
+        *ll -= exp(val) * val;
+    }
+
+    // return q_{bgc}
+    // return exp(log_sum_exp_num - log(sum_exp_den));
+    return exp(log(sum_exp_den) - log_sum_exp_num);
 }
 /**
  * @brief Computes the `q` values for all the ballot boxes given a probability matrix. Uses the Hit and Run method.
@@ -365,6 +438,10 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
     if (multinomialVals == NULL)
     {
         preComputeMultinomial();
+    }
+    if (logGammaArr == NULL)
+    {
+        precomputeLogGammas();
     }
     // ---...--- //
 
@@ -394,49 +471,31 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
 
             // --- Precompute multiplicationValues for this (b, g) combination ---
             double firstTerm = 0;
-            /*
-             * Calcular log(a), max M, b
-             * guardar
-             *
-             */
+            double max = -DBL_MAX;
             for (size_t s = 0; s < currentSet->size; s++)
             { // --- For each sample given a group and a ballot box
                 Matrix *currentMatrix = currentSet->data[s];
-                multiplicationValues[s] = logarithmicProduct(probabilities, b, s) * multinomialVals[b][s]; // exp()
+                double a_i = logarithmicProduct(probabilities, b, s) + multinomialVals[b][s];
+                multiplicationValues[s] = a_i;
                 firstTerm += multiplicationValues[s];
-                // TODO: Look underflows ****
-                // el maximo tb
+                max = multiplicationValues[s] > max ? multiplicationValues[s] : max;
             }
-            /*
-             * 2do for:
-             * log(a) shifteado
-             *
-             */
-
-            /*
-             * 3er
-             * llamar funcion *sin max, sin restar M*
-             *
-             */
-
+            for (size_t s = 0; s < currentSet->size; s++)
+            {
+                multiplicationValues[s] -= max;
+                firstTerm -= max; // Maybe just substract max * currentSet->size
+            }
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // --- For each candidate given a group and a ballot box
                 double secondTerm = 0;
-                for (size_t s = 0; s < currentSet->size; s++)
-                { // --- For each sample given a candidate, group and ballot box
-                    Matrix *currentMatrix = currentSet->data[s];
-                    secondTerm += multiplicationValues[s] * (MATRIX_AT_PTR(currentMatrix, g, c) / W_bg);
-                    // This is for the log-likelihood, doesn't really depend on 'c' nor 'g', but it needs
-                    // to pass for an 's' loop beforehand for having the denominator
-                    double gb = multiplicationValues[s] / firstTerm; // TODO: Underflow *****
-                    *ll -= gb * log(gb);
-                }
-                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = (1 / firstTerm) * secondTerm;
+                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) =
+                    logsumexp(multiplicationValues, currentSet, g, c, MATRIX_AT_PTR(W, b, g), ll);
             }
         }
         if (currentSet->size > 10000)
             Free(multiplicationValues);
     }
+    *ll = *ll * (-1);
     *ll += computeQ(array2, probabilities);
 
     return array2;
@@ -474,6 +533,16 @@ void cleanHitAndRun()
     {
         Free(multinomialVals);
         multinomialVals = NULL;
+    }
+    if (logGammaArr != NULL)
+    {
+        Free(logGammaArr);
+        logGammaArr = NULL;
+    }
+    if (loglogGammaArr != NULL)
+    {
+        Free(loglogGammaArr);
+        loglogGammaArr = NULL;
     }
 }
 //__attribute__((destructor)) void cleanEverything()

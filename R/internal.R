@@ -32,7 +32,7 @@
     }
 
     # Method argument
-    valid_methods <- c("hnr", "exact", "mvn_cdf", "mvn_pdf", "mult")
+    valid_methods <- c("mcmc", "exact", "mvn_cdf", "mvn_pdf", "mult")
     if ("method" %in% names(args) &&
         (!is.character(args$method) || length(args$method) != 1 || !(args$method %in% valid_methods))) {
         stop("Invalid 'method'. Must be one of: ", paste(valid_methods, collapse = ", "))
@@ -78,7 +78,7 @@
         stop("run_em: Invalid 'verbose'. It has to be a boolean.")
     }
 
-    # HNR: Step_size argument
+    # mcmc: Step_size argument
     if ("step_size" %in% names(args)) {
         if (!is.numeric(args$step_size) || as.integer(args$step_size) != args$step_size || args$step_size < 0) {
             stop("run_em: Invalid 'step_size'. Must be a positive integer.")
@@ -88,7 +88,7 @@
         }
     }
 
-    # HNR: Samples argument
+    # mcmc: Samples argument
     if ("samples" %in% names(args) &&
         (!is.numeric(args$samples) || as.integer(args$samples) != args$samples || args$samples < 0)) {
         stop("run_em: Invalid 'samples'. Must be a positive integer.")
@@ -118,8 +118,8 @@
         if (!is.logical(args$mismatch)) {
             stop("run_em: Invalid 'mismatch'. Must be a boolean value.")
         }
-        if ("method" %in% names(args) && "method" %in% c("hnr", "exact")) {
-            stop("run_em: Mismatched results are not supported when using 'hnr' or 'exact'.")
+        if ("method" %in% names(args) && "method" %in% c("mcmc", "exact")) {
+            stop("run_em: Mismatched results are not supported when using 'mcmc' or 'exact'.")
         }
     }
 
