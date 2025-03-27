@@ -53,11 +53,16 @@ Matrix startingPoint(int b)
     double *groupVotes = getRow(W, b);
     double *candidateVotes = getColumn(X, b);
     // ---...--- //
-    // ---- Compute the main loop ---- //
-    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-    { // --- For each group
-        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-        { // --- For each candidate given a group
+    // Introduce a shift for handling randomness between ballot boxes
+    uint16_t g_start = b % TOTAL_GROUPS;     // Shift start for groups
+    uint16_t c_start = b % TOTAL_CANDIDATES; // Shift start for candidates
+                                             //
+    for (uint16_t i = 0; i < TOTAL_GROUPS; i++)
+    {
+        uint16_t g = (g_start + i) % TOTAL_GROUPS; // Circular shift for group index
+        for (uint16_t j = 0; j < TOTAL_CANDIDATES; j++)
+        {
+            uint16_t c = (c_start + j) % TOTAL_CANDIDATES; // Circular shift for candidate index
             MATRIX_AT(toReturn, g, c) = MIN(groupVotes[g], candidateVotes[c]);
             groupVotes[g] -= MATRIX_AT(toReturn, g, c);
             candidateVotes[c] -= MATRIX_AT(toReturn, g, c);
@@ -69,8 +74,39 @@ Matrix startingPoint(int b)
     return toReturn;
 }
 
-void allocateRandoms(int M, int S, char *array)
+void decode(uint16_t randomValue, int size, int *i, int *j)
 {
+    *i = randomValue / (size - 1); // Determines the first index, this is a floor operation
+    *j = randomValue % (size - 1); // Determines the second index, but needs an adjustment
+                                   // Example, let k = 19 and size = 5. Then;
+                                   // i = 19/4 = 4 (floor)
+                                   // j = 19 % 4 = 3 (mod)
+                                   // The permutation is (4, 3)
+
+    // Adjust j so that j != i
+    if (*j >= *i)
+    {
+        (*j)++;
+    }
+}
+
+// 0 y C*(C-1), G(G-1)-1, o sea, sin los divididos por 2, la razón, es porque creo que es más sencillo encodear y
+// decodear de la segunda manera
+void allocateRandoms(int M, int S, uint16_t **candidateArray, uint16_t **groupArray)
+{
+    uint16_t candidateCombinations = (uint16_t)(TOTAL_CANDIDATES * (TOTAL_CANDIDATES - 1));
+    uint16_t groupCombinations = (uint16_t)(TOTAL_GROUPS * (TOTAL_GROUPS - 1));
+
+    // Allocate memory correctly
+    *candidateArray = (uint16_t *)Calloc(M, uint16_t);
+    *groupArray = (uint16_t *)Calloc(M, uint16_t);
+
+    // Fill arrays with random indices
+    for (int i = 0; i < M; i++)
+    {
+        (*candidateArray)[i] = (uint16_t)(unif_rand() * candidateCombinations);
+        (*groupArray)[i] = (uint16_t)(unif_rand() * groupCombinations);
+    }
 }
 /*
  * @brief Precomputes the sets used for the simulation.
@@ -133,6 +169,14 @@ void generateOmegaSet(int M, int S)
      */
 
     GetRNGstate();
+    uint16_t *candidatePermutations = NULL;
+    uint16_t *groupPermutations = NULL;
+
+    allocateRandoms(M, S, &candidatePermutations, &groupPermutations);
+    // Compute the partition size
+    int partitionSize = M / TOTAL_BALLOTS;
+    if (partitionSize == 0)
+        partitionSize = 1; // Prevent division by zero in extreme cases
 
     // ---- Perform the main iterations ---- //
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
@@ -151,43 +195,34 @@ void generateOmegaSet(int M, int S)
         Matrix startingZ = startingPoint(b);
 
         for (int s = 0; s < S; s++)
-        {                                 // --- For each sample given a ballot box
-            if (S > 5000 && S % 100 == 0) // If there's a big amount of samples, check interrupts
+        {                                // --- For each sample given a ballot box
+            if (S > 5000 && S % 50 == 0) // If there's a big amount of samples, check interrupts
                 R_CheckUserInterrupt();
             // ---- Copy the initial matrix ----
             Matrix steppingZ = copyMatrix(&startingZ);
             for (int m = 0; m < M; m++)
             { // --- For each step size given a sample and a ballot box
                 // ---- Sample random indexes ---- //
-                int groupIndex1 = (int)(unif_rand() * TOTAL_GROUPS);
-                int groupIndex2;
-                do
-                {
-                    groupIndex2 = (int)(unif_rand() * TOTAL_GROUPS);
-                } while (groupIndex2 == groupIndex1);
-
-                int candidateIndex1 = (int)(unif_rand() * TOTAL_CANDIDATES);
-
-                int candidateIndex2;
-                do
-                {
-                    candidateIndex2 = (int)(unif_rand() * TOTAL_CANDIDATES);
-                } while (candidateIndex2 == candidateIndex1);
-                // ---...--- //
+                int g1, g2, c1, c2;
+                int shiftIndex = (m + (b * partitionSize)) % M;
+                uint16_t randomCDraw = candidatePermutations[shiftIndex];
+                uint16_t randomGDraw = groupPermutations[shiftIndex];
+                decode(randomCDraw, TOTAL_CANDIDATES, &c1, &c2);
+                decode(randomGDraw, TOTAL_GROUPS, &g1, &g2);
 
                 // ---- Check non negativity condition ---- //
-                double firstSubstraction = MATRIX_AT(steppingZ, groupIndex1, candidateIndex1) - 1;
-                double secondSubstraction = MATRIX_AT(steppingZ, groupIndex2, candidateIndex2) - 1;
+                double firstSubstraction = MATRIX_AT(steppingZ, g1, c1) - 1;
+                double secondSubstraction = MATRIX_AT(steppingZ, g2, c2) - 1;
 
-                if (firstSubstraction < 0 || secondSubstraction < 0)
+                if (firstSubstraction <= 0 || secondSubstraction <= 0)
                     continue;
                 // ---...--- //
 
                 // ---- Asign changes on the new matrix ---- //
-                MATRIX_AT(steppingZ, groupIndex1, candidateIndex1) -= 1;
-                MATRIX_AT(steppingZ, groupIndex2, candidateIndex2) -= 1;
-                MATRIX_AT(steppingZ, groupIndex1, candidateIndex2) += 1;
-                MATRIX_AT(steppingZ, groupIndex2, candidateIndex1) += 1;
+                MATRIX_AT(steppingZ, g1, c1) -= 1;
+                MATRIX_AT(steppingZ, g2, c2) -= 1;
+                MATRIX_AT(steppingZ, g1, c2) += 1;
+                MATRIX_AT(steppingZ, g2, c1) += 1;
                 // ---...--- //
             } // --- End the step size loop
             // ---- Add the combination to the OmegaSet ---- //
@@ -200,6 +235,8 @@ void generateOmegaSet(int M, int S)
         freeMatrix(&startingZ);
     } // --- End the ballot box loop
     PutRNGstate();
+    Free(candidatePermutations);
+    Free(groupPermutations);
 }
 
 /**
