@@ -32,10 +32,11 @@ extern "C"
      *
      * @return The heuristic optimal matrix with bootstrapped standard deviations.
      */
-    Matrix aggregateGroups(const Matrix *xmat, const Matrix *wmat, int *results, int *cuts, double set_threshold,
-                           const char *set_method, int bootiter, const char *p_method, const char *q_method,
-                           const double convergence, const double log_convergence, const int maxIter, double maxSeconds,
-                           const bool verbose, QMethodInput inputParams);
+    Matrix aggregateGroups(const Matrix *xmat, const Matrix *wmat, int *results, int *cuts, bool *bestResult,
+                           double set_threshold, const char *set_method, bool feasible, int bootiter,
+                           const char *p_method, const char *q_method, const double convergence,
+                           const double log_convergence, const int maxIter, double maxSeconds, const bool verbose,
+                           QMethodInput inputParams);
 
     /*
      * Function for testing all of the 2^{G-1} combinations, returning the best aggregation according the

@@ -178,9 +178,9 @@ Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
  *
  * @return A key-value list with 'bootstrap_result' and the cutting 'indices'.
  */
-Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold, Rcpp::NumericMatrix candidate_matrix,
-                    Rcpp::NumericMatrix group_matrix, Rcpp::IntegerVector nboot, Rcpp::String em_method,
-                    Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations,
+Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold, Rcpp::LogicalVector feasible,
+                    Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix, Rcpp::IntegerVector nboot,
+                    Rcpp::String em_method, Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations,
                     Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold,
                     Rcpp::NumericVector log_threshold, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size,
                     Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error,

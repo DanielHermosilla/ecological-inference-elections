@@ -180,3 +180,71 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
 
     return sdReturn;
 }
+
+Matrix bootSingleMat(const Matrix *xmat, const Matrix *wmat, int bootiter, const bool verbose)
+{
+
+    // ---- Initial variables
+    int bdim = wmat->rows;
+    int samples = bdim * bootiter;
+    int matsize = xmat->rows;
+    // ---- Generate the indices for bootstrap ---- //
+    int *indices = Calloc(bdim * bootiter, int);
+    GetRNGstate();
+    for (int j = 0; j < samples; j++)
+    {
+        indices[j] = (int)(unif_rand() * bdim);
+    }
+    PutRNGstate();
+    // ---...--- //
+
+    // ---- Execute the bootstrap algorithm ---- //
+    Matrix sumMat = createMatrix(1, xmat->rows);
+    Matrix *results = Calloc(bootiter, Matrix);
+    for (int i = 0; i < bootiter; i++)
+    {
+        if (verbose && (i % (bootiter / 20) == 0)) // Print every 5% (20 intervals)
+        {
+            double progress = (double)i / bootiter * 100;
+            Rprintf("An %.0f%% of iterations have been done.\n", progress);
+        }
+        // ---- Declare variables for the current iteration
+        Matrix iterX = createMatrix(xmat->rows, xmat->cols);
+        Matrix iterW = createMatrix(wmat->rows, 1);
+        iterMat(xmat, wmat, &iterX, &iterW, indices, i * bdim);
+        setParameters(&iterX, &iterW);
+
+        Matrix resultP = createMatrix(1, xmat->rows);
+        // Sum each value so later we can get the mean
+        for (int k = 0; k < xmat->rows; k++)
+        {
+            MATRIX_AT(resultP, 0, k) = (double)CANDIDATES_VOTES[k] / (double)TOTAL_VOTES;
+            MATRIX_AT(sumMat, 0, k) += MATRIX_AT(resultP, 0, k);
+        }
+
+        results[i] = resultP;
+        // memcpy(&results[i * matsize], resultP.data, matsize * sizeof(double));
+
+        // ---- Release loop allocated variables ---- //
+        cleanup();
+        freeMatrix(&iterX);
+        freeMatrix(&iterW);
+        // ---...--- //
+    }
+    Matrix sdReturn = standardDeviations(results, &sumMat, bootiter);
+    if (verbose)
+    {
+        Rprintf("Bootstrapping finished!\nThe estimated standard deviation matrix (g x c) is:\n");
+        printMatrix(&sdReturn);
+    }
+
+    Free(indices);
+    freeMatrix(&sumMat);
+    for (int i = 0; i < bootiter; i++)
+    {
+        freeMatrix(&results[i]);
+    }
+    Free(results);
+
+    return sdReturn;
+}

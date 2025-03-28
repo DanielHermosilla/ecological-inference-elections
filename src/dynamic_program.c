@@ -316,14 +316,29 @@ Matrix testBootstrap(double *quality, const char *set_method, const Matrix *xmat
                      QMethodInput inputParams)
 {
 
+    Matrix mergedMat, standardMat;
     // ---- Merge within macrogroups ---- //
-    Matrix mergedMat = A == wmat->cols ? *wmat : mergeColumns(wmat, boundaries, A); // Boundaries is of length A
-    // ---...--- //
+    if (A != -1)
+    {
+        mergedMat = A == wmat->cols ? *wmat : mergeColumns(wmat, boundaries, A); // Boundaries is of length A
+        // ---...--- //
 
-    // ---- Obtain the bootstrapped results ---- //
-    Matrix standardMat = bootstrapA(xmat, &mergedMat, bootiter, q_method, p_method, convergence, log_convergence,
-                                    maxIter, maxSeconds, false, inputParams);
-    // ---...--- //
+        // ---- Obtain the bootstrapped results ---- //
+        standardMat = bootstrapA(xmat, &mergedMat, bootiter, q_method, p_method, convergence, log_convergence, maxIter,
+                                 maxSeconds, false, inputParams);
+        // ---...--- //
+    }
+    else
+    {
+        mergedMat = createMatrix(wmat->rows, 1);
+        for (int i = 0; i < (int)TOTAL_BALLOTS; i++)
+        {
+            MATRIX_AT(mergedMat, i, 0) = BALLOTS_VOTES[i];
+        }
+        // printMatrix(&mergedMat);
+
+        standardMat = bootSingleMat(xmat, &mergedMat, bootiter, false);
+    }
 
     // ---- Maximum method ---- //
     if (strcmp(set_method, "maximum") == 0)
@@ -378,11 +393,12 @@ Matrix aggregateGroups(
     // ---- Results
     int *results, // Array with cutting indices
     int *cuts,    // Amount of cuts
+    bool *bestResult,
 
     // ---- EM and Bootstrap parameters
-    double set_threshold, const char *set_method, int bootiter, const char *p_method, const char *q_method,
-    const double convergence, const double log_convergence, const int maxIter, double maxSeconds, const bool verbose,
-    QMethodInput inputParams)
+    double set_threshold, const char *set_method, bool feasible, int bootiter, const char *p_method,
+    const char *q_method, const double convergence, const double log_convergence, const int maxIter, double maxSeconds,
+    const bool verbose, QMethodInput inputParams)
 {
 
     // ---- Define initial parameters ---- //
@@ -394,7 +410,7 @@ Matrix aggregateGroups(
     // ---...--- //
 
     // ---- Loop through all possible macrogroups, starting from |G| cuts to 2 ---- //
-    for (int i = wmat->cols; i > 1; i--)
+    for (int i = wmat->cols; i > 0; i--)
     { // --- For every macrogroup cut
         // --- Base case, try with |A| = |G|, basically, get the bootstrap of the whole matrix.
         if (verbose)
@@ -402,22 +418,33 @@ Matrix aggregateGroups(
             Rprintf("\n----------\nCalculating %d macro-groups\n", i);
         }
         double bestVal;
-        boundaries = solveDP(wmat->cols, i, &lastReward, &bestVal);
-
-        if (verbose)
+        // ---- Handle case where there's need to be a DP done ---- //
+        if (i != 1)
         {
-            Rprintf("Optimal actions:\t[");
-            for (int k = 0; k < i - 1; k++)
+            boundaries = solveDP(wmat->cols, i, &lastReward, &bestVal);
+
+            if (verbose)
             {
-                // Sum 1 to the index for using R's indexing
-                Rprintf("%d, ", boundaries[k] + 1);
+                Rprintf("Optimal actions:\t[");
+                for (int k = 0; k < i - 2; k++)
+                {
+                    // Sum 1 to the index for using R's indexing
+                    Rprintf("%d, ", boundaries[k] + 1);
+                }
+                Rprintf("%d]\n", boundaries[i - 2] + 1);
+                Rprintf("Objective function:\t%f\n", bestVal);
             }
-            Rprintf("%d]\n", boundaries[i - 1]);
-            Rprintf("Objective function:\t%.4f\n", bestVal);
+            // ---- Calculate the bootstrap matrix according the cutting boundaries
+            bootstrapMatrix = testBootstrap(&quality, set_method, xmat, wmat, boundaries, i, bootiter, q_method,
+                                            p_method, convergence, log_convergence, maxIter, maxSeconds, inputParams);
         }
-        // ---- Calculate the bootstrap matrix according the cutting boundaries
-        bootstrapMatrix = testBootstrap(&quality, set_method, xmat, wmat, boundaries, i, bootiter, q_method, p_method,
-                                        convergence, log_convergence, maxIter, maxSeconds, inputParams);
+        // ---- Case where there's no cuts ---- //
+        else
+        {
+            // int *boundaries = Calloc(2, int);
+            bootstrapMatrix = testBootstrap(&quality, set_method, xmat, wmat, boundaries, -1, bootiter, q_method,
+                                            p_method, convergence, log_convergence, maxIter, maxSeconds, inputParams);
+        }
         if (verbose)
         {
             Rprintf("Bootstrapped matrix:\n");
@@ -427,24 +454,29 @@ Matrix aggregateGroups(
         // --- Case it converges
         if (quality <= set_threshold)
         {
-            for (int b = 0; b < i; b++)
+            Rprintf("evaluating quality\n");
+
+            for (int b = 0; b < i - 1 & i != 1; b++)
             {
                 results[b] = boundaries[b];
             }
-            *cuts = i;
-            Free(boundaries);
+            *cuts = i != 1 ? i : -1;
+            if (i != 1 & boundaries != NULL)
+                Free(boundaries);
             return bootstrapMatrix;
         }
         // --- Case it is a better candidate than before
         if (quality < bestValue)
         {
-            for (int b = 0; b < i; b++)
+            for (int b = 0; b < i - 1 & i != 1; b++)
             {
                 results[b] = boundaries[b];
             }
-            Free(boundaries);
+            if (i != 1 & boundaries != NULL)
+                Free(boundaries);
             bestMatrix = bootstrapMatrix;
-            *cuts = i;
+            // *cuts = i;
+            *cuts = i != 1 ? i : -1;
             bestValue = quality;
         }
         else
@@ -456,11 +488,21 @@ Matrix aggregateGroups(
     freeMatrix(&lastReward);
     if (verbose)
     {
-        Rprintf("\nThe maximum threshold value was not accomplished. Returning the results of having %d macro-groups, "
+        int totalMacrogroups = *cuts;
+        totalMacrogroups += *cuts == -1 ? 2 : 0;
+        if (!feasible)
+            Rprintf(
+                "\nThe maximum threshold value was not accomplished. Returning the results of having %d macro-groups, "
                 "having an statistic of %.4f, corresponding to the lesser threshold.\n",
-                *cuts, bestValue);
+                totalMacrogroups, bestValue);
+        else
+            Rprintf(
+                "\nThe maximum threshold value was not accomplished. The closest macro-group had %d aggregations with "
+                "an statistic of %.4f, corresponding to the lesser threshold.",
+                totalMacrogroups, bestValue);
     }
     // ---...--- //
+    *bestResult = true;
     return bestMatrix;
 }
 

@@ -73,40 +73,30 @@ Matrix startingPoint(int b)
     Free(candidateVotes);
     return toReturn;
 }
-
-void decode(uint16_t randomValue, int size, int *i, int *j)
-{
-    *i = randomValue / (size - 1); // Determines the first index, this is a floor operation
-    *j = randomValue % (size - 1); // Determines the second index, but needs an adjustment
-                                   // Example, let k = 19 and size = 5. Then;
-                                   // i = 19/4 = 4 (floor)
-                                   // j = 19 % 4 = 3 (mod)
-                                   // The permutation is (4, 3)
-
-    // Adjust j so that j != i
-    if (*j >= *i)
-    {
-        (*j)++;
-    }
-}
-
 // 0 y C*(C-1), G(G-1)-1, o sea, sin los divididos por 2, la razón, es porque creo que es más sencillo encodear y
 // decodear de la segunda manera
-void allocateRandoms(int M, int S, uint16_t **candidateArray, uint16_t **groupArray)
+void allocateRandoms(int M, int S, uint8_t **c1, uint8_t **c2, uint8_t **g1, uint8_t **g2)
 {
-    uint16_t candidateCombinations = (uint16_t)(TOTAL_CANDIDATES * (TOTAL_CANDIDATES - 1));
-    uint16_t groupCombinations = (uint16_t)(TOTAL_GROUPS * (TOTAL_GROUPS - 1));
-
+    uint32_t size = M * S;
     // Allocate memory correctly
-    *candidateArray = (uint16_t *)Calloc(M, uint16_t);
-    *groupArray = (uint16_t *)Calloc(M, uint16_t);
+    *c1 = (uint8_t *)Calloc(size, uint8_t);
+    *c2 = (uint8_t *)Calloc(size, uint8_t);
+    *g1 = (uint8_t *)Calloc(size, uint8_t);
+    *g2 = (uint8_t *)Calloc(size, uint8_t);
 
-    // Fill arrays with random indices
-    for (int i = 0; i < M; i++)
+    GetRNGstate(); // Ensure R's RNG is properly initialized
+                   // Fill arrays with random indices
+    for (int i = 0; i < size; i++)
     {
-        (*candidateArray)[i] = (uint16_t)(unif_rand() * candidateCombinations);
-        (*groupArray)[i] = (uint16_t)(unif_rand() * groupCombinations);
+        (*c1)[i] = (uint8_t)(unif_rand() * TOTAL_CANDIDATES);
+        (*g1)[i] = (uint8_t)(unif_rand() * TOTAL_GROUPS);
+        do
+        {
+            (*c2)[i] = (uint8_t)(unif_rand() * TOTAL_CANDIDATES);
+            (*g2)[i] = (uint8_t)(unif_rand() * TOTAL_GROUPS);
+        } while ((*c2)[i] == (*c1)[i] || (*g1)[i] == (*g2)[i]);
     }
+    PutRNGstate(); // Finalize RNG state to prevent repeatability
 }
 /*
  * @brief Precomputes the sets used for the simulation.
@@ -123,62 +113,24 @@ void generateOmegaSet(int M, int S)
 {
     // ---- Allocate memory for the `b` index ----
     OMEGASET = Calloc(TOTAL_BALLOTS, OmegaSet *);
-
-    /*
-     * Currently, CRAN doesn't allow to use the own system random number generator.
-     * Even though it has its upsides (setting a global seed from R), it doesn't allow to use
-     * parallelization with RNG's in a thread-safe way. In fact, R's seed is global and unique.
-     * The C's approach back then, was to define a seed per thread;
-     *
-     * int seed = rand_r(&seedNum) + omp_get_thread_number
-     *
-     * This cannot be done anymore, so, as of now, this loop cannot be parallelized, despite its
-     * benefits.
-     */
-
-    /*
-     * UPDATE:
-     * It may be useful but dangerous to create a RNG pool before looping. It may be much faster, however
-     * the randomn numbers are dinamically asigned.
-     *
-     * The dynamic condition that creates a RNG call is g1 == g2 (with replacement) and c1 == c2. Both expected
-     * values are 1/|G| and 1/|C|. The idea would be to generate a sample pool such that 97.5% of times it doesn't
-     * crash. Hence, one loop through M uses on average 2 + (1/|C| + 1/|G| - 1/|C| * 1/|G|) -> failing probability.
-     * Given that, the expected value of RNG calls  is |B| * |S| * |M| * (2 + |C|^-1 + |G|^-1 - (|C|*|G|)^-1)
-     *
-     * On the other side, let X and Y be the failing d.r.v of |C| and |G| respectively. Then, Var(X+Y)=(|G|*|G-1| +
-     * |C|*|C-1|)/12. Then, since |B|, |S|, |M| and |2| are constants:
-     *
-     * Var( |B| * |S| * |M| * (2 + X + Y)) = |B|^2 * |S|^2 * |M|^2 Var(2 + X + Y)
-     *  								   = |B|^2 * |S|^2 * |M|^2 * (|G|*|G-1| + |C|*|C-1|)/12.
-     *  							std()  = |B| * |S| * |M| sqrt( [ |G|*|G-1| + |C|*|C-1| ] / 12 )
-     *
-     * So, ensuring a \mu + 2\sigma approach...,
-     *
-     * Pool size = |B| * |S| * |M| * (2 + |C|^-1 + |G|^-1 - (|C|*|G|)^-1) + 2|B| * |S| * |M| sqrt( [ |G|*|G-1| +
-     * |C|*|C-1| ] / 12 ) = |B| * |S| * |M| * (2 + |C|^-1 + |G|^-1 - (|C|*|G|)^-1 + 2 * sqrt( [ |G|*|G-1| + |C|*|C-1| ]
-     * / 12)
-     *
-     * Is this feasible? Let's suppose 50 ballot boxes, 1000 samples and a step size of 3000. Each of the RNG calls are
-     * stored as doubles (64bits) aswell. That's 1.2GB, just by considering the first factor and not accounting the |C|
-     * and |G| terms. If a pool cannot be allocated before the loop, maybe it could be possible to execute within
-     * distinct pools by dividing the ballot boxes and free within each big iteration. However, that's not so practical
-     * to implement, and the 2.5% failure rate still bothers me.
-     *
-     * UPDATE: Tried diverses takes, with chunk, pooling, etc. None of them worked since samples were too similar...
-     */
-
     GetRNGstate();
-    uint16_t *candidatePermutations = NULL;
-    uint16_t *groupPermutations = NULL;
+    uint8_t *c1 = NULL;
+    uint8_t *c2 = NULL;
+    uint8_t *g1 = NULL;
+    uint8_t *g2 = NULL;
 
-    allocateRandoms(M, S, &candidatePermutations, &groupPermutations);
+    uint32_t arraySize = M * S;
+
+    allocateRandoms(M, S, &c1, &c2, &g1, &g2);
     // Compute the partition size
     int partitionSize = M / TOTAL_BALLOTS;
     if (partitionSize == 0)
         partitionSize = 1; // Prevent division by zero in extreme cases
 
-    // ---- Perform the main iterations ---- //
+// ---- Perform the main iterations ---- //
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {                               // ---- For every ballot box
         if (b % 5 == 0)             // Checks condition every 5 iterations
@@ -193,40 +145,45 @@ void generateOmegaSet(int M, int S)
         // ---...--- //
         // ---- The `base` element used as a starting point ----
         Matrix startingZ = startingPoint(b);
+        int ballotShift = floor(((double)b / TOTAL_BALLOTS) * (M * S));
 
         for (int s = 0; s < S; s++)
         {                                // --- For each sample given a ballot box
             if (S > 5000 && S % 50 == 0) // If there's a big amount of samples, check interrupts
                 R_CheckUserInterrupt();
+            // TODO: El sampling debe hacerse de tamaño M*S
             // ---- Copy the initial matrix ----
             Matrix steppingZ = copyMatrix(&startingZ);
             for (int m = 0; m < M; m++)
             { // --- For each step size given a sample and a ballot box
                 // ---- Sample random indexes ---- //
-                int g1, g2, c1, c2;
-                int shiftIndex = (m + (b * partitionSize)) % M;
-                uint16_t randomCDraw = candidatePermutations[shiftIndex];
-                uint16_t randomGDraw = groupPermutations[shiftIndex];
-                decode(randomCDraw, TOTAL_CANDIDATES, &c1, &c2);
-                decode(randomGDraw, TOTAL_GROUPS, &g1, &g2);
+                int shiftIndex = (s * M + ballotShift + m) % (M * S);
+                uint8_t randomCDraw = c1[shiftIndex];
+                uint8_t randomCDraw2 = c2[shiftIndex];
+                uint8_t randomGDraw = g1[shiftIndex];
+                uint8_t randomGDraw2 = g2[shiftIndex];
+
+                // decode(randomCDraw, TOTAL_CANDIDATES, &c1, &c2);
+                //  decode(randomGDraw, TOTAL_GROUPS, &g1, &g2);
 
                 // ---- Check non negativity condition ---- //
-                double firstSubstraction = MATRIX_AT(steppingZ, g1, c1) - 1;
-                double secondSubstraction = MATRIX_AT(steppingZ, g2, c2) - 1;
+                double firstSubstraction = MATRIX_AT(steppingZ, randomGDraw, randomCDraw);
+                double secondSubstraction = MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2);
 
                 if (firstSubstraction <= 0 || secondSubstraction <= 0)
                     continue;
                 // ---...--- //
 
                 // ---- Asign changes on the new matrix ---- //
-                MATRIX_AT(steppingZ, g1, c1) -= 1;
-                MATRIX_AT(steppingZ, g2, c2) -= 1;
-                MATRIX_AT(steppingZ, g1, c2) += 1;
-                MATRIX_AT(steppingZ, g2, c1) += 1;
-                // ---...--- //
+                MATRIX_AT(steppingZ, randomGDraw, randomCDraw) -= 1;
+                MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2) -= 1;
+                MATRIX_AT(steppingZ, randomGDraw, randomCDraw2) += 1;
+                MATRIX_AT(steppingZ, randomGDraw2, randomCDraw) += 1;
+                //  ---...--- //
             } // --- End the step size loop
             // ---- Add the combination to the OmegaSet ---- //
             Matrix *append = Calloc(1, Matrix);
+
             *append = copyMatrix(&steppingZ);
             OMEGASET[b]->data[s] = append;
             freeMatrix(&steppingZ);
@@ -235,8 +192,10 @@ void generateOmegaSet(int M, int S)
         freeMatrix(&startingZ);
     } // --- End the ballot box loop
     PutRNGstate();
-    Free(candidatePermutations);
-    Free(groupPermutations);
+    Free(c1);
+    Free(c2);
+    Free(g1);
+    Free(g2);
 }
 
 /**
@@ -487,7 +446,9 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
     // ---- Use a static assignment since the workload is even between threads ----
 
     *ll = 0;
+#ifdef _OPENMP
 #pragma omp parallel for collapse(2)
+#endif
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // --- For each ballot box
         OmegaSet *currentSet = OMEGASET[b];

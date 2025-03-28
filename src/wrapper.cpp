@@ -173,9 +173,9 @@ Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
 
 // ---- Run Group Aggregation Algorithm ---- //
 // [[Rcpp::export]]
-Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold, Rcpp::NumericMatrix candidate_matrix,
-                    Rcpp::NumericMatrix group_matrix, Rcpp::IntegerVector nboot, Rcpp::String em_method,
-                    Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations,
+Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold, Rcpp::LogicalVector feasible,
+                    Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix, Rcpp::IntegerVector nboot,
+                    Rcpp::String em_method, Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations,
                     Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold,
                     Rcpp::NumericVector log_stopping_threshold, Rcpp::LogicalVector verbose,
                     Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method,
@@ -202,9 +202,10 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
     int G = WR.cols;
     int *cuttingBuffer = new int[G - 1];
     int usedCuts = 0; // how many boundaries we actually use
+    bool bestResult = false;
     Matrix sdResult =
-        aggregateGroups(&XR, &WR, cuttingBuffer, &usedCuts, sd_threshold[0], aggMet.c_str(), nboot[0],
-                        probabilityM.c_str(), EMAlg.c_str(), stopping_threshold[0], log_stopping_threshold[0],
+        aggregateGroups(&XR, &WR, cuttingBuffer, &usedCuts, &bestResult, sd_threshold[0], aggMet.c_str(), feasible[0],
+                        nboot[0], probabilityM.c_str(), EMAlg.c_str(), stopping_threshold[0], log_stopping_threshold[0],
                         maximum_iterations[0], maximum_seconds[0], verbose[0], inputParams);
 
     // Convert to R's matrix
@@ -213,6 +214,13 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
     std::memcpy(output.begin(), // where to copy
                 sdResult.data,  // source
                 sdResult.rows * sdResult.cols * sizeof(double));
+
+    if (usedCuts == -1)
+    {
+        delete[] cuttingBuffer;
+        return Rcpp::List::create(Rcpp::_["bootstrap_result"] = output, Rcpp::_["indices"] = -1,
+                                  Rcpp::_["best_result"] = bestResult);
+    }
 
     // Convert to R's integer vector
     Rcpp::IntegerVector result(usedCuts);
@@ -226,7 +234,8 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
     // free(cuttingBuffer);
     delete[] cuttingBuffer;
 
-    return Rcpp::List::create(Rcpp::_["bootstrap_result"] = output, Rcpp::_["indices"] = result);
+    return Rcpp::List::create(Rcpp::_["bootstrap_result"] = output, Rcpp::_["indices"] = result,
+                              Rcpp::_["best_result"] = bestResult);
 }
 
 // ---- Run Greedy Group Aggregation Algorithm ---- //

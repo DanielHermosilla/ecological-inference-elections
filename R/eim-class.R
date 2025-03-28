@@ -589,6 +589,9 @@ bootstrap <- function(object = NULL,
 #'
 #' @param sd_threshold Numeric with the value to use as a threshold for the statistic (`sc_statistic`) of the standard deviation of the estimated probabilities. Defaults to 0.05.
 #'
+#' @param feasible Logical indicating whether the returned matrix must strictly satisfy the `sd_threshold`.
+#' If FALSE, the function will return the closest match to the threshold in case convergence is not achieved.
+#'
 #' @inheritParams bootstrap
 #'
 #' @param ... Additional arguments passed to the [run_em] function that will execute the EM algorithm.
@@ -658,6 +661,7 @@ get_agg_proxy <- function(object = NULL,
                           json_path = NULL,
                           sd_statistic = "maximum",
                           sd_threshold = 0.05,
+                          feasible = TRUE,
                           nboot = 50,
                           seed = NULL, ...) {
     # Retrieve the default values from run_em() as a list
@@ -718,6 +722,7 @@ get_agg_proxy <- function(object = NULL,
     result <- groupAgg(
         as.character(sd_statistic),
         as.double(sd_threshold),
+        as.logical(feasible),
         t(object$X),
         object$W,
         as.integer(nboot),
@@ -735,17 +740,20 @@ get_agg_proxy <- function(object = NULL,
         as.integer(mc_samples)
     )
 
-    # Convert the 'W' matrix by merging columns
-    # We add '2' to indices since it's originally 0-based.
-    col_groups <- split(seq_len(ncol(object$W)), findInterval(seq_len(ncol(object$W)), c(1, result$indices + 2)))
-    # Lambda function to add the columns
-    object$W_agg <- sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
+    # If the returned matrix isn't the best non-feasible result
+    if (!result$best_result || !feasible) {
+        # Convert the 'W' matrix by merging columns
+        # We add '2' to indices since it's originally 0-based.
+        col_groups <- split(seq_len(ncol(object$W)), findInterval(seq_len(ncol(object$W)), c(1, result$indices + 2)))
+        # Lambda function to add the columns
+        object$W_agg <- sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
 
-    object$sd <- result$bootstrap_result
-    object$nboot <- nboot
-    object$group_agg <- result$indices + 1 # Use R's index system
-    object$sd_statistic <- sd_statistic
-    object$sd_threshold <- sd_threshold
+        object$sd <- result$bootstrap_result
+        object$nboot <- nboot
+        object$group_agg <- result$indices + 1 # Use R's index system
+        object$sd_statistic <- sd_statistic
+        object$sd_threshold <- sd_threshold
+    }
 
     return(object)
 }

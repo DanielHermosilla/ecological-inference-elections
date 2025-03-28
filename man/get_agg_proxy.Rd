@@ -11,6 +11,7 @@ get_agg_proxy(
   json_path = NULL,
   sd_statistic = "maximum",
   sd_threshold = 0.05,
+  feasible = TRUE,
   nboot = 50,
   seed = NULL,
   ...
@@ -28,6 +29,9 @@ get_agg_proxy(
 \item{sd_statistic}{String indicates the statistic for the standard deviation \verb{(g x c)} matrix for the stopping condition, i.e., the algorithm stops when the statistic is below the threshold. It can take the value \code{maximum}, in which case computes the maximum over the standard deviation matrix, or \code{average}, in which case computes the average.}
 
 \item{sd_threshold}{Numeric with the value to use as a threshold for the statistic (\code{sc_statistic}) of the standard deviation of the estimated probabilities. Defaults to 0.05.}
+
+\item{feasible}{Logical indicating whether the returned matrix must strictly satisfy the \code{sd_threshold}.
+If FALSE, the function will return the closest match to the threshold in case convergence is not achieved.}
 
 \item{nboot}{Integer specifying how many times to run the
 EM algorithm.}
