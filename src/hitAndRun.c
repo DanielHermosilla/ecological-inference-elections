@@ -35,44 +35,87 @@ double **multinomialVals = NULL;
 double *logGammaArr = NULL;
 double *loglogGammaArr = NULL;
 
-/**
- *  @brief Yields an initial point of the polytope given a ballot
- *
- * Given a ballot box index, it returns a matrix of size (GxC) with a valid starting point for the Hit and Run
- * algorithm.
- *
- * @param[in] b The ballot box index
- *
- * @return A matrix with the starting point.
- * Description.
- */
-Matrix startingPoint(int b)
+int lessThanColRow(Matrix mat, int b, int g, int c, int candidateVotes, int groupVotes)
+{
+    int groupSum = 0;
+    int canSum = 0;
+    for (uint16_t i = 0; i < TOTAL_GROUPS; i++)
+    {
+        canSum += MATRIX_AT(mat, i, c);
+    }
+    for (uint16_t j = 0; j < TOTAL_CANDIDATES; j++)
+    {
+        groupSum += MATRIX_AT(mat, g, j);
+    }
+    int slackC = candidateVotes - canSum;
+    int slackG = groupVotes - groupSum;
+
+    return MIN(slackC, slackG);
+}
+
+Matrix startingPoint3(int b)
 {
     // ---- Retrieve the initial variables ---- //
     Matrix toReturn = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES);
     double *groupVotes = getRow(W, b);
     double *candidateVotes = getColumn(X, b);
-    // ---...--- //
-    // Introduce a shift for handling randomness between ballot boxes
-    uint16_t g_start = b % TOTAL_GROUPS;     // Shift start for groups
-    uint16_t c_start = b % TOTAL_CANDIDATES; // Shift start for candidates
-                                             //
-    for (uint16_t i = 0; i < TOTAL_GROUPS; i++)
+
+    // ---- Calculate the expected value ---- //
+    double totalC = 0;
+    double totalG = 0;
+    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     {
-        uint16_t g = (g_start + i) % TOTAL_GROUPS; // Circular shift for group index
-        for (uint16_t j = 0; j < TOTAL_CANDIDATES; j++)
+        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
         {
-            uint16_t c = (c_start + j) % TOTAL_CANDIDATES; // Circular shift for candidate index
-            MATRIX_AT(toReturn, g, c) = MIN(groupVotes[g], candidateVotes[c]);
-            groupVotes[g] -= MATRIX_AT(toReturn, g, c);
-            candidateVotes[c] -= MATRIX_AT(toReturn, g, c);
+            double mult = groupVotes[g] * candidateVotes[c];
+
+            if (g == 0)
+                totalC += candidateVotes[c];
+
+            // In case of mismatch, we divide for the maximum
+
+            MATRIX_AT(toReturn, g, c) = mult;
+        }
+        totalG += groupVotes[g];
+    }
+    // ---...--- //
+
+    // ---- Division for mismatchs ---- //
+    double divide = MAX(BALLOTS_VOTES[b], totalC);
+    divide = MAX(divide, totalG);
+    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+    {
+        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+        {
+            double newValue = MATRIX_AT(toReturn, g, c) / divide;
+            double floored = floor(newValue);
+            MATRIX_AT(toReturn, g, c) = floored;
         }
     }
+
+    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+    {
+
+        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+        {
+            int groupRestriction = groupVotes[g];
+            int candidateRestriction = candidateVotes[c];
+
+            int m = lessThanColRow(toReturn, b, g, c, candidateRestriction, groupRestriction);
+            if (m > 0)
+            {
+                MATRIX_AT(toReturn, g, c) += m;
+            }
+        }
+    }
+    // ---...--- //
+
     // ---...--- //
     Free(groupVotes);
     Free(candidateVotes);
     return toReturn;
 }
+
 // 0 y C*(C-1), G(G-1)-1, o sea, sin los divididos por 2, la razón, es porque creo que es más sencillo encodear y
 // decodear de la segunda manera
 void allocateRandoms(int M, int S, uint8_t **c1, uint8_t **c2, uint8_t **g1, uint8_t **g2)
@@ -101,8 +144,8 @@ void allocateRandoms(int M, int S, uint8_t **c1, uint8_t **c2, uint8_t **g1, uin
 /*
  * @brief Precomputes the sets used for the simulation.
  *
- * Precomputes the sets that are independent from each EM iteration. It is made with parallelism (NOT SUPPORTED) towards
- * the ballot boxes and with a static assignment for ensuring reproducibility.
+ * Precomputes the sets that are independent from each EM iteration. It is made with parallelism (NOT SUPPORTED)
+ * towards the ballot boxes and with a static assignment for ensuring reproducibility.
  *
  * @param[in] M. The step size between consecutive samples. Note that the direction is assigned randomly.
  * @param[in] S. The amount of samples for each ballot box.
@@ -144,7 +187,18 @@ void generateOmegaSet(int M, int S)
         OMEGASET[b]->data = Calloc(S, Matrix *);
         // ---...--- //
         // ---- The `base` element used as a starting point ----
-        Matrix startingZ = startingPoint(b);
+        Matrix startingZ = startingPoint3(b);
+        if (b % 5 == 0)
+        {
+            int totalVals = 0;
+            for (int g = 0; g < TOTAL_GROUPS; g++)
+            {
+                for (int c = 0; c < TOTAL_CANDIDATES; c++)
+                {
+                    totalVals += MATRIX_AT(startingZ, g, c);
+                }
+            }
+        }
         int ballotShift = floor(((double)b / TOTAL_BALLOTS) * (M * S));
 
         for (int s = 0; s < S; s++)
@@ -201,7 +255,8 @@ void generateOmegaSet(int M, int S)
 /**
  * @brief Computes the pre-computable values of the expression that doesn't depend on EM iterations
  *
- * Given a ballot box index and a matrix represent an element from the Hit and Run OmegaSet, it computes the following:
+ * Given a ballot box index and a matrix represent an element from the Hit and Run OmegaSet, it computes the
+ * following:
  *
  * $$\Prod_{g'\in G}\binom{w_{bg'}}{z_{bg'1}\cdots z_{bg'C}}$$
  *
@@ -283,8 +338,8 @@ void precomputeLogGammas()
 /**
  * @brief Precomputes the multinomial multiplication that is independent for each EM iteration.
  *
- * Calls the main function for computing all of the calculations related with the final result that are independent from
- * each EM call. Specifically, for each ballot box and its simulations, the following is calculated:
+ * Calls the main function for computing all of the calculations related with the final result that are independent
+ * from each EM call. Specifically, for each ballot box and its simulations, the following is calculated:
  *
  * $$\Prod_{g\in G}\binom{w_{bg}}{z_{bg1},\cdots, z_{bgC}}$$
  *
@@ -415,8 +470,8 @@ double logsumexp(double *log_a_shift, OmegaSet *currentSet, int g, int c, double
 /**
  * @brief Computes the `q` values for all the ballot boxes given a probability matrix. Uses the Hit and Run method.
  *
- * Given a probability matrix with, it returns a flattened array with estimations of the conditional probability. The
- * array can be accesed with the macro `Q_3D` (it's a flattened tensor).
+ * Given a probability matrix with, it returns a flattened array with estimations of the conditional probability.
+ * The array can be accesed with the macro `Q_3D` (it's a flattened tensor).
  *
  * @param[in] *probabilities. A pointer towards the probabilities matrix.
  * @param[in] params A QMethodInput struct with the `M` (step size) and `S` (samples) parameters

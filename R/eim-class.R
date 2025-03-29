@@ -970,12 +970,12 @@ print.eim <- function(object, ...) {
         if (truncated_P) cat(".\n.\n.\n") else cat("\n")
         cat("Method:\t", object$method, "\n")
         if (object$method == "mcmc") {
-            cat("Step size (M):", object$step_size)
-            cat("Samples (S):", object$samples)
+            cat("Step size (M):", object$step_size, "\n")
+            cat("Samples (S):", object$samples, "\n")
         } else if (object$method == "mvn_cdf") {
-            cat("Montecarlo method:", object$mc_method)
-            cat("Montecarlo iterations:", object$mc_samples)
-            cat("Montecarlo error:", object$mc_error)
+            cat("Montecarlo method:", object$mc_method, "\n")
+            cat("Montecarlo iterations:", object$mc_samples, "\n")
+            cat("Montecarlo error:", object$mc_error, "\n")
         }
         cat("Total Iterations:", object$iterations, "\n")
         cat("Total Time (s):", object$time, "\n")
