@@ -79,7 +79,7 @@ library(jsonlite)
 #'     63, 94,
 #'     52, 80,
 #'     60, 72,
-#'     54, 77,
+#'     54, 77
 #' ), nrow = 8, ncol = 2, byrow = TRUE)
 #'
 #' w_mat <- matrix(c(
@@ -196,6 +196,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' - `uniform`: Assigns equal probability to every candidate within each group.
 #' - `proportional`: Assigns probabilities to each group based on the proportion of candidates votes.
 #' - `group_proportional`: Computes the probability matrix by taking into account both group and candidate proportions. This is the default method.
+#' - `random`: Use randomized values to fill the probability matrix.
 #'
 #' @param allow_mismatch Boolean, if `TRUE`, allows a mismatch between the voters and votes for each ballot-box, only works if method is `mvn_cdf`, `mvn_pdf`, and `mult`. If `FALSE`, throws an error if there is a mismatch. By default it is `FALSE`.
 #'
@@ -290,7 +291,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'
 #' @examples
 #' # Example 1: Compute the Expected-Maximization with default settings
-#' simulations <- simulate_elections(
+#' simulations <- simulate_election(
 #'     num_ballots = 300,
 #'     num_candidates = 5,
 #'     num_groups = 3,
@@ -390,12 +391,19 @@ run_em <- function(object = NULL,
     # ---------- ... ---------- #
 
     object$prob <- as.matrix(resulting_values$result)
-    object$logLik <- as.numeric(resulting_values$log_likelihood)
+    dimnames(object$prob) <- list(colnames(object$W), colnames(object$X))
     object$iterations <- as.numeric(resulting_values$total_iterations)
+    object$logLik <- as.numeric(resulting_values$log_likelihood[object$iterations])
     object$time <- resulting_values$total_time
     object$message <- resulting_values$stopping_reason
     object$status <- as.integer(resulting_values$finish_id)
     object$cond_prob <- resulting_values$q
+    object$cond_prob <- aperm(resulting_values$q, perm = c(3, 2, 1)) # Correct dimensions
+    dimnames(object$cond_prob) <- list(
+        colnames(object$W),
+        colnames(object$X),
+        rownames(object$X)
+    )
     # Add function arguments
     object$maxiter <- maxiter
     object$maxiter <- maxtime
@@ -453,7 +461,7 @@ run_em <- function(object = NULL,
 #'     nboot = 30,
 #'     method = "mvn_cdf",
 #'     maxiter = 500,
-#'     verbose = TRUE,
+#'     verbose = FALSE,
 #'     mc_samples = 5000
 #' )
 #'
@@ -570,6 +578,7 @@ bootstrap <- function(object = NULL,
     )
 
     object$sd <- result
+    dimnames(object$sd) <- list(colnames(object$W), colnames(object$X))
     object$nboot <- nboot
 
     return(object)
@@ -749,6 +758,7 @@ get_agg_proxy <- function(object = NULL,
         object$W_agg <- sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
 
         object$sd <- result$bootstrap_result
+        dimnames(object$sd) <- list(colnames(object$W), colnames(object$X))
         object$nboot <- nboot
         object$group_agg <- result$indices + 1 # Use R's index system
         object$sd_statistic <- sd_statistic
@@ -784,7 +794,7 @@ get_agg_proxy <- function(object = NULL,
 #'
 #' @examples
 #' # Example 1: Using a simulated instance
-#' data <- simulate_election(
+#' simulations <- simulate_election(
 #'     num_ballots = 100,
 #'     num_candidates = 3,
 #'     num_groups = 8,
@@ -903,14 +913,22 @@ get_agg_opt <- function(object = NULL,
     col_groups <- split(seq_len(ncol(object$W)), findInterval(seq_len(ncol(object$W)), c(1, result$indices + 2)))
     # Lambda function to add the columns
     object$W_agg <- sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
+    dimnames(object$W_agg) <- list(colnames(object$W), colnames(object$W))
     object$group_agg <- result$indices + 1 # Use R's index system
     object$prob <- as.matrix(result$probabilities)
-    object$logLik <- as.numeric(result$log_likelihood)
+    dimnames(object$prob) <- list(colnames(object$W), colnames(object$X))
     object$iterations <- as.numeric(result$total_iterations)
+    object$logLik <- as.numeric(result$log_likelihood[object$iterations])
     object$time <- result$total_time
     object$message <- result$stopping_reason
     object$status <- as.integer(result$finish_id)
     object$cond_prob <- result$q
+    object$cond_prob <- aperm(result$q, perm = c(3, 2, 1)) # Correct dimensions
+    dimnames(object$cond_prob) <- list(
+        colnames(object$W),
+        colnames(object$X),
+        rownames(object$X)
+    )
     object$method <- method
     object$log_threshold <- log_threshold
     object$stop_threshold <- stop_threshold
@@ -982,7 +1000,7 @@ print.eim <- function(object, ...) {
         cat("Log-likelihood:", tail(object$logLik, 1), "\n")
     }
     if (!is.null(object$sd)) {
-        cat("Bootstrapped matrix [g x c]:\n")
+        cat("Standard deviation of the estimated error [g x c]:\n")
         truncated_boot <- (nrow(object$sd) > 5)
         print(round(object$sd[1:min(5, nrow(object$sd)), ], 3)) # nolint
         if (truncated_boot) cat(".\n.\n.\n") else cat("\n")

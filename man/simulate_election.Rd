@@ -45,7 +45,7 @@ A list with three components:
 \describe{
 \item{\code{X}}{A \code{(b x c)} matrix with candidates' votes for each ballot box.}
 \item{\code{W}}{A \code{(b x g)} matrix with voters' groups for each ballot-box.}
-\item{\code{prob}}{A \code{(g x c)} matrix with the probability that a voter from each group votes for each candidate. If prob is provided, it would equal such probability.}
+\item{\code{real_prob}}{A \code{(g x c)} matrix with the probability that a voter from each group votes for each candidate. If prob is provided, it would equal such probability.}
 }
 }
 \description{
@@ -116,7 +116,7 @@ result4 <- simulate_election(
     num_ballots = 200,
     num_candidates = 2,
     num_groups = 5,
-    alpha = 0.3,
+    lambda = 0.3,
     prob = custom_prob
 )
 

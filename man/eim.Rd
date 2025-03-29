@@ -89,7 +89,7 @@ x_mat <- matrix(c(
     63, 94,
     52, 80,
     60, 72,
-    54, 77,
+    54, 77
 ), nrow = 8, ncol = 2, byrow = TRUE)
 
 w_mat <- matrix(c(

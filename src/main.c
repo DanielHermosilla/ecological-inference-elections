@@ -161,19 +161,58 @@ Matrix getInitialP(const char *p_method)
 
     // ---- Validation: check the method input ----//
     if (strcmp(p_method, "uniform") != 0 && strcmp(p_method, "proportional") != 0 &&
-        strcmp(p_method, "group_proportional") != 0)
+        strcmp(p_method, "group_proportional") != 0 && strcmp(p_method, "random") != 0)
     {
         error("Compute: The method `%s` to calculate the initial probability doesn't exist.\nThe supported methods "
-              "are: `uniform`, `proportional` and `group_proportional`.\n",
+              "are: `uniform`, `proportional`, `random` and `group_proportional`.\n",
               p_method);
     }
     // ---...--- //
 
     Matrix probabilities = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES);
 
+    // ---- Compute the random method ---- //
+    if (strcmp(p_method, "random") == 0)
+    {
+        // Integrate with R's RNG
+        GetRNGstate();
+
+        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+        {
+            double rowSum = 0.0;
+
+            // Fill row with random values in [0,1)
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            {
+                double r = unif_rand(); // R's uniform RNG
+                MATRIX_AT(probabilities, g, c) = r;
+                rowSum += r;
+            }
+
+            // Normalize row so that it sums to 1
+            if (rowSum > 0.0)
+            {
+                for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+                {
+                    MATRIX_AT(probabilities, g, c) /= rowSum;
+                }
+            }
+            else
+            {
+                // In the unlikely event rowSum is exactly 0.0, assign uniform
+                for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+                {
+                    MATRIX_AT(probabilities, g, c) = 1.0 / (double)TOTAL_CANDIDATES;
+                }
+            }
+        }
+
+        PutRNGstate();
+    }
+
     // ---- Compute the uniform method ---- //
     // ---- It assumes a uniform distribution among candidates ----
-    if (strcmp(p_method, "uniform") == 0)
+    else if (strcmp(p_method, "uniform") == 0)
     {
         fillMatrix(&probabilities, 1.0 / (double)TOTAL_CANDIDATES);
     }

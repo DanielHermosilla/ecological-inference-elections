@@ -66,7 +66,7 @@ model <- bootstrap(
     nboot = 30,
     method = "mvn_cdf",
     maxiter = 500,
-    verbose = TRUE,
+    verbose = FALSE,
     mc_samples = 5000
 )
 

@@ -59,7 +59,7 @@ ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, the 
 }
 \examples{
 # Example 1: Using a simulated instance
-data <- simulate_election(
+simulations <- simulate_election(
     num_ballots = 100,
     num_candidates = 3,
     num_groups = 8,

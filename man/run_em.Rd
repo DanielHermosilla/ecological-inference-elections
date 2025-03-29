@@ -45,6 +45,7 @@ probability. Accepted values are:
 \item \code{uniform}: Assigns equal probability to every candidate within each group.
 \item \code{proportional}: Assigns probabilities to each group based on the proportion of candidates votes.
 \item \code{group_proportional}: Computes the probability matrix by taking into account both group and candidate proportions. This is the default method.
+\item \code{random}: Use randomized values to fill the probability matrix.
 }}
 
 \item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box, only works if method is \code{mvn_cdf}, \code{mvn_pdf}, and \code{mult}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{FALSE}.}
@@ -125,7 +126,7 @@ supplied matrices or the data from the JSON file before executing the algorithm.
 }
 \examples{
 # Example 1: Compute the Expected-Maximization with default settings
-simulations <- simulate_elections(
+simulations <- simulate_election(
     num_ballots = 300,
     num_candidates = 5,
     num_groups = 3,
