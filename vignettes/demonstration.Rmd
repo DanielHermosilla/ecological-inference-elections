@@ -69,11 +69,15 @@ sprintf("The amount of mismatches is %d", nrow(obj_m$X) - nrow(obj$X))
 
 Before running directly the algorithm there are some things that can be done. First of all, we would like to know what's the best group aggregation such that the log-likelihood is maximized. There's usually a reward for aggregating groups within big districts.
 
-![](img/logComparison.png)
+```{r, echo=FALSE, fig.align='center', out.width='60%', fig.cap="Log-likelihood performance among different electoral districts"}
+knitr::include_graphics("img/logComparison.png")
+```
 
 However, there's a trade-off between the log-likelihood and standard deviation.
 
-![](img/tradeoff.png)
+```{r, echo=FALSE, fig.align='center', out.width='60%', fig.cap="Trade-off between log-likelihood and standard deviations"}
+knitr::include_graphics("img/tradeoff.png")
+```
 
 Formally then, it would be of our best interest to find the best fit for creating macro-groups. We'll use a greedy approach `get_agg_opt` and a heuristic approach `get_agg_proxy`.
 
