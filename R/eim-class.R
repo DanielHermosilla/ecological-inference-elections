@@ -593,9 +593,9 @@ bootstrap <- function(object = NULL,
 
 #' Runs the EM algorithm aggregating adjacent groups, maximizing the variability of macro-group allocation in ballot boxes.
 #'
-#' This function estimates the voting probabilities (computed using [run_em]) aggregating adjacent groups so that the estimated probabilities' standard deviation (computed using [bootstrap]) is below a given threshold. See **Details** for more information.
+#' This function estimates the voting probabilities (computed with [run_em]) aggregating adjacent groups so that the estimated probabilities' standard deviation (computed with [bootstrap]) is below a given threshold. See **Details** for more information.
 #'
-#' Groups need to have an order relation so that adjacent groups can be merged. For example, consider the following seven groups defined by voters' age ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, even for a fixed number of macro-groups, a Dynamic Program (DP) mechanism is used to find the group aggregation that maximizes the sum of the standard deviation of the macro-groups proportions among ballot boxes for a specific number of macro-groups.
+#' Groups need to have an order relation so that adjacent groups can be merged. In particular, groups of consecutive row indices in the matrix W are considered to be adjacent. For example, consider the following seven groups defined by voters' age ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, even for a fixed number of macro-groups, a Dynamic Program (DP) mechanism is used to find the group aggregation that maximizes the sum of the standard deviation of the macro-groups proportions among ballot boxes for a specific number of macro-groups.
 #'
 #' In order to find the best group aggregation, the function runs the DP iteratively, starting with all groups (this case is trivial since, in this case, the group aggregation is such that all macro-groups match exactly the original groups). If the standard deviation statistic is below a threshold, it stops. Otherwise, it runs the DP such that the number of macro-groups is one unit less than the original number of macro-groups. If the standard deviation statistic (`sd_statistic`) is below the threshold (`sd_threshold`), it stops. And so on until either the algorithm stops, or until the group aggregation composed of a single macro-group does not meet the stopping condition, in which case the output is the EM algorithm run over a single macro-group.
 #'
@@ -778,13 +778,13 @@ get_agg_proxy <- function(object = NULL,
     return(object)
 }
 
-#' Runs the EM algorithm **over all possible group aggregating**, returning the one with higher likelihood while constraining the standard deviation of the probabilities.
+#' Runs the EM algorithm over all possible group aggregations of adjacent groups, returning the one that maximizes the likelihood while constraining the standard deviation of the probabilities.
 #'
-#' This function estimates the voting probabilities (computed using [run_em]) by trying all group aggregations (of adjacent groups), choosing
-#' the one that achieves the higher likelihood as long as the standard deviation (computed using [bootstrap]) of the estimated probabilities
+#' This function estimates the voting probabilities (computed with [run_em]) by evaluating all group aggregations (of adjacent groups), choosing
+#' the one that achieves the higher likelihood as long as the standard deviation (computed with [bootstrap]) of the estimated probabilities
 #' is below a given threshold.
 #'
-#' Groups of consecutive row indices in the matrix `W` are considered adjacent. For example, consider the following seven groups defined by voters' age
+#' Groups need to have an order relation so that adjacent groups can be merge. In particular, groups of consecutivGroups row indices in the matrix `W` are considered adjacent. For example, consider the following seven groups defined by voters' age
 #' ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age
 #' ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, the method evaluates all possible group aggregations (merging only adjacent groups).
 #'
@@ -988,12 +988,12 @@ print.eim <- function(object, ...) {
     if (truncated_X) cat(".\n.\n.\n") else cat("\n")
 
     cat("Group-level voter matrix (W) [b x g]:\n")
-    print(object$W_agg[1:min(5, nrow(object$W_agg)), , drop = FALSE])
+    print(object$W[1:min(5, nrow(object$W)), , drop = FALSE])
     if (truncated_W) cat(".\n.\n.\n") else cat("\n")
 
     if (!is.null(object$W_agg)) {
         cat("Macro group-level voter matrix (W_agg) [b x a]:\n")
-        print(object$W_agg[1:min(5, nrow(object$W_agg)), ], drop = FALSE) # nolint
+        print(object$W_agg[1:min(5, nrow(object$W_agg)), drop = FALSE]) # nolint
         truncated_W_agg <- (nrow(object$W_agg) > 5)
         if (truncated_W_agg) cat(".\n.\n.\n") else cat("\n")
     }
