@@ -501,9 +501,6 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
     // ---- Use a static assignment since the workload is even between threads ----
 
     *ll = 0;
-#ifdef _OPENMP
-#pragma omp parallel for collapse(2)
-#endif
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // --- For each ballot box
         OmegaSet *currentSet = OMEGASET[b];
