@@ -82,7 +82,7 @@ model <- bootstrap(
     method = "mvn_pdf",
     maxiter = 100,
     maxtime = 15,
-    stop_threshold = 0.01
+    param_threshold = 0.01
 )
 
 print(model$sd)

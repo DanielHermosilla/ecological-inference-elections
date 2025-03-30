@@ -454,13 +454,15 @@ Matrix aggregateGroups(
         // --- Case it converges
         if (quality <= set_threshold)
         {
-            Rprintf("evaluating quality\n");
-
             for (int b = 0; b < i - 1 & i != 1; b++)
             {
                 results[b] = boundaries[b];
             }
-            *cuts = i != 1 ? i : -1;
+
+            // Border cases
+            *cuts = i == 1 ? -1 : i;
+            *cuts = i == wmat->cols ? -2 : i;
+
             if (i != 1 & boundaries != NULL)
                 Free(boundaries);
             return bootstrapMatrix;

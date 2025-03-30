@@ -130,7 +130,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
             "convergence",
             "maxiter",
             "maxtime",
-            "log_threshold",
+            "ll_threshold",
             "cond_prob",
             "sd",
             "group_agg",
@@ -206,11 +206,11 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' @param maxtime An optional numeric specifying the maximum running time (in seconds) for the
 #'   algorithm. This is checked at every iteration of the EM algorithm. The default value is `3600`, which corresponds to an hour.
 #'
-#' @param stop_threshold An optional numeric value indicating the minimum difference between
-#'   consecutive probability values required to stop iterating. The default value is `0.001`. Note that the algorithm will stop if either `log_threshold` **or** `stop_threshold` is accomplished.
+#' @param param_threshold An optional numeric value indicating the minimum difference between
+#'   consecutive probability values required to stop iterating. The default value is `0.001`. Note that the algorithm will stop if either `ll_threshold` **or** `param_threshold` is accomplished.
 #'
-#' @param log_threshold An optional numeric value indicating the minimum difference between consecutive log-likelihood values to stop iterating. The default value is `inf`, essentially deactivating
-#' the threshold. Note that the algorithm will stop if either `log_threshold` **or** `stop_threshold` is accomplished.
+#' @param ll_threshold An optional numeric value indicating the minimum difference between consecutive log-likelihood values to stop iterating. The default value is `inf`, essentially deactivating
+#' the threshold. Note that the algorithm will stop if either `ll_threshold` **or** `param_threshold` is accomplished.
 #'
 #' @param verbose An optional boolean indicating whether to print informational messages during the EM
 #'   iterations. The default value is `FALSE`.
@@ -283,8 +283,8 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'  allow_mismatch = FALSE,
 #'  maxiter = 1000,
 #'  maxtime = 3600,
-#'  stop_threshold = 0.001,
-#'  log_threshold = as.double(-Inf),
+#'  param_threshold = 0.001,
+#'  ll_threshold = as.double(-Inf),
 #'  verbose = FALSE,
 #'  ...
 #' )
@@ -318,8 +318,8 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'     initial_prob = "uniform",
 #'     maxiter = 10,
 #'     maxtime = 600,
-#'     stop_threshold = 1e-3,
-#'     log_threshold = 1e-5,
+#'     param_threshold = 1e-3,
+#'     ll_threshold = 1e-5,
 #'     verbose = TRUE
 #' )
 #' }
@@ -335,8 +335,8 @@ run_em <- function(object = NULL,
                    allow_mismatch = FALSE,
                    maxiter = 1000,
                    maxtime = 3600,
-                   stop_threshold = 0.001,
-                   log_threshold = as.double(-Inf),
+                   param_threshold = 0.001,
+                   ll_threshold = as.double(-Inf),
                    verbose = FALSE, ...) {
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint
@@ -348,11 +348,18 @@ run_em <- function(object = NULL,
     }
 
     # Note: Mismatch restricted methods are checked inside .validate_compute
-    if (!allow_mismatch && (sum(X) != sum(W))) {
-        stop(
-            "run_em: Mismatch in the number of votes: 'X' has ", sum(X),
-            " votes, but 'W' has ", sum(W), " votes. To allow a mismatch, set the argument to TRUE."
-        )
+    if (!allow_mismatch) {
+        mismatch_rows <- which(rowSums(object$X) != rowSums(object$W))
+
+        if (length(mismatch_rows) > 0) {
+            stop(
+                "run_em: Row-wise mismatch in vote totals detected.\n",
+                "Rows with mismatches: ", paste(mismatch_rows, collapse = ", "), "\n",
+                "To allow mismatches, set `allow_mismatch = TRUE`."
+            )
+        }
+    } else {
+        if (method == "exact") stop("run_em: Exact method isn't supported with mismatch")
     }
 
     object$method <- method
@@ -379,8 +386,8 @@ run_em <- function(object = NULL,
         initial_prob,
         maxiter,
         maxtime,
-        stop_threshold,
-        log_threshold,
+        param_threshold,
+        ll_threshold,
         verbose,
         as.integer(if (!is.null(object$samples)) object$samples else 3000),
         as.integer(if (!is.null(object$step_size)) object$step_size else 1000),
@@ -407,8 +414,8 @@ run_em <- function(object = NULL,
     # Add function arguments
     object$maxiter <- maxiter
     object$maxiter <- maxtime
-    object$stop_threshold <- stop_threshold
-    object$log_threshold <- log_threshold
+    object$param_threshold <- param_threshold
+    object$ll_threshold <- ll_threshold
     object$initial_prob <- initial_prob
 
     invisible(object) # Updates the object.
@@ -477,7 +484,7 @@ run_em <- function(object = NULL,
 #'     method = "mvn_pdf",
 #'     maxiter = 100,
 #'     maxtime = 15,
-#'     stop_threshold = 0.01
+#'     param_threshold = 0.01
 #' )
 #'
 #' print(model$sd)
@@ -527,14 +534,14 @@ bootstrap <- function(object = NULL,
     initial_prob <- if (!is.null(all_params$initial_prob)) all_params$initial_prob else "group_proportional"
     maxiter <- if (!is.null(all_params$maxiter)) all_params$maxiter else 1000
     maxtime <- if (!is.null(all_params$maxtime)) all_params$maxtime else 3600
-    stop_threshold <- if (!is.null(all_params$stop_threshold)) all_params$stop_threshold else 0.01
+    param_threshold <- if (!is.null(all_params$param_threshold)) all_params$param_threshold else 0.01
     verbose <- if (!is.null(all_params$verbose)) all_params$verbose else FALSE
 
     # R does a subtle type conversion when handing -Inf. Hence, we'll use a direct assignment
-    if ("log_threshold" %in% names(all_params)) {
-        log_threshold <- all_params$log_threshold
+    if ("ll_threshold" %in% names(all_params)) {
+        ll_threshold <- all_params$ll_threshold
     } else {
-        log_threshold <- as.double(-Inf)
+        ll_threshold <- as.double(-Inf)
     }
 
     # Handle method-specific defaults
@@ -567,8 +574,8 @@ bootstrap <- function(object = NULL,
         as.character(initial_prob),
         as.integer(maxiter),
         as.double(maxtime),
-        as.double(stop_threshold),
-        as.double(log_threshold),
+        as.double(param_threshold),
+        as.double(ll_threshold),
         as.logical(verbose),
         as.integer(step_size),
         as.integer(samples),
@@ -697,14 +704,14 @@ get_agg_proxy <- function(object = NULL,
     initial_prob <- if (!is.null(all_params$initial_prob)) all_params$initial_prob else "group_proportional"
     maxiter <- if (!is.null(all_params$maxiter)) all_params$maxiter else 1000
     maxtime <- if (!is.null(all_params$maxtime)) all_params$maxtime else 3600
-    stop_threshold <- if (!is.null(all_params$stop_threshold)) all_params$stop_threshold else 0.01
+    param_threshold <- if (!is.null(all_params$param_threshold)) all_params$param_threshold else 0.01
     verbose <- if (!is.null(all_params$verbose)) all_params$verbose else FALSE
 
     # R does a subtle type conversion when handing -Inf. Hence, we'll use a direct assignment
-    if ("log_threshold" %in% names(all_params)) {
-        log_threshold <- all_params$log_threshold
+    if ("ll_threshold" %in% names(all_params)) {
+        ll_threshold <- all_params$ll_threshold
     } else {
-        log_threshold <- as.double(-Inf)
+        ll_threshold <- as.double(-Inf)
     }
 
     # Handle method-specific defaults
@@ -739,8 +746,8 @@ get_agg_proxy <- function(object = NULL,
         as.character(initial_prob),
         as.integer(maxiter),
         as.double(maxtime),
-        as.double(stop_threshold),
-        as.double(log_threshold),
+        as.double(param_threshold),
+        as.double(ll_threshold),
         as.logical(verbose),
         as.integer(step_size),
         as.integer(samples),
@@ -753,14 +760,17 @@ get_agg_proxy <- function(object = NULL,
     if (!result$best_result || !feasible) {
         # Convert the 'W' matrix by merging columns
         # We add '2' to indices since it's originally 0-based.
-        col_groups <- split(seq_len(ncol(object$W)), findInterval(seq_len(ncol(object$W)), c(1, result$indices + 2)))
-        # Lambda function to add the columns
-        object$W_agg <- sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
-
+        if (result$indices[1] != -2) { # Case where the first iteration is the optimal
+            col_groups <- split(seq_len(ncol(object$W)), findInterval(seq_len(ncol(object$W)), c(1, result$indices + 2)))
+            # Lambda function to add the columns
+            object$W_agg <- sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
+            dimnames(object$W_agg) <- list(rownames(object$W))
+            if (result$indices[1] != -1) {
+                object$group_agg <- unique(result$indices + 1)
+            } # Use R's index system
+        }
         object$sd <- result$bootstrap_result
-        dimnames(object$sd) <- list(colnames(object$W), colnames(object$X))
-        object$nboot <- nboot
-        object$group_agg <- result$indices + 1 # Use R's index system
+        dimnames(object$sd) <- list(colnames(object$W_agg), colnames(object$X))
         object$sd_statistic <- sd_statistic
         object$sd_threshold <- sd_threshold
     }
@@ -853,14 +863,14 @@ get_agg_opt <- function(object = NULL,
     initial_prob <- if (!is.null(all_params$initial_prob)) all_params$initial_prob else "group_proportional"
     maxiter <- if (!is.null(all_params$maxiter)) all_params$maxiter else 1000
     maxtime <- if (!is.null(all_params$maxtime)) all_params$maxtime else 3600
-    stop_threshold <- if (!is.null(all_params$stop_threshold)) all_params$stop_threshold else 0.01
+    param_threshold <- if (!is.null(all_params$param_threshold)) all_params$param_threshold else 0.01
     verbose <- if (!is.null(all_params$verbose)) all_params$verbose else FALSE
 
     # R does a subtle type conversion when handing -Inf. Hence, we'll use a direct assignment
-    if ("log_threshold" %in% names(all_params)) {
-        log_threshold <- all_params$log_threshold
+    if ("ll_threshold" %in% names(all_params)) {
+        ll_threshold <- all_params$ll_threshold
     } else {
-        log_threshold <- as.double(-Inf)
+        ll_threshold <- as.double(-Inf)
     }
 
     # Handle method-specific defaults
@@ -894,8 +904,8 @@ get_agg_opt <- function(object = NULL,
         as.character(initial_prob),
         as.integer(maxiter),
         as.double(maxtime),
-        as.double(stop_threshold),
-        as.double(log_threshold),
+        as.double(param_threshold),
+        as.double(ll_threshold),
         as.logical(verbose),
         as.integer(step_size),
         as.integer(samples),
@@ -913,25 +923,25 @@ get_agg_opt <- function(object = NULL,
     col_groups <- split(seq_len(ncol(object$W)), findInterval(seq_len(ncol(object$W)), c(1, result$indices + 2)))
     # Lambda function to add the columns
     object$W_agg <- sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
-    dimnames(object$W_agg) <- list(colnames(object$W), colnames(object$W))
+    dimnames(object$W_agg) <- list(rownames(object$W))
     object$group_agg <- result$indices + 1 # Use R's index system
     object$prob <- as.matrix(result$probabilities)
-    dimnames(object$prob) <- list(colnames(object$W), colnames(object$X))
+    dimnames(object$prob) <- list(NULL, colnames(object$X))
     object$iterations <- as.numeric(result$total_iterations)
     object$logLik <- as.numeric(result$log_likelihood[object$iterations])
     object$time <- result$total_time
     object$message <- result$stopping_reason
     object$status <- as.integer(result$finish_id)
     object$cond_prob <- result$q
-    object$cond_prob <- aperm(result$q, perm = c(3, 2, 1)) # Correct dimensions
+    object$cond_prob <- aperm(result$q, perm = c(2, 3, 1)) # Correct dimensions
     dimnames(object$cond_prob) <- list(
-        colnames(object$W),
+        NULL,
         colnames(object$X),
         rownames(object$X)
     )
     object$method <- method
-    object$log_threshold <- log_threshold
-    object$stop_threshold <- stop_threshold
+    object$ll_threshold <- ll_threshold
+    object$param_threshold <- param_threshold
     object$maxtime <- maxtime
     object$maxiter <- maxiter
     object$initial_prob <- initial_prob
@@ -974,12 +984,19 @@ print.eim <- function(object, ...) {
     truncated_W <- (nrow(object$W) > 5)
 
     cat("Candidates' vote matrix (X) [b x c]:\n")
-    print(object$X[1:min(5, nrow(object$X)), ]) # nolint
+    print(object$X[1:min(5, nrow(object$X)), ], drop = FALSE) # nolint
     if (truncated_X) cat(".\n.\n.\n") else cat("\n")
 
     cat("Group-level voter matrix (W) [b x g]:\n")
-    print(object$W[1:min(5, nrow(object$W)), ]) # nolint
+    print(object$W_agg[1:min(5, nrow(object$W_agg)), , drop = FALSE])
     if (truncated_W) cat(".\n.\n.\n") else cat("\n")
+
+    if (!is.null(object$W_agg)) {
+        cat("Macro group-level voter matrix (W_agg) [b x a]:\n")
+        print(object$W_agg[1:min(5, nrow(object$W_agg)), ], drop = FALSE) # nolint
+        truncated_W_agg <- (nrow(object$W_agg) > 5)
+        if (truncated_W_agg) cat(".\n.\n.\n") else cat("\n")
+    }
 
     if (!is.null(object$method)) {
         cat("Estimated probability [g x c]:\n")

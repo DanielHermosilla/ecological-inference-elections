@@ -27,8 +27,10 @@
     }
 
     # Mismatch argument
-    if ("allow_mismatch" %in% names(args) && !is.logical(args$allow_mismatch)) {
-        stop("run_em: Invalid 'allow_mismatch'. It has to be a boolean")
+    if ("allow_mismatch" %in% names(args)) {
+        if (!is.logical(args$allow_mismatch)) {
+            stop("run_em: Invalid 'allow_mismatch'. It has to be a boolean")
+        }
     }
 
     # Method argument
@@ -51,9 +53,9 @@
         }
     }
 
-    if ("log_threshold" %in% names(args)) {
-        if (!is.infinite(args$log_threshold) && (!is.numeric(args$log_threshold) || args$log_threshold < 0)) { # Infinite are valid, skip this case
-            stop("Invalid 'log_threshold'. Must be a positive numeric or infinite value.")
+    if ("ll_threshold" %in% names(args)) {
+        if (!is.infinite(args$ll_threshold) && (!is.numeric(args$ll_threshold) || args$ll_threshold < 0)) { # Infinite are valid, skip this case
+            stop("Invalid 'll_threshold'. Must be a positive numeric or infinite value.")
         }
     }
 
@@ -64,12 +66,12 @@
     }
 
     # Stop threshold argument
-    if ("stop_threshold" %in% names(args)) {
-        if (!is.infinite(args$stop_threshold) && (!is.numeric(args$stop_threshold) || args$stop_threshold < 0)) {
-            stop("run_em: Invalid 'stop_threshold'. Must be a positive numeric or an infinite value.")
+    if ("param_threshold" %in% names(args)) {
+        if (!is.infinite(args$param_threshold) && (!is.numeric(args$param_threshold) || args$param_threshold < 0)) {
+            stop("run_em: Invalid 'param_threshold'. Must be a positive numeric or an infinite value.")
         }
-        if (args$stop_threshold >= 1) {
-            warning("Warning: A 'stop_threshold' greater or equal than one will always be true after the first iteration.")
+        if (args$param_threshold >= 1) {
+            warning("Warning: A 'param_threshold' greater or equal than one will always be true after the first iteration.")
         }
     }
 

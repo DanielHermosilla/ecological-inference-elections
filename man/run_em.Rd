@@ -12,8 +12,8 @@ run_em(
  allow_mismatch = FALSE,
  maxiter = 1000,
  maxtime = 3600,
- stop_threshold = 0.001,
- log_threshold = as.double(-Inf),
+ param_threshold = 0.001,
+ ll_threshold = as.double(-Inf),
  verbose = FALSE,
  ...
 )
@@ -56,11 +56,11 @@ The default value is \code{1000}.}
 \item{maxtime}{An optional numeric specifying the maximum running time (in seconds) for the
 algorithm. This is checked at every iteration of the EM algorithm. The default value is \code{3600}, which corresponds to an hour.}
 
-\item{stop_threshold}{An optional numeric value indicating the minimum difference between
-consecutive probability values required to stop iterating. The default value is \code{0.001}. Note that the algorithm will stop if either \code{log_threshold} \strong{or} \code{stop_threshold} is accomplished.}
+\item{param_threshold}{An optional numeric value indicating the minimum difference between
+consecutive probability values required to stop iterating. The default value is \code{0.001}. Note that the algorithm will stop if either \code{ll_threshold} \strong{or} \code{param_threshold} is accomplished.}
 
-\item{log_threshold}{An optional numeric value indicating the minimum difference between consecutive log-likelihood values to stop iterating. The default value is \code{inf}, essentially deactivating
-the threshold. Note that the algorithm will stop if either \code{log_threshold} \strong{or} \code{stop_threshold} is accomplished.}
+\item{ll_threshold}{An optional numeric value indicating the minimum difference between consecutive log-likelihood values to stop iterating. The default value is \code{inf}, essentially deactivating
+the threshold. Note that the algorithm will stop if either \code{ll_threshold} \strong{or} \code{param_threshold} is accomplished.}
 
 \item{verbose}{An optional boolean indicating whether to print informational messages during the EM
 iterations. The default value is \code{FALSE}.}
@@ -153,8 +153,8 @@ run_em(
     initial_prob = "uniform",
     maxiter = 10,
     maxtime = 600,
-    stop_threshold = 1e-3,
-    log_threshold = 1e-5,
+    param_threshold = 1e-3,
+    ll_threshold = 1e-5,
     verbose = TRUE
 )
 }
