@@ -387,9 +387,6 @@ double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params
     double *logArray = (double *)Calloc(TOTAL_BALLOTS, double);
     // --- ... --- //
 
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // --- For each ballot box
         // ---- Get the values of the Multivariate CDF that only depends on `b` ---- //
