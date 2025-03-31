@@ -146,18 +146,10 @@ will create two eim objects.</p>
 be done. First of all, we would like to know what’s the best group
 aggregation such that the log-likelihood is maximized. There’s usually a
 reward for aggregating groups within big districts.</p>
-<div class="figure" style="text-align: center">
-<img src="img%2FlogComparison.png" alt="Log-likelihood performance among different electoral districts" width="60%"><p class="caption">
-Log-likelihood performance among different electoral districts
-</p>
-</div>
+<p><img src="img%2FlogComparison.png"></p>
 <p>However, there’s a trade-off between the log-likelihood and standard
 deviation.</p>
-<div class="figure" style="text-align: center">
-<img src="img%2Ftradeoff.png" alt="Trade-off between log-likelihood and standard deviations" width="60%"><p class="caption">
-Trade-off between log-likelihood and standard deviations
-</p>
-</div>
+<p><img src="img%2Ftradeoff.png"></p>
 <p>Formally then, it would be of our best interest to find the best fit
 for creating macro-groups. We’ll use a greedy approach
 <code>get_agg_opt</code> and a heuristic approach
