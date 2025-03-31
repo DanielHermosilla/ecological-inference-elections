@@ -9,7 +9,7 @@
 #' The setting in which the documentation presents the Ecological Inference problem is an election context where for a set of ballot-boxes we observe (i) the votes obtained by each candidate and (ii) the number of voters of each demographic group (for example, these can be defined by age ranges or sex). See [Thraves, C. and Ubilla, P. (2024): *"A Fast Ecological Inference Algorithm for the R×C Case"*.](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834)
 #'
 #' The methods to compute the conditional probabilities of the E-Step included in this package are the following:
-#' - **Hit and Run** `(hnr)`: Performs MCMC to sample vote outcomes for each ballot-box consistent with the observed data. This sample is used to estimate the conditional probability of the *E*-Step.
+#' - **Markov Chain Monte Carlo** `(mcmc)`: Performs MCMC to sample vote outcomes for each ballot-box consistent with the observed data. This sample is used to estimate the conditional probability of the *E*-Step.
 #' - **Multivariate Normal PDF** `(mvn_pdf)`: Uses the PDF of a Multivariate Normal to approximate the conditional probability.
 #' - **Multivariate Normal CDF** `(mvn_cdf)`: Uses the CDF of a Multivariate Normal to approximate the conditional probability.
 #' - **Multinomial** `(mult)`: A single Multinomial is used to approximate the sum of Multinomial distributions.

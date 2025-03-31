@@ -198,7 +198,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' - `group_proportional`: Computes the probability matrix by taking into account both group and candidate proportions. This is the default method.
 #' - `random`: Use randomized values to fill the probability matrix.
 #'
-#' @param allow_mismatch Boolean, if `TRUE`, allows a mismatch between the voters and votes for each ballot-box, only works if method is `mvn_cdf`, `mvn_pdf`, and `mult`. If `FALSE`, throws an error if there is a mismatch. By default it is `FALSE`.
+#' @param allow_mismatch Boolean, if `TRUE`, allows a mismatch between the voters and votes for each ballot-box, only works if method is `mvn_cdf`, `mvn_pdf`, `mult` and `mcmc`. If `FALSE`, throws an error if there is a mismatch. By default it is `FALSE`.
 #'
 #' @param maxiter An optional integer indicating the maximum number of EM iterations.
 #'   The default value is `1000`.
@@ -593,9 +593,9 @@ bootstrap <- function(object = NULL,
 
 #' Runs the EM algorithm aggregating adjacent groups, maximizing the variability of macro-group allocation in ballot boxes.
 #'
-#' This function estimates the voting probabilities (computed with [run_em]) aggregating adjacent groups so that the estimated probabilities' standard deviation (computed with [bootstrap]) is below a given threshold. See **Details** for more information.
+#' This function estimates the voting probabilities (computed using [run_em]) aggregating adjacent groups so that the estimated probabilities' standard deviation (computed using [bootstrap]) is below a given threshold. See **Details** for more information.
 #'
-#' Groups need to have an order relation so that adjacent groups can be merged. In particular, groups of consecutive row indices in the matrix W are considered to be adjacent. For example, consider the following seven groups defined by voters' age ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, even for a fixed number of macro-groups, a Dynamic Program (DP) mechanism is used to find the group aggregation that maximizes the sum of the standard deviation of the macro-groups proportions among ballot boxes for a specific number of macro-groups.
+#' Groups need to have an order relation so that adjacent groups can be merged. For example, consider the following seven groups defined by voters' age ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, even for a fixed number of macro-groups, a Dynamic Program (DP) mechanism is used to find the group aggregation that maximizes the sum of the standard deviation of the macro-groups proportions among ballot boxes for a specific number of macro-groups.
 #'
 #' In order to find the best group aggregation, the function runs the DP iteratively, starting with all groups (this case is trivial since, in this case, the group aggregation is such that all macro-groups match exactly the original groups). If the standard deviation statistic is below a threshold, it stops. Otherwise, it runs the DP such that the number of macro-groups is one unit less than the original number of macro-groups. If the standard deviation statistic (`sd_statistic`) is below the threshold (`sd_threshold`), it stops. And so on until either the algorithm stops, or until the group aggregation composed of a single macro-group does not meet the stopping condition, in which case the output is the EM algorithm run over a single macro-group.
 #'
@@ -606,7 +606,8 @@ bootstrap <- function(object = NULL,
 #' @param sd_threshold Numeric with the value to use as a threshold for the statistic (`sc_statistic`) of the standard deviation of the estimated probabilities. Defaults to 0.05.
 #'
 #' @param feasible Logical indicating whether the returned matrix must strictly satisfy the `sd_threshold`.
-#' If FALSE, the function will return the closest match to the threshold in case convergence is not achieved.
+#' If FALSE, in case convergence
+#' is not achieved, group aggregation found whose standard deviation' statistic is the lowest one. The 'found' group aggregations are the (`g`) group aggregations obtained from the dynamic programming solution for each each case where the number of macro-groups is fixed.
 #'
 #' @inheritParams bootstrap
 #'
@@ -617,9 +618,12 @@ bootstrap <- function(object = NULL,
 #' @return
 #' It returns an eim object with the same attributes as the output of [run_em], plus the attributes:
 #'
-#' - **sd**: A `(g x a)` matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that `a` denotes the number of macro-groups of the resulting group aggregation, it should be between `2` and `g`.
+#' - **sd**: A `(g x a)` matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that `a` denotes the number of macro-groups of the resulting group aggregation, it should be between `1` and `g`.
+#' - **nboot**: Number of samples used for the [bootstrap] method.
+#' - **seed**: Random seed used (if specified).
 #' - **sd_statistic**: The statistic used as input.
 #' - **sd_threshold**: The threshold used as input.
+#' - **is_feasible**: Boolean indicating whether the solution is below the `sd_threshold`.
 #' - **group_agg**: Vector with the resulting group aggregation. See **Examples** for more details.
 #'
 #' Aditionally, it will create the `W_agg` attribute with the aggregated groups.
@@ -757,34 +761,36 @@ get_agg_proxy <- function(object = NULL,
     )
 
     # If the returned matrix isn't the best non-feasible result
+    # best_result <- TRUE if it's unfeasible
     if (!result$best_result || !feasible) {
         # Convert the 'W' matrix by merging columns
         # We add '2' to indices since it's originally 0-based.
-        if (result$indices[1] != -2) { # Case where the first iteration is the optimal
+        if (result$indices[1] != -2) { # Case where the first iteration is not the optimal
             col_groups <- split(seq_len(ncol(object$W)), findInterval(seq_len(ncol(object$W)), c(1, result$indices + 2)))
             # Lambda function to add the columns
             object$W_agg <- sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
             dimnames(object$W_agg) <- list(rownames(object$W))
-            if (result$indices[1] != -1) {
-                object$group_agg <- unique(result$indices + 1)
-            } # Use R's index system
+            # if (result$indices[1] != -1) {
+            object$group_agg <- unique(result$indices + 1)
+            # } # Use R's index system
         }
         object$sd <- result$bootstrap_result
         dimnames(object$sd) <- list(colnames(object$W_agg), colnames(object$X))
         object$sd_statistic <- sd_statistic
         object$sd_threshold <- sd_threshold
+        object$is_feasible <- !result$best_result
     }
 
     return(object)
 }
 
-#' Runs the EM algorithm over all possible group aggregations of adjacent groups, returning the one that maximizes the likelihood while constraining the standard deviation of the probabilities.
+#' Runs the EM algorithm **over all possible group aggregating**, returning the one with higher likelihood while constraining the standard deviation of the probabilities.
 #'
-#' This function estimates the voting probabilities (computed with [run_em]) by evaluating all group aggregations (of adjacent groups), choosing
-#' the one that achieves the higher likelihood as long as the standard deviation (computed with [bootstrap]) of the estimated probabilities
+#' This function estimates the voting probabilities (computed using [run_em]) by trying all group aggregations (of adjacent groups), choosing
+#' the one that achieves the higher likelihood as long as the standard deviation (computed using [bootstrap]) of the estimated probabilities
 #' is below a given threshold.
 #'
-#' Groups need to have an order relation so that adjacent groups can be merge. In particular, groups of consecutivGroups row indices in the matrix `W` are considered adjacent. For example, consider the following seven groups defined by voters' age
+#' Groups of consecutive row indices in the matrix `W` are considered adjacent. For example, consider the following seven groups defined by voters' age
 #' ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age
 #' ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, the method evaluates all possible group aggregations (merging only adjacent groups).
 #'
@@ -796,6 +802,8 @@ get_agg_proxy <- function(object = NULL,
 #' It returns an eim object with the same attributes as the output of [run_em], plus the attributes:
 #'
 #' - **sd**: A `(g x a)` matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that `a` denotes the number of macro-groups of the resulting group aggregation, it should be between `2` and `g`.
+#' - **nboot**: Number of samples used for the [bootstrap] method.
+#' - **seed**: Random seed used (if specified).
 #' - **sd_statistic**: The statistic used as input.
 #' - **sd_threshold**: The threshold used as input.
 #' - **group_agg**: Vector with the resulting group aggregation. See **Examples** for more details.
@@ -982,6 +990,8 @@ print.eim <- function(object, ...) {
     # Determine if truncation is needed
     truncated_X <- (nrow(object$X) > 5)
     truncated_W <- (nrow(object$W) > 5)
+    is_aggregated <- !is.null(object$W_agg)
+    dim <- if (is_aggregated) "a" else "g"
 
     cat("Candidates' vote matrix (X) [b x c]:\n")
     print(object$X[1:min(5, nrow(object$X)), ], drop = FALSE) # nolint
@@ -991,15 +1001,15 @@ print.eim <- function(object, ...) {
     print(object$W[1:min(5, nrow(object$W)), , drop = FALSE])
     if (truncated_W) cat(".\n.\n.\n") else cat("\n")
 
-    if (!is.null(object$W_agg)) {
+    if (is_aggregated) {
         cat("Macro group-level voter matrix (W_agg) [b x a]:\n")
-        print(object$W_agg[1:min(5, nrow(object$W_agg)), drop = FALSE]) # nolint
+        print(object$W_agg[1:min(5, nrow(object$W_agg)), , drop = FALSE])
         truncated_W_agg <- (nrow(object$W_agg) > 5)
         if (truncated_W_agg) cat(".\n.\n.\n") else cat("\n")
     }
 
     if (!is.null(object$method)) {
-        cat("Estimated probability [g x c]:\n")
+        cat(sprintf("Estimated probability [%s x c]:\n", dim))
         truncated_P <- (nrow(object$prob) > 5)
         print(round(object$prob[1:min(5, nrow(object$prob)), ], 3)) # nolint
         if (truncated_P) cat(".\n.\n.\n") else cat("\n")
@@ -1017,7 +1027,7 @@ print.eim <- function(object, ...) {
         cat("Log-likelihood:", tail(object$logLik, 1), "\n")
     }
     if (!is.null(object$sd)) {
-        cat("Standard deviation of the estimated error [g x c]:\n")
+        cat(sprintf("Standard deviation of the estimated probability matrix [%s x c]:\n", dim))
         truncated_boot <- (nrow(object$sd) > 5)
         print(round(object$sd[1:min(5, nrow(object$sd)), ], 3)) # nolint
         if (truncated_boot) cat(".\n.\n.\n") else cat("\n")

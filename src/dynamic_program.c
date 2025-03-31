@@ -426,12 +426,12 @@ Matrix aggregateGroups(
             if (verbose)
             {
                 Rprintf("Optimal actions:\t[");
-                for (int k = 0; k < i - 2; k++)
+                for (int k = 0; k < i - 1; k++)
                 {
                     // Sum 1 to the index for using R's indexing
                     Rprintf("%d, ", boundaries[k] + 1);
                 }
-                Rprintf("%d]\n", boundaries[i - 2] + 1);
+                Rprintf("%d]\n", boundaries[i - 1] + 1);
                 Rprintf("Objective function:\t%f\n", bestVal);
             }
             // ---- Calculate the bootstrap matrix according the cutting boundaries
@@ -447,20 +447,21 @@ Matrix aggregateGroups(
         }
         if (verbose)
         {
-            Rprintf("Bootstrapped matrix:\n");
+            Rprintf("Standard deviation of the estimated probability matrix:\n");
             printMatrix(&bootstrapMatrix);
             Rprintf("Threshold value:\t%.4f\n----------\n", quality);
         }
         // --- Case it converges
         if (quality <= set_threshold)
         {
-            for (int b = 0; b < i - 1 & i != 1; b++)
+            for (int b = 0; b < i & i != 1; b++)
             {
                 results[b] = boundaries[b];
             }
 
             // Border cases
-            *cuts = i == 1 ? -1 : i;
+            // *cuts = i == 1 ? -1 : i;
+            results[0] = i == 1 ? wmat->cols : results[0];
             *cuts = i == wmat->cols ? -2 : i;
 
             if (i != 1 & boundaries != NULL)
@@ -470,15 +471,17 @@ Matrix aggregateGroups(
         // --- Case it is a better candidate than before
         if (quality < bestValue)
         {
-            for (int b = 0; b < i - 1 & i != 1; b++)
+            for (int b = 0; b < i & i != 1; b++)
             {
                 results[b] = boundaries[b];
             }
             if (i != 1 & boundaries != NULL)
                 Free(boundaries);
             bestMatrix = bootstrapMatrix;
+            results[0] = i == 1 ? wmat->cols : results[0];
             // *cuts = i;
-            *cuts = i != 1 ? i : -1;
+            *cuts = i == wmat->cols ? -2 : i;
+            // *cuts = i != 1 ? i : -1;
             bestValue = quality;
         }
         else

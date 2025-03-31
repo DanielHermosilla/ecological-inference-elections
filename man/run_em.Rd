@@ -48,7 +48,7 @@ probability. Accepted values are:
 \item \code{random}: Use randomized values to fill the probability matrix.
 }}
 
-\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box, only works if method is \code{mvn_cdf}, \code{mvn_pdf}, and \code{mult}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{FALSE}.}
+\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box, only works if method is \code{mvn_cdf}, \code{mvn_pdf}, \code{mult} and \code{mcmc}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{FALSE}.}
 
 \item{maxiter}{An optional integer indicating the maximum number of EM iterations.
 The default value is \code{1000}.}

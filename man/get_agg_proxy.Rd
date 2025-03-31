@@ -31,7 +31,8 @@ get_agg_proxy(
 \item{sd_threshold}{Numeric with the value to use as a threshold for the statistic (\code{sc_statistic}) of the standard deviation of the estimated probabilities. Defaults to 0.05.}
 
 \item{feasible}{Logical indicating whether the returned matrix must strictly satisfy the \code{sd_threshold}.
-If FALSE, the function will return the closest match to the threshold in case convergence is not achieved.}
+If FALSE, in case convergence
+is not achieved, group aggregation found whose standard deviation' statistic is the lowest one. The 'found' group aggregations are the (\code{g}) group aggregations obtained from the dynamic programming solution for each each case where the number of macro-groups is fixed.}
 
 \item{nboot}{Integer specifying how many times to run the
 EM algorithm.}
@@ -43,19 +44,22 @@ EM algorithm.}
 \value{
 It returns an eim object with the same attributes as the output of \link{run_em}, plus the attributes:
 \itemize{
-\item \strong{sd}: A \verb{(g x a)} matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that \code{a} denotes the number of macro-groups of the resulting group aggregation, it should be between \code{2} and \code{g}.
+\item \strong{sd}: A \verb{(g x a)} matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that \code{a} denotes the number of macro-groups of the resulting group aggregation, it should be between \code{1} and \code{g}.
+\item \strong{nboot}: Number of samples used for the \link{bootstrap} method.
+\item \strong{seed}: Random seed used (if specified).
 \item \strong{sd_statistic}: The statistic used as input.
 \item \strong{sd_threshold}: The threshold used as input.
+\item \strong{is_feasible}: Boolean indicating whether the solution is below the \code{sd_threshold}.
 \item \strong{group_agg}: Vector with the resulting group aggregation. See \strong{Examples} for more details.
 }
 
 Aditionally, it will create the \code{W_agg} attribute with the aggregated groups.
 }
 \description{
-This function estimates the voting probabilities (computed with \link{run_em}) aggregating adjacent groups so that the estimated probabilities' standard deviation (computed with \link{bootstrap}) is below a given threshold. See \strong{Details} for more information.
+This function estimates the voting probabilities (computed using \link{run_em}) aggregating adjacent groups so that the estimated probabilities' standard deviation (computed using \link{bootstrap}) is below a given threshold. See \strong{Details} for more information.
 }
 \details{
-Groups need to have an order relation so that adjacent groups can be merged. In particular, groups of consecutive row indices in the matrix W are considered to be adjacent. For example, consider the following seven groups defined by voters' age ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, even for a fixed number of macro-groups, a Dynamic Program (DP) mechanism is used to find the group aggregation that maximizes the sum of the standard deviation of the macro-groups proportions among ballot boxes for a specific number of macro-groups.
+Groups need to have an order relation so that adjacent groups can be merged. For example, consider the following seven groups defined by voters' age ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, even for a fixed number of macro-groups, a Dynamic Program (DP) mechanism is used to find the group aggregation that maximizes the sum of the standard deviation of the macro-groups proportions among ballot boxes for a specific number of macro-groups.
 
 In order to find the best group aggregation, the function runs the DP iteratively, starting with all groups (this case is trivial since, in this case, the group aggregation is such that all macro-groups match exactly the original groups). If the standard deviation statistic is below a threshold, it stops. Otherwise, it runs the DP such that the number of macro-groups is one unit less than the original number of macro-groups. If the standard deviation statistic (\code{sd_statistic}) is below the threshold (\code{sd_threshold}), it stops. And so on until either the algorithm stops, or until the group aggregation composed of a single macro-group does not meet the stopping condition, in which case the output is the EM algorithm run over a single macro-group.
 }

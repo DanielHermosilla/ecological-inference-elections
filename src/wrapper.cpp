@@ -215,7 +215,7 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
                 sdResult.data,  // source
                 sdResult.rows * sdResult.cols * sizeof(double));
 
-    if (usedCuts == -1 || usedCuts == -2)
+    if (usedCuts == -2)
     {
         delete[] cuttingBuffer;
         return Rcpp::List::create(Rcpp::_["bootstrap_result"] = output, Rcpp::_["indices"] = usedCuts,

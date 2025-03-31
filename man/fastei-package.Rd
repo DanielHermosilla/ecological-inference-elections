@@ -17,7 +17,7 @@ The setting in which the documentation presents the Ecological Inference problem
 
 The methods to compute the conditional probabilities of the E-Step included in this package are the following:
 \itemize{
-\item \strong{Hit and Run} \code{(hnr)}: Performs MCMC to sample vote outcomes for each ballot-box consistent with the observed data. This sample is used to estimate the conditional probability of the \emph{E}-Step.
+\item \strong{Markov Chain Monte Carlo} \code{(mcmc)}: Performs MCMC to sample vote outcomes for each ballot-box consistent with the observed data. This sample is used to estimate the conditional probability of the \emph{E}-Step.
 \item \strong{Multivariate Normal PDF} \code{(mvn_pdf)}: Uses the PDF of a Multivariate Normal to approximate the conditional probability.
 \item \strong{Multivariate Normal CDF} \code{(mvn_cdf)}: Uses the CDF of a Multivariate Normal to approximate the conditional probability.
 \item \strong{Multinomial} \code{(mult)}: A single Multinomial is used to approximate the sum of Multinomial distributions.
