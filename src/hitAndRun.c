@@ -350,7 +350,7 @@ void precomputeLogGammas()
 void preComputeMultinomial()
 {
     // ---- Initialize space for storing all of the simulations ---- //
-    multinomialVals = Calloc(TOTAL_BALLOTS, double **);
+    multinomialVals = Calloc(TOTAL_BALLOTS, double *);
     // ---...--- //
     // ---- Compute the simulated combinations for each OmegaSet ---- //
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
