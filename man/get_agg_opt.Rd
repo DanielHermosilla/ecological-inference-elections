@@ -32,14 +32,14 @@ get_agg_opt(
 \item{nboot}{Integer specifying how many times to run the
 EM algorithm.}
 
-\item{seed}{If provided, overrides the current global seed. Defaults to \code{NULL}.}
+\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable is \code{initial_prob = random} or \code{method} is either \code{mcmc} or \code{mvn_cdf}.}
 
 \item{...}{Additional arguments passed to the \link{run_em} function that will execute the EM algorithm.}
 }
 \value{
 It returns an eim object with the same attributes as the output of \link{run_em}, plus the attributes:
 \itemize{
-\item \strong{sd}: A \verb{(g x a)} matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that \code{a} denotes the number of macro-groups of the resulting group aggregation, it should be between \code{2} and \code{g}.
+\item \strong{sd}: A \verb{(a x c)} matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that \code{a} denotes the number of macro-groups of the resulting group aggregation, it should be between \code{1} and \code{g}.
 \item \strong{nboot}: Number of samples used for the \link{bootstrap} method.
 \item \strong{seed}: Random seed used (if specified).
 \item \strong{sd_statistic}: The statistic used as input.

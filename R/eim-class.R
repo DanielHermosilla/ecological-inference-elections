@@ -234,6 +234,8 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' @param mc_samples An optional integer specifying the number of Monte Carlo
 #'   samples for the `mvn_cdf` method. The default value is `5000`. This argument is only applicable when `method = mvn_cdf`.
 #'
+#' @param seed An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable is `initial_prob = random` or `method` is either `mcmc` or `mvn_cdf`.
+#'
 #' @references
 #' [Thraves, C. and Ubilla, P.: *"Fast Ecological Inference Algorithm for the R×C Case"*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834). Aditionally, the MVN CDF is computed by the methods introduced in [Genz, A. (2000). Numerical computation of multivariate normal probabilities. *Journal of Computational and Graphical Statistics*](https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities)
 #'
@@ -595,9 +597,9 @@ bootstrap <- function(object = NULL,
 #'
 #' This function estimates the voting probabilities (computed using [run_em]) aggregating adjacent groups so that the estimated probabilities' standard deviation (computed using [bootstrap]) is below a given threshold. See **Details** for more information.
 #'
-#' Groups need to have an order relation so that adjacent groups can be merged. For example, consider the following seven groups defined by voters' age ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, even for a fixed number of macro-groups, a Dynamic Program (DP) mechanism is used to find the group aggregation that maximizes the sum of the standard deviation of the macro-groups proportions among ballot boxes for a specific number of macro-groups.
+#' Groups need to have an order relation so that adjacent groups can be merged. For example, consider the following seven groups defined by voters' age ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, even for a fixed number of macro-groups, a Dynamic Program (DP) mechanism is used to find the group aggregation that maximizes the sum of the standard deviation of the macro-groups proportions among ballot boxes for a specific number of macro-groups. If no group aggregation standard deviation statistic meets the threshold condition, `NULL` is returned.
 #'
-#' In order to find the best group aggregation, the function runs the DP iteratively, starting with all groups (this case is trivial since, in this case, the group aggregation is such that all macro-groups match exactly the original groups). If the standard deviation statistic is below a threshold, it stops. Otherwise, it runs the DP such that the number of macro-groups is one unit less than the original number of macro-groups. If the standard deviation statistic (`sd_statistic`) is below the threshold (`sd_threshold`), it stops. And so on until either the algorithm stops, or until the group aggregation composed of a single macro-group does not meet the stopping condition, in which case the output is the EM algorithm run over a single macro-group.
+#' To find the best group aggregation, the function runs the DP iteratively, starting with all groups (this case is trivial since the group aggregation is such that all macro-groups match exactly the original groups). If the standard deviation statistic (`sd_statistic`) is below the threshold (`sd_threshold`), it stops. Otherwise, it runs the DP such that the number of macro-groups is one unit less than the original number of macro-groups. If the standard deviation statistic is below the threshold, it stops. This continues until either the algorithm stops, or until no group aggregation obtained by the DP satisfies the threshold condition. If the former holds, then the last group aggregation obtained (before stopping) is returned; while if the latter holds, then no output is returned unless the user sets the input parameter `feasible=FALSE`, in which case it returns the group aggregation that has the least standard deviation statistic, among the group-aggregations obtained from the DP.
 #'
 #' @param object An object of class `eim`, which can be created using the [eim] function. This parameter should not be used if either (i) `X` and `W` matrices or (ii) `json_path` is supplied. See **Note** in [run_em].
 #'
@@ -606,8 +608,7 @@ bootstrap <- function(object = NULL,
 #' @param sd_threshold Numeric with the value to use as a threshold for the statistic (`sc_statistic`) of the standard deviation of the estimated probabilities. Defaults to 0.05.
 #'
 #' @param feasible Logical indicating whether the returned matrix must strictly satisfy the `sd_threshold`.
-#' If FALSE, in case convergence
-#' is not achieved, group aggregation found whose standard deviation' statistic is the lowest one. The 'found' group aggregations are the (`g`) group aggregations obtained from the dynamic programming solution for each each case where the number of macro-groups is fixed.
+#' If `TRUE`, no output is returned if the method does not find a group aggregation whose standard deviation statistic is below the threshold. If `FALSE` and the latter holds, it returns the group aggregation obtained from the DP withe the lowest standard deviation statistic. See **Details** for more information.
 #'
 #' @inheritParams bootstrap
 #'
@@ -618,12 +619,12 @@ bootstrap <- function(object = NULL,
 #' @return
 #' It returns an eim object with the same attributes as the output of [run_em], plus the attributes:
 #'
-#' - **sd**: A `(g x a)` matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that `a` denotes the number of macro-groups of the resulting group aggregation, it should be between `1` and `g`.
+#' - **sd**: A `(a x c)` matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that `a` denotes the number of macro-groups of the resulting group aggregation, it should be between `1` and `g`.
 #' - **nboot**: Number of samples used for the [bootstrap] method.
 #' - **seed**: Random seed used (if specified).
 #' - **sd_statistic**: The statistic used as input.
 #' - **sd_threshold**: The threshold used as input.
-#' - **is_feasible**: Boolean indicating whether the solution is below the `sd_threshold`.
+#' - **is_feasible**:  Boolean indicating whether the statistic of the standard deviation matrix is below the threshold.
 #' - **group_agg**: Vector with the resulting group aggregation. See **Examples** for more details.
 #'
 #' Aditionally, it will create the `W_agg` attribute with the aggregated groups.
@@ -801,7 +802,7 @@ get_agg_proxy <- function(object = NULL,
 #' @return
 #' It returns an eim object with the same attributes as the output of [run_em], plus the attributes:
 #'
-#' - **sd**: A `(g x a)` matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that `a` denotes the number of macro-groups of the resulting group aggregation, it should be between `2` and `g`.
+#' - **sd**: A `(a x c)` matrix with the standard deviation of the estimated probabilities computed with bootstrapping. Note that `a` denotes the number of macro-groups of the resulting group aggregation, it should be between `1` and `g`.
 #' - **nboot**: Number of samples used for the [bootstrap] method.
 #' - **seed**: Random seed used (if specified).
 #' - **sd_statistic**: The statistic used as input.
