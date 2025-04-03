@@ -36,7 +36,7 @@ If \code{TRUE}, no output is returned if the method does not find a group aggreg
 \item{nboot}{Integer specifying how many times to run the
 EM algorithm.}
 
-\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable is \code{initial_prob = random} or \code{method} is either \code{mcmc} or \code{mvn_cdf}.}
+\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = random} or \code{method} is either \code{mcmc} or \code{mvn_cdf}.}
 
 \item{...}{Additional arguments passed to the \link{run_em} function that will execute the EM algorithm.}
 }
@@ -69,18 +69,22 @@ simulations <- simulate_election(
     num_candidates = 3,
     num_groups = 6,
     group_proportions = c(0.4, 0.1, 0.1, 0.1, 0.2, 0.1),
-    lambda = 0.7
+    lambda = 0.7,
+    seed = 42
 )
 
 result <- get_agg_proxy(
     X = simulations$X,
     W = simulations$W,
-    sd_threshold = 0.01
+    sd_threshold = 0.015,
+    seed = 42
 )
 
-result$group_agg # c(2, 6)
-# This would mean that the ideal group aggregation would
-# be {[1, 2], [3, 6]}
+result$group_agg # c(2 6)
+# This means that the resulting group aggregation is conformed by
+# two macro-groups: one that has the original groups 1 and 2; and
+# a second that has the original groups 3, 4, 5, and 6:
+# {[1, 2], [3, 6]}
 
 # Example 2: Using the chilean election results
 data(chile_election_2021)
@@ -101,12 +105,14 @@ W <- as.matrix(niebla_df[, c(
 solution <- get_agg_proxy(
     X = X, W = W,
     allow_mismatch = TRUE, sd_threshold = 0.03,
-    sd_statistic = "average", nboot = 100
+    sd_statistic = "average", nboot = 100, seed = 42
 )
 
-solution$group_agg # c(3, 4, 5, 6, 7)
-# This would mean that the ideal group aggregation would
-# be {[1, 3], [4], [5], [6], [7, 8]}
+solution$group_agg # c(3, 4, 5, 6, 8)
+# This means that the resulting group aggregation consists of
+# five macro-groups: one that includes the original groups 1, 2, and 3;
+# three singleton groups (4, 5, and 6); and one macro-group that includes groups 7 and 8.
+# {[1, 2, 3], [4], [5], [6], [7, 8]}
 
 }
 \seealso{

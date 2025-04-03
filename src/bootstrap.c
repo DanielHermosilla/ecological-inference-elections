@@ -99,6 +99,14 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
     int bdim = wmat->rows;
     int samples = bdim * bootiter;
     int matsize = wmat->cols * xmat->rows;
+
+    // ---- Border case
+    if (bdim == 1)
+    {
+        Matrix infMat = createMatrix(wmat->cols, xmat->rows);
+        fillMatrix(&infMat, 0);
+        return infMat;
+    }
     // ---- Generate the indices for bootstrap ---- //
     int *indices = Calloc(bdim * bootiter, int);
     GetRNGstate();

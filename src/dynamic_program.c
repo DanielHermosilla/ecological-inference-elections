@@ -460,9 +460,8 @@ Matrix aggregateGroups(
             }
 
             // Border cases
-            // *cuts = i == 1 ? -1 : i;
-            results[0] = i == 1 ? wmat->cols : results[0];
-            *cuts = i == wmat->cols ? -2 : i;
+            *cuts = i;
+            results[0] = i == 1 ? wmat->cols - 1 : results[0];
 
             if (i != 1 & boundaries != NULL)
                 Free(boundaries);
@@ -478,10 +477,8 @@ Matrix aggregateGroups(
             if (i != 1 & boundaries != NULL)
                 Free(boundaries);
             bestMatrix = bootstrapMatrix;
-            results[0] = i == 1 ? wmat->cols : results[0];
-            // *cuts = i;
-            *cuts = i == wmat->cols ? -2 : i;
-            // *cuts = i != 1 ? i : -1;
+            results[0] = i == 1 ? wmat->cols - 1 : results[0];
+            *cuts = i;
             bestValue = quality;
         }
         else
@@ -550,8 +547,13 @@ static void enumerateAllPartitions(int start, const int G, int *currentBoundarie
     {
         // ---- Build the matrix according the partition
         // ---- Comment this line IF we want to account the matrix of group size 1
-        if (currentSize == 1)
+        if (currentSize == 1 && strcmp(q_method, "mult") != 0)
+        {
             return;
+        }
+        else if (currentSize == 0)
+            return;
+
         Matrix merged = mergeColumns(wmat, currentBoundaries, currentSize);
 
         // ---- Run the EM Algorithm
@@ -591,13 +593,21 @@ static void enumerateAllPartitions(int start, const int G, int *currentBoundarie
             Matrix bootstrapedMat =
                 testBootstrap(&qual, set_method, xmat, wmat, currentBoundaries, currentSize, bootiter, q_method,
                               p_method, convergence, log_convergence, maxIter, maxSeconds, inputParams);
-            freeMatrix(&bootstrapedMat);
+            // freeMatrix(&bootstrapedMat);
 
-            // TODO: ver condicion de calidad
             if (qual > max_qual)
+            {
+                freeMatrix(&bootstrapedMat);
                 goto notBestValue;
+            }
 
             // -- Free previous best data if it exists -- //
+            if (g_bootstrap != NULL)
+            {
+                // freeMatrix(&bootstrapedMat);
+                Free(g_bootstrap);
+                g_bootstrap = NULL;
+            }
             if (g_bestMat != NULL)
             {
                 freeMatrix(g_bestMat);
@@ -623,7 +633,10 @@ static void enumerateAllPartitions(int start, const int G, int *currentBoundarie
             g_besttime = timeUsed;
             g_bestIterTotal = totalIter;
             g_bestMat = (Matrix *)Calloc(1, Matrix);
+            g_bootstrap = (Matrix *)Calloc(1, Matrix);
             *g_bestMat = finalP; // shallow copy of the struct, since it's on the stack buffer
+            *g_bootstrap = copyMatrix(&bootstrapedMat);
+            freeMatrix(&bootstrapedMat);
             // g_bestq = qvals;
             qvals = NULL; // so we don't free it below if it's our best
 
@@ -643,8 +656,8 @@ static void enumerateAllPartitions(int start, const int G, int *currentBoundarie
             }
             if (verbose)
             {
-                Rprintf("- Candidate group size: %d\n- Candidate time: %f\n- Candidate total iterations: %d\n- "
-                        "Candidate finish reason: %d\n- Candidate probability matrix:\n",
+                Rprintf("- Feasible group size: %d\n- Feasible time: %f\n- Feasible total iterations: %d\n- "
+                        "Feasible finish reason: %d\n- Feasible probability matrix:\n",
                         g_bestGroupCount, g_besttime, g_bestIterTotal, g_bestFinishReason);
                 printMatrix(g_bestMat);
                 Rprintf("----------\n");
@@ -705,7 +718,8 @@ Matrix aggregateGroupsExhaustive(
     double maxSeconds, QMethodInput inputParams,
 
     // ---- Out parameters
-    double *outBestLL, double **outBestQ, double *outBestTime, int *outFinishReason, int *outIterTotal)
+    double *outBestLL, double **outBestQ, Matrix **bestBootstrap, double *outBestTime, int *outFinishReason,
+    int *outIterTotal)
 {
     const int G = wmat->cols;
 
@@ -779,6 +793,10 @@ Matrix aggregateGroupsExhaustive(
     {
         *outBestTime = g_besttime;
     }
+    if (bestBootstrap)
+    {
+        *bestBootstrap = g_bootstrap;
+    }
     if (outFinishReason)
     {
         *outFinishReason = g_bestFinishReason;
@@ -793,6 +811,7 @@ Matrix aggregateGroupsExhaustive(
     Free(g_bestBoundaries);
     g_bestBoundaries = NULL;
     g_bestGroupCount = 0;
+    g_bootstrap = NULL;
     Matrix returnMat = copyMatrix(g_bestMat);
     freeMatrix(g_bestMat);
 

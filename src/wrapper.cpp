@@ -215,12 +215,14 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
                 sdResult.data,  // source
                 sdResult.rows * sdResult.cols * sizeof(double));
 
+    /*
     if (usedCuts == -2)
     {
         delete[] cuttingBuffer;
         return Rcpp::List::create(Rcpp::_["bootstrap_result"] = output, Rcpp::_["indices"] = usedCuts,
                                   Rcpp::_["best_result"] = bestResult);
     }
+    */
 
     // Convert to R's integer vector
     Rcpp::IntegerVector result(usedCuts);
@@ -275,6 +277,7 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
     int G = WR.cols;
     int *boundaries = new int[G - 1];
     int numCuts = 0;
+    Matrix *bestBootstrap = NULL;
 
     QMethodInput inputParams =
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], monte_method);
@@ -282,7 +285,7 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
     Matrix greedyP = aggregateGroupsExhaustive(
         &XR, &WR, boundaries, &numCuts, set_method.c_str(), nboot[0], sd_threshold[0], probabilityM.c_str(),
         EMAlg.c_str(), stopping_threshold[0], log_stopping_threshold[0], verbose[0], maximum_iterations[0],
-        maximum_seconds[0], inputParams, &bestLogLL, &bestQ, &bestTime, &finishReason, &totalIter);
+        maximum_seconds[0], inputParams, &bestLogLL, &bestQ, &bestBootstrap, &bestTime, &finishReason, &totalIter);
 
     if (numCuts == 0) // Case where there's not any match
     {
@@ -303,12 +306,19 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
                 greedyP.data,          // source
                 greedyP.rows * greedyP.cols * sizeof(double));
 
+    Rcpp::NumericMatrix bootstrapSol(bestBootstrap->rows, bestBootstrap->cols);
+
+    std::memcpy(bootstrapSol.begin(), // where to copy
+                bestBootstrap->data,  // source
+                bestBootstrap->rows * bestBootstrap->cols * sizeof(double));
+
     Rcpp::NumericVector condProb(WR.rows * greedyP.rows * XR.rows); // b x g x c
     std::memcpy(condProb.begin(), bestQ, WR.rows * greedyP.rows * XR.rows * sizeof(double));
 
     condProb.attr("dim") = Rcpp::IntegerVector::create(WR.rows, greedyP.rows, XR.rows); // (b, A, c)
     free(bestQ);
     freeMatrix(&greedyP);
+    freeMatrix(bestBootstrap);
     freeMatrix(&XR);
     freeMatrix(&WR);
 
@@ -324,5 +334,6 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
     return Rcpp::List::create(Rcpp::_["probabilities"] = probabilities, Rcpp::_["log_likelihood"] = bestLogLL,
                               Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = bestTime,
                               Rcpp::_["stopping_reason"] = stopping_reason, Rcpp::_["finish_id"] = finishReason,
-                              Rcpp::_["q"] = condProb, Rcpp::_["indices"] = result);
+                              Rcpp::_["q"] = condProb, Rcpp::_["indices"] = result,
+                              Rcpp::_["bootstrap_sol"] = bootstrapSol);
 }

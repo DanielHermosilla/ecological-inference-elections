@@ -234,7 +234,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' @param mc_samples An optional integer specifying the number of Monte Carlo
 #'   samples for the `mvn_cdf` method. The default value is `5000`. This argument is only applicable when `method = mvn_cdf`.
 #'
-#' @param seed An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable is `initial_prob = random` or `method` is either `mcmc` or `mvn_cdf`.
+#' @param seed An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if `initial_prob = random` or `method` is either `mcmc` or `mvn_cdf`.
 #'
 #' @references
 #' [Thraves, C. and Ubilla, P.: *"Fast Ecological Inference Algorithm for the R×C Case"*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834). Aditionally, the MVN CDF is computed by the methods introduced in [Genz, A. (2000). Numerical computation of multivariate normal probabilities. *Journal of Computational and Graphical Statistics*](https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities)
@@ -636,18 +636,22 @@ bootstrap <- function(object = NULL,
 #'     num_candidates = 3,
 #'     num_groups = 6,
 #'     group_proportions = c(0.4, 0.1, 0.1, 0.1, 0.2, 0.1),
-#'     lambda = 0.7
+#'     lambda = 0.7,
+#'     seed = 42
 #' )
 #'
 #' result <- get_agg_proxy(
 #'     X = simulations$X,
 #'     W = simulations$W,
-#'     sd_threshold = 0.01
+#'     sd_threshold = 0.015,
+#'     seed = 42
 #' )
 #'
-#' result$group_agg # c(2, 6)
-#' # This would mean that the ideal group aggregation would
-#' # be {[1, 2], [3, 6]}
+#' result$group_agg # c(2 6)
+#' # This means that the resulting group aggregation is conformed by
+#' # two macro-groups: one that has the original groups 1 and 2; and
+#' # a second that has the original groups 3, 4, 5, and 6:
+#' # {[1, 2], [3, 6]}
 #'
 #' # Example 2: Using the chilean election results
 #' data(chile_election_2021)
@@ -668,12 +672,14 @@ bootstrap <- function(object = NULL,
 #' solution <- get_agg_proxy(
 #'     X = X, W = W,
 #'     allow_mismatch = TRUE, sd_threshold = 0.03,
-#'     sd_statistic = "average", nboot = 100
+#'     sd_statistic = "average", nboot = 100, seed = 42
 #' )
 #'
-#' solution$group_agg # c(3, 4, 5, 6, 7)
-#' # This would mean that the ideal group aggregation would
-#' # be {[1, 3], [4], [5], [6], [7, 8]}
+#' solution$group_agg # c(3, 4, 5, 6, 8)
+#' # This means that the resulting group aggregation consists of
+#' # five macro-groups: one that includes the original groups 1, 2, and 3;
+#' # three singleton groups (4, 5, and 6); and one macro-group that includes groups 7 and 8.
+#' # {[1, 2, 3], [4], [5], [6], [7, 8]}
 #'
 #' @export
 get_agg_proxy <- function(object = NULL,
@@ -766,15 +772,13 @@ get_agg_proxy <- function(object = NULL,
     if (!result$best_result || !feasible) {
         # Convert the 'W' matrix by merging columns
         # We add '2' to indices since it's originally 0-based.
-        if (result$indices[1] != -2) { # Case where the first iteration is not the optimal
-            col_groups <- split(seq_len(ncol(object$W)), findInterval(seq_len(ncol(object$W)), c(1, result$indices + 2)))
-            # Lambda function to add the columns
-            object$W_agg <- sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
-            dimnames(object$W_agg) <- list(rownames(object$W))
-            # if (result$indices[1] != -1) {
-            object$group_agg <- unique(result$indices + 1)
-            # } # Use R's index system
-        }
+        col_groups <- split(seq_len(ncol(object$W)), findInterval(seq_len(ncol(object$W)), c(1, result$indices + 2)))
+        # Lambda function to add the columns
+        object$W_agg <- sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
+        dimnames(object$W_agg) <- list(rownames(object$W))
+        # if (result$indices[1] != -1) {
+        object$group_agg <- unique(result$indices + 1)
+        # } # Use R's index system
         object$sd <- result$bootstrap_result
         dimnames(object$sd) <- list(colnames(object$W_agg), colnames(object$X))
         object$sd_statistic <- sd_statistic
@@ -937,11 +941,13 @@ get_agg_opt <- function(object = NULL,
     object$prob <- as.matrix(result$probabilities)
     dimnames(object$prob) <- list(NULL, colnames(object$X))
     object$iterations <- as.numeric(result$total_iterations)
-    object$logLik <- as.numeric(result$log_likelihood[object$iterations])
+    object$logLik <- as.numeric(result$log_likelihood)
     object$time <- result$total_time
     object$message <- result$stopping_reason
     object$status <- as.integer(result$finish_id)
     object$cond_prob <- result$q
+    object$sd <- result$bootstrap_sol
+    dimnames(object$sd) <- dimnames(object$prob)
     object$cond_prob <- aperm(result$q, perm = c(2, 3, 1)) # Correct dimensions
     dimnames(object$cond_prob) <- list(
         NULL,
@@ -992,6 +998,7 @@ print.eim <- function(object, ...) {
     truncated_X <- (nrow(object$X) > 5)
     truncated_W <- (nrow(object$W) > 5)
     is_aggregated <- !is.null(object$W_agg)
+    is_method <- !is.null(object$method)
     dim <- if (is_aggregated) "a" else "g"
 
     cat("Candidates' vote matrix (X) [b x c]:\n")
@@ -999,21 +1006,30 @@ print.eim <- function(object, ...) {
     if (truncated_X) cat(".\n.\n.\n") else cat("\n")
 
     cat("Group-level voter matrix (W) [b x g]:\n")
-    print(object$W[1:min(5, nrow(object$W)), , drop = FALSE])
+    print(object$W[1:min(5, nrow(object$W)), , drop = FALSE]) # nolint
     if (truncated_W) cat(".\n.\n.\n") else cat("\n")
 
     if (is_aggregated) {
         cat("Macro group-level voter matrix (W_agg) [b x a]:\n")
-        print(object$W_agg[1:min(5, nrow(object$W_agg)), , drop = FALSE])
+        print(object$W_agg[1:min(5, nrow(object$W_agg)), , drop = FALSE]) # nolint
         truncated_W_agg <- (nrow(object$W_agg) > 5)
         if (truncated_W_agg) cat(".\n.\n.\n") else cat("\n")
     }
 
-    if (!is.null(object$method)) {
+    if (is_method) {
         cat(sprintf("Estimated probability [%s x c]:\n", dim))
         truncated_P <- (nrow(object$prob) > 5)
         print(round(object$prob[1:min(5, nrow(object$prob)), ], 3)) # nolint
         if (truncated_P) cat(".\n.\n.\n") else cat("\n")
+    }
+    # Consider showing matrices first
+    if (!is.null(object$sd)) {
+        cat(sprintf("Standard deviation of the estimated probability matrix [%s x c]:\n", dim))
+        truncated_boot <- (nrow(object$sd) > 5)
+        print(round(object$sd[1:min(5, nrow(object$sd)), ], 3)) # nolint
+        if (truncated_boot) cat(".\n.\n.\n") else cat("\n")
+    }
+    if (is_method) {
         cat("Method:\t", object$method, "\n")
         if (object$method == "mcmc") {
             cat("Step size (M):", object$step_size, "\n")
@@ -1026,12 +1042,6 @@ print.eim <- function(object, ...) {
         cat("Total Iterations:", object$iterations, "\n")
         cat("Total Time (s):", object$time, "\n")
         cat("Log-likelihood:", tail(object$logLik, 1), "\n")
-    }
-    if (!is.null(object$sd)) {
-        cat(sprintf("Standard deviation of the estimated probability matrix [%s x c]:\n", dim))
-        truncated_boot <- (nrow(object$sd) > 5)
-        print(round(object$sd[1:min(5, nrow(object$sd)), ], 3)) # nolint
-        if (truncated_boot) cat(".\n.\n.\n") else cat("\n")
     }
 }
 

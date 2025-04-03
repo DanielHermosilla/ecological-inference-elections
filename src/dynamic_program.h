@@ -65,7 +65,8 @@ extern "C"
                                      int bootiter, double max_qual, const char *p_method, const char *q_method,
                                      double convergence, double log_convergence, bool verbose, int maxIter,
                                      double maxSeconds, QMethodInput inputParams, double *outBestLL, double **outBestQ,
-                                     double *outBestTime, int *outFinishReason, int *outIterTotal);
+                                     Matrix **bestBootstrap, double *outBestTime, int *outFinishReason,
+                                     int *outIterTotal);
 #ifdef __cplusplus
 }
 #endif

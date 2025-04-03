@@ -32,7 +32,7 @@ get_agg_opt(
 \item{nboot}{Integer specifying how many times to run the
 EM algorithm.}
 
-\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable is \code{initial_prob = random} or \code{method} is either \code{mcmc} or \code{mvn_cdf}.}
+\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = random} or \code{method} is either \code{mcmc} or \code{mvn_cdf}.}
 
 \item{...}{Additional arguments passed to the \link{run_em} function that will execute the EM algorithm.}
 }
