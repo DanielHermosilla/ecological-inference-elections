@@ -3,7 +3,7 @@ pkgdown: 2.1.1
 pkgdown_sha: ~
 articles:
   demonstration: demonstration.html
-last_built: 2025-04-02T17:52Z
+last_built: 2025-04-03T19:15Z
 urls:
   reference: https://danielhermosilla.github.io/ecological-inference-elections/reference
   article: https://danielhermosilla.github.io/ecological-inference-elections/articles
