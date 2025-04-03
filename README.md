@@ -1,219 +1,40 @@
-# Estructura del repositorio 
+# *Methods for "A Fast Ecological Inference Algorithm for the $R\times C$ case".*
 
-El repositorio tiene la siguiente estructura:
+The following library includes a method (`run_em`) to solve the R×C Ecological Inference problem for the non-parametric case by using the EM algorithm with different approximation methods for the E-Step. The standard deviation of the estimated probabilities can be computed using bootstrapping (bootstrap).
 
-```
-.
-├── DESCRIPTION
-├── NAMESPACE
-├── main.R
-└── src
-    ├── CMakeLists.txt
-    ├── Makefile
-    ├── analyzeResults.py
-    ├── compile_commands.json
-    ├── exact.c
-    ├── exact.h
-    ├── globals.h
-    ├── hitAndRun.c
-    ├── hitAndRun.h
-    ├── main.c
-    ├── main.h
-    ├── matrixUtils.c
-    ├── matrixUtils.h
-    ├── multinomial.c
-    ├── multinomial.h
-    ├── multivariate-cdf.c
-    ├── multivariate-cdf.h
-    ├── multivariate-pdf.c
-    ├── multivariate-pdf.h
-    ├── tests
-    │   ├── compile_commands.json
-    │   └── test-matrixUtils.c
-    └── utils
-        ├── combinations.c
-        ├── combinations.h
-        ├── fileutils.c
-        ├── fileutils.h
-        ├── instanceGenerator.c
-        ├── instanceGenerator.h
-        ├── matrixUtils.c
-        ├── matrixUtils.h
-        ├── memoizationUtil.c
-        ├── memoizationUtil.h
-        ├── multivariateUtils.c
-        ├── multivariateUtils.h
-        └── uthash.h
+It also provides a function that generates synthetic election data (`simulate_election`) and a function that imports real election data (`chilean_election_2021`) from the Chilean first-round presidential election of 2021.
 
-4 directories, 37 files
-```
-Como forma generalizada, se tiene que: 
+The setting in which the documentation presents the Ecological Inference problem is an election context where for a set of ballot-boxes we observe (i) the votes obtained by each candidate and (ii) the number of voters of each demographic group (for example, these can be defined by age ranges or sex). See [Thraves, C. and Ubilla, P. (2024): "A Fast Ecological Inference Algorithm for the R×C Case".](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834).
 
-- `src`: Directorio con todo el código fuente a compilar. Ahí está todo el código `.c` y `.h`. Además, tiene un archivo `analyzeResults.py` para analizar los resultados.
+The methods to compute the conditional probabilities of the E-Step included in this package are the following:
 
-- `instances`: Directorio con todas las instancias en formato `.json`. 
+- **Markov Chain Monte Carlo** (`mcmc`): Performs MCMC to sample vote outcomes for each ballot-box consistent with the observed data. This sample is used to estimate the conditional probability of the E-Step.
 
-# Compilación
+- **Multivariate Normal PDF** (`mvn_pdf`): Uses the PDF of a Multivariate Normal to approxi- mate the conditional probability.
 
-## Repositorio
+- **Multivariate Normal CDF** (`mvn_cdf`): Uses the CDF of a Multivariate Normal to approxi- mate the conditional probability.
 
-Si es primera vez que utilizamos el repositorio, corremos: 
+- **Multinomial** (`mult`): A single Multinomial is used to approximate the sum of Multinomial distributions.
 
-```
-git clone https://github.com/DanielHermosilla/ecological-inference-elections.git 
-```
-Si queremos actualizarlo con los últimos cambios: 
+- **Exact** (`exact`): Solves the E-Step exactly using the Total Probability Law, which requires enumerating an exponential number of terms.
 
-```
-git fetch --all 
+On average, the Multinomial method is the most efficient and precise. Its precision matches the Exact method.
+
+The documentation uses the following notation:
+
+- `b`: number of ballot boxes.
+- `g`: number of demographic groups.
+- `c`: number of candidates.
+- `a`: number of aggregated macro-groups.
+
+To learn more about `fastei`, please consult the available vignettes:
+
+```{r}
+browseVignettes("fastei")
 ```
 
-Si además, se quieren borrar los cambios locales para tener un repositorio identico al de Github: 
+### Instalation
 
-```
-git reset --hard origin/main 
-``` 
+As of now, it can only be installed from source. Support for Fortran is needed, however, R usually ships with it already. OpenMP is optional but highly suggested. The Makevars can be usually found on `~.R/Makevars`, where it is possible to add the corresponding/missing flags.
 
-## Preparación del directorio de binarios 
 
-Aseguramos que `CMakeLists.txt` tenga las instrucciones locales de nuestro computador. De forma resumida, se deben tener las librerias gsl, openblas, cJSON, lapack y cblas (conocida por openblas). Se pueden descargar al correr: 
-
-```
-brew install gsl openblas cJSON lapack
-```
-
-Adicionalmente, recomiendo utilizar el compilador gcc: 
-
-`brew install gcc`
-
-Para verificar las rutas de las instalaciones se puede hacer mediante 
-
-```
-brew info openblas gsl cJSON lapack
-```
-
-Después de asegurar que tenemos todas las dependencias, creamos el directorio `build` dentro de `src` y entramos a él: 
-
-```
-cd src && mkdir build && cd build
-```
-
-Dentro de build se correran dos comandos; uno para definir el compilador y preparar los metadatos y otro para hacer la compilación en sí. Para el primero, revisar que se ponga la ruta del compilador gcc.
-
-```
-cmake .. -DCMAKE_C_COMPILER=/usr/local/Cellar/gcc/14.2.0_1/bin/gcc-14 -DCMAKE_CXX_COMPILER=/usr/local/Cellar/gcc/14.2.0_1/bin/g++-14
-```
-
-Con el siguiente comando se compila el proyecto:
-
-```
-cmake --build .
-```
-
-El ejecutable estará dentro del directorio build.
-
-# Uso 
-
-## Correr las instancias 
-
-Al haber compilado, se tendrá algo del siguiente estilo: 
-
-```
-.
-├── CMakeLists.txt
-├── Makefile
-├── analyzeResults.py
-├── build
-│   ├── exact.d
-│   ├── exact.o
-│   ├── hitAndRun.d
-│   ├── hitAndRun.o
-│   ├── libutil.dylib
-│   ├── main.d
-│   ├── main.o
-│   ├── multinomial.d
-│   ├── multinomial.o
-│   ├── multivariate-cdf.d
-│   ├── multivariate-cdf.o
-│   ├── multivariate-pdf.d
-│   ├── multivariate-pdf.o
-│   ├── util_exec
-│   └── utils
-│       ├── combinations.d
-│       ├── combinations.o
-│       ├── fileutils.d
-│       ├── fileutils.o
-│       ├── instanceGenerator.d
-│       ├── instanceGenerator.o
-│       ├── matrixUtils.d
-│       ├── matrixUtils.o
-│       ├── memoizationUtil.d
-│       ├── memoizationUtil.o
-│       ├── multivariateUtils.d
-│       └── multivariateUtils.o
-├── compile_commands.json
-├── exact.c
-├── exact.h
-├── globals.h
-├── hitAndRun.c
-├── hitAndRun.h
-├── main.c
-├── main.h
-├── matrixUtils.c
-├── matrixUtils.h
-├── multinomial.c
-├── multinomial.h
-├── multivariate-cdf.c
-├── multivariate-cdf.h
-├── multivariate-pdf.c
-├── multivariate-pdf.h
-├── tests
-│   ├── compile_commands.json
-│   └── test-matrixUtils.c
-└── utils
-    ├── combinations.c
-    ├── combinations.h
-    ├── fileutils.c
-    ├── fileutils.h
-    ├── instanceGenerator.c
-    ├── instanceGenerator.h
-    ├── matrixUtils.c
-    ├── matrixUtils.h
-    ├── memoizationUtil.c
-    ├── memoizationUtil.h
-    ├── multivariateUtils.c
-    ├── multivariateUtils.h
-    └── uthash.h
-
-5 directories, 60 files
-```
-
-Para correr el ejecutable, hay que estar dentro del directorio `build`.  La estructura del llamado es la siguiente: 
-
-```
-./util_exec "[directorio de instancias]" "[directorio de resultados]" "[Método]"
-```
-
-A modo de ejemplo, si quiero correr el ejecutable con el método multinomial, guardar los resultados en una carpeta llamada results y **utilizar las instancias que ya vienen dentro del repositorio**, es posible correr: 
-
-```
-./util_exec "../../instances" "results" "Multinomial"
-```
-Lo que guardará los resultados en `/build/results/Multinomial`. En caso de haber un error, asegurar crear el directorio de resultados con `mkdir`. 
-
-## Análisis de resultados 
-
-Para poder analizar los resultados de forma agrupada por grupo y candidato, se provee el script bajo el nombre `src/analyzeResults.py`. Su uso es el siguiente: 
-
-```
-python analyzeResults.py "[directorio de los resultados de instancias]" "[directorio con los resultados analizados]" "[Método]"
-```
-
-El directorio con los resultados de las instancias es el mismo al que pasamos como segundo argumento al llamar el ejecutable. 
-
-A modo de ejemplo, ocupando el mismo comando del inciso anterior: 
-
-```
-python analyzeResults.py "build/results" "finalResults" "Multinomial"
-```
-Creará una carpeta en `project/src/finalResults` con los resultados promediados. 
