@@ -1,4 +1,4 @@
-# *Methods for "A Fast Ecological Inference Algorithm for the RxC case".*
+# *Methods for "A Fast Ecological Inference Algorithm for the $R\times C$ case".*
 
 The following library includes a method (`run_em`) to solve the R×C Ecological Inference problem for the non-parametric case by using the EM algorithm with different approximation methods for the E-Step. The standard deviation of the estimated probabilities can be computed using bootstrapping (bootstrap).
 
@@ -33,9 +33,7 @@ To learn more about `fastei`, please consult the available vignettes:
 browseVignettes("fastei")
 ```
 
-Full documentation can be found at [the Github page](https://danielhermosilla.github.io/ecological-inference-elections/reference/fastei-package.html).
-
-### Installation
+### Instalation
 
 As of now, it can only be installed from source. Support for Fortran is needed, however, R usually ships with it already. OpenMP is optional but highly suggested. The Makevars can be usually found on `~.R/Makevars`, where it is possible to add the corresponding/missing flags.
 

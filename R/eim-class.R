@@ -435,6 +435,8 @@ run_em <- function(object = NULL,
 #'
 #' @inheritParams simulate_election
 #'
+#' @param seed An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable is `initial_prob = random` or method is either `mcmc` or `mvn_cdf`. Aditionally, it sets the random draws of the ballot boxes.
+#'
 #' @param ... Additional arguments passed to the [run_em] function that will execute the EM algorithm.
 #'
 #' @inherit run_em note
