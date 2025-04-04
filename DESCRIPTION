@@ -12,6 +12,7 @@ Imports:
 LinkingTo: Rcpp
 NeedsCompilation: yes
 BugReports: https://github.com/DanielHermosilla/ecological-inference-elections/issues
+URL: https://danielhermosilla.github.io/ecological-inference-elections/reference/fastei-package.html
 Suggests: 
     knitr,
     rmarkdown,
