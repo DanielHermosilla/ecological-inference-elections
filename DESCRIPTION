@@ -14,10 +14,12 @@ NeedsCompilation: yes
 BugReports: https://github.com/DanielHermosilla/ecological-inference-elections/issues
 Suggests: 
     knitr,
-    rmarkdown
+    rmarkdown,
+    testthat (>= 3.0.0)
 Roxygen: list(markdown = TRUE, load = "source")
 VignetteBuilder: knitr
 Depends: 
     R (>= 3.5)
 LazyData: true
 RoxygenNote: 7.3.2
+Config/testthat/edition: 3
