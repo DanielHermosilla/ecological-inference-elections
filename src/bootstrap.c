@@ -104,7 +104,7 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
     if (bdim == 1)
     {
         Matrix infMat = createMatrix(wmat->cols, xmat->rows);
-        fillMatrix(&infMat, -1);
+        fillMatrix(&infMat, 9999);
         return infMat;
     }
     // ---- Generate the indices for bootstrap ---- //

@@ -591,6 +591,7 @@ bootstrap <- function(object = NULL,
     object$sd <- result
     dimnames(object$sd) <- list(colnames(object$W), colnames(object$X))
     object$nboot <- nboot
+    object$sd[object$sd == 9999] <- Inf
 
     return(object)
 }
@@ -775,14 +776,16 @@ get_agg_proxy <- function(object = NULL,
         # Convert the 'W' matrix by merging columns
         # We add '2' to indices since it's originally 0-based.
         col_groups <- split(seq_len(ncol(object$W)), findInterval(seq_len(ncol(object$W)), c(1, result$indices + 2)))
-        # Lambda function to add the columns
-        object$W_agg <- sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
-        dimnames(object$W_agg) <- list(rownames(object$W))
+        # Lambda function to add the columns, if there wasn't a group aggregation, return object$W
+        # object$W_agg <- as.matrix(sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE])))
+        object$W_agg <- do.call(cbind, lapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE])))
+        rownames(object$W_agg) <- rownames(object$W) # Ballot boxes
         # if (result$indices[1] != -1) {
         object$group_agg <- unique(result$indices + 1)
         # } # Use R's index system
         object$sd <- result$bootstrap_result
         dimnames(object$sd) <- list(colnames(object$W_agg), colnames(object$X))
+        object$sd[object$sd == 9999] <- Inf
         object$sd_statistic <- sd_statistic
         object$sd_threshold <- sd_threshold
         object$is_feasible <- !result$best_result
@@ -937,8 +940,9 @@ get_agg_opt <- function(object = NULL,
     # We add '2' to indices since it's originally 0-based.
     col_groups <- split(seq_len(ncol(object$W)), findInterval(seq_len(ncol(object$W)), c(1, result$indices + 2)))
     # Lambda function to add the columns
-    object$W_agg <- sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
-    dimnames(object$W_agg) <- list(rownames(object$W))
+    # object$W_agg <- as.matrix(sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE])))
+    object$W_agg <- do.call(cbind, lapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE])))
+    rownames(object$W_agg) <- rownames(object$W)
     object$group_agg <- result$indices + 1 # Use R's index system
     object$prob <- as.matrix(result$probabilities)
     dimnames(object$prob) <- list(NULL, colnames(object$X))
@@ -950,6 +954,7 @@ get_agg_opt <- function(object = NULL,
     object$cond_prob <- result$q
     object$sd <- result$bootstrap_sol
     dimnames(object$sd) <- dimnames(object$prob)
+    object$sd[object$sd == 9999] <- Inf
     object$cond_prob <- aperm(result$q, perm = c(2, 3, 1)) # Correct dimensions
     dimnames(object$cond_prob) <- list(
         NULL,

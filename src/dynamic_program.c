@@ -656,9 +656,11 @@ static void enumerateAllPartitions(int start, const int G, int *currentBoundarie
             }
             if (verbose)
             {
-                Rprintf("- Feasible group size: %d\n- Feasible time: %f\n- Feasible total iterations: %d\n- "
-                        "Feasible finish reason: %d\n- Feasible probability matrix:\n",
-                        g_bestGroupCount, g_besttime, g_bestIterTotal, g_bestFinishReason);
+                Rprintf(
+                    "- Feasible group size: %d\n- Feasible standard deviation statistic: %f\n- Feasible time: %f\n- "
+                    "Feasible total iterations: %d\n- "
+                    "Feasible finish reason: %d\n- Feasible probability matrix:\n",
+                    g_bestGroupCount, qual, g_besttime, g_bestIterTotal, g_bestFinishReason);
                 printMatrix(g_bestMat);
                 Rprintf("----------\n");
             }
