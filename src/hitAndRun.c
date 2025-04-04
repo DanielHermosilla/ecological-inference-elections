@@ -83,6 +83,7 @@ Matrix startingPoint3(int b)
     // ---- Division for mismatchs ---- //
     double divide = MAX(BALLOTS_VOTES[b], totalC);
     divide = MAX(divide, totalG);
+
     for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     {
         for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)

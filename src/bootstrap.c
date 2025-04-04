@@ -62,7 +62,7 @@ Matrix standardDeviations(Matrix *bootstrapResults, Matrix *sumMatrix, int total
     {
         for (int j = 0; j < sdMatrix.cols; j++)
         {
-            MATRIX_AT(sdMatrix, i, j) = R_pow(MATRIX_AT(sdMatrix, i, j) / (totalIter - 1), 0.5);
+            MATRIX_AT(sdMatrix, i, j) = R_pow(fabs(MATRIX_AT(sdMatrix, i, j) / (totalIter - 1)), 0.5);
         }
     }
     return sdMatrix;
@@ -110,11 +110,39 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
     // ---- Generate the indices for bootstrap ---- //
     int *indices = Calloc(bdim * bootiter, int);
     GetRNGstate();
-    for (int j = 0; j < samples; j++)
+    // For each bootstrap replicate i
+    for (int i = 0; i < bootiter; i++)
     {
-        indices[j] = (int)(unif_rand() * bdim);
+        while (true)
+        {
+            // Sample bdim picks for this replicate
+            for (int b = 0; b < bdim; b++)
+            {
+                indices[i * bdim + b] = (int)(unif_rand() * bdim);
+            }
+
+            // Check if all picks are identical
+            bool allSame = true;
+            int firstVal = indices[i * bdim];
+            for (int b = 1; b < bdim; b++)
+            {
+                if (indices[i * bdim + b] != firstVal)
+                {
+                    allSame = false;
+                    break;
+                }
+            }
+            // If not all the same, break out. Otherwise re-sample the block.
+            if (!allSame)
+            {
+                break;
+            }
+        }
     }
     PutRNGstate();
+    // We want to avoid the case where the same ballot box is drawn FOR EACH placement
+    // This has a probability of 1/b^b. Maybe this calculation could be avoided at 6 > ballot boxes,
+    // since then it becomes practically 0
     // ---...--- //
 
     // ---- Execute the bootstrap algorithm ---- //
@@ -182,6 +210,7 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
     freeMatrix(&sumMat);
     for (int i = 0; i < bootiter; i++)
     {
+
         freeMatrix(&results[i]);
     }
     Free(results);

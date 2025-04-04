@@ -547,9 +547,9 @@ static void enumerateAllPartitions(int start, const int G, int *currentBoundarie
     {
         // ---- Build the matrix according the partition
         // ---- Comment this line IF we want to account the matrix of group size 1
-        if (currentSize == 1 && strcmp(q_method, "mult") != 0)
-        {
-            return;
+        if (currentSize == 1)
+        { // The one aggregation case we'll do it with mult
+            q_method = "mult";
         }
         else if (currentSize == 0)
             return;
