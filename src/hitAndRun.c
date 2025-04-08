@@ -121,6 +121,8 @@ Matrix startingPoint3(int b)
 // decodear de la segunda manera
 void allocateRandoms(int M, int S, uint8_t **c1, uint8_t **c2, uint8_t **g1, uint8_t **g2)
 {
+    Rprintf("Allocating randoms, with W matrix being:\n");
+    printMatrix(W);
     uint32_t size = M * S;
     // Allocate memory correctly
     *c1 = (uint8_t *)Calloc(size, uint8_t);
@@ -130,15 +132,18 @@ void allocateRandoms(int M, int S, uint8_t **c1, uint8_t **c2, uint8_t **g1, uin
 
     GetRNGstate(); // Ensure R's RNG is properly initialized
                    // Fill arrays with random indices
+    int allow_repeat = (TOTAL_CANDIDATES <= 1 || TOTAL_GROUPS <= 1);
+
     for (int i = 0; i < size; i++)
     {
+        Rprintf("assigning random vals for sample = %d\n", i);
         (*c1)[i] = (uint8_t)(unif_rand() * TOTAL_CANDIDATES);
         (*g1)[i] = (uint8_t)(unif_rand() * TOTAL_GROUPS);
         do
         {
             (*c2)[i] = (uint8_t)(unif_rand() * TOTAL_CANDIDATES);
             (*g2)[i] = (uint8_t)(unif_rand() * TOTAL_GROUPS);
-        } while ((*c2)[i] == (*c1)[i] || (*g1)[i] == (*g2)[i]);
+        } while (!allow_repeat && ((*c2)[i] == (*c1)[i] || (*g2)[i] == (*g1)[i]));
     }
     PutRNGstate(); // Finalize RNG state to prevent repeatability
 }
@@ -311,11 +316,11 @@ double logarithmicProduct(const Matrix *probabilities, const int b, const int se
     for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
     { // ---- For each candidate
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-        { // ---- For each group
+        {   // ---- For each group
             // Cambiar a log(1) if probabilidad 0
             // Producto punto
-            log_result +=
-                MATRIX_AT_PTR(currentMatrix, g, c) * log(MATRIX_AT_PTR(probabilities, g, c)); //  \sum p * log(p)
+            double prob = MATRIX_AT_PTR(probabilities, g, c);
+            log_result += (prob > 0.0) ? MATRIX_AT_PTR(currentMatrix, g, c) * log(prob) : 0.0;
         }
     }
     // --- ... --- //
@@ -331,7 +336,8 @@ void precomputeLogGammas()
 
     for (int i = 0; i <= biggestW; i++)
     {
-        logGammaArr[i] = lgamma1p(i);
+        logGammaArr[i] = lgamma1p(i); // Borrar el + 1
+        Rprintf("El valor de %d factorial debería ser %f\n", i, logGammaArr[i]);
         loglogGammaArr[i] = log(logGammaArr[i]);
     }
 }

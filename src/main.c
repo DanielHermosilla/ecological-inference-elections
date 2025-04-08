@@ -35,6 +35,9 @@ SOFTWARE.
 #include <time.h>
 #include <unistd.h>
 
+#ifndef CLOCK_MONOTONIC_RAW
+#define CLOCK_MONOTONIC_RAW 4
+#endif
 #ifndef BLAS_INT
 #define BLAS_INT int
 #endif

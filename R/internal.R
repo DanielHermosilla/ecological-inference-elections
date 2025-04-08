@@ -179,7 +179,7 @@
         stop("Candidate matrix 'X' must have at least 2 columns.")
     }
     if (ncol(W) < 2) {
-        stop("Group matrix 'W' must have at least 2 columns.")
+        # stop("Group matrix 'W' must have at least 2 columns.")
     }
 
     # Check for missing values
