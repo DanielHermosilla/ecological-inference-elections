@@ -435,7 +435,7 @@ run_em <- function(object = NULL,
 #'
 #' @inheritParams simulate_election
 #'
-#' @param seed An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable is `initial_prob = random` or method is either `mcmc` or `mvn_cdf`. Aditionally, it sets the random draws of the ballot boxes.
+#' @param seed An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if `initial_prob = random` or method is either `mcmc` or `mvn_cdf`. Aditionally, it sets the random draws of the ballot boxes.
 #'
 #' @param ... Additional arguments passed to the [run_em] function that will execute the EM algorithm.
 #'
@@ -999,6 +999,7 @@ get_agg_opt <- function(object = NULL,
 #' @param W A `(b x g)` matrix representing group votes per ballot box.
 #' @param X2 A second `(b x c)` matrix to compare with `X`.
 #' @param W2 A second `(b x g)` matrix to compare with `W`.
+#' @nboot Integer specifying how many times to run the EM algorithm per object.
 #' @param ... Additional arguments passed to [bootstrap] and [run_em].
 #'
 #' @return A numeric matrix of p-values with the same dimensions as the estimated probability matrices (`p`) from the input objects.
