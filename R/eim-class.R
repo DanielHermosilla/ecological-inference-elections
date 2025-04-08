@@ -1023,8 +1023,8 @@ get_agg_opt <- function(object = NULL,
 #' @examples
 #' sim <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 123)
 #' sim2 <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 124)
-#' eim1 <- run_em(sim$X, sim$W)
-#' eim2 <- run_em(sim2$X, sim2$W)
+#' eim1 <- eim(sim$X, sim$W)
+#' eim2 <- eim(sim2$X, sim2$W)
 #'
 #' pvals <- welchtest(object = eim1, object2 = eim2, nboot = 100)
 #'
