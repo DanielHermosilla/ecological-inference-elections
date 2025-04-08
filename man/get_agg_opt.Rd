@@ -32,7 +32,7 @@ get_agg_opt(
 \item{nboot}{Integer specifying how many times to run the
 EM algorithm.}
 
-\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable is \code{initial_prob = random} or \code{method} is either \code{mcmc} or \code{mvn_cdf}.}
+\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable is \code{initial_prob = random} or method is either \code{mcmc} or \code{mvn_cdf}. Aditionally, it sets the random draws of the ballot boxes.}
 
 \item{...}{Additional arguments passed to the \link{run_em} function that will execute the EM algorithm.}
 }
@@ -75,8 +75,10 @@ result <- get_agg_opt(
 )
 
 result$group_agg # c(3,8)
-# This would mean that the ideal group aggregation would
-# be {[1, 2, 3], [4, 5, 6, 7, 8]}
+# This means that the resulting group aggregation consists of
+# two macro-groups: one that includes the original groups 1, 2, and 3;
+# the remaining one with groups 4, 5, 6, 7 and 8.
+# {[1, 2, 3], [4, 5, 6, 7, 8]}
 
 \dontrun{
 # Example 2: Getting an unfeasible result

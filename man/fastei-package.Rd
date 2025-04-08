@@ -46,6 +46,7 @@ browseVignettes("fastei")
 \seealso{
 Useful links:
 \itemize{
+  \item \url{https://danielhermosilla.github.io/ecological-inference-elections/reference/fastei-package.html}
   \item Report bugs at \url{https://github.com/DanielHermosilla/ecological-inference-elections/issues}
 }
 

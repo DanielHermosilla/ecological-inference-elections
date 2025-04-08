@@ -600,7 +600,7 @@ bootstrap <- function(object = NULL,
 #'
 #' This function estimates the voting probabilities (computed using [run_em]) aggregating adjacent groups so that the estimated probabilities' standard deviation (computed using [bootstrap]) is below a given threshold. See **Details** for more information.
 #'
-#' Groups need to have an order relation so that adjacent groups can be merged. For example, consider the following seven groups defined by voters' age ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, even for a fixed number of macro-groups, a Dynamic Program (DP) mechanism is used to find the group aggregation that maximizes the sum of the standard deviation of the macro-groups proportions among ballot boxes for a specific number of macro-groups. If no group aggregation standard deviation statistic meets the threshold condition, `NULL` is returned.
+#' Groups need to have an order relation so that adjacent groups can be merged. Groups of consecutive column indices in the matrix W are considered adjacent. For example, consider the following seven groups defined by voters' age ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, even for a fixed number of macro-groups, a Dynamic Program (DP) mechanism is used to find the group aggregation that maximizes the sum of the standard deviation of the macro-groups proportions among ballot boxes for a specific number of macro-groups. If no group aggregation standard deviation statistic meets the threshold condition, `NULL` is returned.
 #'
 #' To find the best group aggregation, the function runs the DP iteratively, starting with all groups (this case is trivial since the group aggregation is such that all macro-groups match exactly the original groups). If the standard deviation statistic (`sd_statistic`) is below the threshold (`sd_threshold`), it stops. Otherwise, it runs the DP such that the number of macro-groups is one unit less than the original number of macro-groups. If the standard deviation statistic is below the threshold, it stops. This continues until either the algorithm stops, or until no group aggregation obtained by the DP satisfies the threshold condition. If the former holds, then the last group aggregation obtained (before stopping) is returned; while if the latter holds, then no output is returned unless the user sets the input parameter `feasible=FALSE`, in which case it returns the group aggregation that has the least standard deviation statistic, among the group-aggregations obtained from the DP.
 #'
@@ -798,9 +798,9 @@ get_agg_proxy <- function(object = NULL,
 #'
 #' This function estimates the voting probabilities (computed using [run_em]) by trying all group aggregations (of adjacent groups), choosing
 #' the one that achieves the higher likelihood as long as the standard deviation (computed using [bootstrap]) of the estimated probabilities
-#' is below a given threshold.
+#' is below a given threshold. See **Details** for more informacion on adjacent groups.
 #'
-#' Groups of consecutive row indices in the matrix `W` are considered adjacent. For example, consider the following seven groups defined by voters' age
+#' Groups of consecutive column indices in the matrix `W` are considered adjacent. For example, consider the following seven groups defined by voters' age
 #' ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age
 #' ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, the method evaluates all possible group aggregations (merging only adjacent groups).
 #'
@@ -836,8 +836,10 @@ get_agg_proxy <- function(object = NULL,
 #' )
 #'
 #' result$group_agg # c(3,8)
-#' # This would mean that the ideal group aggregation would
-#' # be {[1, 2, 3], [4, 5, 6, 7, 8]}
+#' # This means that the resulting group aggregation consists of
+#' # two macro-groups: one that includes the original groups 1, 2, and 3;
+#' # the remaining one with groups 4, 5, 6, 7 and 8.
+#' # {[1, 2, 3], [4, 5, 6, 7, 8]}
 #'
 #' \dontrun{
 #' # Example 2: Getting an unfeasible result
@@ -980,6 +982,135 @@ get_agg_opt <- function(object = NULL,
     return(object)
 }
 
+#' Performs a matrix-wise Welch's t-test for two eim objects
+#'
+#' This function compares two `eim` objects (or sets of matrices that can be converted to such objects) by computing a Welch's t-test on each component
+#' of their estimated probability matrices (`p`). The Welch test is applied using bootstrap-derived standard deviations, and the result is a matrix
+#' of p-values corresponding to each group-candidate combination.
+#'
+#' The method is fully vectorized and uses the Welch-Satterthwaite approximation for degrees of freedom. It is useful when testing for statistically
+#' significant differences between voting probabilities obtained from two different group structures, vote matrices, or weighting matrices.
+#'
+#' @inheritParams bootstrap
+#'
+#' @param object An `eim` object, as returned by [eim].
+#' @param object2 A second `eim` object to compare with `object`.
+#' @param X A `(b x c)` matrix representing candidate votes per ballot box.
+#' @param W A `(b x g)` matrix representing group votes per ballot box.
+#' @param X2 A second `(b x c)` matrix to compare with `X`.
+#' @param W2 A second `(b x g)` matrix to compare with `W`.
+#' @param ... Additional arguments passed to [bootstrap] and [run_em].
+#'
+#' @return A numeric matrix of p-values with the same dimensions as the estimated probability matrices (`p`) from the input objects.
+#' Each entry represents the p-value from a Welch's t-test comparing the corresponding elements of the two matrices.
+#'
+#' @details
+#' You must provide either:
+#' - Two `eim` objects via `object` and `object2`, or
+#' - Four matrices: `X`, `W`, `X2`, and `W2`, which will be converted into `eim` objects internally.
+#'
+#' Only one input mode is allowed at a time. The function internally computes bootstrapped standard deviations using [bootstrap] on both objects.
+#' The Welch test is computed using the formula:
+#'
+#' \deqn{
+#' t_{ij} = \frac{p_{1,ij} - p_{2,ij}}{\sqrt{(s_{1,ij}^2 + s_{2,ij}^2) / n}},
+#' }
+#' where \eqn{s_{1,ij}^2} and \eqn{s_{2,ij}^2} are the bootstrap variances, and `n` is the number of bootstrap samples.
+#'
+#' The degrees of freedom for each cell are computed using the Welch–Satterthwaite equation.
+#'
+#' @examples
+#' sim <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 123)
+#' sim2 <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 124)
+#' eim1 <- run_em(sim$X, sim$W)
+#' eim2 <- run_em(sim2$X, sim2$W)
+#'
+#' pvals <- welchtest(object = eim1, object2 = eim2, nboot = 100)
+#'
+#' # Check which entries are significantly different
+#' which(pvals < 0.05, arr.ind = TRUE)
+#'
+#' @export
+welchtest <- function(object = NULL,
+                      object2 = NULL,
+                      X = NULL,
+                      W = NULL,
+                      X2 = NULL,
+                      W2 = NULL,
+                      nboot = 50,
+                      seed = NULL,
+                      ...) {
+    all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
+    .validate_compute(all_params) # nolint # It would validate nboot too.
+
+    # Retrieve default values from bootstrap() and update with user parameters
+    bootstrap_defaults <- formals(bootstrap)
+    bootstrap_args <- modifyList(as.list(bootstrap_defaults), all_params)
+    bootstrap_args <- bootstrap_args[names(bootstrap_args) != "..."] # Remove ellipsis
+
+    # Create boolean flags to check which set of inputs is being used
+    using_objects <- !is.null(object) && !is.null(object2)
+    using_matrices <- !is.null(X) && !is.null(W) && !is.null(X2) && !is.null(W2)
+
+    # Count how many valid input modes are being used
+    input_modes <- sum(using_objects, using_matrices)
+
+    if (input_modes == 0) {
+        stop("You must provide either (1) two objects, or (2) four matrices (X, X2, W, W2)")
+    } else if (input_modes > 1) {
+        stop("Please provide only one input mode: either objects or matrices — not multiple.")
+    }
+
+    if (using_matrices) {
+        object <- eim(X, W)
+        object2 <- eim(X2, W2)
+    }
+
+    if (!all(dim(object$X) == dim(object2$X)) || !all(dim(object$W) == dim(object2$W))) {
+        stop("Matrices dimension must be the same for both 'eim' objects")
+    }
+
+    # First object
+    if (!is.null(all_params$verbose) && all_params$verbose) {
+        message("Obtaining the values of the first object.\n")
+    }
+    boot1 <- do.call(bootstrap, c(
+        list(object = object),
+        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X", "X2", "W", "W2", "json_path")]
+    ))
+    em1 <- do.call(run_em, c(
+        list(object = object),
+        bootstrap_args[!names(bootstrap_args) %in% c("object", "nboot", "object2", "X", "X2", "W", "W2", "json_path")]
+    ))
+
+    if (!is.null(all_params$verbose) && all_params$verbose) {
+        message("Obtaining the values of the second object.\n")
+    }
+    # Second object
+    boot2 <- do.call(bootstrap, c(
+        list(object = object2),
+        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X", "X2", "W", "W2", "json_path")]
+    ))
+    em2 <- do.call(run_em, c(
+        list(object = object2),
+        bootstrap_args[!names(bootstrap_args) %in% c("nboot", "object", "object2", "X", "X2", "W", "W2", "json_path")]
+    ))
+
+    # Matrix-wise p-values
+    var1 <- boot1$sd^2
+    var2 <- boot2$sd^2
+
+    se_diff <- sqrt((var1 + var2) / nboot)
+    t_stat <- (em1$prob - em2$prob) / se_diff
+
+    df_num <- ((var1 + var2) / nboot)^2
+    df_den <- ((var1 / nboot)^2) / (nboot - 1) + ((var2 / nboot)^2) / (nboot - 1)
+    df <- df_num / df_den
+
+    pvals <- 2 * pt(-abs(t_stat), df)
+
+    return(pvals)
+}
 
 #' @description According to the state of the algorithm (either computed or not), it prints a message with its most relevant parameters
 #'
@@ -1189,7 +1320,7 @@ save_eim <- function(object, filename, ...) {
             json_data[[name]] <- object[[name]]
         }
 
-        jsonlite::write_json(json_data, filename, pretty = TRUE, auto_unbox = TRUE)
+        jsonlite::write_json(json_data, filename, pretty = TRUE, auto_unbox = TRUE, digits = 10)
         message("Results saved as JSON: ", filename)
 
         # Save as CSV

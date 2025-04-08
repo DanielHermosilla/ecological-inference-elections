@@ -305,7 +305,7 @@ double logarithmicProduct(const Matrix *probabilities, const int b, const int se
     // TODO: logPRod
     // ---- Define initial parameters ---- //
     double log_result = 0;
-    Matrix *currentMatrix = OMEGASET[b]->data[setIndex];
+    Matrix *currentMatrix = OMEGASET[b]->data[setIndex]; // Z
     // ---...--- //
     // ---- Main computation ---- //
     for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
@@ -314,11 +314,11 @@ double logarithmicProduct(const Matrix *probabilities, const int b, const int se
         { // ---- For each group
             // Cambiar a log(1) if probabilidad 0
             // Producto punto
-            log_result += MATRIX_AT_PTR(currentMatrix, g, c) * log(MATRIX_AT_PTR(probabilities, g, c));
+            log_result +=
+                MATRIX_AT_PTR(currentMatrix, g, c) * log(MATRIX_AT_PTR(probabilities, g, c)); //  \sum p * log(p)
         }
     }
     // --- ... --- //
-    // ---- Exponetiate the final result ----
     return log_result;
 }
 
@@ -524,9 +524,11 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
             double firstTerm = 0;
             double max = -DBL_MAX;
             for (size_t s = 0; s < currentSet->size; s++)
-            { // --- For each sample given a group and a ballot box
-                Matrix *currentMatrix = currentSet->data[s];
-                double a_i = logarithmicProduct(probabilities, b, s) + multinomialVals[b][s];
+            {                                                // --- For each sample given a group and a ballot box
+                Matrix *currentMatrix = currentSet->data[s]; // Z
+                double a_i = logarithmicProduct(probabilities, b, s) +
+                             multinomialVals[b][s]; // $\sum_{g\in G}\sum_{c\in C}z_{bgc}*\log(p_{gc})+$ Logaritmo
+                                                    // probabilidad precomputarlo
                 multiplicationValues[s] = a_i;
                 firstTerm += multiplicationValues[s];
                 max = multiplicationValues[s] > max ? multiplicationValues[s] : max;
@@ -546,8 +548,12 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
         if (currentSet->size > 10000)
             Free(multiplicationValues);
     }
-    *ll = *ll * (-1);
-    *ll += computeQ(array2, probabilities);
+    *ll = *ll * (1);
+    double toprint = computeQ(array2, probabilities);
+    Rprintf("Valor de q = %f, valor de H = %f\n", toprint, *ll);
+
+    // *ll += computeQ(array2, probabilities);
+    *ll += toprint;
 
     return array2;
 }
