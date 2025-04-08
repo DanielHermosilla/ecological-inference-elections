@@ -32,7 +32,7 @@ get_agg_opt(
 \item{nboot}{Integer specifying how many times to run the
 EM algorithm.}
 
-\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable is \code{initial_prob = random} or method is either \code{mcmc} or \code{mvn_cdf}. Aditionally, it sets the random draws of the ballot boxes.}
+\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = random} or method is either \code{mcmc} or \code{mvn_cdf}. Aditionally, it sets the random draws of the ballot boxes.}
 
 \item{...}{Additional arguments passed to the \link{run_em} function that will execute the EM algorithm.}
 }
@@ -52,10 +52,10 @@ Aditionally, it will create the \code{W_agg} attribute with the aggregated group
 \description{
 This function estimates the voting probabilities (computed using \link{run_em}) by trying all group aggregations (of adjacent groups), choosing
 the one that achieves the higher likelihood as long as the standard deviation (computed using \link{bootstrap}) of the estimated probabilities
-is below a given threshold.
+is below a given threshold. See \strong{Details} for more informacion on adjacent groups.
 }
 \details{
-Groups of consecutive row indices in the matrix \code{W} are considered adjacent. For example, consider the following seven groups defined by voters' age
+Groups of consecutive column indices in the matrix \code{W} are considered adjacent. For example, consider the following seven groups defined by voters' age
 ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age
 ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, the method evaluates all possible group aggregations (merging only adjacent groups).
 }

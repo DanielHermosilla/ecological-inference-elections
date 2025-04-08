@@ -29,10 +29,9 @@ welchtest(
 
 \item{W2}{A second \verb{(b x g)} matrix to compare with \code{W}.}
 
-\item{nboot}{Integer specifying how many times to run the
-EM algorithm.}
+\item{nboot}{Integer specifying how many times to run the EM algorithm per object.}
 
-\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable is \code{initial_prob = random} or method is either \code{mcmc} or \code{mvn_cdf}. Aditionally, it sets the random draws of the ballot boxes.}
+\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = random} or method is either \code{mcmc} or \code{mvn_cdf}. Aditionally, it sets the random draws of the ballot boxes.}
 
 \item{...}{Additional arguments passed to \link{bootstrap} and \link{run_em}.}
 }

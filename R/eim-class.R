@@ -999,7 +999,7 @@ get_agg_opt <- function(object = NULL,
 #' @param W A `(b x g)` matrix representing group votes per ballot box.
 #' @param X2 A second `(b x c)` matrix to compare with `X`.
 #' @param W2 A second `(b x g)` matrix to compare with `W`.
-#' @nboot Integer specifying how many times to run the EM algorithm per object.
+#' @param nboot Integer specifying how many times to run the EM algorithm per object.
 #' @param ... Additional arguments passed to [bootstrap] and [run_em].
 #'
 #' @return A numeric matrix of p-values with the same dimensions as the estimated probability matrices (`p`) from the input objects.
