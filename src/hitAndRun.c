@@ -121,8 +121,6 @@ Matrix startingPoint3(int b)
 // decodear de la segunda manera
 void allocateRandoms(int M, int S, uint8_t **c1, uint8_t **c2, uint8_t **g1, uint8_t **g2)
 {
-    Rprintf("Allocating randoms, with W matrix being:\n");
-    printMatrix(W);
     uint32_t size = M * S;
     // Allocate memory correctly
     *c1 = (uint8_t *)Calloc(size, uint8_t);
@@ -136,7 +134,6 @@ void allocateRandoms(int M, int S, uint8_t **c1, uint8_t **c2, uint8_t **g1, uin
 
     for (int i = 0; i < size; i++)
     {
-        Rprintf("assigning random vals for sample = %d\n", i);
         (*c1)[i] = (uint8_t)(unif_rand() * TOTAL_CANDIDATES);
         (*g1)[i] = (uint8_t)(unif_rand() * TOTAL_GROUPS);
         do
@@ -162,7 +159,6 @@ void generateOmegaSet(int M, int S)
 {
     // ---- Allocate memory for the `b` index ----
     OMEGASET = Calloc(TOTAL_BALLOTS, OmegaSet *);
-    GetRNGstate();
     uint8_t *c1 = NULL;
     uint8_t *c2 = NULL;
     uint8_t *g1 = NULL;
@@ -251,7 +247,6 @@ void generateOmegaSet(int M, int S)
         } // --- End the sample loop
         freeMatrix(&startingZ);
     } // --- End the ballot box loop
-    PutRNGstate();
     Free(c1);
     Free(c2);
     Free(g1);
@@ -316,7 +311,7 @@ double logarithmicProduct(const Matrix *probabilities, const int b, const int se
     for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
     { // ---- For each candidate
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-        {   // ---- For each group
+        { // ---- For each group
             // Cambiar a log(1) if probabilidad 0
             // Producto punto
             double prob = MATRIX_AT_PTR(probabilities, g, c);
@@ -337,8 +332,7 @@ void precomputeLogGammas()
     for (int i = 0; i <= biggestW; i++)
     {
         logGammaArr[i] = lgamma1p(i); // Borrar el + 1
-        Rprintf("El valor de %d factorial debería ser %f\n", i, logGammaArr[i]);
-        loglogGammaArr[i] = log(logGammaArr[i]);
+        loglogGammaArr[i] = logGammaArr[i] != 0 ? log(logGammaArr[i]) : 1;
     }
 }
 
@@ -382,20 +376,23 @@ double underflowSum(double *q)
         {
             for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
             {
-                double currentMax = -DBL_MAX;
                 int w_bg = (int)MATRIX_AT_PTR(W, b, g);
+                double currentMax = -DBL_MAX;
                 double q_bgc = Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES);
-                if (q_bgc == 0)
+                if (q_bgc <= 0 || w_bg <= 1)
                 {
                     continue;
                 }
                 // Obtain the maximum value and also save the sums
                 double sums[w_bg + 1];
 
-                for (int i = 1; i <= w_bg; i++)
+                for (int i = 2; i <= w_bg; i++)
                 {
                     double bigsum1 = loglogGammaArr[i] + logGammaArr[w_bg] - logGammaArr[i] - logGammaArr[w_bg - i];
-                    bigsum1 += i * log(q_bgc) + (w_bg - i) * log(1 - q_bgc);
+                    if (q_bgc != 1 || w_bg != i)
+                    {
+                        bigsum1 += i * log(q_bgc) + (w_bg - i) * log(1 - q_bgc);
+                    }
                     sums[i] = bigsum1;
                     if (bigsum1 > currentMax)
                     {
@@ -404,7 +401,7 @@ double underflowSum(double *q)
                 }
                 // Shift every value by the sum and exp(max)
                 double partialSum = 0;
-                for (int i = 1; i <= w_bg; i++)
+                for (int i = 2; i <= w_bg; i++)
                 {
                     partialSum += exp(sums[i] - currentMax);
                 }
@@ -422,12 +419,16 @@ double computeQ(double *q, Matrix const *probabilities)
 {
 
     double thirdTerm = underflowSum(q);
+    Rprintf("El tercer término de q es: %f\n", thirdTerm);
     double total = -thirdTerm;
+    double borrar = 0;
+    double borrar2 = 0;
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         {
             int w_bg = (int)MATRIX_AT_PTR(W, b, g);
+            borrar += logGammaArr[w_bg];
             total += logGammaArr[w_bg]; // Second term
             double qsum = 0;
             double firstTerm = 0;
@@ -439,8 +440,11 @@ double computeQ(double *q, Matrix const *probabilities)
             }
             // First term
             total += firstTerm * w_bg;
+            borrar2 += firstTerm * w_bg;
         }
     }
+    Rprintf("El primer término es %f\n", borrar2);
+    Rprintf("El segundo término es %f\n", borrar);
     return total;
 }
 
@@ -464,14 +468,19 @@ double logsumexp(double *log_a_shift, OmegaSet *currentSet, int g, int c, double
 
     // update the log-likelihood with the terms of H
     // *ll = 0;
+    double borrar = 0;
+    double borrar2 = 0;
     for (int i = 0; i < size; i++)
     {
         double val = log_a_shift[i] - log_sum_exp_num;
+        borrar -= exp(val) * val;
+        // Rprintf("El valor de 'g' para el sample %d es %f\n", i, val);
         *ll -= exp(val) * val;
     }
 
     // return q_{bgc}
     // return exp(log_sum_exp_num - log(sum_exp_den));
+    // Rprintf("El valor de sum g*ln(g) es %f\n----\n\n", borrar);
     return exp(log(sum_exp_den) - log_sum_exp_num);
 }
 /**
@@ -547,14 +556,16 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // --- For each candidate given a group and a ballot box
                 double secondTerm = 0;
-                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) =
-                    logsumexp(multiplicationValues, currentSet, g, c, MATRIX_AT_PTR(W, b, g), ll);
+                double q_chica = logsumexp(multiplicationValues, currentSet, g, c, MATRIX_AT_PTR(W, b, g), ll);
+                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = q_chica;
             }
         }
         if (currentSet->size > 10000)
             Free(multiplicationValues);
     }
     *ll = *ll * (1);
+
+    // Calculo Q
     double toprint = computeQ(array2, probabilities);
     Rprintf("Valor de q = %f, valor de H = %f\n", toprint, *ll);
 

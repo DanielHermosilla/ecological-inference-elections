@@ -215,6 +215,8 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' @param verbose An optional boolean indicating whether to print informational messages during the EM
 #'   iterations. The default value is `FALSE`.
 #'
+#' @param seed An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if `initial_prob = random` or `method` is either `mcmc` or `mvn_cdf`...
+#'
 #' @param step_size An optional integer specifying the step size for the `mcmc`
 #'   algorithm. This parameter is only applicable when `method = mcmc` and will
 #'   be ignored otherwise. The default value is `3000`.
@@ -233,8 +235,6 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'
 #' @param mc_samples An optional integer specifying the number of Monte Carlo
 #'   samples for the `mvn_cdf` method. The default value is `5000`. This argument is only applicable when `method = mvn_cdf`.
-#'
-#' @param seed An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if `initial_prob = random` or `method` is either `mcmc` or `mvn_cdf`.
 #'
 #' @references
 #' [Thraves, C. and Ubilla, P.: *"Fast Ecological Inference Algorithm for the R×C Case"*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834). Aditionally, the MVN CDF is computed by the methods introduced in [Genz, A. (2000). Numerical computation of multivariate normal probabilities. *Journal of Computational and Graphical Statistics*](https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities)
@@ -339,9 +339,14 @@ run_em <- function(object = NULL,
                    maxtime = 3600,
                    param_threshold = 0.001,
                    ll_threshold = as.double(-Inf),
+                   seed = NULL,
                    verbose = FALSE, ...) {
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint
+
+    if (!is.null(seed)) {
+        set.seed(seed)
+    }
 
     if (is.null(object)) {
         object <- eim(X, W, json_path)
@@ -391,8 +396,8 @@ run_em <- function(object = NULL,
         param_threshold,
         ll_threshold,
         verbose,
-        as.integer(if (!is.null(object$samples)) object$samples else 3000),
         as.integer(if (!is.null(object$step_size)) object$step_size else 1000),
+        as.integer(if (!is.null(object$samples)) object$samples else 3000),
         if (!is.null(object$mc_method)) object$mc_method else "genz2",
         as.numeric(if (!is.null(object$mc_samples)) object$mc_samples else 5000),
         as.numeric(if (!is.null(object$mc_error)) object$mc_error else 1e-6)
