@@ -134,6 +134,8 @@ void allocateRandoms(int M, int S, uint8_t **c1, uint8_t **c2, uint8_t **g1, uin
 
     for (int i = 0; i < size; i++)
     {
+        if (i % 400 == 0) // Checks condition every 400 iterations
+            R_CheckUserInterrupt();
         (*c1)[i] = (uint8_t)(unif_rand() * TOTAL_CANDIDATES);
         (*g1)[i] = (uint8_t)(unif_rand() * TOTAL_GROUPS);
         do
@@ -331,7 +333,7 @@ void precomputeLogGammas()
 
     for (int i = 0; i <= biggestW; i++)
     {
-        logGammaArr[i] = lgamma1p(i); // Borrar el + 1
+        logGammaArr[i] = lgamma1p(i);
         loglogGammaArr[i] = logGammaArr[i] != 0 ? log(logGammaArr[i]) : 1;
     }
 }
@@ -403,9 +405,11 @@ double underflowSum(double *q)
                 double partialSum = 0;
                 for (int i = 2; i <= w_bg; i++)
                 {
-                    partialSum += exp(sums[i] - currentMax);
+                    // partialSum += exp(sums[i] - currentMax);
+                    partialSum += exp(sums[i]);
                 }
-                result += exp(currentMax) * partialSum;
+                // result += exp(currentMax) * partialSum;
+                result += partialSum;
             }
         }
     }
@@ -419,7 +423,6 @@ double computeQ(double *q, Matrix const *probabilities)
 {
 
     double thirdTerm = underflowSum(q);
-    Rprintf("El tercer término de q es: %f\n", thirdTerm);
     double total = -thirdTerm;
     double borrar = 0;
     double borrar2 = 0;
@@ -428,8 +431,8 @@ double computeQ(double *q, Matrix const *probabilities)
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         {
             int w_bg = (int)MATRIX_AT_PTR(W, b, g);
-            borrar += logGammaArr[w_bg];
-            total += logGammaArr[w_bg]; // Second term
+            borrar += w_bg == 0 ? 0 : logGammaArr[w_bg];
+            total += w_bg == 0 ? 0 : logGammaArr[w_bg]; // Second term
             double qsum = 0;
             double firstTerm = 0;
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
@@ -443,58 +446,11 @@ double computeQ(double *q, Matrix const *probabilities)
             borrar2 += firstTerm * w_bg;
         }
     }
-    Rprintf("El primer término es %f\n", borrar2);
-    Rprintf("El segundo término es %f\n", borrar);
+    Rprintf("----------\nQ: %f + %f + %f\n", borrar2, borrar, -thirdTerm);
+
     return total;
 }
 
-double logsumexp(double *log_a_shift, OmegaSet *currentSet, int g, int c, double wbg, double *ll)
-{
-    // Compute log-sum-exp of numerator and denominator to compute q
-    int size = currentSet->size;
-    // b[i] should be z_bgc/w_bg
-    double sum_exp_num = 0.0;
-    double sum_exp_den = 0.0;
-    double v;
-    for (int i = 0; i < size; i++)
-    {
-        v = exp(log_a_shift[i]);
-        sum_exp_num += v;
-        Matrix *currentMatrix = currentSet->data[i];
-
-        sum_exp_den += (MATRIX_AT_PTR(currentMatrix, g, c) / wbg) * v;
-    }
-    double log_sum_exp_num = log(sum_exp_num);
-
-    // update the log-likelihood with the terms of H
-    // *ll = 0;
-    double borrar = 0;
-    double borrar2 = 0;
-    for (int i = 0; i < size; i++)
-    {
-        double val = log_a_shift[i] - log_sum_exp_num;
-        borrar -= exp(val) * val;
-        // Rprintf("El valor de 'g' para el sample %d es %f\n", i, val);
-        *ll -= exp(val) * val;
-    }
-
-    // return q_{bgc}
-    // return exp(log_sum_exp_num - log(sum_exp_den));
-    // Rprintf("El valor de sum g*ln(g) es %f\n----\n\n", borrar);
-    return exp(log(sum_exp_den) - log_sum_exp_num);
-}
-/**
- * @brief Computes the `q` values for all the ballot boxes given a probability matrix. Uses the Hit and Run method.
- *
- * Given a probability matrix with, it returns a flattened array with estimations of the conditional probability.
- * The array can be accesed with the macro `Q_3D` (it's a flattened tensor).
- *
- * @param[in] *probabilities. A pointer towards the probabilities matrix.
- * @param[in] params A QMethodInput struct with the `M` (step size) and `S` (samples) parameters
- *
- * @return A pointer towards the flattened tensor.
- *
- */
 double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, double *ll)
 {
     // ---- Compute the variables that can be reused ---- //
@@ -522,7 +478,6 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
         OmegaSet *currentSet = OMEGASET[b];
         double *multiplicationValues = (currentSet->size <= 10000) ? (double[10000]){1}                // Stack
                                                                    : Calloc(currentSet->size, double); // Heap
-
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         { // --- For each group given a ballot box
             double W_bg = MATRIX_AT_PTR(W, b, g);
@@ -536,38 +491,66 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
             }
 
             // --- Precompute multiplicationValues for this (b, g) combination ---
-            double firstTerm = 0;
             double max = -DBL_MAX;
             for (size_t s = 0; s < currentSet->size; s++)
             {                                                // --- For each sample given a group and a ballot box
                 Matrix *currentMatrix = currentSet->data[s]; // Z
                 double a_i = logarithmicProduct(probabilities, b, s) +
-                             multinomialVals[b][s]; // $\sum_{g\in G}\sum_{c\in C}z_{bgc}*\log(p_{gc})+$ Logaritmo
-                                                    // probabilidad precomputarlo
+                             multinomialVals[b][s]; // $\sum_{g\in G}\sum_{c\in C}z_{bgc}*\log(p_{gc})+$
                 multiplicationValues[s] = a_i;
-                firstTerm += multiplicationValues[s];
+
                 max = multiplicationValues[s] > max ? multiplicationValues[s] : max;
             }
+            // ---- Shift the values by the maximum
             for (size_t s = 0; s < currentSet->size; s++)
             {
                 multiplicationValues[s] -= max;
-                firstTerm -= max; // Maybe just substract max * currentSet->size
             }
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // --- For each candidate given a group and a ballot box
-                double secondTerm = 0;
-                double q_chica = logsumexp(multiplicationValues, currentSet, g, c, MATRIX_AT_PTR(W, b, g), ll);
-                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = q_chica;
-            }
+                // ---- Obtain the summatory over all of the values ---- //
+                double sum_exp_den = 0.0;
+                double sum_exp_num = 0.0;
+                double v = 0;
+                for (int i = 0; i < currentSet->size; i++)
+                {                                     // --- For each sample
+                    v = exp(multiplicationValues[i]); // exp(ls - m)
+                    sum_exp_num += v;
+                    Matrix *currentMatrix = currentSet->data[i];
+                    sum_exp_den += (MATRIX_AT_PTR(currentMatrix, g, c) / W_bg) * v;
+                }
+                double log_sum_exp_num = log(sum_exp_num);
+                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) =
+                    exp(log(sum_exp_den) - log_sum_exp_num);
+                // ---...--- //
+            } // --- End candidate loop
+        } // --- End group loop
+
+        // ---- Calculate the log-likelihood ---- //
+        double sum_exp_num = 0.0;
+        double v = 0;
+        for (int i = 0; i < currentSet->size; i++)
+        { // --- For each sample
+            v = exp(multiplicationValues[i]);
+            sum_exp_num += v;
         }
+        for (int i = 0; i < currentSet->size; i++)
+        { // --- For each sample
+            double val = exp(multiplicationValues[i]) / sum_exp_num;
+            *ll -= val * log(val);
+        }
+        // ---...--- //
+
+        // ---- Free allocated memory ---- //
         if (currentSet->size > 10000)
             Free(multiplicationValues);
-    }
+        // ---...--- //
+    } // --- End ballot box loop
     *ll = *ll * (1);
 
     // Calculo Q
     double toprint = computeQ(array2, probabilities);
-    Rprintf("Valor de q = %f, valor de H = %f\n", toprint, *ll);
+    Rprintf("- Valor de Q = %f\n- Valor de H = %f\n----------\n", toprint, *ll);
 
     // *ll += computeQ(array2, probabilities);
     *ll += toprint;
@@ -619,8 +602,3 @@ void cleanHitAndRun()
         loglogGammaArr = NULL;
     }
 }
-//__attribute__((destructor)) void cleanEverything()
-//{
-
-//   cleanHitAndRun();
-//}
