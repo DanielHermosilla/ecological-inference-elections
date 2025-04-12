@@ -1,0 +1,89 @@
+---
+fontsize: 11pt
+geometry: margin=1in
+classoption:
+ - landscape
+linestretch: 1.25 # adjusts line spacing using the setspace package, e.g. 1.25, 1.5
+indent: false # indent paragraphs
+papersize: a4 # paper size, e.g. letter, a4
+title: Testing the EM acurracy 
+output:
+  pdf_document
+pdf_engine: xelatex
+---
+
+Based on the `demonstration` vignette, we observed in a summarized way that the Expectation-Maximization algorithm tends to lose accuracy when the ballot boxes are homogeneous with respect to the demographic groups.
+
+However, it is worth exploring — in a more formal and mathematical sense — when this loss of precision begins. To investigate this, we adopt an empirical approach by computing the Mean Absolute Error across different values of lambda.
+
+It is important to note that the alpha parameter, as described in the `simulate_election()` documentation, controls the level of shuffling between groups and serves as a proxy for group heterogeneity.
+
+```{r, fig.align = "center"}
+library(ggplot2)
+library(fastei) # assuming this includes simulate_election and run_em
+library(dplyr)
+library(showtext)
+font_add_google("Lato", "lato")
+showtext_auto()
+
+lambda_values <- seq(0, 1, by = 0.1)
+methods <- c("exact", "mult", "mvn_cdf", "mvn_pdf", "mcmc")
+
+# Prepare an empty list to hold all results
+all_results <- list()
+
+for (method in methods) {
+    mae_values <- numeric(length(lambda_values))
+
+    for (i in seq_along(lambda_values)) {
+        lambda <- lambda_values[i]
+
+        real <- simulate_election(num_ballots = 50, num_candidates = 2, num_groups = 3, seed = 42, lambda = lambda)
+
+        estimate <- run_em(X = real$X, W = real$W, method = method)
+        mae <- mean(abs(real$real_prob - estimate$prob))
+        mae_values[i] <- mae
+    }
+
+    # Store results in a data frame
+    df_method <- data.frame(
+        lambda = lambda_values,
+        mae = mae_values,
+        method = method
+    )
+
+    all_results[[method]] <- df_method
+}
+
+# Combine all method-specific data frames into one
+df_all <- do.call(rbind, all_results)
+
+# Rename methods using a lookup table
+label_lookup <- c(
+    "exact" = "Exact",
+    "mult" = "Multinomial",
+    "mvn_cdf" = "MVN-CDF",
+    "mvn_pdf" = "MVN-PDF",
+    "mcmc" = "MCMC"
+)
+
+df_all <- df_all %>%
+    mutate(method_label = factor(label_lookup[method], levels = unname(label_lookup)))
+
+# Plot
+ggplot(df_all, aes(x = lambda, y = mae, color = method_label)) +
+    geom_line(linewidth = 1.2, alpha = 0.4) +
+    geom_point(aes(shape = method_label), size = 2.5) +
+    labs(
+        title = "Mean Absolute Error vs Lambda for Different Methods",
+        subtitle = "Among 50 ballot boxes, 2 candidates and 3 groups",
+        x = "Lambda",
+        y = "Mean Absolute Error",
+        color = "Method",
+        shape = "Method"
+    ) +
+    scale_color_brewer(palette = "Set2") +
+    theme_minimal(base_size = 12, base_family = "lato")
+```
+
+Therefore, by treating the lambda parameter as a measure of heterogeneity, we observe that the method yields an average MAE below $0.05$ when heterogeneity remains under $75\%$.

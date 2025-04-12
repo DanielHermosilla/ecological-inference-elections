@@ -62,6 +62,8 @@ consecutive probability values required to stop iterating. The default value is 
 \item{ll_threshold}{An optional numeric value indicating the minimum difference between consecutive log-likelihood values to stop iterating. The default value is \code{inf}, essentially deactivating
 the threshold. Note that the algorithm will stop if either \code{ll_threshold} \strong{or} \code{param_threshold} is accomplished.}
 
+\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = random} or \code{method} is either \code{mcmc} or \code{mvn_cdf}...}
+
 \item{verbose}{An optional boolean indicating whether to print informational messages during the EM
 iterations. The default value is \code{FALSE}.}
 
@@ -83,8 +85,6 @@ when \code{method = mvn_cdf}.}
 
 \item{mc_samples}{An optional integer specifying the number of Monte Carlo
 samples for the \code{mvn_cdf} method. The default value is \code{5000}. This argument is only applicable when \code{method = mvn_cdf}.}
-
-\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = random} or \code{method} is either \code{mcmc} or \code{mvn_cdf}.}
 }
 \value{
 The function returns an \code{eim} object with the function arguments and the following attributes:
