@@ -25,7 +25,7 @@ Certain methods may require additional arguments, which can be passed through ..
     <li><a class="dropdown-item" href="../reference/simulate_election.html">simulate_election()</a></li>
     <li><a class="dropdown-item" href="../reference/get_agg_opt.html">get_agg_opt()</a></li>
     <li><a class="dropdown-item" href="../reference/get_agg_proxy.html">get_agg_proxy()</a></li>
-    <li><a class="dropdown-item" href="../reference/welchtest.html">welchtest</a></li>
+    <li><a class="dropdown-item" href="../reference/welchtest.html">welchtest()</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Index</a></li>
 <li class="nav-item"><a class="nav-link" href="../articles/index.html">Articles</a></li>
@@ -130,6 +130,10 @@ consecutive probability values required to stop iterating. The default value is 
 the threshold. Note that the algorithm will stop if either <code>ll_threshold</code> <strong>or</strong> <code>param_threshold</code> is accomplished.</p></dd>
 
 
+<dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
+<dd><p>An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if <code>initial_prob = random</code> or <code>method</code> is either <code>mcmc</code> or <code>mvn_cdf</code>...</p></dd>
+
+
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
 <dd><p>An optional boolean indicating whether to print informational messages during the EM
 iterations. The default value is <code>FALSE</code>.</p></dd>
@@ -162,10 +166,6 @@ when <code>method = mvn_cdf</code>.</p></dd>
 <dt id="arg-mc-samples">mc_samples<a class="anchor" aria-label="anchor" href="#arg-mc-samples"></a></dt>
 <dd><p>An optional integer specifying the number of Monte Carlo
 samples for the <code>mvn_cdf</code> method. The default value is <code>5000</code>. This argument is only applicable when <code>method = mvn_cdf</code>.</p></dd>
-
-
-<dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
-<dd><p>An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if <code>initial_prob = random</code> or <code>method</code> is either <code>mcmc</code> or <code>mvn_cdf</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -238,33 +238,7 @@ supplied matrices or the data from the JSON file before executing the algorithm.
 <span class="r-in"><span>    step_size <span class="op">=</span> <span class="fl">1500</span>,</span></span>
 <span class="r-in"><span>    samples <span class="op">=</span> <span class="fl">800</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7970.649394, valor de H = 16793.346592</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7728.538964, valor de H = 16287.919479</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7573.722901, valor de H = 15692.982636</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7471.509827, valor de H = 15119.693936</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7401.141304, valor de H = 14609.974019</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7350.859072, valor de H = 14180.064608</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7313.105165, valor de H = 13823.632223</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7283.155720, valor de H = 13521.856293</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7258.061959, valor de H = 13254.620353</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7235.926521, valor de H = 13005.406431</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7215.514384, valor de H = 12761.713917</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7196.025459, valor de H = 12514.156282</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7176.929645, valor de H = 12255.692230</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7157.834120, valor de H = 11981.286194</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7138.417803, valor de H = 11687.629630</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7118.464980, valor de H = 11372.481205</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7097.949754, valor de H = 11033.780735</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7077.060778, valor de H = 10669.478650</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7056.055137, valor de H = 10279.435051</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7035.046979, valor de H = 9869.626555</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -7014.103893, valor de H = 9455.394619</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -6993.606520, valor de H = 9058.796340</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -6974.327824, valor de H = 8700.550031</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -6957.111100, valor de H = 8392.946780</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -6942.489992, valor de H = 8138.365201</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -6930.545463, valor de H = 7932.470800</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Valor de q = -6921.027042, valor de H = 7768.223223</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Starting to encode</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Example 3: Run the MVN CDF method with default settings</span></span></span>
 <span class="r-in"><span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu">run_em</span><span class="op">(</span>object <span class="op">=</span> <span class="va">model</span>, method <span class="op">=</span> <span class="st">"mvn_cdf"</span><span class="op">)</span></span></span>
