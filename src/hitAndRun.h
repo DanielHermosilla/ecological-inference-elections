@@ -8,6 +8,8 @@ extern "C"
 #endif
 
 #include "globals.h"
+#include "uthash.h"
+#include "utils_hash.h"
 #include "utils_matrix.h"
 
     // ---- Define a structure to store the Omega sets ---- //
@@ -15,6 +17,7 @@ extern "C"
     {
         uint32_t b;
         Matrix **data;
+        int *counts;
         size_t size;
     } OmegaSet;
 // ---...--- //

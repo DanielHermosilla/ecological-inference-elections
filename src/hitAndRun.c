@@ -256,6 +256,205 @@ void generateOmegaSet(int M, int S)
 }
 
 /**
+ * @brief Encodes the samples with their apparitions
+ *
+ */
+// Supongamos que computeMatrixKey() ya está definida y
+// que matricesAreEqual() compara correctamente el contenido de dos matrices.
+
+void encode()
+{
+    for (int b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        OmegaSet *set = OMEGASET[b];
+        int S = set->size;
+
+        // Hash temporal para agrupar y contar matrices únicas.
+        MatrixHash *hashTable = NULL;
+
+        // Recorremos cada muestra de la urna b
+        for (int s = 0; s < S; s++)
+        {
+            Matrix *current = set->data[s];
+
+            // 1) Calculamos su clave de hash.
+            unsigned int key = computeMatrixKey(current);
+
+            // 2) Buscamos si hay alguna entrada con la misma clave.
+            MatrixHash *entry = NULL;
+            HASH_FIND(hh, hashTable, &key, sizeof(unsigned int), entry);
+
+            int found = 0;
+            // 3) Si hay colisiones (entry != NULL), recorremos la "chain"
+            for (MatrixHash *iter = entry; iter != NULL; iter = iter->hh.next)
+            {
+                // Verifica la misma key y que realmentre sean la misma matriz
+                if (iter->key == key && matricesAreEqual(iter->matrix, current))
+                {
+                    // a) Es la misma matriz → incrementamos el conteo
+                    iter->count++;
+                    found = 1;
+
+                    // Liberamos la matriz 'current' redundante
+                    freeMatrix(current);
+                    Free(current);
+                    break;
+                }
+            }
+
+            // b) Si no se encontró (ni en colisiones), crear una nueva entrada
+            if (!found)
+            {
+                MatrixHash *newEntry = (MatrixHash *)Calloc(1, MatrixHash);
+                newEntry->key = key;
+                newEntry->matrix = current; // Esta se vuelve la "matriz canónica"
+                newEntry->count = 1;
+                HASH_ADD(hh, hashTable, key, sizeof(unsigned int), newEntry);
+            }
+        }
+
+        // ---- Construimos los arrays finales de matrices únicas y sus conteos
+        int uniqueCount = HASH_COUNT(hashTable);
+        Matrix **uniqueMatrices = (Matrix **)Calloc(uniqueCount, Matrix *);
+        int *counts = (int *)Calloc(uniqueCount, int);
+
+        int idx = 0;
+        MatrixHash *entry, *tmp;
+        HASH_ITER(hh, hashTable, entry, tmp)
+        {
+            uniqueMatrices[idx] = entry->matrix;
+            counts[idx] = entry->count;
+            idx++;
+        }
+
+        // Liberamos la lista hash
+        HASH_ITER(hh, hashTable, entry, tmp)
+        {
+            HASH_DEL(hashTable, entry);
+            Free(entry); // Libera solo la estructura, no la matriz (ya copiada en uniqueMatrices)
+        }
+
+        //  Reemplaza data y size en el OmegaSet
+        Free(set->data);
+        set->data = uniqueMatrices;
+        set->size = uniqueCount;
+        set->counts = counts;
+    }
+}
+
+/*
+void encode()
+{
+    for (int b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        MatrixHash *hashTable = NULL;
+        OmegaSet *set = OMEGASET[b];
+        int S = set->size;
+
+        // Allocate arrays to store unique matrices and their counts.
+        Matrix **uniqueMatrices = Calloc(S, Matrix *);
+        int *counts = Calloc(S, int);
+        int uniqueCount = 0;
+
+        for (int s = 0; s < S; s++)
+        {
+            Matrix *current = set->data[s];
+            // Compute a hash key based on the matrix's data.
+            unsigned int key = computeMatrixKey(current);
+
+            // Look up the entry using the computed key.
+            MatrixHash *entry = NULL;
+            HASH_FIND(hh, hashTable, &key, sizeof(unsigned int), entry);
+
+            if (entry == NULL)
+            {
+                // No entry found. Create one and store this matrix as the canonical copy.
+                entry = Calloc(1, MatrixHash);
+                entry->key = key;
+                entry->matrix = current; // this copy becomes canonical
+                entry->count = 1;
+                HASH_ADD(hh, hashTable, key, sizeof(unsigned int), entry);
+
+                uniqueMatrices[uniqueCount] = current;
+                counts[uniqueCount] = 1;
+                uniqueCount++;
+            }
+            else
+            {
+                // Found an entry with the same key. Now confirm by comparing the matrix content.
+                if (matricesAreEqual(entry->matrix, current))
+                {
+                    // It's a duplicate; increment the count in the hash and in our array.
+                    entry->count++;
+                    // Find the corresponding index in uniqueMatrices.
+                    for (int k = 0; k < uniqueCount; k++)
+                    {
+                        if (matricesAreEqual(uniqueMatrices[k], current))
+                        {
+                            counts[k]++;
+                            break;
+                        }
+                    }
+                    // Free the duplicate matrix since we already have a canonical copy.
+                    freeMatrix(current);
+                    Free(current);
+                }
+                else
+                {
+                    // Hash collision with different content!
+                    // Resolve by making this a new unique entry.
+                    // (One simple resolution is to mix in the sample index to generate a different key)
+                    unsigned int key2 = key ^ ((unsigned int)s);
+                    MatrixHash *entry2 = NULL;
+                    HASH_FIND(hh, hashTable, &key2, sizeof(unsigned int), entry2);
+                    if (entry2 == NULL)
+                    {
+                        entry2 = Calloc(1, MatrixHash);
+                        entry2->key = key2;
+                        entry2->matrix = current;
+                        entry2->count = 1;
+                        HASH_ADD(hh, hashTable, key, sizeof(unsigned int), entry2);
+
+                        uniqueMatrices[uniqueCount] = current;
+                        counts[uniqueCount] = 1;
+                        uniqueCount++;
+                    }
+                    else
+                    {
+                        // If still found duplicate (unlikely), handle similar to above.
+                        entry2->count++;
+                        for (int k = 0; k < uniqueCount; k++)
+                        {
+                            if (matricesAreEqual(uniqueMatrices[k], current))
+                            {
+                                counts[k]++;
+                                break;
+                            }
+                        }
+                        freeMatrix(current);
+                        Free(current);
+                    }
+                }
+            }
+        }
+
+        // Replace the OmegaSet's data with the unique matrices.
+        Free(set->data);
+        set->data = uniqueMatrices;
+        set->size = uniqueCount;
+        set->counts = (size_t *)counts;
+
+        // Clean up the hash table.
+        MatrixHash *entry, *tmp;
+        HASH_ITER(hh, hashTable, entry, tmp)
+        {
+            HASH_DEL(hashTable, entry);
+            Free(entry);
+        }
+    }
+}
+*/
+/**
  * @brief Computes the pre-computable values of the expression that doesn't depend on EM iterations
  *
  * Given a ballot box index and a matrix represent an element from the Hit and Run OmegaSet, it computes the
@@ -457,6 +656,8 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
     if (OMEGASET == NULL)
     {
         generateOmegaSet(params.M, params.S);
+        Rprintf("Starting to encode\n");
+        encode();
     }
     if (multinomialVals == NULL)
     {
@@ -536,8 +737,9 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
         }
         for (int i = 0; i < currentSet->size; i++)
         { // --- For each sample
+            Rprintf("Se multiplica el sample %d por %d repeticiones\n", i, (int)currentSet->counts[i]);
             double val = exp(multiplicationValues[i]) / sum_exp_num;
-            *ll -= val * log(val);
+            *ll -= val * log(currentSet->counts[i] * val);
         }
         // ---...--- //
 
@@ -572,6 +774,7 @@ void cleanHitAndRun()
                     {
                         freeMatrix(OMEGASET[b]->data[s]); // Free individual matrices
                         OMEGASET[b]->data[s] = NULL;      // Avoid dangling pointers
+                        OMEGASET[b]->counts[s] = 0;
                     }
                 }
 

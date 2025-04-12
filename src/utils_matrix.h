@@ -481,6 +481,14 @@ extern "C"
      * @return A new matrix merged by columns
      */
     Matrix mergeColumns(const Matrix *wmat, const int *boundaries, int numBoundaries);
+
+    /*
+     * @brief Checks if two matrices are equal
+     *
+     * @param[in] The first matrix to check
+     * @param[in] The second matrix to check
+     */
+    bool matricesAreEqual(Matrix *a, Matrix *b);
 #ifdef __cplusplus
 }
 #endif

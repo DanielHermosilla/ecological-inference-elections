@@ -191,3 +191,32 @@ void freeMemo(MemoizationTable *table)
     }
     Free(table); // Free the table structure itself
 }
+
+/*
+ * @brief Creates a hash key for a matrix
+ *
+ */
+unsigned int computeMatrixKey(const Matrix *m)
+{
+    unsigned int hash = 5381;
+    hash = ((hash << 5) + hash) ^ (unsigned int)m->rows;
+    hash = ((hash << 5) + hash) ^ (unsigned int)m->cols;
+
+    int total = m->rows * m->cols;
+    int *data = (int *)m->data;
+
+    // Constantes primas para mezclar posiciones (estas pueden ajustarse)
+    const unsigned int prime_row = 73856093;
+    const unsigned int prime_col = 19349663;
+
+    for (int i = 0; i < total; i++)
+    {
+        // Se obtiene la fila y columna a partir del índice
+        int row = i / m->cols;
+        int col = i % m->cols;
+        // Combina el valor, la fila y la columna en una única mezcla
+        unsigned int value = (unsigned int)data[i] ^ (row * prime_row) ^ (col * prime_col);
+        hash = ((hash << 5) + hash) ^ value;
+    }
+    return hash;
+}

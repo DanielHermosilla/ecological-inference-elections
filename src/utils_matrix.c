@@ -1248,3 +1248,24 @@ Matrix mergeColumns(const Matrix *wmat, const int *boundaries, int numBoundaries
 
     return newMat;
 }
+
+/*
+ * @brief Checks if two matrices are equal
+ *
+ * @param[in] The first matrix to check
+ * @param[in] The second matrix to check
+ */
+bool matricesAreEqual(Matrix *a, Matrix *b)
+{
+    checkMatrix(a);
+    checkMatrix(b);
+    for (int g = 0; g < TOTAL_GROUPS; g++)
+    {
+        for (int c = 0; c < TOTAL_CANDIDATES; c++)
+        {
+            if (MATRIX_AT_PTR(a, g, c) != MATRIX_AT_PTR(b, g, c))
+                return false;
+        }
+    }
+    return true;
+}
