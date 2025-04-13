@@ -120,7 +120,7 @@ result4 <- simulate_election(
     prob = custom_prob
 )
 
-result4$prob == custom_prob # TRUE
+result4$real_prob == custom_prob # TRUE
 }
 \references{
 The algorithm is fully explained in \href{https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834}{'Thraves, C. and Ubilla, P.: \emph{"A Fast Ecological Inference Algorithm for the R×C Case"}}.

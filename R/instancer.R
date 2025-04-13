@@ -109,7 +109,7 @@
 #'     prob = custom_prob
 #' )
 #'
-#' result4$prob == custom_prob # TRUE
+#' result4$real_prob == custom_prob # TRUE
 #' @export
 simulate_election <- function(num_ballots,
                               num_candidates,

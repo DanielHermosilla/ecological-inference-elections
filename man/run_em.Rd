@@ -5,17 +5,20 @@
 \title{Compute the Expected-Maximization Algorithm}
 \usage{
 run_em(
-	object = NULL,
- json_path = NULL,
- method = "mult",
- initial_prob = "group_proportional",
- allow_mismatch = FALSE,
- maxiter = 1000,
- maxtime = 3600,
- param_threshold = 0.001,
- ll_threshold = as.double(-Inf),
- verbose = FALSE,
- ...
+  object = NULL,
+  X = NULL,
+  W = NULL,
+  json_path = NULL,
+  method = "mult",
+  initial_prob = "group_proportional",
+  allow_mismatch = FALSE,
+  maxiter = 1000,
+  maxtime = 3600,
+  param_threshold = 0.001,
+  ll_threshold = as.double(-Inf),
+  seed = NULL,
+  verbose = FALSE,
+  ...
 )
 }
 \arguments{

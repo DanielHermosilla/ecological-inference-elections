@@ -276,21 +276,6 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' }
 #' Aditionally, it will create `samples` and `step_size` parameters if the specified method is `mcmc`, or `mc_method`, `mc_error` and `mc_samples` if the method is `mvn_cdf`.
 #'
-#' @usage
-#' run_em(
-#' 	object = NULL,
-#'  json_path = NULL,
-#'  method = "mult",
-#'  initial_prob = "group_proportional",
-#'  allow_mismatch = FALSE,
-#'  maxiter = 1000,
-#'  maxtime = 3600,
-#'  param_threshold = 0.001,
-#'  ll_threshold = as.double(-Inf),
-#'  verbose = FALSE,
-#'  ...
-#' )
-#'
 #' @examples
 #' # Example 1: Compute the Expected-Maximization with default settings
 #' simulations <- simulate_election(
@@ -837,7 +822,8 @@ get_agg_proxy <- function(object = NULL,
 #' result <- get_agg_opt(
 #'     X = simulations$X,
 #'     W = simulations$W,
-#'     sd_threshold = 0.05
+#'     sd_threshold = 0.05,
+#'     seed = 42
 #' )
 #'
 #' result$group_agg # c(3,8)

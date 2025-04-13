@@ -71,7 +71,8 @@ simulations <- simulate_election(
 result <- get_agg_opt(
     X = simulations$X,
     W = simulations$W,
-    sd_threshold = 0.05
+    sd_threshold = 0.05,
+    seed = 42
 )
 
 result$group_agg # c(3,8)

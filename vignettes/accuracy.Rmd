@@ -18,9 +18,9 @@ However, it is worth exploring — in a more formal and mathematical sense — w
 
 It is important to note that the alpha parameter, as described in the `simulate_election()` documentation, controls the level of shuffling between groups and serves as a proxy for group heterogeneity.
 
-```{r, fig.align = "center"}
+```{r lambda_comparison, fig.cap = "Mean Absolute Error vs Lambda", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
 library(ggplot2)
-library(fastei) # assuming this includes simulate_election and run_em
+library(fastei)
 library(dplyr)
 library(showtext)
 font_add_google("Lato", "lato")
@@ -45,7 +45,6 @@ for (method in methods) {
         mae_values[i] <- mae
     }
 
-    # Store results in a data frame
     df_method <- data.frame(
         lambda = lambda_values,
         mae = mae_values,
@@ -55,10 +54,10 @@ for (method in methods) {
     all_results[[method]] <- df_method
 }
 
-# Combine all method-specific data frames into one
+# Combine all method to one dataframe
 df_all <- do.call(rbind, all_results)
 
-# Rename methods using a lookup table
+# Rename the labels for the plot
 label_lookup <- c(
     "exact" = "Exact",
     "mult" = "Multinomial",
@@ -70,7 +69,6 @@ label_lookup <- c(
 df_all <- df_all %>%
     mutate(method_label = factor(label_lookup[method], levels = unname(label_lookup)))
 
-# Plot
 ggplot(df_all, aes(x = lambda, y = mae, color = method_label)) +
     geom_line(linewidth = 1.2, alpha = 0.4) +
     geom_point(aes(shape = method_label), size = 2.5) +
