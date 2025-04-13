@@ -139,7 +139,8 @@ ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, the 
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">get_agg_opt</span><span class="op">(</span></span></span>
 <span class="r-in"><span>    X <span class="op">=</span> <span class="va">simulations</span><span class="op">$</span><span class="va">X</span>,</span></span>
 <span class="r-in"><span>    W <span class="op">=</span> <span class="va">simulations</span><span class="op">$</span><span class="va">W</span>,</span></span>
-<span class="r-in"><span>    sd_threshold <span class="op">=</span> <span class="fl">0.05</span></span></span>
+<span class="r-in"><span>    sd_threshold <span class="op">=</span> <span class="fl">0.05</span>,</span></span>
+<span class="r-in"><span>    seed <span class="op">=</span> <span class="fl">42</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="va">result</span><span class="op">$</span><span class="va">group_agg</span> <span class="co"># c(3,8)</span></span></span>
