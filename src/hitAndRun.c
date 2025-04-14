@@ -520,7 +520,7 @@ double computeQ(double *q, Matrix const *probabilities)
             borrar2 += firstTerm * w_bg;
         }
     }
-    // Rprintf("----------\nQ: %f + %f + %f\n", borrar2, borrar, -thirdTerm);
+    Rprintf("----------\nQ: %f + %f + %f\n", borrar2, borrar, -thirdTerm);
 
     return total;
 }
@@ -612,7 +612,7 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
         for (int i = 0; i < currentSet->size; i++)
         { // --- For each sample
             double val = exp(multiplicationValues[i]) / sum_exp_num;
-            // Rprintf("S = %d B = %d H = %f R = %d\n", i, b, val, currentSet->counts[i]);
+            Rprintf("S = %d B = %d H = %f R = %d\n", i, b, val, currentSet->counts[i]);
             *ll -= val * log(currentSet->counts[i] * val);
         }
         // ---...--- //
@@ -625,7 +625,7 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
 
     // Calculo Q
     double toprint = computeQ(array2, probabilities);
-    // Rprintf("- Valor de Q = %f\n- Valor de H = %f\n----------\n", toprint, *ll);
+    Rprintf("- Valor de Q = %f\n- Valor de H = %f\n----------\n", toprint, *ll);
 
     // *ll += computeQ(array2, probabilities);
     *ll += toprint;
