@@ -119,12 +119,15 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, do
     );
 
     // ---- Do not parallelize ----
-    double totalWP = 0;
+    double totalWP[TOTAL_BALLOTS];
 
     for (int b = 0; b < (int)TOTAL_BALLOTS; b++)
+    {
+        totalWP[b] = 0;
         for (int c = 0; c < (int)TOTAL_CANDIDATES; c++)
             // Because it cannot be initialized
-            totalWP += MATRIX_AT(WP, b, c);
+            totalWP[b] += MATRIX_AT(WP, b, c);
+    }
 
     for (int b = 0; b < (int)TOTAL_BALLOTS; b++)
     { // --- For each ballot box
@@ -149,11 +152,11 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, do
                 // Add the log-likelihood
                 if (g == 0)
                 {
-                    *ll += MATRIX_AT(WP, b, c) != 0 ? MATRIX_AT_PTR(X, c, b) * log(MATRIX_AT(WP, b, c) / totalWP) -
+                    *ll += MATRIX_AT(WP, b, c) != 0 ? MATRIX_AT_PTR(X, c, b) * log(MATRIX_AT(WP, b, c) / totalWP[b]) -
                                                           lgamma1p((int)MATRIX_AT_PTR(X, c, b))
                                                     : 0;
                     Rprintf("Término S: %f Término de X_cb: %f\n",
-                            MATRIX_AT_PTR(X, c, b) * log(MATRIX_AT(WP, b, c) / totalWP),
+                            MATRIX_AT_PTR(X, c, b) * log(MATRIX_AT(WP, b, c) / totalWP[b]),
                             lgamma1p((int)MATRIX_AT_PTR(X, c, b)));
                 }
             }
