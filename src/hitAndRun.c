@@ -296,7 +296,9 @@ void encode()
 
         // Allocate counts and assign total count per sample
         if (set->counts == NULL)
+        {
             set->counts = Calloc(S, int);
+        }
 
         for (int s = 0; s < S; s++)
         {
@@ -314,6 +316,8 @@ void encode()
                     break;
                 }
             }
+            if (set->counts[s] == 0) // Hash collision case
+                set->counts[s] = 1;
         }
 
         // Clean up

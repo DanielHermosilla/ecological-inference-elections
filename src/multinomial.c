@@ -26,11 +26,14 @@ SOFTWARE.
 #include <R_ext/BLAS.h>
 #include <R_ext/Memory.h>
 #include <R_ext/RS.h> /* for R_Calloc/R_Free, F77_CALL */
+#include <Rmath.h>
 #include <stdint.h>
 
 #ifndef BLAS_INT
 #define BLAS_INT int
 #endif
+
+double *logGammaArr2 = NULL;
 
 /**
  * @brief Computes the value of `r` without the denominator.
@@ -59,42 +62,18 @@ double computeR(Matrix const *probabilities, Matrix const *mult, int const b, in
  *
  * This would be called outside the computing function, so it is not designed to "save" some calculations.
  */
-/*
-double computeLLMultinomial(Matrix const *probabilities, double *r)
+static void precomputeLogGammas()
 {
-    // ---- Get the matrix of multiplications
-    double ll = 0;
-    Matrix WP = createMatrix((int)TOTAL_BALLOTS, (int)TOTAL_CANDIDATES);
+    // We must get the biggest W_{bg}
+    int biggestX = (int)maxElement(X);
+    logGammaArr2 = (double *)Calloc(biggestX + 1, double);
 
-    double alpha = 1.0;
-    double beta = 0.0;
-    BLAS_INT m = (BLAS_INT)TOTAL_BALLOTS;
-    BLAS_INT k = (BLAS_INT)TOTAL_GROUPS;
-    BLAS_INT n = (BLAS_INT)TOTAL_CANDIDATES;
-    char noTranspose = 'N';
-
-    // WP = alpha * W * probabilities + beta * WP
-    F77_CALL(dgemm)
-    (&noTranspose, &noTranspose, // transA = 'N', transB = 'N'
-     &m, &n, &k,                 // M, N, K
-     &alpha, W->data, &m,        // A, LDA = m
-     probabilities->data, &k,    // B, LDB = k
-     &beta, WP.data, &m,         // C, LDC = m
-     (BLAS_INT)1, (BLAS_INT)1    // string lengths for 'N', 'N'
-    );
-
-    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    for (int i = 0; i <= biggestX; i++)
     {
-        ll += lgamma(BALLOTS_VOTES[b]);
-        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-        {
-            ll -= lgamma(CANDIDATES_VOTES[c]);
-            ll += log(computeR(probabilities, &WP, b, c, 0));
-        }
+        logGammaArr2[i] = lgamma1p(i);
     }
-    return ll;
 }
-*/
+
 /**
  * @brief Computes an approximate of the conditional probability by using a Multinomial approach.
  *
@@ -111,6 +90,11 @@ double computeLLMultinomial(Matrix const *probabilities, double *r)
  */
 double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, double *ll)
 {
+
+    if (logGammaArr2 == NULL)
+    {
+        precomputeLogGammas();
+    }
     double *array2 = (double *)Calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, double); // Array to return
     *ll = 0;
     // -- Summatory calculation for g --
@@ -134,9 +118,14 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, do
                                     // string lengths for 'N', 'N'
     );
 
-    // Maybe try to obtain log-likelihood with lgamma
     // ---- Do not parallelize ----
     double totalWP = 0;
+
+    for (int b = 0; b < (int)TOTAL_BALLOTS; b++)
+        for (int c = 0; c < (int)TOTAL_CANDIDATES; c++)
+            // Because it cannot be initialized
+            totalWP += MATRIX_AT(WP, b, c);
+
     for (int b = 0; b < (int)TOTAL_BALLOTS; b++)
     { // --- For each ballot box
         for (int g = 0; g < (int)TOTAL_GROUPS; g++)
@@ -158,8 +147,15 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, do
                 tempSum += finalNumerator[c];
                 // ---...--- //
                 // Add the log-likelihood
-                *ll += c == 0 ? MATRIX_AT(WP, g, c) : 0;
-                totalWP += MATRIX_AT(WP, g, c);
+                if (g == 0)
+                {
+                    *ll += g == 0 ? MATRIX_AT_PTR(X, c, b) * log(MATRIX_AT(WP, b, c) / totalWP) -
+                                        logGammaArr2[(int)MATRIX_AT_PTR(X, c, b)]
+                                  : 0;
+                    Rprintf("Término S: %f Término de X_cb: %f\n",
+                            MATRIX_AT_PTR(X, c, b) * log(MATRIX_AT(WP, b, c) / totalWP),
+                            logGammaArr2[(int)MATRIX_AT_PTR(X, c, b)]);
+                }
             }
 
             for (int c = 0; c < (int)TOTAL_CANDIDATES; c++)
@@ -168,9 +164,11 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, do
                 Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = tempSum != 0 ? finalNumerator[c] / tempSum : 0;
             }
         }
+        Rprintf("Sumando el término 'n': %f\n------- Terminando iteración B = %d -------\n", lgamma1p(BALLOTS_VOTES[b]),
+                b);
+        *ll += lgamma1p(BALLOTS_VOTES[b]);
     }
-    *ll /= totalWP;
-    *ll = log(*ll);
+    // *ll -= TOTAL_BALLOTS * TOTAL_CANDIDATES * log(totalWP);
     freeMatrix(&WP);
     return array2;
 }
