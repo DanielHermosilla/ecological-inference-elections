@@ -1058,8 +1058,8 @@ welchtest <- function(object = NULL,
         object2 <- eim(X2, W2)
     }
 
-    if (!all(dim(object$X) == dim(object2$X)) || !all(dim(object$W) == dim(object2$W))) {
-        stop("Matrices dimension must be the same for both 'eim' objects")
+    if (ncol(object$X) != ncol(object2$X) || ncol(object$W) != ncol(object2$W)) {
+        stop("Column dimensions must be the same for both 'eim' objects")
     }
 
     # First object
