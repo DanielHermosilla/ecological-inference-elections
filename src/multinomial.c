@@ -136,6 +136,7 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, do
 
     // Maybe try to obtain log-likelihood with lgamma
     // ---- Do not parallelize ----
+    double totalWP = 0;
     for (int b = 0; b < (int)TOTAL_BALLOTS; b++)
     { // --- For each ballot box
         for (int g = 0; g < (int)TOTAL_GROUPS; g++)
@@ -156,22 +157,20 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, do
                 // ---- Store the value for reusing it later ----
                 tempSum += finalNumerator[c];
                 // ---...--- //
+                // Add the log-likelihood
+                *ll += c == 0 ? MATRIX_AT(WP, g, c) : 0;
+                totalWP += MATRIX_AT(WP, g, c);
             }
 
             for (int c = 0; c < (int)TOTAL_CANDIDATES; c++)
-            {                     // ---- For each candidate given a group and a ballot box
-                if (tempSum != 0) // --- Edge case
-                {
-                    Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = finalNumerator[c] / tempSum;
-                }
-                else
-                    Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = 0;
+            { // ---- For each candidate given a group and a ballot box
                 // ---- Store the value ----
+                Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = tempSum != 0 ? finalNumerator[c] / tempSum : 0;
             }
-            *ll += (g == 0 && tempSum != 0) ? log(tempSum) : 0;
         }
     }
-
+    *ll /= totalWP;
+    *ll = log(*ll);
     freeMatrix(&WP);
     return array2;
 }

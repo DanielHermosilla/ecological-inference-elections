@@ -264,46 +264,59 @@ void encode()
 
         MatrixHash *hashTable = NULL;
 
-        // ---- Create the counts array
-        if (set->counts == NULL)
-            set->counts = Calloc(S, int);
-
+        // First pass: identify and count unique matrices
         for (int s = 0; s < S; s++)
         {
             Matrix *current = set->data[s];
-            // ---- Create the key for the hash
             unsigned int key = computeMatrixKey(current);
 
             MatrixHash *entry = NULL;
             HASH_FIND(hh, hashTable, &key, sizeof(unsigned int), entry);
 
             int found = 0;
-            // We will loop for each element in the hash table, the key would be the matrix and the
-            // value would be the amount of repetitions it has. Each matrix inside the hash should be
-            // unique, hence, it breaks when it finds an equal matrix
             for (MatrixHash *iter = entry; iter != NULL; iter = iter->hh.next)
-            { // For each entry in the hash table, check if the matrices are equal
+            {
                 if (iter->key == key && matricesAreEqual(iter->matrix, current))
-                { // If the key are equal
+                {
                     iter->count++;
-                    set->counts[s] = iter->count; // Update with the repetitions
                     found = 1;
                     break;
                 }
             }
 
             if (!found)
-            { // If the matrix wasn't found
+            {
                 MatrixHash *newEntry = Calloc(1, MatrixHash);
                 newEntry->key = key;
                 newEntry->matrix = current;
                 newEntry->count = 1;
                 HASH_ADD(hh, hashTable, key, sizeof(unsigned int), newEntry);
-                set->counts[s] = 1; // First aparition
             }
         }
 
-        // Frees the memory related with the hash table
+        // Allocate counts and assign total count per sample
+        if (set->counts == NULL)
+            set->counts = Calloc(S, int);
+
+        for (int s = 0; s < S; s++)
+        {
+            Matrix *current = set->data[s];
+            unsigned int key = computeMatrixKey(current);
+
+            MatrixHash *entry = NULL;
+            HASH_FIND(hh, hashTable, &key, sizeof(unsigned int), entry);
+
+            for (MatrixHash *iter = entry; iter != NULL; iter = iter->hh.next)
+            {
+                if (iter->key == key && matricesAreEqual(iter->matrix, current))
+                {
+                    set->counts[s] = iter->count; // All duplicates now get the same count
+                    break;
+                }
+            }
+        }
+
+        // Clean up
         MatrixHash *entry, *tmp;
         HASH_ITER(hh, hashTable, entry, tmp)
         {
@@ -312,7 +325,6 @@ void encode()
         }
     }
 }
-
 /**
  * @brief Computes the pre-computable values of the expression that doesn't depend on EM iterations
  *
@@ -595,8 +607,8 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
         }
         for (int i = 0; i < currentSet->size; i++)
         { // --- For each sample
-            // Rprintf("Se multiplica el sample %d por %d repeticiones\n", i, (int)currentSet->counts[i]);
             double val = exp(multiplicationValues[i]) / sum_exp_num;
+            // Rprintf("S = %d B = %d H = %f R = %d\n", i, b, val, currentSet->counts[i]);
             *ll -= val * log(currentSet->counts[i] * val);
         }
         // ---...--- //
