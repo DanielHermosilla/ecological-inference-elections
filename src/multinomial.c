@@ -149,12 +149,12 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, do
                 // Add the log-likelihood
                 if (g == 0)
                 {
-                    *ll += g == 0 ? MATRIX_AT_PTR(X, c, b) * log(MATRIX_AT(WP, b, c) / totalWP) -
-                                        logGammaArr2[(int)MATRIX_AT_PTR(X, c, b)]
-                                  : 0;
+                    *ll += MATRIX_AT(WP, b, c) != 0 ? MATRIX_AT_PTR(X, c, b) * log(MATRIX_AT(WP, b, c) / totalWP) -
+                                                          lgamma1p((int)MATRIX_AT_PTR(X, c, b))
+                                                    : 0;
                     Rprintf("Término S: %f Término de X_cb: %f\n",
                             MATRIX_AT_PTR(X, c, b) * log(MATRIX_AT(WP, b, c) / totalWP),
-                            logGammaArr2[(int)MATRIX_AT_PTR(X, c, b)]);
+                            lgamma1p((int)MATRIX_AT_PTR(X, c, b)));
                 }
             }
 
