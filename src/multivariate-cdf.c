@@ -35,83 +35,6 @@ SOFTWARE.
 #include <string.h>
 #include <unistd.h>
 
-// Might implement later, has a weird bug...
-/*
-double genzMontecarloNewChunk(const Matrix *cholesky, const double *lowerBounds, const double *upperBounds,
-                              double epsilon, int iterations, int mvnDim)
-{
-    GetRNGstate();
-    //    (or do it in chunks if 'iterations * mvnDim' is very large)
-    int total_draws = iterations * mvnDim;
-    double *rand_pool = (double *)Calloc(total_draws, double);
-    for (int i = 0; i < total_draws; i++)
-    {
-        rand_pool[i] = unif_rand();
-    }
-    // ---- Initialize Montecarlo variables ---- //
-    double intsum = 0;
-    double varsum = 0;
-    double mean = 0;
-    int currentIterations = 0;
-    double a[mvnDim], b[mvnDim], y[mvnDim], currentError;
-    a[0] = pnorm(lowerBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 0.0, 1.0, 1, 0);
-    b[0] = pnorm(upperBounds[0] / MATRIX_AT_PTR(cholesky, 0, 0), 0.0, 1.0, 1, 0);
-    // ---...--- //
-
-    int chunkCalls = iterations / 250;
-    if (chunkCalls % 250 != 0)
-        chunkCalls++;
-
-    for (int k = 0; k < chunkCalls; k++)
-    {
-        for (int c = 0; c < 250; c++)
-        {
-            int globalIter = k * 250 + c;
-            double aLocal[mvnDim], bLocal[mvnDim], yLocal[mvnDim];
-            aLocal[0] = a[0];
-            bLocal[0] = b[0];
-
-            double *pseudoRandom = &rand_pool[globalIter * mvnDim];
-            // ---- Compute the base case
-            yLocal[0] = qnorm(aLocal[0] + pseudoRandom[0] * (bLocal[0] - aLocal[0]), 0.0, 1.0, 1, 0);
-            double summatory;
-            double P = bLocal[0] - aLocal[0];
-
-            // ---- Do the main loop ---- //
-            for (int i = 1; i < mvnDim; i++)
-            {
-                // ---- Note that the summatory is equivalent to $\sum_{j=1}^{i-1}c_{ij}*y_{j}$.
-                summatory = 0;
-                for (int j = 0; j < i; j++)
-                {
-                    summatory += MATRIX_AT_PTR(cholesky, i, j) * yLocal[j];
-                }
-                aLocal[i] = pnorm((lowerBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 0.0, 1.0, 1, 0);
-                bLocal[i] = pnorm((upperBounds[i] - summatory) / MATRIX_AT_PTR(cholesky, i, i), 0.0, 1.0, 1, 0);
-                double difference = bLocal[i] - aLocal[i];
-                yLocal[i] = qnorm(aLocal[i] + pseudoRandom[i] * difference, 0.0, 1.0, 1, 0);
-                P *= difference;
-            }
-            // ---...--- //
-            // ---- Get the stopping parameters ---- //
-            intsum += P;
-        }
-        currentIterations += 250;
-        mean = intsum / currentIterations;
-        varsum += pow(intsum - mean, 2);
-        currentError = sqrt(varsum / (currentIterations * (currentIterations - 1)));
-        // ---...--- //
-        if (currentError < epsilon && currentIterations > iterations)
-        {
-            break;
-        }
-    }
-    Free(rand_pool);
-    PutRNGstate();
-    return mean;
-}
-*/
-// All of the conventions used are from genz paper
 /*
  * @brief Compute the Montecarlo approximation proposed by Alan genz towards the most recent method, using univariate
  * conditional with quasirandom numbers.
@@ -221,9 +144,11 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
     double intsum = 0;
     double varsum = 0;
     int currentIterations = 0;
-    double currentError = 1000;
+    double currentError = DBL_MAX;
     double d[mvnDim], e[mvnDim], f[mvnDim];
     double diag0 = MATRIX_AT_PTR(cholesky, 0, 0);
+    if (diag0 == 0)
+        return 0;
     d[0] = pnorm(lowerBounds[0] / diag0, 0.0, 1.0, 1, 0);
     e[0] = pnorm(upperBounds[0] / diag0, 0.0, 1.0, 1, 0);
     f[0] = (e[0] - d[0]);
@@ -262,8 +187,8 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
             }
 
             double diagii = MATRIX_AT_PTR(cholesky, i, i);
-            d[i] = pnorm((lowerBounds[i] - summatory) / diagii, 0.0, 1.0, 1, 0);
-            e[i] = pnorm((upperBounds[i] - summatory) / diagii, 0.0, 1.0, 1, 0);
+            d[i] = diagii != 0 ? pnorm((lowerBounds[i] - summatory) / diagii, 0.0, 1.0, 1, 0) : 0;
+            e[i] = diagii != 0 ? pnorm((upperBounds[i] - summatory) / diagii, 0.0, 1.0, 1, 0) : 0;
             f[i] = (e[i] - d[i]) * f[i - 1];
         }
         // ---...--- //
@@ -312,6 +237,10 @@ double Montecarlo(Matrix *chol, double *mu, double *lowerLimits, double *upperLi
     // ---- Set up the initial parameter ---- //
     double result;
     // ---...--- //
+    // ---- Case where there are no values ---- //
+    if (MATRIX_AT_PTR(chol, 0, 0) == 0 ||
+        memcmp(lowerLimits, upperLimits, sizeof(double) * (TOTAL_CANDIDATES - 1)) == 0)
+        return 0;
 
     // ---- Perform integration ---- //
     if (strcmp(method, "genz") == 0)
@@ -448,8 +377,8 @@ double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params
                          pnorm(featureCopyA[0], 0.0, sqrt(MATRIX_AT_PTR(currentCholesky, 0, 0)), 1, 0));
                 }
                 montecarloResults[c] *= MATRIX_AT_PTR(probabilities, g, c);
-                denominator += montecarloResults[c];
-                logArray[b] += g == 0 ? montecarloResults[c] : 0;
+                denominator += !isnan(montecarloResults[c]) ? montecarloResults[c] : 0;
+                logArray[b] += g == 0 && !isnan(montecarloResults[c]) ? montecarloResults[c] : 0;
                 // TODO: Make an arena for this loop
                 Free(featureCopyA);
                 Free(featureCopyB);
@@ -462,10 +391,10 @@ double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params
 
             // ---- Add the final results to the array ----//
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-            {                         // --- For each candidate
-                if (denominator == 0) // Edge case
-                    Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = 0;
-                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = montecarloResults[c] / denominator;
+            { // --- For each candidate
+                double result = montecarloResults[c] / denominator;
+                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) =
+                    !isnan(result) && !isinf(result) ? result : 0;
             } // --- End c loop
             // ---...--- //
         } // --- End g loop
@@ -479,7 +408,7 @@ double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params
     double finalLikelihood = 0;
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
-        finalLikelihood += log(logArray[b]);
+        finalLikelihood += logArray[b] != 0 ? log(logArray[b]) : 0;
     }
     *ll = finalLikelihood;
     // *ll = log(*ll);

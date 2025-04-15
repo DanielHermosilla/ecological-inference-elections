@@ -536,7 +536,7 @@ double exactLL(MemoizationTable *memo)
         {
             double px =
                 getMemoValue(memo, b, TOTAL_GROUPS - 1, 0, TOTAL_CANDIDATES - 1, CANDIDATEARRAYS[b], TOTAL_CANDIDATES);
-            sum += px != 0 ? log(px) : 0;
+            sum += px > 0 ? log(px) : 0;
         }
     }
     return sum;
@@ -627,9 +627,10 @@ double *computeQExact(const Matrix *probabilities, QMethodInput params, double *
             { // ---- For each candidate
                 // ---- Compute the numerator ----
                 // ---- Store the resulting values as q_{bgc} ----;
-                if (den != 0)
+                double result = num[c] / den;
+                if (!isnan(result) && !isinf(result))
                 {
-                    Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num[c] / den;
+                    Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = result;
                 }
                 else
                 {

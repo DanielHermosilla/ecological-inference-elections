@@ -595,8 +595,9 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
                     sum_exp_den += (MATRIX_AT_PTR(currentMatrix, g, c) / W_bg) * v;
                 }
                 double log_sum_exp_num = log(sum_exp_num);
+                double result = exp(log(sum_exp_den) - log_sum_exp_num);
                 Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) =
-                    exp(log(sum_exp_den) - log_sum_exp_num);
+                    !isnan(result) && !isinf(result) ? result : 0;
                 // ---...--- //
             } // --- End candidate loop
         } // --- End group loop

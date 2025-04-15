@@ -114,7 +114,7 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
             // ---- Add the values towards the denominator to later divide by it ----
             den += QC[c];
         }
-        *ll += g == 0 ? log(den) * normalizeConstant : 0;
+        *ll += g == 0 && den > 0 ? log(den) * normalizeConstant : 0;
         for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
         { // ---- For each candidate given a group
             // ---- Store each value, divided by the denominator ----
@@ -164,8 +164,10 @@ double *computeQMultivariatePDF(Matrix const *probabilities, QMethodInput params
         { // ---- For each group given a ballot box
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // ---- For each candidate given a ballot box and a group
+                double results = MATRIX_AT(resultsForB, g, c);
 
-                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = MATRIX_AT(resultsForB, g, c);
+                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) =
+                    !isnan(results) && !isinf(results) ? results : 0;
             }
         }
         // ---- Frees allocated space ----
@@ -173,6 +175,8 @@ double *computeQMultivariatePDF(Matrix const *probabilities, QMethodInput params
     }
 
     freeMatrix(&probabilitiesReduced);
+    if (isnan(*ll) || isinf(*ll))
+        *ll = 0;
     return array2;
     // --- ... --- //
 }

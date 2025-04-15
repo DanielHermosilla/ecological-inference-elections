@@ -152,23 +152,21 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, do
                 // Add the log-likelihood
                 if (g == 0)
                 {
-                    *ll += MATRIX_AT(WP, b, c) != 0 ? MATRIX_AT_PTR(X, c, b) * log(MATRIX_AT(WP, b, c) / totalWP[b]) -
-                                                          lgamma1p((int)MATRIX_AT_PTR(X, c, b))
-                                                    : 0;
-                    Rprintf("Término S: %f Término de X_cb: %f\n",
-                            MATRIX_AT_PTR(X, c, b) * log(MATRIX_AT(WP, b, c) / totalWP[b]),
-                            lgamma1p((int)MATRIX_AT_PTR(X, c, b)));
+                    *ll += MATRIX_AT(WP, b, c) != 0 && totalWP[b] != 0
+                               ? MATRIX_AT_PTR(X, c, b) * log(MATRIX_AT(WP, b, c) / totalWP[b]) -
+                                     lgamma1p((int)MATRIX_AT_PTR(X, c, b))
+                               : 0;
                 }
             }
 
             for (int c = 0; c < (int)TOTAL_CANDIDATES; c++)
             { // ---- For each candidate given a group and a ballot box
                 // ---- Store the value ----
-                Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = tempSum != 0 ? finalNumerator[c] / tempSum : 0;
+                double result = finalNumerator[c] / tempSum;
+                Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) =
+                    !isnan(result) && !isinf(result) ? finalNumerator[c] / tempSum : 0;
             }
         }
-        Rprintf("Sumando el término 'n': %f\n------- Terminando iteración B = %d -------\n", lgamma1p(BALLOTS_VOTES[b]),
-                b);
         *ll += lgamma1p(BALLOTS_VOTES[b]);
     }
     // *ll -= TOTAL_BALLOTS * TOTAL_CANDIDATES * log(totalWP);
