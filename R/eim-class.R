@@ -501,11 +501,27 @@ bootstrap <- function(object = NULL,
                       W = NULL,
                       json_path = NULL,
                       nboot = 50,
+                      allow_mismatch = FALSE,
                       seed = NULL,
                       ...) {
     # Retrieve the default values from run_em() as a list
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint # It would validate nboot too.
+
+    # Note: Mismatch restricted methods are checked inside .validate_compute
+    if (!allow_mismatch) {
+        mismatch_rows <- which(rowSums(object$X) != rowSums(object$W))
+
+        if (length(mismatch_rows) > 0) {
+            stop(
+                "run_em: Row-wise mismatch in vote totals detected.\n",
+                "Rows with mismatches: ", paste(mismatch_rows, collapse = ", "), "\n",
+                "To allow mismatches, set `allow_mismatch = TRUE`."
+            )
+        }
+    } else {
+        if (method == "exact") stop("run_em: Exact method isn't supported with mismatch")
+    }
 
     # Set seed for reproducibility
     if (!is.null(seed)) set.seed(seed)
@@ -676,8 +692,10 @@ get_agg_proxy <- function(object = NULL,
                           json_path = NULL,
                           sd_statistic = "maximum",
                           sd_threshold = 0.05,
+                          method = "mult",
                           feasible = TRUE,
                           nboot = 50,
+                          allow_mismatch = FALSE,
                           seed = NULL, ...) {
     # Retrieve the default values from run_em() as a list
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
@@ -696,6 +714,22 @@ get_agg_proxy <- function(object = NULL,
         object <- eim(X, W, json_path)
     } else if (!inherits(object, "eim")) {
         stop("Bootstrap: The object must be initialized with the `eim()` function.")
+    }
+
+
+    # Note: Mismatch restricted methods are checked inside .validate_compute
+    if (!allow_mismatch) {
+        mismatch_rows <- which(rowSums(object$X) != rowSums(object$W))
+
+        if (length(mismatch_rows) > 0) {
+            stop(
+                "run_em: Row-wise mismatch in vote totals detected.\n",
+                "Rows with mismatches: ", paste(mismatch_rows, collapse = ", "), "\n",
+                "To allow mismatches, set `allow_mismatch = TRUE`."
+            )
+        }
+    } else {
+        if (method == "exact") stop("run_em: Exact method isn't supported with mismatch")
     }
 
     # Extract parameters with defaults if missing
@@ -846,7 +880,9 @@ get_agg_opt <- function(object = NULL,
                         json_path = NULL,
                         sd_statistic = "maximum",
                         sd_threshold = 0.05,
+                        method = "mult",
                         nboot = 50,
+                        allow_mismatch = FALSE,
                         seed = NULL,
                         ...) {
     # Retrieve the default values from run_em() as a list
@@ -863,6 +899,21 @@ get_agg_opt <- function(object = NULL,
         object <- eim(X, W, json_path)
     } else if (!inherits(object, "eim")) {
         stop("get_agg_opt: The object must be initialized with the `eim()` function.")
+    }
+
+    # Note: Mismatch restricted methods are checked inside .validate_compute
+    if (!allow_mismatch) {
+        mismatch_rows <- which(rowSums(object$X) != rowSums(object$W))
+
+        if (length(mismatch_rows) > 0) {
+            stop(
+                "run_em: Row-wise mismatch in vote totals detected.\n",
+                "Rows with mismatches: ", paste(mismatch_rows, collapse = ", "), "\n",
+                "To allow mismatches, set `allow_mismatch = TRUE`."
+            )
+        }
+    } else {
+        if (method == "exact") stop("run_em: Exact method isn't supported with mismatch")
     }
 
     method <- if (!is.null(all_params$method)) all_params$method else "mult"

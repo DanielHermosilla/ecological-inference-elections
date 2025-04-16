@@ -1,4 +1,5 @@
 #include "dynamic_program.h"
+#include "utils_matrix.h"
 #include <R.h>
 #include <R_ext/Memory.h>
 #include <Rmath.h>
@@ -545,6 +546,16 @@ static void enumerateAllPartitions(int start, const int G, int *currentBoundarie
     // ---- BASE CASE: We have closed a combination ---- //
     if (start == G)
     {
+        if (verbose)
+        {
+            Rprintf("----------\nGroup aggregation:\t[");
+            for (int k = 0; k < currentSize - 1; k++)
+            {
+                // Sum 1 to the index for using R's indexing
+                Rprintf("%d, ", currentBoundaries[k] + 1);
+            }
+            Rprintf("%d]\n", currentBoundaries[currentSize - 1] + 1);
+        }
         // ---- Build the matrix according the partition
         // ---- Comment this line IF we want to account the matrix of group size 1
         if (currentSize == 1)
@@ -570,6 +581,8 @@ static void enumerateAllPartitions(int start, const int G, int *currentBoundarie
                                    &timeUsed, &totalIter, logLLs, &qvals, &finishingReason, inputParams);
 
         double currentLL = (totalIter > 0) ? logLLs[totalIter - 1] : -DBL_MAX;
+        if (verbose)
+            Rprintf("Log-likelihood:\t%f\n", currentLL);
 
         // ---- Clean every allocated memory ---- //
         cleanup();
@@ -594,10 +607,13 @@ static void enumerateAllPartitions(int start, const int G, int *currentBoundarie
                 testBootstrap(&qual, set_method, xmat, wmat, currentBoundaries, currentSize, bootiter, q_method,
                               p_method, convergence, log_convergence, maxIter, maxSeconds, inputParams);
             // freeMatrix(&bootstrapedMat);
+            if (verbose)
+                Rprintf("Standard deviation statistic:\t%f\n", qual);
 
             if (qual > max_qual)
             {
                 freeMatrix(&bootstrapedMat);
+                Rprintf("Feasible:\tFALSE\n");
                 goto notBestValue;
             }
 
@@ -641,28 +657,10 @@ static void enumerateAllPartitions(int start, const int G, int *currentBoundarie
             qvals = NULL; // so we don't free it below if it's our best
 
             g_bestBoundaries = (int *)Calloc(currentSize, int);
-            if (verbose)
-                Rprintf("\n----------\nFound a feasible candidate, with a log-likelihood of %.6f and the optimal cuts "
-                        "being:\n[",
-                        g_bestLogLikelihood);
             for (int i = 0; i < currentSize; i++)
             {
                 g_bestBoundaries[i] = currentBoundaries[i];
                 // Sum 1 to the index for using R's indexing
-                if (verbose && i != currentSize - 1)
-                    Rprintf("%d, ", g_bestBoundaries[i] + 1);
-                if (verbose && i == currentSize - 1)
-                    Rprintf("%d]\n", g_bestBoundaries[i] + 1);
-            }
-            if (verbose)
-            {
-                Rprintf(
-                    "- Feasible group size: %d\n- Feasible standard deviation statistic: %f\n- Feasible time: %f\n- "
-                    "Feasible total iterations: %d\n- "
-                    "Feasible finish reason: %d\n- Feasible probability matrix:\n",
-                    g_bestGroupCount, qual, g_besttime, g_bestIterTotal, g_bestFinishReason);
-                printMatrix(g_bestMat);
-                Rprintf("----------\n");
             }
         }
         else
@@ -675,6 +673,8 @@ static void enumerateAllPartitions(int start, const int G, int *currentBoundarie
                 qvals = NULL;
             }
         }
+        if (verbose)
+            Rprintf("----------\n\n");
         return;
     }
 
@@ -774,10 +774,20 @@ Matrix aggregateGroupsExhaustive(
     }
 
     // Copy out the best partition boundaries:
+    if (verbose)
+        Rprintf("The optimal group aggregation is made within the group aggregation [");
     *cuts = g_bestGroupCount;
     for (int i = 0; i < g_bestGroupCount; i++)
     {
+        if (verbose && i != g_bestGroupCount - 1)
+            Rprintf("%d, ", g_bestBoundaries[i]);
         results[i] = g_bestBoundaries[i];
+    }
+    if (verbose)
+    {
+        Rprintf("%d]\n having a log-likelihood of %f, with the following probability matrix:\n",
+                g_bestBoundaries[g_bestGroupCount - 1], g_bestLogLikelihood);
+        printMatrix(g_bestMat);
     }
 
     // ---- Return the best EM data via arguments ----

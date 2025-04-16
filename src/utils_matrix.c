@@ -682,6 +682,7 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
                     MATRIX_AT_PTR(matrix, i, j) += 1.0;
             }
         }
+        printMatrix(&emergencyMat);
         freeMatrix(&emergencyMat);
         inverseSymmetricPositiveMatrix(matrix);
         return; // be sure to stop here so the next steps don't run again
@@ -1268,4 +1269,34 @@ bool matricesAreEqual(Matrix *a, Matrix *b)
         }
     }
     return true;
+}
+
+/**
+ * @brief Swaps two columns of a matrix in place.
+ *
+ * If the same column is passed twice, the function does nothing and returns the original matrix.
+ *
+ * @param[in,out] matrix Pointer to the matrix to modify.
+ * @param[in] colA Index of the first column to swap.
+ * @param[in] colB Index of the second column to swap.
+ */
+void swapMatrixColumns(Matrix *matrix, int colA, int colB)
+{
+    checkMatrix(matrix); // Validate the input matrix
+
+    if (colA == colB)
+        return;
+
+    if (colA < 0 || colA >= matrix->cols || colB < 0 || colB >= matrix->cols)
+    {
+        error("Matrix handling: Column index out of bounds (colA=%d, colB=%d, totalCols=%d)\n", colA, colB,
+              matrix->cols);
+    }
+
+    for (int row = 0; row < matrix->rows; row++)
+    {
+        double temp = MATRIX_AT_PTR(matrix, row, colA);
+        MATRIX_AT_PTR(matrix, row, colA) = MATRIX_AT_PTR(matrix, row, colB);
+        MATRIX_AT_PTR(matrix, row, colB) = temp;
+    }
 }

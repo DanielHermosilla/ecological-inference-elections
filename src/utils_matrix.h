@@ -489,6 +489,17 @@ extern "C"
      * @param[in] The second matrix to check
      */
     bool matricesAreEqual(Matrix *a, Matrix *b);
+
+    /**
+     * @brief Swaps two columns of a matrix in place.
+     *
+     * If the same column is passed twice, the function does nothing and returns the original matrix.
+     *
+     * @param[in,out] matrix Pointer to the matrix to modify.
+     * @param[in] colA Index of the first column to swap.
+     * @param[in] colB Index of the second column to swap.
+     */
+    void swapMatrixColumns(Matrix *matrix, int colA, int colB);
 #ifdef __cplusplus
 }
 #endif

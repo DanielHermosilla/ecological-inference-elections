@@ -148,6 +148,9 @@ double *computeQMultivariatePDF(Matrix const *probabilities, QMethodInput params
 {
     // ---- Initialize values ---- //
     // ---- The probabilities without the last column will be used for each iteration ----
+
+    // ---- The idea is to remove the column with the most votes, so it'll swap it to the last column and later reswap
+    // it. ----
     Matrix probabilitiesReduced = removeLastColumn(probabilities);
     double *array2 = (double *)Calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, double); // Array to return
                                                                                                 // --- ... --- //

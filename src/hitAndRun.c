@@ -238,13 +238,20 @@ void generateOmegaSet(int M, int S)
         }
         int ballotShift = floor(((double)b / TOTAL_BALLOTS) * (M * S));
 
-        for (int s = 0; s < S; s++)
+        // Impose the first step
+        Matrix *append = Calloc(1, Matrix);
+        *append = copyMatrix(&startingZ);
+        OMEGASET[b]->data[0] = append;
+        freeMatrix(&startingZ);
+
+        for (int s = 1; s < S; s++)
         {                                // --- For each sample given a ballot box
             if (S > 5000 && S % 50 == 0) // If there's a big amount of samples, check interrupts
                 R_CheckUserInterrupt();
             // TODO: El sampling debe hacerse de tamaño M*S
             // ---- Copy the initial matrix ----
-            Matrix steppingZ = copyMatrix(&startingZ);
+            Matrix *pastMatrix = OMEGASET[b]->data[s - 1];
+            Matrix steppingZ = copyMatrix(pastMatrix);
             for (int m = 0; m < M; m++)
             { // --- For each step size given a sample and a ballot box
                 // ---- Sample random indexes ---- //
@@ -274,13 +281,12 @@ void generateOmegaSet(int M, int S)
             } // --- End the step size loop
             // ---- Add the combination to the OmegaSet ---- //
             Matrix *append = Calloc(1, Matrix);
-
             *append = copyMatrix(&steppingZ);
             OMEGASET[b]->data[s] = append;
             freeMatrix(&steppingZ);
             // ---...--- //
         } // --- End the sample loop
-        freeMatrix(&startingZ);
+        // freeMatrix(&startingZ);
     } // --- End the ballot box loop
     Free(c1);
     Free(c2);
