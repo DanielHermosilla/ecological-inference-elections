@@ -507,11 +507,6 @@ bootstrap <- function(object = NULL,
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint # It would validate nboot too.
 
-    # Retrieve default values from run_em() and update with user parameters
-    run_em_defaults <- formals(run_em)
-    run_em_args <- modifyList(as.list(run_em_defaults), all_params)
-    run_em_args <- run_em_args[names(run_em_args) != "..."] # Remove ellipsis
-
     # Set seed for reproducibility
     if (!is.null(seed)) set.seed(seed)
 

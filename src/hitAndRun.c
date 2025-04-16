@@ -21,6 +21,7 @@ SOFTWARE.
 */
 
 #include "hitAndRun.h"
+#include "globals.h"
 #include <R.h>
 #include <R_ext/Memory.h>
 #include <R_ext/Random.h>
@@ -33,7 +34,7 @@ SOFTWARE.
 OmegaSet **OMEGASET = NULL; // Global pointer to store all H sets
 double **multinomialVals = NULL;
 double *logGammaArr = NULL;
-double *loglogGammaArr = NULL;
+double **Qconstant = NULL;
 
 int lessThanColRow(Matrix mat, int b, int g, int c, int candidateVotes, int groupVotes)
 {
@@ -51,6 +52,38 @@ int lessThanColRow(Matrix mat, int b, int g, int c, int candidateVotes, int grou
     int slackG = groupVotes - groupSum;
 
     return MIN(slackC, slackG);
+}
+
+void saveOmegaSetToCSV(const char *filename)
+{
+    FILE *f = fopen(filename, "w");
+    if (!f)
+    {
+        Rprintf("Error opening file %s for writing.\n", filename);
+        return;
+    }
+
+    // Header
+    fprintf(f, "b,s,g,c,value\n");
+
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        OmegaSet *set = OMEGASET[b];
+        for (size_t s = 0; s < set->size; s++)
+        {
+            Matrix *mat = set->data[s];
+            for (uint16_t g = 0; g < mat->rows; g++)
+            {
+                for (uint16_t c = 0; c < mat->cols; c++)
+                {
+                    fprintf(f, "%u,%zu,%u,%u,%.0f\n", b, s, g, c, MATRIX_AT_PTR(mat, g, c));
+                }
+            }
+        }
+    }
+
+    fclose(f);
+    Rprintf("OmegaSet saved to %s\n", filename);
 }
 
 Matrix startingPoint3(int b)
@@ -403,12 +436,10 @@ void precomputeLogGammas()
     // We must get the biggest W_{bg}
     int biggestW = (int)maxElement(W);
     logGammaArr = (double *)Calloc(biggestW + 1, double);
-    loglogGammaArr = (double *)Calloc(biggestW + 1, double);
 
     for (int i = 0; i <= biggestW; i++)
     {
         logGammaArr[i] = lgamma1p(i);
-        loglogGammaArr[i] = logGammaArr[i] != 0 ? log(logGammaArr[i]) : 1;
     }
 }
 
@@ -442,53 +473,31 @@ void preComputeMultinomial()
     }
 }
 
-double underflowSum(double *q)
+void precomputeQConstant(int size)
 {
-    // If it takes too long, it can be parallelized, but result must be atomic or be merged as an array
-    double result = 0;
+    Qconstant = Calloc(TOTAL_BALLOTS, double *);
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
-        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-        {
+        // ---- Define the current OmegaSet and allocate memory for saving its size ----
+        OmegaSet *currentSet = OMEGASET[b];
+        Qconstant[b] = Calloc(currentSet->size, double);
+        for (size_t s = 0; s < currentSet->size; s++)
+        { // --- For each simulation given a balot box
+            Matrix sampleValue = *currentSet->data[s];
+            Qconstant[b][s] = 0;
             for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
             {
-                int w_bg = (int)MATRIX_AT_PTR(W, b, g);
-                double currentMax = -DBL_MAX;
-                double q_bgc = Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES);
-                if (q_bgc <= 0 || w_bg <= 1)
+                int W_bg = (int)MATRIX_AT_PTR(W, b, g);
+                Qconstant[b][s] += logGammaArr[W_bg];
+                for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
                 {
-                    continue;
+                    Qconstant[b][s] -= logGammaArr[(int)MATRIX_AT(sampleValue, g, c)];
                 }
-                // Obtain the maximum value and also save the sums
-                double sums[w_bg + 1];
-
-                for (int i = 2; i <= w_bg; i++)
-                {
-                    double bigsum1 = loglogGammaArr[i] + logGammaArr[w_bg] - logGammaArr[i] - logGammaArr[w_bg - i];
-                    if (q_bgc != 1 || w_bg != i)
-                    {
-                        bigsum1 += i * log(q_bgc) + (w_bg - i) * log(1 - q_bgc);
-                    }
-                    sums[i] = bigsum1;
-                    if (bigsum1 > currentMax)
-                    {
-                        currentMax = bigsum1;
-                    }
-                }
-                // Shift every value by the sum and exp(max)
-                double partialSum = 0;
-                for (int i = 2; i <= w_bg; i++)
-                {
-                    // partialSum += exp(sums[i] - currentMax);
-                    partialSum += exp(sums[i]);
-                }
-                // result += exp(currentMax) * partialSum;
-                result += partialSum;
             }
         }
     }
-    return result;
 }
+
 /*
  * Computes the big 'Q' for the log-likelihood.
  * This value needs to be aggregated to the log-likelihood
@@ -496,8 +505,9 @@ double underflowSum(double *q)
 double computeQ(double *q, Matrix const *probabilities)
 {
 
-    double thirdTerm = underflowSum(q);
-    double total = -thirdTerm;
+    // double thirdTerm = underflowSum(q);
+    // double total = -thirdTerm;
+    double total = 0;
     double borrar = 0;
     double borrar2 = 0;
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
@@ -506,7 +516,7 @@ double computeQ(double *q, Matrix const *probabilities)
         {
             int w_bg = (int)MATRIX_AT_PTR(W, b, g);
             borrar += w_bg == 0 ? 0 : logGammaArr[w_bg];
-            total += w_bg == 0 ? 0 : logGammaArr[w_bg]; // Second term
+            // total += w_bg == 0 ? 0 : logGammaArr[w_bg]; // Second term
             double qsum = 0;
             double firstTerm = 0;
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
@@ -520,7 +530,7 @@ double computeQ(double *q, Matrix const *probabilities)
             borrar2 += firstTerm * w_bg;
         }
     }
-    Rprintf("----------\nQ: %f + %f + %f\n", borrar2, borrar, -thirdTerm);
+    // Rprintf("----------\nQ: %f + %f + %f\n", borrar2, borrar, -thirdTerm);
 
     return total;
 }
@@ -532,6 +542,7 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
     {
         generateOmegaSet(params.M, params.S);
         encode();
+        // saveOmegaSetToCSV("omegaset.csv");
     }
     if (multinomialVals == NULL)
     {
@@ -540,6 +551,10 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
     if (logGammaArr == NULL)
     {
         precomputeLogGammas();
+    }
+    if (Qconstant == NULL)
+    {
+        precomputeQConstant(params.S);
     }
     // ---...--- //
 
@@ -613,8 +628,8 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
         for (int i = 0; i < currentSet->size; i++)
         { // --- For each sample
             double val = exp(multiplicationValues[i]) / sum_exp_num;
-            Rprintf("S = %d B = %d H = %f R = %d\n", i, b, val, currentSet->counts[i]);
             *ll -= val * log(currentSet->counts[i] * val);
+            *ll += Qconstant[b][i] * val; // New term
         }
         // ---...--- //
 
@@ -626,7 +641,6 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
 
     // Calculo Q
     double toprint = computeQ(array2, probabilities);
-    Rprintf("- Valor de Q = %f\n- Valor de H = %f\n----------\n", toprint, *ll);
 
     // *ll += computeQ(array2, probabilities);
     *ll += toprint;
@@ -678,9 +692,9 @@ void cleanHitAndRun()
         Free(logGammaArr);
         logGammaArr = NULL;
     }
-    if (loglogGammaArr != NULL)
+    if (Qconstant != NULL)
     {
-        Free(loglogGammaArr);
-        loglogGammaArr = NULL;
+        Free(Qconstant);
+        Qconstant = NULL;
     }
 }
