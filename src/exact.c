@@ -536,7 +536,7 @@ double exactLL(MemoizationTable *memo)
         {
             double px =
                 getMemoValue(memo, b, TOTAL_GROUPS - 1, 0, TOTAL_CANDIDATES - 1, CANDIDATEARRAYS[b], TOTAL_CANDIDATES);
-            sum += px > 0 ? log(px) : 0;
+            sum += fabs(px) > 0 ? log(fabs(px)) : 0;
         }
     }
     return sum;

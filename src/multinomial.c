@@ -161,7 +161,7 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, do
 
             for (int c = 0; c < (int)TOTAL_CANDIDATES; c++)
             { // ---- For each candidate given a group and a ballot box
-                // ---- Store the value ----
+              // ---- Store the value ----
                 double result = finalNumerator[c] / tempSum;
                 Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) =
                     !isnan(result) && !isinf(result) ? finalNumerator[c] / tempSum : 0;

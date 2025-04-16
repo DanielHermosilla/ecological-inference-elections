@@ -392,7 +392,7 @@ run_em <- function(object = NULL,
     object$prob <- as.matrix(resulting_values$result)
     dimnames(object$prob) <- list(colnames(object$W), colnames(object$X))
     object$iterations <- as.numeric(resulting_values$total_iterations)
-    object$logLik <- as.numeric(resulting_values$log_likelihood[object$iterations])
+    object$logLik <- as.numeric(resulting_values$log_likelihood[length(resulting_values$log_likelihood)])
     object$time <- resulting_values$total_time
     object$message <- resulting_values$stopping_reason
     object$status <- as.integer(resulting_values$finish_id)
