@@ -399,8 +399,8 @@ run_em <- function(object = NULL,
     object$cond_prob <- resulting_values$q
     object$cond_prob <- aperm(resulting_values$q, perm = c(3, 2, 1)) # Correct dimensions
     dimnames(object$cond_prob) <- list(
-        colnames(object$W),
         colnames(object$X),
+        colnames(object$W),
         rownames(object$X)
     )
     # Add function arguments
@@ -996,8 +996,8 @@ get_agg_opt <- function(object = NULL,
     object$sd[object$sd == 9999] <- Inf
     object$cond_prob <- aperm(result$q, perm = c(2, 3, 1)) # Correct dimensions
     dimnames(object$cond_prob) <- list(
-        NULL,
         colnames(object$X),
+        NULL,
         rownames(object$X)
     )
     object$method <- method
