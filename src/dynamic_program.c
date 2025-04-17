@@ -518,35 +518,45 @@ Matrix aggregateGroups(
 /*
   Global variables to track the best parameters of the 'winning' EM.
 */
-static double g_bestLogLikelihood = -DBL_MAX;
-static double *g_bestq = NULL;
-static Matrix *g_bestMat = NULL;
-static Matrix *g_bootstrap = NULL;
-static double g_besttime = 0;
-static int g_bestFinishReason = 0;
-static int g_bestIterTotal = 0;
-static int *g_bestBoundaries = NULL; // will hold best partition indices
-static int g_bestGroupCount = 0;     // how many groups in best partition
-
-/*
-   Recursive function that enumerates and evaluates all partitions of [0..G-1] into contiguous
-   subranges.
-
-   - `start` tells us where the current block begins
-   - `currentBoundaries` up to `currentSize-1` are the "cutting indices" so far,
-     meaning each boundary is the *end-index* of one subrange.
-       e.g. if the subrange is [s..b], we store b in currentBoundaries.
-   - Once `start == G`, we have a complete partition to evaluate.
-*/
-static void enumerateAllPartitions(int start, const int G, int *currentBoundaries, int currentSize, Matrix *xmat,
-                                   const Matrix *wmat, const char *set_method, int bootiter, const char *p_method,
-                                   const char *q_method, double max_qual, double convergence, double log_convergence,
-                                   bool verbose, int maxIter, double maxSeconds, QMethodInput inputParams)
+// 1. A struct to hold your best‐so‐far
+typedef struct
 {
-    // ---- BASE CASE: We have closed a combination ---- //
+    double bestLogLikelihood;
+    double *bestq;
+    Matrix *bestMat;
+    Matrix *bestBootstrap;
+    double bestTime;
+    int bestFinishReason;
+    int bestIterTotal;
+    int *bestBoundaries;
+    int bestGroupCount;
+} ExhaustiveResult;
+
+// 2. (Optional) bundle all the “constant” parameters into one struct
+typedef struct
+{
+    Matrix *xmat;
+    Matrix *wmat;
+    const char *set_method;
+    int bootiter;
+    const char *p_method;
+    char *q_method;
+    double max_qual;
+    double convergence;
+    double log_convergence;
+    bool verbose;
+    int maxIter;
+    double maxSeconds;
+    QMethodInput inputParams;
+} ExhaustiveOptions;
+
+// 3. Revised recursive function signature
+static void enumerateAllPartitions(int start, int G, int *currentBoundaries, int currentSize, ExhaustiveOptions *opts,
+                                   ExhaustiveResult *res)
+{
     if (start == G)
     {
-        if (verbose)
+        if (opts->verbose)
         {
             Rprintf("----------\nGroup aggregation:\t[");
             for (int k = 0; k < currentSize - 1; k++)
@@ -560,37 +570,38 @@ static void enumerateAllPartitions(int start, const int G, int *currentBoundarie
         // ---- Comment this line IF we want to account the matrix of group size 1
         if (currentSize == 1)
         { // The one aggregation case we'll do it with mult
-            q_method = "mult";
+            opts->q_method = "mult";
         }
         else if (currentSize == 0)
             return;
 
-        Matrix merged = mergeColumns(wmat, currentBoundaries, currentSize);
+        Matrix merged = mergeColumns(opts->wmat, currentBoundaries, currentSize);
 
         // ---- Run the EM Algorithm
-        setParameters(xmat, &merged);
+        setParameters(opts->xmat, &merged);
 
-        Matrix initP = getInitialP(p_method);
+        Matrix initP = getInitialP(opts->p_method);
 
         double timeUsed = 0.0;
-        double logLLs[maxIter]; // TODO: Change this when the array stops being required
+        double logLLs[opts->maxIter]; // TODO: Change this when the array stops being required
         double *qvals = NULL;
         int finishingReason = 0, totalIter = 0;
 
-        Matrix finalP = EMAlgoritm(&initP, q_method, convergence, log_convergence, maxIter, maxSeconds, true, &timeUsed,
-                                   &totalIter, logLLs, &qvals, &finishingReason, inputParams);
+        Matrix finalP = EMAlgoritm(&initP, opts->q_method, opts->convergence, opts->log_convergence, opts->maxIter,
+                                   opts->maxSeconds, true, &timeUsed, &totalIter, logLLs, &qvals, &finishingReason,
+                                   opts->inputParams);
 
         double currentLL = (totalIter > 0) ? logLLs[totalIter - 1] : -DBL_MAX;
-        if (verbose)
+        if (opts->verbose)
             Rprintf("Log-likelihood:\t%f\n", currentLL);
 
         // ---- Clean every allocated memory ---- //
         cleanup();
-        if (strcmp(q_method, "exact") == 0)
+        if (strcmp(opts->q_method, "exact") == 0)
         {
             cleanExact();
         }
-        else if (strcmp(q_method, "mcmc") == 0)
+        else if (strcmp(opts->q_method, "mcmc") == 0)
         {
             cleanHitAndRun();
         }
@@ -599,233 +610,144 @@ static void enumerateAllPartitions(int start, const int G, int *currentBoundarie
         freeMatrix(&merged);
 
         // ---- Save the results if the value is better
-        if (currentLL > g_bestLogLikelihood)
+
+        if (currentLL > res->bestLogLikelihood)
         {
             // --- Now it would be convenient to evaluate within the SD, later, goto notBestValue
             double qual;
             Matrix bootstrapedMat =
-                testBootstrap(&qual, set_method, xmat, wmat, currentBoundaries, currentSize, bootiter, q_method,
-                              p_method, convergence, log_convergence, maxIter, maxSeconds, inputParams);
+                testBootstrap(&qual, opts->set_method, opts->xmat, opts->wmat, currentBoundaries, currentSize,
+                              opts->bootiter, opts->q_method, opts->p_method, opts->convergence, opts->log_convergence,
+                              opts->maxIter, opts->maxSeconds, opts->inputParams);
             // freeMatrix(&bootstrapedMat);
-            if (verbose)
+            if (opts->verbose)
                 Rprintf("Standard deviation statistic:\t%f\n", qual);
-
-            if (qual > max_qual)
+            // compute bootstrap & qual …
+            if (qual <= opts->max_qual)
             {
+                // free old best
+                if (res->bestBootstrap)
+                    freeMatrix(res->bestBootstrap), Free(res->bestBootstrap);
+                if (res->bestMat)
+                    freeMatrix(res->bestMat), Free(res->bestMat);
+                if (res->bestq)
+                    Free(res->bestq);
+                if (res->bestBoundaries)
+                    Free(res->bestBoundaries);
+
+                // store new best
+                res->bestLogLikelihood = currentLL;
+                res->bestTime = timeUsed;
+                res->bestFinishReason = finishingReason;
+                res->bestIterTotal = totalIter;
+
+                res->bestq = qvals;
+                qvals = NULL; // prevent double‐free
+
+                // deep‐copy matrices
+                res->bestMat = (Matrix *)Calloc(1, Matrix);
+                *res->bestMat = finalP;
+                res->bestBootstrap = (Matrix *)Calloc(1, Matrix);
+                *res->bestBootstrap = copyMatrix(&bootstrapedMat);
                 freeMatrix(&bootstrapedMat);
-                Rprintf("Feasible:\tFALSE\n");
-                goto notBestValue;
-            }
 
-            // -- Free previous best data if it exists -- //
-            if (g_bootstrap != NULL)
-            {
-                // freeMatrix(&bootstrapedMat);
-                Free(g_bootstrap);
-                g_bootstrap = NULL;
-            }
-            if (g_bestMat != NULL)
-            {
-                freeMatrix(g_bestMat);
-                Free(g_bestMat);
-                g_bestMat = NULL;
-            }
-            if (g_bestq != NULL)
-            {
-                Free(g_bestq);
-                g_bestq = NULL;
-            }
-            if (g_bestBoundaries != NULL)
-            {
-                Free(g_bestBoundaries);
-                g_bestBoundaries = NULL;
-            }
-
-            g_bestLogLikelihood = currentLL;
-
-            g_bestGroupCount = currentSize;
-            g_bestq = qvals;
-            g_bestFinishReason = finishingReason;
-            g_besttime = timeUsed;
-            g_bestIterTotal = totalIter;
-            g_bestMat = (Matrix *)Calloc(1, Matrix);
-            g_bootstrap = (Matrix *)Calloc(1, Matrix);
-            *g_bestMat = finalP; // shallow copy of the struct, since it's on the stack buffer
-            *g_bootstrap = copyMatrix(&bootstrapedMat);
-            freeMatrix(&bootstrapedMat);
-            // g_bestq = qvals;
-            qvals = NULL; // so we don't free it below if it's our best
-
-            g_bestBoundaries = (int *)Calloc(currentSize, int);
-            for (int i = 0; i < currentSize; i++)
-            {
-                g_bestBoundaries[i] = currentBoundaries[i];
-                // Sum 1 to the index for using R's indexing
+                // copy boundaries
+                res->bestGroupCount = currentSize;
+                res->bestBoundaries = (int *)Calloc(currentSize, int);
+                for (int i = 0; i < currentSize; i++)
+                    res->bestBoundaries[i] = currentBoundaries[i];
             }
         }
         else
         {
-        notBestValue:
+            // cleanup non‐best branch
             freeMatrix(&finalP);
-            if (qvals != NULL)
-            {
+            if (qvals)
                 Free(qvals);
-                qvals = NULL;
-            }
         }
-        if (verbose)
-            Rprintf("----------\n\n");
         return;
     }
 
-    // ---- RECURSION: There are still combinations to be made ---- //
+    // recursion
     for (int end = start; end < G; end++)
     {
-        // ---- We'll define a subrange [start..end]. We store 'end' as the boundary:
-        /*
-        if (currentSize == 1)
-        {
-            Rprintf("Skipping partition where group size is 1: start=%d, end=%d\n", start, end);
-            continue; // Skip this iteration
-        }
-        */
         currentBoundaries[currentSize] = end;
-
-        // ---- Recurse with the next subrange starting at 'end+1':
-        enumerateAllPartitions(end + 1, G, currentBoundaries, currentSize + 1, xmat, wmat, set_method, bootiter,
-                               p_method, q_method, max_qual, convergence, log_convergence, verbose, maxIter, maxSeconds,
-                               inputParams);
+        enumerateAllPartitions(end + 1, G, currentBoundaries, currentSize + 1, opts, res);
     }
 }
 
-/*
-  Main “brute force” function that tries *every* possible grouping of columns [0..G-1].
-  It returns the aggregator (merged) matrix *for the best log-likelihood partition*,
-  and it also writes out the boundaries of that partition into `results[]` and the
-  number of macro-groups into `*cuts`.
-*/
-Matrix aggregateGroupsExhaustive(
-    // ---- Matrices
-    Matrix *xmat, const Matrix *wmat,
-
-    // ---- Partition boundaries
-    int *results, // Cutting array
-    int *cuts,    // Amount of cuts
-
-    // ---- Bootstrap parameters
-    const char *set_method, int bootiter, double max_qual,
-
-    // ---- EM parameters
-    const char *p_method, const char *q_method, double convergence, double log_convergence, bool verbose, int maxIter,
-    double maxSeconds, QMethodInput inputParams,
-
-    // ---- Out parameters
-    double *outBestLL, double **outBestQ, Matrix **bestBootstrap, double *outBestTime, int *outFinishReason,
-    int *outIterTotal)
+// 4. Rewrite your “driver” to use the struct instead of globals
+Matrix aggregateGroupsExhaustive(Matrix *xmat, const Matrix *wmat, int *results, int *cuts, const char *set_method,
+                                 int bootiter, double max_qual, const char *p_method, const char *q_method,
+                                 double convergence, double log_convergence, bool verbose, int maxIter,
+                                 double maxSeconds, QMethodInput inputParams, double *outBestLL, double **outBestQ,
+                                 Matrix **bestBootstrap, double *outBestTime, int *outFinishReason, int *outIterTotal)
 {
-    const int G = wmat->cols;
+    int G = wmat->cols;
 
-    // Reset global tracking of best solution:
-    g_bestLogLikelihood = -DBL_MAX;
-    if (g_bestBoundaries)
-    {
-        Free(g_bestBoundaries);
-        g_bestBoundaries = NULL;
-    }
-    if (g_bestMat)
-    {
-        freeMatrix(g_bestMat);
-    }
-    if (g_bestq)
-    {
-        Free(g_bestq);
-    }
-    g_bestGroupCount = 0;
-    g_bestIterTotal = 0;
-    g_bestFinishReason = 0;
-    g_besttime = 0;
+    // Initialize options and result
+    ExhaustiveOptions opts = {.xmat = xmat,
+                              .wmat = wmat,
+                              .set_method = set_method,
+                              .bootiter = bootiter,
+                              .p_method = p_method,
+                              .q_method = q_method,
+                              .max_qual = max_qual,
+                              .convergence = convergence,
+                              .log_convergence = log_convergence,
+                              .verbose = verbose,
+                              .maxIter = maxIter,
+                              .maxSeconds = maxSeconds,
+                              .inputParams = inputParams};
 
-    // --- Array for enumerating possible partitions
-    int *tempBoundaries = (int *)Calloc(G, int);
+    ExhaustiveResult res = {.bestLogLikelihood = -DBL_MAX,
+                            .bestq = NULL,
+                            .bestMat = NULL,
+                            .bestBootstrap = NULL,
+                            .bestTime = 0.0,
+                            .bestFinishReason = 0,
+                            .bestIterTotal = 0,
+                            .bestBoundaries = NULL,
+                            .bestGroupCount = 0};
 
-    // ---- Calls the recursion and update the global variables according the best values
-    enumerateAllPartitions(0, // start from column 0
-                           G, tempBoundaries,
-                           0, // current partition is empty initially
-                           xmat, wmat, set_method, bootiter, p_method, q_method, max_qual, convergence, log_convergence,
-                           verbose, maxIter, maxSeconds, inputParams);
+    // temp working buffer
+    int *tempBoundaries = Calloc(G, int);
 
+    // recurse
+    enumerateAllPartitions(0, G, tempBoundaries, 0, &opts, &res);
     Free(tempBoundaries);
 
-    // g_bestBoundaries[] has the best partition, and g_bestGroupCount is how many groups.
-    // --- Case where any group is feasible.
-    if (g_bestGroupCount == 0)
+    // unpack result
+    if (res.bestGroupCount == 0)
     {
-        // Means we never found anything feasible or G=0 case.
         *cuts = 0;
         if (results)
-        {
-            results[0] = -1; // or some sentinel
-        }
-        if (verbose)
-            Rprintf("An feasible macro-group was not found. Returning the original object.\n");
-        Matrix empty = createMatrix(1, 1);
-        return empty;
+            results[0] = -1;
+        return createMatrix(1, 1);
     }
 
-    // Copy out the best partition boundaries:
-    if (verbose)
-        Rprintf("The optimal group aggregation is made within the group aggregation [");
-    *cuts = g_bestGroupCount;
-    for (int i = 0; i < g_bestGroupCount; i++)
-    {
-        if (verbose && i != g_bestGroupCount - 1)
-            Rprintf("%d, ", g_bestBoundaries[i]);
-        results[i] = g_bestBoundaries[i];
-    }
-    if (verbose)
-    {
-        Rprintf("%d]\n having a log-likelihood of %f, with the following probability matrix:\n",
-                g_bestBoundaries[g_bestGroupCount - 1], g_bestLogLikelihood);
-        printMatrix(g_bestMat);
-    }
+    *cuts = res.bestGroupCount;
+    for (int i = 0; i < res.bestGroupCount; i++)
+        results[i] = res.bestBoundaries[i];
 
-    // ---- Return the best EM data via arguments ----
     if (outBestLL)
-    {
-        *outBestLL = g_bestLogLikelihood;
-    }
+        *outBestLL = res.bestLogLikelihood;
     if (outBestQ)
-    {
-        *outBestQ = g_bestq;
-        // Clear the global pointer so we don’t double-free
-        g_bestq = NULL;
-    }
+        *outBestQ = res.bestq, res.bestq = NULL;
     if (outBestTime)
-    {
-        *outBestTime = g_besttime;
-    }
-    if (bestBootstrap)
-    {
-        *bestBootstrap = g_bootstrap;
-    }
+        *outBestTime = res.bestTime;
     if (outFinishReason)
-    {
-        *outFinishReason = g_bestFinishReason;
-    }
+        *outFinishReason = res.bestFinishReason;
     if (outIterTotal)
-    {
-        *outIterTotal = g_bestIterTotal;
-    }
-    // Clean globals and make a shallow copy
-    // Free(g_bestMat);
-    // g_bestMat = NULL;
-    Free(g_bestBoundaries);
-    g_bestBoundaries = NULL;
-    g_bestGroupCount = 0;
-    g_bootstrap = NULL;
-    Matrix returnMat = copyMatrix(g_bestMat);
-    freeMatrix(g_bestMat);
+        *outIterTotal = res.bestIterTotal;
+    if (bestBootstrap)
+        *bestBootstrap = res.bestBootstrap;
 
-    return returnMat;
+    // copy & clean up
+    Matrix bestCopy = copyMatrix(res.bestMat);
+    freeMatrix(res.bestMat);
+    Free(res.bestMat);
+    Free(res.bestBoundaries);
+
+    return bestCopy;
 }
