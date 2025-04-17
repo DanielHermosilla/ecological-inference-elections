@@ -518,7 +518,6 @@ Matrix aggregateGroups(
 /*
   Global variables to track the best parameters of the 'winning' EM.
 */
-// 1. A struct to hold your best‐so‐far
 typedef struct
 {
     double bestLogLikelihood;
@@ -532,7 +531,6 @@ typedef struct
     int bestGroupCount;
 } ExhaustiveResult;
 
-// 2. (Optional) bundle all the “constant” parameters into one struct
 typedef struct
 {
     Matrix *xmat;
@@ -540,7 +538,7 @@ typedef struct
     const char *set_method;
     int bootiter;
     const char *p_method;
-    char *q_method;
+    const char *q_method;
     double max_qual;
     double convergence;
     double log_convergence;
@@ -550,7 +548,6 @@ typedef struct
     QMethodInput inputParams;
 } ExhaustiveOptions;
 
-// 3. Revised recursive function signature
 static void enumerateAllPartitions(int start, int G, int *currentBoundaries, int currentSize, ExhaustiveOptions *opts,
                                    ExhaustiveResult *res)
 {
@@ -568,10 +565,10 @@ static void enumerateAllPartitions(int start, int G, int *currentBoundaries, int
         }
         // ---- Build the matrix according the partition
         // ---- Comment this line IF we want to account the matrix of group size 1
-        if (currentSize == 1)
-        { // The one aggregation case we'll do it with mult
-            opts->q_method = "mult";
-        }
+        // if (currentSize == 1)
+        //{ // The one aggregation case we'll do it with mult
+        //    opts->q_method = "mult";
+        //}
         else if (currentSize == 0)
             return;
 
@@ -588,7 +585,7 @@ static void enumerateAllPartitions(int start, int G, int *currentBoundaries, int
         int finishingReason = 0, totalIter = 0;
 
         Matrix finalP = EMAlgoritm(&initP, opts->q_method, opts->convergence, opts->log_convergence, opts->maxIter,
-                                   opts->maxSeconds, true, &timeUsed, &totalIter, logLLs, &qvals, &finishingReason,
+                                   opts->maxSeconds, false, &timeUsed, &totalIter, logLLs, &qvals, &finishingReason,
                                    opts->inputParams);
 
         double currentLL = (totalIter > 0) ? logLLs[totalIter - 1] : -DBL_MAX;
@@ -677,7 +674,7 @@ static void enumerateAllPartitions(int start, int G, int *currentBoundaries, int
 }
 
 // 4. Rewrite your “driver” to use the struct instead of globals
-Matrix aggregateGroupsExhaustive(Matrix *xmat, const Matrix *wmat, int *results, int *cuts, const char *set_method,
+Matrix aggregateGroupsExhaustive(Matrix *xmat, Matrix *wmat, int *results, int *cuts, const char *set_method,
                                  int bootiter, double max_qual, const char *p_method, const char *q_method,
                                  double convergence, double log_convergence, bool verbose, int maxIter,
                                  double maxSeconds, QMethodInput inputParams, double *outBestLL, double **outBestQ,

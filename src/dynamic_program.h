@@ -61,7 +61,7 @@ extern "C"
      * @param[in] outIterTotal The total amount of iterations of the EM
      *
      */
-    Matrix aggregateGroupsExhaustive(Matrix *xmat, const Matrix *wmat, int *results, int *cuts, const char *set_method,
+    Matrix aggregateGroupsExhaustive(Matrix *xmat, Matrix *wmat, int *results, int *cuts, const char *set_method,
                                      int bootiter, double max_qual, const char *p_method, const char *q_method,
                                      double convergence, double log_convergence, bool verbose, int maxIter,
                                      double maxSeconds, QMethodInput inputParams, double *outBestLL, double **outBestQ,
