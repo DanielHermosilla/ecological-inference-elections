@@ -577,8 +577,8 @@ static void enumerateAllPartitions(int start, const int G, int *currentBoundarie
         double *qvals = NULL;
         int finishingReason = 0, totalIter = 0;
 
-        Matrix finalP = EMAlgoritm(&initP, q_method, convergence, log_convergence, maxIter, maxSeconds, false,
-                                   &timeUsed, &totalIter, logLLs, &qvals, &finishingReason, inputParams);
+        Matrix finalP = EMAlgoritm(&initP, q_method, convergence, log_convergence, maxIter, maxSeconds, true, &timeUsed,
+                                   &totalIter, logLLs, &qvals, &finishingReason, inputParams);
 
         double currentLL = (totalIter > 0) ? logLLs[totalIter - 1] : -DBL_MAX;
         if (verbose)

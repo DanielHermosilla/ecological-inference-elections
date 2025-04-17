@@ -996,8 +996,8 @@ get_agg_opt <- function(object = NULL,
     object$sd[object$sd == 9999] <- Inf
     object$cond_prob <- aperm(result$q, perm = c(2, 3, 1)) # Correct dimensions
     dimnames(object$cond_prob) <- list(
-        colnames(object$X),
         NULL,
+        colnames(object$X),
         rownames(object$X)
     )
     object$method <- method
