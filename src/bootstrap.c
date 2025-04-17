@@ -165,11 +165,11 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
         // Declare EM variables, they're not used in this case...
         // It could be useful to yield a mean if the user wants to (logLL mean?)
         double time;
-        double logLLarr[maxIter];
+        double logLLarr = 0;
         double *qval = NULL;
         int finishing_reason, iterTotal;
         Matrix resultP = EMAlgoritm(&iterP, q_method, convergence, log_convergence, maxIter, maxSeconds, false, &time,
-                                    &iterTotal, logLLarr, &qval, &finishing_reason, inputParams);
+                                    &iterTotal, &logLLarr, &qval, &finishing_reason, inputParams);
         // Sum each value so later we can get the mean
         for (int j = 0; j < wmat->cols; j++)
         {

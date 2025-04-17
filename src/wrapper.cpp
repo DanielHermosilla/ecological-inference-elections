@@ -100,14 +100,14 @@ Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_meth
     double timeIter = 0;
     int totalIter = 0, finish = 0;
     double *qvalue = NULL;
-    double logLLarr[maximum_iterations[0]];
+    double logLLarr = 0;
 
     QMethodInput inputParams =
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], monte_method);
 
     Matrix Pnew =
         EMAlgoritm(&pIn, EMAlg.c_str(), stopping_threshold[0], log_stopping_threshold[0], maximum_iterations[0],
-                   maximum_seconds[0], verbose[0], &timeIter, &totalIter, logLLarr, &qvalue, &finish, inputParams);
+                   maximum_seconds[0], verbose[0], &timeIter, &totalIter, &logLLarr, &qvalue, &finish, inputParams);
 
     // ---- Create human-readable stopping reason ---- //
     std::vector<std::string> stop_reasons = {"Converged", "Log-likelihood decrease", "Maximum time reached",
@@ -119,11 +119,11 @@ Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_meth
 
     Rcpp::NumericVector condProb(qvalue, qvalue + TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS);
     condProb.attr("dim") = Rcpp::IntegerVector::create(TOTAL_BALLOTS, TOTAL_GROUPS, TOTAL_CANDIDATES);
-    Rcpp::NumericVector logArray(logLLarr, logLLarr + totalIter);
+    // Rcpp::NumericVector logArray(logLLarr, logLLarr + totalIter);
     free(qvalue);
     cleanGlobals(EMAlg, true);
 
-    return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = logArray,
+    return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = logLLarr,
                               Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter,
                               Rcpp::_["stopping_reason"] = stopping_reason, Rcpp::_["finish_id"] = finish,
                               Rcpp::_["q"] = condProb);

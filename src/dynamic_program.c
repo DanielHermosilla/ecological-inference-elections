@@ -580,15 +580,15 @@ static void enumerateAllPartitions(int start, int G, int *currentBoundaries, int
         Matrix initP = getInitialP(opts->p_method);
 
         double timeUsed = 0.0;
-        double logLLs[opts->maxIter]; // TODO: Change this when the array stops being required
+        double logLLs = 0.0; // TODO: Change this when the array stops being required
         double *qvals = NULL;
         int finishingReason = 0, totalIter = 0;
 
         Matrix finalP = EMAlgoritm(&initP, opts->q_method, opts->convergence, opts->log_convergence, opts->maxIter,
-                                   opts->maxSeconds, false, &timeUsed, &totalIter, logLLs, &qvals, &finishingReason,
+                                   opts->maxSeconds, false, &timeUsed, &totalIter, &logLLs, &qvals, &finishingReason,
                                    opts->inputParams);
 
-        double currentLL = (totalIter > 0) ? logLLs[totalIter - 1] : -DBL_MAX;
+        double currentLL = (totalIter > 0) ? logLLs : -DBL_MAX;
         if (opts->verbose)
             Rprintf("Log-likelihood:\t%f\n", currentLL);
 

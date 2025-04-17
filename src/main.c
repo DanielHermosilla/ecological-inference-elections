@@ -495,7 +495,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
             Free(*qVal);
         double newLL;
         *qVal = config.computeQ(currentP, config.params, &newLL);
-        logLLarr[i] = newLL;
+        *logLLarr = newLL;
         newProbability = copyMatrix(currentP);
         freeMatrix(currentP);
         *currentP = getP(*qVal); // M-Step
