@@ -73,7 +73,7 @@ of p-values corresponding to each group-candidate combination.</p>
 
 
 <dl><dt id="arg-object">object<a class="anchor" aria-label="anchor" href="#arg-object"></a></dt>
-<dd><p>An <code>eim</code> object, as returned by eim.</p></dd>
+<dd><p>An <code>eim</code> object, as returned by <a href="eim.html">eim</a>.</p></dd>
 
 
 <dt id="arg-object-">object2<a class="anchor" aria-label="anchor" href="#arg-object-"></a></dt>
@@ -110,8 +110,11 @@ of p-values corresponding to each group-candidate combination.</p>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A numeric matrix of p-values with the same dimensions as the estimated probability matrices (<code>p</code>) from the input objects.
-Each entry represents the p-value from a Welch's t-test comparing the corresponding elements of the two matrices.</p>
+    <p>A list with components:</p><ul><li><p><code>pvals</code>: a numeric matrix of p‑values with the same dimensions as the estimated probability matrices (<code>pvals</code>) from the input objects.</p></li>
+<li><p><code>statistic</code>: a numeric matrix of t‑statistics with the same dimensions as the estimated probability matrices (<code>pvals</code>).</p></li>
+<li><p><code>eim1</code> and <code>eim2</code>: the original <code>eim</code> objects used for comparison.</p></li>
+</ul><p>Each entry in the <code>pvals</code> matrix is the p‑value from Welch’s t‑test comparing the corresponding elements of the two probability matrices;
+each entry in the <code>statistic</code> matrix is the corresponding t‑statistic.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -132,13 +135,13 @@ where \(s_{1,ij}^2\) and \(s_{2,ij}^2\) are the bootstrap variances, and <code>n
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="va">sim</span> <span class="op">&lt;-</span> <span class="fu"><a href="simulate_election.html">simulate_election</a></span><span class="op">(</span>num_ballots <span class="op">=</span> <span class="fl">100</span>, num_candidates <span class="op">=</span> <span class="fl">3</span>, num_groups <span class="op">=</span> <span class="fl">5</span>, seed <span class="op">=</span> <span class="fl">123</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">sim2</span> <span class="op">&lt;-</span> <span class="fu"><a href="simulate_election.html">simulate_election</a></span><span class="op">(</span>num_ballots <span class="op">=</span> <span class="fl">100</span>, num_candidates <span class="op">=</span> <span class="fl">3</span>, num_groups <span class="op">=</span> <span class="fl">5</span>, seed <span class="op">=</span> <span class="fl">124</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">eim1</span> <span class="op">&lt;-</span> <span class="fu">eim</span><span class="op">(</span><span class="va">sim</span><span class="op">$</span><span class="va">X</span>, <span class="va">sim</span><span class="op">$</span><span class="va">W</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">eim2</span> <span class="op">&lt;-</span> <span class="fu">eim</span><span class="op">(</span><span class="va">sim2</span><span class="op">$</span><span class="va">X</span>, <span class="va">sim2</span><span class="op">$</span><span class="va">W</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">eim1</span> <span class="op">&lt;-</span> <span class="fu"><a href="eim.html">eim</a></span><span class="op">(</span><span class="va">sim</span><span class="op">$</span><span class="va">X</span>, <span class="va">sim</span><span class="op">$</span><span class="va">W</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">eim2</span> <span class="op">&lt;-</span> <span class="fu"><a href="eim.html">eim</a></span><span class="op">(</span><span class="va">sim2</span><span class="op">$</span><span class="va">X</span>, <span class="va">sim2</span><span class="op">$</span><span class="va">W</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="va">pvals</span> <span class="op">&lt;-</span> <span class="fu">welchtest</span><span class="op">(</span>object <span class="op">=</span> <span class="va">eim1</span>, object2 <span class="op">=</span> <span class="va">eim2</span>, nboot <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">welchtest</span><span class="op">(</span>object <span class="op">=</span> <span class="va">eim1</span>, object2 <span class="op">=</span> <span class="va">eim2</span>, nboot <span class="op">=</span> <span class="fl">100</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Check which entries are significantly different</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="va">pvals</span> <span class="op">&lt;</span> <span class="fl">0.05</span>, arr.ind <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">pvals</span> <span class="op">&lt;</span> <span class="fl">0.05</span>, arr.ind <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       row col</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  [1,]   1   1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  [2,]   2   1</span>

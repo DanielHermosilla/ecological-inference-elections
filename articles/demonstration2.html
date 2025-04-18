@@ -66,8 +66,8 @@
       <h1>Quick demo</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/DanielHermosilla/ecological-inference-elections/blob/HEAD/vignettes/demonstration.Rmd" class="external-link"><code>vignettes/demonstration.Rmd</code></a></small>
-      <div class="d-none name"><code>demonstration.Rmd</code></div>
+      <small class="dont-index">Source: <a href="https://github.com/DanielHermosilla/ecological-inference-elections/blob/HEAD/vignettes/demonstration2.Rmd" class="external-link"><code>vignettes/demonstration2.Rmd</code></a></small>
+      <div class="d-none name"><code>demonstration2.Rmd</code></div>
     </div>
 
     
@@ -100,8 +100,8 @@ interested in, hence, it’ll only be neccesary to load it in.</p>
 <span><span class="co">## 5      4      9    112      1      2      0      0    0     TRUE</span></span>
 <span><span class="co">## 6      3      8    103      4      3      1      0    2    FALSE</span></span></code></pre>
 <p>Within the essence of working with elections data, it’s important to
-reduce our observations within electoral districts. Hence, we’ll define
-a function to filter by <code>ELECTORAL.DISTRICT</code> and return the
+reduce our observations among electoral districts. Hence, we’ll define a
+function to filter by <code>ELECTORAL.DISTRICT</code> and return the
 results as an <code>eim</code> object</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># function that filters a specific electoral district from the Chilean election dataset</span></span>
@@ -130,15 +130,6 @@ results as an <code>eim</code> object</p>
 <span>    <span class="va">obj</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/eim.html">eim</a></span><span class="op">(</span>X <span class="op">=</span> <span class="va">X</span>, W <span class="op">=</span> <span class="va">W</span><span class="op">)</span></span>
 <span>    <span class="kw"><a href="https://rdrr.io/r/base/function.html" class="external-link">return</a></span><span class="op">(</span><span class="va">obj</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
-<p>For this case, it would be of our interest to work with the electoral
-district <em>“El Golf”</em>. Also, for allowing us to use mismatches, we
-will create two eim objects.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">obj</span> <span class="op">&lt;-</span> <span class="fu">get_XW_Chile</span><span class="op">(</span><span class="st">"EL GOLF"</span><span class="op">)</span></span>
-<span><span class="va">obj_m</span> <span class="op">&lt;-</span> <span class="fu">get_XW_Chile</span><span class="op">(</span><span class="st">"EL GOLF"</span>, remove_mismatch <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"The amount of mismatches is %d"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">obj_m</span><span class="op">$</span><span class="va">X</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">obj</span><span class="op">$</span><span class="va">X</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] "The amount of mismatches is 84"</span></span></code></pre>
 </div>
 <div class="section level2">
 <h2 id="setting-the-algorithm">Setting the algorithm<a class="anchor" aria-label="anchor" href="#setting-the-algorithm"></a>
@@ -147,27 +138,6 @@ will create two eim objects.</p>
 be done. First of all, we would like to know what’s the best group
 aggregation such that the log-likelihood is maximized. There’s usually a
 reward for aggregating groups within big districts.</p>
-<p><img src="img%2FlogComparison.png"></p>
-<p>However, there’s a trade-off between the log-likelihood and standard
-deviation.</p>
-<p><img src="img%2Ftradeoff.png"></p>
-<p>Formally then, it would be of our best interest to find the best fit
-for creating macro-groups. We’ll use a greedy approach
-<code>get_agg_opt</code> and a heuristic approach
-<code>get_agg_proxy</code>.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">obj</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_opt.html">get_agg_opt</a></span><span class="op">(</span><span class="va">obj</span>, sd_threshold <span class="op">=</span> <span class="fl">0.01</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
-<span><span class="va">obj2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_proxy.html">get_agg_proxy</a></span><span class="op">(</span><span class="va">obj</span>, sd_threshold <span class="op">=</span> <span class="fl">0.01</span>, feasible <span class="op">=</span> <span class="cn">FALSE</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">obj</span><span class="op">$</span><span class="va">group_agg</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 3 4 5 8</span></span></code></pre>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">obj2</span><span class="op">$</span><span class="va">group_agg</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 3 4 8</span></span></code></pre>
-<p>Note that the group aggregation has the same size, however, it had
-chosen different indices. We surely know that <span class="math inline">\([5, 8]\)</span> is the optimal aggregation,
-however, <span class="math inline">\([3, 4]\)</span> isn’t that far from
-said values.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

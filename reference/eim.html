@@ -107,17 +107,16 @@ further processing by the EM algorithm.</p>
 
 <p>In addition to this constructor, the "eim" class provides several
 S3 methods for common operations. Some of these methods are fully documented,
-while others are ommited due to its straightfoward implementantion. The available methods are:</p><ul><li><p><a href="run_em.html">run_em</a> – Runs the EM algorithm.</p></li>
-<li><p><a href="bootstrap.html">bootstrap</a> – Estimates the standard deviation of the probabilities.</p></li>
-<li><p><a href="https://rdrr.io/r/base/save.html" class="external-link">save</a> – Save the results to a specified file.</p></li>
-<li><p><a href="get_agg_proxy.html">get_agg_proxy</a> – Estimates an ideal group aggregation given their standard deviations.</p></li>
-<li><p><a href="get_agg_opt.html">get_agg_opt</a> – Estimates an ideal group aggregation among all combinations, given the log-likelihood.</p></li>
-<li><p><code>print</code> – Print useful information about the object.</p></li>
-<li><p><code>summary</code> – Shows, in form of a list, the most important attributes.</p></li>
-<li><p><code>as.matrix</code> – Returns the probability matrix.</p></li>
-<li><p><code>write.csv</code> – Writes the probability matrix in a <code>.csv</code> file.</p></li>
-<li><p><code>dput</code> – Writes the object in a <code>.rda</code> file.</p></li>
-<li><p><code>logLik</code> – Returns the log-likelihood from the last iteration.</p></li>
+while others are ommited due to its straightfoward implementantion. The available methods are:</p>
+<ul><li><p><code><a href="run_em.html">run_em</a></code> – Runs the EM algorithm.</p></li>
+<li><p><code><a href="bootstrap.html">bootstrap</a></code> – Estimates the standard deviation.</p></li>
+<li><p><code><a href="save_eim.html">save_eim</a></code> – Saves the object to a file.</p></li>
+<li><p><code><a href="get_agg_proxy.html">get_agg_proxy</a></code> – Estimates an ideal group aggregation given their standard deviations.</p></li>
+<li><p><code><a href="get_agg_opt.html">get_agg_opt</a></code> – Estimates an ideal group aggregation among all combinations, given the log-likelihood.</p></li>
+<li><p><code>print.eim</code> – Print info about the object.</p></li>
+<li><p><code>summary.eim</code> – Summarize the object.</p></li>
+<li><p><code>as.matrix.eim</code> – Returns the probability matrix.</p></li>
+<li><p><code>logLik.eim</code> – Returns the final log‑likelihood.</p></li>
 </ul></div>
 
     <div class="section level2">
