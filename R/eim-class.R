@@ -36,17 +36,18 @@ library(jsonlite)
 #' In addition to this constructor, the "eim" class provides several
 #' S3 methods for common operations. Some of these methods are fully documented,
 #' while others are ommited due to its straightfoward implementantion. The available methods are:
-#' - [run_em] -- Runs the EM algorithm.
-#' - [bootstrap] -- Estimates the standard deviation of the probabilities.
-#' - [save] -- Save the results to a specified file.
-#' - [get_agg_proxy] -- Estimates an ideal group aggregation given their standard deviations.
-#' - [get_agg_opt] -- Estimates an ideal group aggregation among all combinations, given the log-likelihood.
-#' - `print` -- Print useful information about the object.
-#' - `summary` -- Shows, in form of a list, the most important attributes.
-#' - `as.matrix` -- Returns the probability matrix.
-#' - `write.csv` -- Writes the probability matrix in a `.csv` file.
-#' - `dput` -- Writes the object in a `.rda` file.
-#' - `logLik` -- Returns the log-likelihood from the last iteration.
+#'
+#' \itemize{
+#'   \item \code{\link{run_em}} – Runs the EM algorithm.
+#'   \item \code{\link{bootstrap}} – Estimates the standard deviation.
+#'   \item \code{\link{save_eim}} – Saves the object to a file.
+#'   \item \code{\link{get_agg_proxy}} – Estimates an ideal group aggregation given their standard deviations.
+#'   \item \code{\link{get_agg_opt}} – Estimates an ideal group aggregation among all combinations, given the log-likelihood.
+#'   \item \code{print.eim} – Print info about the object.
+#'   \item \code{summary.eim} – Summarize the object.
+#'   \item \code{as.matrix.eim} – Returns the probability matrix.
+#'   \item \code{logLik.eim} – Returns the final log‑likelihood.
+#' }
 #'
 #' @examples
 #'
@@ -96,7 +97,7 @@ library(jsonlite)
 #' model3 <- eim(X = x_mat, W = w_mat)
 #'
 #' @export
-#' @aliases NULL
+#' @aliases eim()
 eim <- function(X = NULL, W = NULL, json_path = NULL) {
     x_provided <- !is.null(X)
     w_provided <- !is.null(W)
@@ -236,6 +237,8 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' @param mc_samples An optional integer specifying the number of Monte Carlo
 #'   samples for the `mvn_cdf` method. The default value is `5000`. This argument is only applicable when `method = mvn_cdf`.
 #'
+#' @param ... Added for compability
+#'
 #' @references
 #' [Thraves, C. and Ubilla, P.: *"Fast Ecological Inference Algorithm for the R×C Case"*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834). Aditionally, the MVN CDF is computed by the methods introduced in [Genz, A. (2000). Numerical computation of multivariate normal probabilities. *Journal of Computational and Graphical Statistics*](https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities)
 #'
@@ -312,6 +315,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' }
 #'
 #' @name run_em
+#' @aliases run_em()
 #' @export
 run_em <- function(object = NULL,
                    X = NULL,
@@ -325,7 +329,13 @@ run_em <- function(object = NULL,
                    param_threshold = 0.001,
                    ll_threshold = as.double(-Inf),
                    seed = NULL,
-                   verbose = FALSE, ...) {
+                   verbose = FALSE,
+                   samples = 1000,
+                   step_size = 3000,
+                   mc_method = "genz2",
+                   mc_error = 1e-5,
+                   mc_samples = 5000,
+                   ...) {
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint
 
@@ -431,16 +441,6 @@ run_em <- function(object = NULL,
 #'
 #' @inherit run_em note
 #'
-#' @usage
-#' bootstrap(
-#'  object = NULL,
-#'  X = NULL,
-#'  W = NULL,
-#'  json_path = NULL,
-#'  nboot = 50,
-#'  seed = NULL
-#'  ...
-#' )
 #'
 #' @seealso The [eim] object and [run_em] implementation.
 #'
@@ -478,7 +478,8 @@ run_em <- function(object = NULL,
 #'     method = "mvn_pdf",
 #'     maxiter = 100,
 #'     maxtime = 15,
-#'     param_threshold = 0.01
+#'     param_threshold = 0.01,
+#'     allow_mismatch = FALSE
 #' )
 #'
 #' print(model$sd)
@@ -495,6 +496,7 @@ run_em <- function(object = NULL,
 #' }
 #'
 #' @name bootstrap
+#' @aliases bootstrap()
 #' @export
 bootstrap <- function(object = NULL,
                       X = NULL,
@@ -508,24 +510,6 @@ bootstrap <- function(object = NULL,
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint # It would validate nboot too.
 
-    # Note: Mismatch restricted methods are checked inside .validate_compute
-    if (!allow_mismatch) {
-        mismatch_rows <- which(rowSums(object$X) != rowSums(object$W))
-
-        if (length(mismatch_rows) > 0) {
-            stop(
-                "run_em: Row-wise mismatch in vote totals detected.\n",
-                "Rows with mismatches: ", paste(mismatch_rows, collapse = ", "), "\n",
-                "To allow mismatches, set `allow_mismatch = TRUE`."
-            )
-        }
-    } else {
-        if (method == "exact") stop("run_em: Exact method isn't supported with mismatch")
-    }
-
-    # Set seed for reproducibility
-    if (!is.null(seed)) set.seed(seed)
-
     # Initialize eim object if needed
     if (is.null(object)) {
         object <- eim(X, W, json_path)
@@ -533,9 +517,26 @@ bootstrap <- function(object = NULL,
         stop("Bootstrap: The object must be initialized with the `eim()` function.")
     }
 
-    # Extract parameters with defaults if missing
-
+    # I need to define the method before on this case
     method <- if (!is.null(all_params$method)) all_params$method else "mult"
+    # Note: Mismatch restricted methods are checked inside .validate_compute
+    if (!allow_mismatch) {
+        mismatch_rows <- which(rowSums(object$X) != rowSums(object$W))
+
+        if (length(mismatch_rows) > 0) {
+            stop(
+                "bootstrap: Row-wise mismatch in vote totals detected.\n",
+                "Rows with mismatches: ", paste(mismatch_rows, collapse = ", "), "\n",
+                "To allow mismatches, set `allow_mismatch = TRUE`."
+            )
+        }
+    } else {
+        if (method == "exact") stop("run_em: Exact method isn't supported with mismatch")
+    }
+    # Set seed for reproducibility
+    if (!is.null(seed)) set.seed(seed)
+
+    # Extract parameters with defaults if missing
     initial_prob <- if (!is.null(all_params$initial_prob)) all_params$initial_prob else "group_proportional"
     maxiter <- if (!is.null(all_params$maxiter)) all_params$maxiter else 1000
     maxtime <- if (!is.null(all_params$maxtime)) all_params$maxtime else 3600
@@ -594,6 +595,7 @@ bootstrap <- function(object = NULL,
     object$nboot <- nboot
     object$sd[object$sd == 9999] <- Inf
 
+    class(object) <- "eim"
     return(object)
 }
 
@@ -610,6 +612,14 @@ bootstrap <- function(object = NULL,
 #' @param sd_statistic String indicates the statistic for the standard deviation `(g x c)` matrix for the stopping condition, i.e., the algorithm stops when the statistic is below the threshold. It can take the value `maximum`, in which case computes the maximum over the standard deviation matrix, or `average`, in which case computes the average.
 #'
 #' @param sd_threshold Numeric with the value to use as a threshold for the statistic (`sc_statistic`) of the standard deviation of the estimated probabilities. Defaults to 0.05.
+#'
+#' @param method An optional string specifying the method used for estimating the E-step. Valid
+#'   options are:
+#' - `mult`: The default method, using a single sum of Multinomial distributions.
+#' - `mvn_cdf`: Uses a Multivariate Normal CDF distribution to approximate the conditional probability.
+#' - `mvn_pdf`: Uses a Multivariate Normal PDF distribution to approximate the conditional probability.
+#' - `mcmc`: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the E-step.
+#' - `exact`: Solves the E-step using the Total Probability Law.
 #'
 #' @param feasible Logical indicating whether the returned matrix must strictly satisfy the `sd_threshold`.
 #' If `TRUE`, no output is returned if the method does not find a group aggregation whose standard deviation statistic is below the threshold. If `FALSE` and the latter holds, it returns the group aggregation obtained from the DP withe the lowest standard deviation statistic. See **Details** for more information.
@@ -716,14 +726,15 @@ get_agg_proxy <- function(object = NULL,
         stop("Bootstrap: The object must be initialized with the `eim()` function.")
     }
 
-
+    # I need to define the method before
+    method <- if (!is.null(all_params$method)) all_params$method else "mult"
     # Note: Mismatch restricted methods are checked inside .validate_compute
     if (!allow_mismatch) {
         mismatch_rows <- which(rowSums(object$X) != rowSums(object$W))
 
         if (length(mismatch_rows) > 0) {
             stop(
-                "run_em: Row-wise mismatch in vote totals detected.\n",
+                "get_agg_proxy: Row-wise mismatch in vote totals detected.\n",
                 "Rows with mismatches: ", paste(mismatch_rows, collapse = ", "), "\n",
                 "To allow mismatches, set `allow_mismatch = TRUE`."
             )
@@ -733,7 +744,6 @@ get_agg_proxy <- function(object = NULL,
     }
 
     # Extract parameters with defaults if missing
-    method <- if (!is.null(all_params$method)) all_params$method else "mult"
     initial_prob <- if (!is.null(all_params$initial_prob)) all_params$initial_prob else "group_proportional"
     maxiter <- if (!is.null(all_params$maxiter)) all_params$maxiter else 1000
     maxtime <- if (!is.null(all_params$maxtime)) all_params$maxtime else 3600
@@ -797,7 +807,7 @@ get_agg_proxy <- function(object = NULL,
         col_groups <- split(seq_len(ncol(object$W)), findInterval(seq_len(ncol(object$W)), c(1, result$indices + 2)))
         # Lambda function to add the columns, if there wasn't a group aggregation, return object$W
         # object$W_agg <- as.matrix(sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE])))
-        object$W_agg <- do.call(cbind, lapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE])))
+        object$W_agg <- as.matrix(do.call(cbind, lapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))))
         rownames(object$W_agg) <- rownames(object$W) # Ballot boxes
         # if (result$indices[1] != -1) {
         object$group_agg <- unique(result$indices + 1)
@@ -808,8 +818,18 @@ get_agg_proxy <- function(object = NULL,
         object$sd_statistic <- sd_statistic
         object$sd_threshold <- sd_threshold
         object$is_feasible <- !result$best_result
+
+        # Add EM arguments aswell
+        # core_args <- all_params[!names(all_params) %in% c("object", "X", "W", "X2", "W2", "json_path", "verbose")]
+        # final_args <- c(core_args, list(object = NULL, json_path = NULL, X = object$X, W = object$W_agg, verbose = FALSE))
+        em_results <- run_em(X = object$X, W = object$W_agg, method = method)
+        object <- c(
+            object,
+            em_results[setdiff(names(em_results), names(object))]
+        )
     }
 
+    class(object) <- "eim"
     return(object)
 }
 
@@ -842,7 +862,7 @@ get_agg_proxy <- function(object = NULL,
 #' @examples
 #' # Example 1: Using a simulated instance
 #' simulations <- simulate_election(
-#'     num_ballots = 100,
+#'     num_ballots = 20,
 #'     num_candidates = 3,
 #'     num_groups = 8,
 #'     seed = 42
@@ -860,7 +880,6 @@ get_agg_proxy <- function(object = NULL,
 #' # two macro-groups: one that includes the original groups 1, 2, and 3;
 #' # the remaining one with groups 4, 5, 6, 7 and 8.
 #' # {[1, 2, 3], [4, 5, 6, 7, 8]}
-#'
 #' \dontrun{
 #' # Example 2: Getting an unfeasible result
 #' result2 <- get_agg_opt(
@@ -902,12 +921,14 @@ get_agg_opt <- function(object = NULL,
     }
 
     # Note: Mismatch restricted methods are checked inside .validate_compute
+    # Method needs to be defined before
+    method <- if (!is.null(all_params$method)) all_params$method else "mult"
     if (!allow_mismatch) {
         mismatch_rows <- which(rowSums(object$X) != rowSums(object$W))
 
         if (length(mismatch_rows) > 0) {
             stop(
-                "run_em: Row-wise mismatch in vote totals detected.\n",
+                "get_agg_opt: Row-wise mismatch in vote totals detected.\n",
                 "Rows with mismatches: ", paste(mismatch_rows, collapse = ", "), "\n",
                 "To allow mismatches, set `allow_mismatch = TRUE`."
             )
@@ -916,7 +937,6 @@ get_agg_opt <- function(object = NULL,
         if (method == "exact") stop("run_em: Exact method isn't supported with mismatch")
     }
 
-    method <- if (!is.null(all_params$method)) all_params$method else "mult"
     initial_prob <- if (!is.null(all_params$initial_prob)) all_params$initial_prob else "group_proportional"
     maxiter <- if (!is.null(all_params$maxiter)) all_params$maxiter else 1000
     maxtime <- if (!is.null(all_params$maxtime)) all_params$maxtime else 3600
@@ -1016,6 +1036,7 @@ get_agg_opt <- function(object = NULL,
         object$samples <- samples
     }
 
+    class(object) <- "eim"
     return(object)
 }
 
@@ -1039,8 +1060,13 @@ get_agg_opt <- function(object = NULL,
 #' @param nboot Integer specifying how many times to run the EM algorithm per object.
 #' @param ... Additional arguments passed to [bootstrap] and [run_em].
 #'
-#' @return A numeric matrix of p-values with the same dimensions as the estimated probability matrices (`p`) from the input objects.
-#' Each entry represents the p-value from a Welch's t-test comparing the corresponding elements of the two matrices.
+#' @return A list with components:
+#'   - `pvals`: a numeric matrix of p‑values with the same dimensions as the estimated probability matrices (`pvals`) from the input objects.
+#'   - `statistic`: a numeric matrix of t‑statistics with the same dimensions as the estimated probability matrices (`pvals`).
+#'   - `eim1` and `eim2`: the original `eim` objects used for comparison.
+#'
+#' Each entry in the `pvals` matrix is the p‑value from Welch’s t‑test comparing the corresponding elements of the two probability matrices;
+#' each entry in the `statistic` matrix is the corresponding t‑statistic.
 #'
 #' @details
 #' You must provide either:
@@ -1063,10 +1089,10 @@ get_agg_opt <- function(object = NULL,
 #' eim1 <- eim(sim$X, sim$W)
 #' eim2 <- eim(sim2$X, sim2$W)
 #'
-#' pvals <- welchtest(object = eim1, object2 = eim2, nboot = 100)
+#' result <- welchtest(object = eim1, object2 = eim2, nboot = 100)
 #'
 #' # Check which entries are significantly different
-#' which(pvals < 0.05, arr.ind = TRUE)
+#' which(result$pvals < 0.05, arr.ind = TRUE)
 #'
 #' @export
 welchtest <- function(object = NULL,
@@ -1118,7 +1144,8 @@ welchtest <- function(object = NULL,
     ))
     em1 <- do.call(run_em, c(
         list(object = object),
-        bootstrap_args[!names(bootstrap_args) %in% c("object", "nboot", "object2", "X", "X2", "W", "W2", "json_path")]
+        bootstrap_args[!names(bootstrap_args) %in% c("verbose", "object", "nboot", "object2", "X", "X2", "W", "W2", "json_path")],
+        list(verbose = FALSE)
     ))
 
     if (!is.null(all_params$verbose) && all_params$verbose) {
@@ -1131,7 +1158,8 @@ welchtest <- function(object = NULL,
     ))
     em2 <- do.call(run_em, c(
         list(object = object2),
-        bootstrap_args[!names(bootstrap_args) %in% c("nboot", "object", "object2", "X", "X2", "W", "W2", "json_path")]
+        bootstrap_args[!names(bootstrap_args) %in% c("verbose", "nboot", "object", "object2", "X", "X2", "W", "W2", "json_path")],
+        list(verbose = FALSE)
     ))
 
     # Matrix-wise p-values
@@ -1147,7 +1175,18 @@ welchtest <- function(object = NULL,
 
     pvals <- 2 * pt(-abs(t_stat), df)
 
-    return(pvals)
+    em1$sd <- boot1$sd
+    em2$sd <- boot2$sd
+
+    result <- list()
+    result$pvals <- pvals
+    result$statistic <- t_stat
+    class(em1) <- "eim"
+    class(em2) <- "eim"
+    result$eim1 <- em1
+    result$eim2 <- em2
+
+    return(result)
 }
 
 #' @description According to the state of the algorithm (either computed or not), it prints a message with its most relevant parameters
@@ -1168,7 +1207,8 @@ welchtest <- function(object = NULL,
 #' print(model) # Will print the X and W matrix among the EM results.
 #' @noRd
 #' @export
-print.eim <- function(object, ...) {
+print.eim <- function(x, ...) {
+    object <- x
     cat("eim ecological inference model\n")
     # Determine if truncation is needed
     truncated_X <- (nrow(object$X) > 5)
@@ -1280,7 +1320,8 @@ summary.eim <- function(object, ...) {
 #' @return The probability matrix
 #' @noRd
 #' @export
-as.matrix.eim <- function(object, ...) {
+as.matrix.eim <- function(x, ...) {
+    object <- x
     if (is.null(object$prob)) {
         stop(paste0(
             "Probability matrix not available. Run 'run_em()'."
@@ -1329,7 +1370,7 @@ as.matrix.eim <- function(object, ...) {
 #' save_eim(model, "model_results.csv")
 #'
 #' @name save_eim
-#' @aliases NULL
+#' @aliases save_eim()
 #' @export
 save_eim <- function(object, filename, ...) {
     # Ensure filename is a valid string
@@ -1376,55 +1417,58 @@ save_eim <- function(object, filename, ...) {
 
 #' @noRd
 #' @export
-write.csv.eim <- function(object, filename, ...) {
-    if (!inherits(object, "eim")) {
-        stop("The object must be initialized with the `eim()` function.")
-    }
-    if (!is.character(filename) || length(filename) != 1) {
-        stop("Invalid filename. Please provide a valid file path as a character string.")
-    }
-
-    # Get file extension
-    file_ext <- tools::file_ext(filename)
-
-    if (file_ext != "csv") {
-        stop("The filepath provided must end with '.csv'")
-    }
-
-    if (!is.null(object$prob)) {
-        write.csv(as.matrix(object$prob), filename, row.names = TRUE)
-        message("Probability matrix saved as CSV: ", filename)
-    } else {
-        stop("The `run_em()` method must be called for saving a '.csv' file.")
-    }
-}
+# write.csv.eim <- function(object, filename, ...) {
+#    if (!inherits(object, "eim")) {
+#        stop("The object must be initialized with the `eim()` function.")
+#    }
+#    if (!is.character(filename) || length(filename) != 1) {
+#        stop("Invalid filename. Please provide a valid file path as a character string.")
+#    }
+#
+#    # Get file extension
+#    file_ext <- tools::file_ext(filename)
+#
+#    if (file_ext != "csv") {
+#        stop("The filepath provided must end with '.csv'")
+#    }
+#
+#    if (!is.null(object$prob)) {
+#        write.csv(as.matrix(object$prob), filename, row.names = TRUE)
+#        message("Probability matrix saved as CSV: ", filename)
+#    } else {
+#        stop("The `run_em()` method must be called for saving a '.csv' file.")
+#    }
+# }
 
 #' @noRd
 #' @export
-dput.eim <- function(object, filename, ...) {
-    if (!inherits(object, "eim")) {
-        stop("The object must be initialized with the `eim()` function.")
-    }
-    if (!is.character(filename) || length(filename) != 1) {
-        stop("Invalid filename. Please provide a valid file path as a character string.")
-    }
+# dput.eim <- function(object, filename, ...) {
+#    if (!inherits(object, "eim")) {
+#        stop("The object must be initialized with the `eim()` function.")
+#    }
+#    if (!is.character(filename) || length(filename) != 1) {
+#        stop("Invalid filename. Please provide a valid file path as a character string.")
+#    }
+#
+#    # Get file extension
+#    file_ext <- tools::file_ext(filename)
+#
+#    if (file_ext != "rda") {
+#        stop("The filepath provided must end with '.rda'")
+#    }
+#    saveRDS(object, file = filename)
+#    message("Results saved as RDS: ", filename)
+# }
 
-    # Get file extension
-    file_ext <- tools::file_ext(filename)
 
-    if (file_ext != "rda") {
-        stop("The filepath provided must end with '.rda'")
-    }
-    saveRDS(object, file = filename)
-    message("Results saved as RDS: ", filename)
-}
-
-#' Returns the log-likelihood of the last iteration
+#' @title Extract log‑likelihood
+#' @description
+#'   Return the log‑likelihood of the last EM iteration
 #'
 #' @param object An `eim` object
-#' @param ... Additional parameters that won't do nothing
+#' @param ... Additional parameters that will be ignored
 #'
-#' @return A numeric value with the log-likelihood
+#' @return A numeric value with the log‑likelihood from the last iteration.
 #' @noRd
 #' @export
 logLik.eim <- function(object, ...) {

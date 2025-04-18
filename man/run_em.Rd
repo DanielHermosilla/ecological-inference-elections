@@ -2,6 +2,7 @@
 % Please edit documentation in R/eim-class.R
 \name{run_em}
 \alias{run_em}
+\alias{run_em()}
 \title{Compute the Expected-Maximization Algorithm}
 \usage{
 run_em(
@@ -18,6 +19,11 @@ run_em(
   ll_threshold = as.double(-Inf),
   seed = NULL,
   verbose = FALSE,
+  samples = 1000,
+  step_size = 3000,
+  mc_method = "genz2",
+  mc_error = 0.00001,
+  mc_samples = 5000,
   ...
 )
 }
@@ -70,13 +76,13 @@ the threshold. Note that the algorithm will stop if either \code{ll_threshold} \
 \item{verbose}{An optional boolean indicating whether to print informational messages during the EM
 iterations. The default value is \code{FALSE}.}
 
-\item{step_size}{An optional integer specifying the step size for the \code{mcmc}
-algorithm. This parameter is only applicable when \code{method = mcmc} and will
-be ignored otherwise. The default value is \code{3000}.}
-
 \item{samples}{An optional integer indicating the number of samples to generate for the
 \strong{MCMC} method. This parameter is only relevant when \code{method = mcmc}.
 The default value is \code{1000}.}
+
+\item{step_size}{An optional integer specifying the step size for the \code{mcmc}
+algorithm. This parameter is only applicable when \code{method = mcmc} and will
+be ignored otherwise. The default value is \code{3000}.}
 
 \item{mc_method}{An optional string specifying the method used to estimate the \code{mvn_cdf} method
 via a Monte Carlo simulation. Accepted values are \code{genz} and \code{genz2}, with \code{genz2}
@@ -88,6 +94,8 @@ when \code{method = mvn_cdf}.}
 
 \item{mc_samples}{An optional integer specifying the number of Monte Carlo
 samples for the \code{mvn_cdf} method. The default value is \code{5000}. This argument is only applicable when \code{method = mvn_cdf}.}
+
+\item{...}{Added for compability}
 }
 \value{
 The function returns an \code{eim} object with the function arguments and the following attributes:

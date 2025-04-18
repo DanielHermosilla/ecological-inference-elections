@@ -54,7 +54,7 @@ extern "C"
      * @return A pointer towards a MemoizationTable.
      *
      */
-    MemoizationTable *initMemo();
+    MemoizationTable *initMemo(void);
     /**
      * @brief Get the value from the hash table.
      *

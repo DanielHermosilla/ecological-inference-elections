@@ -43,7 +43,7 @@ extern "C"
      *
      * Given the precomputed sets of possibilities, it frees everything.
      */
-    void cleanExact();
+    void cleanExact(void);
     /**
      * @brief Precalculates the `H` set for every index.
      *
@@ -53,7 +53,7 @@ extern "C"
      * @return void: Results written at the global variable HSETS.
      *
      */
-    void generateHSets();
+    void generateHSets(void);
 
     /**
      * @brief Precalculates the `K` set for every index.
@@ -65,7 +65,7 @@ extern "C"
      *
      */
 
-    void generateKSets();
+    void generateKSets(void);
 
 #ifdef __cplusplus
 }

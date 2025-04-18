@@ -54,8 +54,8 @@ extern "C"
      */
     void generateOmegaSet(int M, int S);
 
-    void preComputeMultinomial();
-    void cleanHitAndRun();
+    void preComputeMultinomial(void);
+    void cleanHitAndRun(void);
 
 #ifdef __cplusplus
 }

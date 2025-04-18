@@ -461,7 +461,7 @@ void precomputeLogGammas()
  *
  * @return. Results written at the global variable
  */
-void preComputeMultinomial()
+void preComputeMultinomial(void)
 {
     // ---- Initialize space for storing all of the simulations ---- //
     multinomialVals = Calloc(TOTAL_BALLOTS, double *);
@@ -654,7 +654,7 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
     return array2;
 }
 
-void cleanHitAndRun()
+void cleanHitAndRun(void)
 {
     if (OMEGASET != NULL)
     {

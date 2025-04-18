@@ -72,7 +72,7 @@ uint64_t generateHash(int a, int b, int c, int d, const size_t *vector, int vect
  * @return A pointer towards a MemoizationTable.
  *
  */
-MemoizationTable *initMemo()
+MemoizationTable *initMemo(void)
 {
     // ---- Allocates memory for the table
     MemoizationTable *table = (MemoizationTable *)Calloc(1, MemoizationTable);

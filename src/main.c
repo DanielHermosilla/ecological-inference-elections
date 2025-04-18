@@ -21,6 +21,7 @@ SOFTWARE.
 */
 #include "main.h"
 #include "globals.h"
+#include "utils_matrix.h"
 #include <R.h>
 #include <R_ext/BLAS.h>
 #include <R_ext/Memory.h>
@@ -432,6 +433,20 @@ Matrix getP(const double *q)
     return toReturn;
 }
 
+int checkGroups()
+{
+    for (u_int16_t g = 0; g < TOTAL_GROUPS; g++)
+    {
+        if (GROUP_VOTES[g] == 0)
+        {
+
+            TOTAL_GROUPS--;
+            return g;
+        }
+    }
+    return -1;
+}
+
 /**
  * @brief Implements the whole EM algorithm.
  *
@@ -476,6 +491,24 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     QMethodConfig config = getQMethodConfig(q_method, inputParams);
     double newLL;
     double oldLL = -DBL_MAX;
+    // ---...--- //
+
+    // ---- Check the case where there's a group without voters ---- //
+    int invalidGroup = checkGroups();
+    if (invalidGroup != -1)
+    {
+        removeColumn(W, invalidGroup);
+        setParameters(X, W);
+        Matrix P = getInitialP("group_proportional");
+        Matrix result = EMAlgoritm(&P, q_method, convergence, LLconvergence, maxIter, maxSeconds, verbose, time,
+                                   iterTotal, logLLarr, qVal, finishing_reason, inputParams);
+        addColumnOfZeros(W, invalidGroup);
+        setParameters(X, W);
+        addRowOfZeros(&result, invalidGroup);
+        freeMatrix(&P);
+        return result;
+    }
+    // ---...--- //
 
     // ---- Start timer
     struct timespec start, end, iter_start, iter_end; // Declare timers for overall and per-iteration
@@ -559,6 +592,7 @@ results:
     Matrix finalProbability = copyMatrix(currentP);
     freeMatrix(currentP);
     freeMatrix(&newProbability);
+
     return finalProbability;
 }
 

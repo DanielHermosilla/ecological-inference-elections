@@ -1,17 +1,18 @@
 ---
-fontsize: 11pt
-geometry: margin=1in
-classoption:
- - landscape
-linestretch: 1.25 # adjusts line spacing using the setspace package, e.g. 1.25, 1.5
-indent: false # indent paragraphs
-papersize: a4 # paper size, e.g. letter, a4
-title: Testing the EM acurracy 
-output:
-  pdf_document
-pdf_engine: xelatex
----
+title: "Testing the EM Accuracy"
+author: "Daniel Hermosilla"
+date: "`r Sys.Date()`"
 
+vignette: >
+  %\VignetteIndexEntry{Accuracy Demonstration}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    number_sections: true
+---
 Based on the `demonstration` vignette, we observed in a summarized way that the Expectation-Maximization algorithm tends to lose accuracy when the ballot boxes are homogeneous with respect to the demographic groups.
 
 However, it is worth exploring — in a more formal and mathematical sense — when this loss of precision begins. To investigate this, we adopt an empirical approach by computing the Mean Absolute Error across different values of lambda.

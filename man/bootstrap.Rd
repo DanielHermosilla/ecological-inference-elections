@@ -2,16 +2,18 @@
 % Please edit documentation in R/eim-class.R
 \name{bootstrap}
 \alias{bootstrap}
+\alias{bootstrap()}
 \title{Runs a Bootstrap to Estimate the \strong{Standard Deviation} of Predicted Probabilities}
 \usage{
 bootstrap(
- object = NULL,
- X = NULL,
- W = NULL,
- json_path = NULL,
- nboot = 50,
- seed = NULL
- ...
+  object = NULL,
+  X = NULL,
+  W = NULL,
+  json_path = NULL,
+  nboot = 50,
+  allow_mismatch = FALSE,
+  seed = NULL,
+  ...
 )
 }
 \arguments{
@@ -25,6 +27,8 @@ bootstrap(
 
 \item{nboot}{Integer specifying how many times to run the
 EM algorithm.}
+
+\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box, only works if method is \code{mvn_cdf}, \code{mvn_pdf}, \code{mult} and \code{mcmc}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{FALSE}.}
 
 \item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = random} or method is either \code{mcmc} or \code{mvn_cdf}. Aditionally, it sets the random draws of the ballot boxes.}
 
@@ -82,7 +86,8 @@ model <- bootstrap(
     method = "mvn_pdf",
     maxiter = 100,
     maxtime = 15,
-    param_threshold = 0.01
+    param_threshold = 0.01,
+    allow_mismatch = FALSE
 )
 
 print(model$sd)

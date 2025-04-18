@@ -36,8 +36,15 @@ welchtest(
 \item{...}{Additional arguments passed to \link{bootstrap} and \link{run_em}.}
 }
 \value{
-A numeric matrix of p-values with the same dimensions as the estimated probability matrices (\code{p}) from the input objects.
-Each entry represents the p-value from a Welch's t-test comparing the corresponding elements of the two matrices.
+A list with components:
+\itemize{
+\item \code{pvals}: a numeric matrix of p‑values with the same dimensions as the estimated probability matrices (\code{pvals}) from the input objects.
+\item \code{statistic}: a numeric matrix of t‑statistics with the same dimensions as the estimated probability matrices (\code{pvals}).
+\item \code{eim1} and \code{eim2}: the original \code{eim} objects used for comparison.
+}
+
+Each entry in the \code{pvals} matrix is the p‑value from Welch’s t‑test comparing the corresponding elements of the two probability matrices;
+each entry in the \code{statistic} matrix is the corresponding t‑statistic.
 }
 \description{
 This function compares two \code{eim} objects (or sets of matrices that can be converted to such objects) by computing a Welch's t-test on each component
@@ -70,9 +77,9 @@ sim2 <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5,
 eim1 <- eim(sim$X, sim$W)
 eim2 <- eim(sim2$X, sim2$W)
 
-pvals <- welchtest(object = eim1, object2 = eim2, nboot = 100)
+result <- welchtest(object = eim1, object2 = eim2, nboot = 100)
 
 # Check which entries are significantly different
-which(pvals < 0.05, arr.ind = TRUE)
+which(result$pvals < 0.05, arr.ind = TRUE)
 
 }

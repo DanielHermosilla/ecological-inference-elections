@@ -11,7 +11,9 @@ get_agg_opt(
   json_path = NULL,
   sd_statistic = "maximum",
   sd_threshold = 0.05,
+  method = "mult",
   nboot = 50,
+  allow_mismatch = FALSE,
   seed = NULL,
   ...
 )
@@ -29,8 +31,20 @@ get_agg_opt(
 
 \item{sd_threshold}{Numeric with the value to use as a threshold for the statistic (\code{sc_statistic}) of the standard deviation of the estimated probabilities. Defaults to 0.05.}
 
+\item{method}{An optional string specifying the method used for estimating the E-step. Valid
+options are:
+\itemize{
+\item \code{mult}: The default method, using a single sum of Multinomial distributions.
+\item \code{mvn_cdf}: Uses a Multivariate Normal CDF distribution to approximate the conditional probability.
+\item \code{mvn_pdf}: Uses a Multivariate Normal PDF distribution to approximate the conditional probability.
+\item \code{mcmc}: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the E-step.
+\item \code{exact}: Solves the E-step using the Total Probability Law.
+}}
+
 \item{nboot}{Integer specifying how many times to run the
 EM algorithm.}
+
+\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box, only works if method is \code{mvn_cdf}, \code{mvn_pdf}, \code{mult} and \code{mcmc}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{FALSE}.}
 
 \item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = random} or method is either \code{mcmc} or \code{mvn_cdf}. Aditionally, it sets the random draws of the ballot boxes.}
 
@@ -62,7 +76,7 @@ ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, the 
 \examples{
 # Example 1: Using a simulated instance
 simulations <- simulate_election(
-    num_ballots = 100,
+    num_ballots = 20,
     num_candidates = 3,
     num_groups = 8,
     seed = 42
@@ -80,7 +94,6 @@ result$group_agg # c(3,8)
 # two macro-groups: one that includes the original groups 1, 2, and 3;
 # the remaining one with groups 4, 5, 6, 7 and 8.
 # {[1, 2, 3], [4, 5, 6, 7, 8]}
-
 \dontrun{
 # Example 2: Getting an unfeasible result
 result2 <- get_agg_opt(

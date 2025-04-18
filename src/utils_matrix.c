@@ -669,8 +669,8 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
     }
     if (info > 0)
     {
-        Rprintf("Cholesky decomposition failed. Leading minor not positive definite.\n"
-                "Retrying with +1 on diagonal.\n");
+        // Rprintf("Cholesky decomposition failed. Leading minor not positive definite.\n"
+        //       "Retrying with +1 on diagonal.\n");
 
         // restore from emergencyMat, add small diagonal
         for (int i = 0; i < n; i++)
@@ -682,7 +682,6 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
                     MATRIX_AT_PTR(matrix, i, j) += 1.0;
             }
         }
-        printMatrix(&emergencyMat);
         freeMatrix(&emergencyMat);
         inverseSymmetricPositiveMatrix(matrix);
         return; // be sure to stop here so the next steps don't run again

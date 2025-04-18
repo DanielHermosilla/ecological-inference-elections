@@ -130,7 +130,7 @@ extern "C"
      * @return bool: A boolean that shows if it exists a candidate with no votes
      *
      */
-    void cleanup();
+    void cleanup(void);
 #ifdef __cplusplus
 }
 #endif

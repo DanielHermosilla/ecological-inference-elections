@@ -110,9 +110,8 @@ Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_meth
                    maximum_seconds[0], verbose[0], &timeIter, &totalIter, &logLLarr, &qvalue, &finish, inputParams);
 
     // ---- Create human-readable stopping reason ---- //
-    std::vector<std::string> stop_reasons = {"Converged", "Log-likelihood decrease", "Maximum time reached",
-                                             "Maximum iterations reached"};
-    std::string stopping_reason = (finish >= 0 && finish < 4) ? stop_reasons[finish] : "Unknown";
+    std::vector<std::string> stop_reasons = {"Converged", "Maximum time reached", "Maximum iterations reached"};
+    std::string stopping_reason = (finish >= 0 && finish < 3) ? stop_reasons[finish] : "Unknown";
 
     Rcpp::NumericMatrix RfinalProbability(Pnew.rows, Pnew.cols, Pnew.data);
     freeMatrix(&Pnew);

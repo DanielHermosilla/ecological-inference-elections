@@ -651,7 +651,7 @@ double *computeQExact(const Matrix *probabilities, QMethodInput params, double *
  * @brief Frees al the memory allocated on the H set.
  *
  */
-void freeHSet()
+void freeHSet(void)
 {
     // ---- If the set was created ----
     if (HSETS != NULL)
@@ -684,7 +684,7 @@ void freeHSet()
  * @brief Frees al the memory allocated on the K set.
  *
  */
-void freeKSet()
+void freeKSet(void)
 {
     // ---- If the set was created ----
     if (KSETS != NULL)
@@ -714,7 +714,7 @@ void freeKSet()
 }
 
 // __attribute__((destructor))
-void cleanExact()
+void cleanExact(void)
 {
     // ---- Destroy the candidate array of size_t ---- //
     // ---- If the array was created ----

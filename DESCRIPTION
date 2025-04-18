@@ -1,5 +1,5 @@
 Package: fastei 
-Title: Methods for ''A Fast Alternative for the R x C Ecological Inference Problem''. 
+Title: Methods for ''A Fast Alternative for the R x C Ecological Inference Problem''
 Version: 0.0.0.1
 Author: Charles Thraves, Pablo Ubilla, Daniel Hermosilla
 Maintainer: Daniel Hermosilla <daniel.hermosilla.r@ug.uchile.cl>
@@ -16,11 +16,13 @@ URL: https://danielhermosilla.github.io/ecological-inference-elections/reference
 Suggests: 
     knitr,
     rmarkdown,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+	ggplot2,
+	dplyr
 Roxygen: list(markdown = TRUE, load = "source")
 VignetteBuilder: knitr
 Depends: 
-    R (>= 3.5)
+    R (>= 3.0)
 LazyData: true
 RoxygenNote: 7.3.2
 Config/testthat/edition: 3
