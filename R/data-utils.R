@@ -59,8 +59,13 @@ get_XW_chile <- function(elect_district = NULL,
         rownames(df_ed) <- df_ed$BALLOT.BOX
     } else {
         # If both are provided or both are NULL, use full data
+        # Generate unique composite key for rownames
         df_ed <- df
-        rownames(df_ed) <- paste(df_ed$REGION, df_ed$ELECTORAL.DISTRICT, df_ed$BALLOT.BOX, sep = " - ")
+        df_ed$row_id <- paste(df_ed$REGION, df_ed$ELECTORAL.DISTRICT, df_ed$BALLOT.BOX, sep = " - ")
+        # Remove duplicates based on this composite key
+        df_ed <- df_ed[!duplicated(df_ed$row_id), ]
+        # Assign rownames
+        rownames(df_ed) <- df_ed$row_id
     }
 
     # Remove mismatches if applicable
