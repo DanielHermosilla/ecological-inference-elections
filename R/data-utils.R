@@ -6,7 +6,9 @@
 #'
 #' Additionally, ballot boxes where the number of votes does not match the number of registered voters (i.e., those where `MISMATCH == TRUE`) can be excluded from the dataset by setting `remove_mismatch = TRUE`.
 #'
-#' @param elect_district A string indicating the name of the electoral district to extract (e.g., `"NIEBLA"`).
+#' @param elect_district A string indicating the name of the electoral district to extract (e.g., "NIEBLA"). See **Note**.
+#'
+#' @param region A string indicating the name of the region to extract (e.g, "DE TARAPACA"). See **Note**.
 #'
 #' @param merge_blank_null Logical indicating whether blank and null votes should be merged into a single column. Defaults to `TRUE`.
 #'
@@ -17,11 +19,14 @@
 #' - **X**: A matrix `(b x c)` with the number of votes per candidate (including a column for blank + null votes if `merge_blank_null = TRUE`).
 #' - **W**: A matrix `(b x g)` with the number of voters per group (e.g., age ranges) for each ballot box.
 #'
-#' This object can be passed to functions like [`run_em`] or [`get_agg_proxy`] for estimation and group aggregation.
+#' This object can be passed to functions like [`run_em`] or [`get_agg_proxy`] for estimation and group aggregation. See **Example**.
+#'
+#' @note
+#' Only one parameter is accepted among `elect_district` and `region`. If either both or any parameters are given, it will return an eim object with an aggregation corresponding to the whole dataset.
 #'
 #' @examples
 #' # Load data and create an eim object for the electoral district of "NIEBLA"
-#' eim_obj <- get_XW_Chile("NIEBLA", remove_mismatch = FALSE)
+#' eim_obj <- get_XW_chile("NIEBLA", remove_mismatch = FALSE)
 #'
 #' # Use it to run the EM algorithm
 #' result <- run_em(eim_obj)
@@ -39,28 +44,44 @@
 #' @seealso [chile_election_2021]
 #' @aliases get_XW_chile()
 #' @export
-get_XW_chile <- function(elect_district, merge_blank_null = TRUE, remove_mismatch = TRUE) {
+get_XW_chile <- function(elect_district = NULL,
+                         region = NULL,
+                         merge_blank_null = TRUE,
+                         remove_mismatch = TRUE) {
     df <- get("chile_election_2021")
-    # filter a specific electoral district
-    df_ed <- df[df$ELECTORAL.DISTRICT == elect_district, ]
-    rownames(df_ed) <- df_ed$BALLOT.BOX
-    # remove ballot boxes with mismatch of votes and voters
-    if (remove_mismatch) {
+
+    # Apply filtering only if exactly one of region or elect_district is provided
+    if (!is.null(region) && is.null(elect_district)) {
+        df_ed <- df[df$REGION == region, ]
+        rownames(df_ed) <- paste(df_ed$ELECTORAL.DISTRICT, df_ed$BALLOT.BOX, sep = " - ")
+    } else if (!is.null(elect_district) && is.null(region)) {
+        df_ed <- df[df$ELECTORAL.DISTRICT == elect_district, ]
+        rownames(df_ed) <- df_ed$BALLOT.BOX
+    } else {
+        # If both are provided or both are NULL, use full data
+        df_ed <- df
+        rownames(df_ed) <- paste(df_ed$REGION, df_ed$ELECTORAL.DISTRICT, df_ed$BALLOT.BOX, sep = " - ")
+    }
+
+    # Remove mismatches if applicable
+    if (remove_mismatch && "MISMATCH" %in% names(df_ed)) {
         df_ed <- df_ed[df_ed$MISMATCH == FALSE, ]
     }
-    # get columns of candidates' votes
-    X <- df_ed[df_ed$ELECTORAL.DISTRICT == elect_district, c("C1", "C2", "C3", "C4", "C5", "C6", "C7", "BLANK.VOTES", "NULL.VOTES")]
-    # merge blank and null votes
+
+    # Extract candidate votes
+    X <- df_ed[, c("C1", "C2", "C3", "C4", "C5", "C6", "C7", "BLANK.VOTES", "NULL.VOTES")]
+
+    # Merge blank and null votes if requested
     if (merge_blank_null) {
         X$C8 <- X$BLANK.VOTES + X$NULL.VOTES
     }
+
+    # Keep only candidate columns including merged C8
     X <- X[, c("C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8")]
-    # convert X to matrix
-    X <- as.matrix(X[, c("C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8")])
+    X <- as.matrix(X)
 
-    # get voters of each demographic group, and convert to matrix
-    W <- as.matrix(df_ed[df_ed$ELECTORAL.DISTRICT == elect_district, c("X18.19", "X20.29", "X30.39", "X40.49", "X50.59", "X60.69", "X70.79", "X80.")])
+    # Extract demographic groups
+    W <- as.matrix(df_ed[, c("X18.19", "X20.29", "X30.39", "X40.49", "X50.59", "X60.69", "X70.79", "X80.")])
 
-    obj <- eim(X = X, W = W)
-    return(obj)
+    return(eim(X = X, W = W))
 }

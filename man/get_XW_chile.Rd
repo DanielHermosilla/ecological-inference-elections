@@ -5,10 +5,17 @@
 \alias{get_XW_chile()}
 \title{Extracts voting and demographic data matrices for a given electoral district in Chile.}
 \usage{
-get_XW_chile(elect_district, merge_blank_null = TRUE, remove_mismatch = TRUE)
+get_XW_chile(
+  elect_district = NULL,
+  region = NULL,
+  merge_blank_null = TRUE,
+  remove_mismatch = TRUE
+)
 }
 \arguments{
-\item{elect_district}{A string indicating the name of the electoral district to extract (e.g., \code{"NIEBLA"}).}
+\item{elect_district}{A string indicating the name of the electoral district to extract (e.g., "NIEBLA"). See \strong{Note}.}
+
+\item{region}{A string indicating the name of the region to extract (e.g, "DE TARAPACA"). See \strong{Note}.}
 
 \item{merge_blank_null}{Logical indicating whether blank and null votes should be merged into a single column. Defaults to \code{TRUE}.}
 
@@ -21,7 +28,7 @@ An \code{\link{eim}} object with the following attributes:
 \item \strong{W}: A matrix \verb{(b x g)} with the number of voters per group (e.g., age ranges) for each ballot box.
 }
 
-This object can be passed to functions like \code{\link{run_em}} or \code{\link{get_agg_proxy}} for estimation and group aggregation.
+This object can be passed to functions like \code{\link{run_em}} or \code{\link{get_agg_proxy}} for estimation and group aggregation. See \strong{Example}.
 }
 \description{
 This function retrieves the voting results and demographic covariates for a given electoral district from the 2021 Chilean election dataset included in this package. The function returns an \code{\link{eim}} object that can be directly used in \code{\link{run_em}} or other estimation functions.
@@ -31,9 +38,12 @@ The function builds the \code{X} matrix using the number of votes per candidate,
 
 Additionally, ballot boxes where the number of votes does not match the number of registered voters (i.e., those where \code{MISMATCH == TRUE}) can be excluded from the dataset by setting \code{remove_mismatch = TRUE}.
 }
+\note{
+Only one parameter is accepted among \code{elect_district} and \code{region}. If either both or any parameters are given, it will return an eim object with an aggregation corresponding to the whole dataset.
+}
 \examples{
 # Load data and create an eim object for the electoral district of "NIEBLA"
-eim_obj <- get_XW_Chile("NIEBLA", remove_mismatch = FALSE)
+eim_obj <- get_XW_chile("NIEBLA", remove_mismatch = FALSE)
 
 # Use it to run the EM algorithm
 result <- run_em(eim_obj)

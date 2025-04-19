@@ -7,6 +7,7 @@
 \format{
 A data frame with 46,639 rows and 14 variables:
 \describe{
+\item{\code{REGION}}{The demographic region of the \code{ELECTORAL.DISTRICT}}
 \item{\code{ELECTORAL.DISTRICT}}{The electoral circumscription of the ballot box.}
 \item{\code{BALLOT.BOX}}{An identifier for the ballot box within the \code{ELECTORAL.DISTRICT}.}
 \item{\code{C1}}{The number of votes cast for the candidate \emph{Gabriel Boric}.}

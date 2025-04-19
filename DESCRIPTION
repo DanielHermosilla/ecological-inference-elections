@@ -22,7 +22,7 @@ Suggests:
 Roxygen: list(markdown = TRUE, load = "source")
 VignetteBuilder: knitr
 Depends: 
-    R (>= 3.0)
+    R (>= 3.5)
 LazyData: true
 RoxygenNote: 7.3.2
 Config/testthat/edition: 3
