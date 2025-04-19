@@ -66,7 +66,7 @@ It returns an eim object with the same attributes as the output of \link{run_em}
 \item \strong{group_agg}: Vector with the resulting group aggregation. See \strong{Examples} for more details.
 }
 
-Aditionally, it will create the \code{W_agg} attribute with the aggregated groups.
+Additionally, it will create the \code{W_agg} attribute with the aggregated groups, along with the attributes corresponding to running \link{run_em} with the aggregated groups.
 }
 \description{
 This function estimates the voting probabilities (computed using \link{run_em}) aggregating adjacent groups so that the estimated probabilities' standard deviation (computed using \link{bootstrap}) is below a given threshold. See \strong{Details} for more information.

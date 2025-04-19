@@ -108,12 +108,12 @@ The function returns an \code{eim} object with the function arguments and the fo
 \item{status}{
 The final status ID of the algorithm upon completion:
 \itemize{
-\item \code{0}: Convergenced.
+\item \code{0}: Converged
 \item \code{1}: Maximum time reached.
 \item \code{2}: Maximum iterations reached.
 }
 }
-\item{message}{The finishing status displayed as a message.}
+\item{message}{The finishing status displayed as a message, matching the status ID value.}
 \item{method}{The method for estimating the conditional probability in the E-step.}
 }
 Aditionally, it will create \code{samples} and \code{step_size} parameters if the specified method is \code{mcmc}, or \code{mc_method}, \code{mc_error} and \code{mc_samples} if the method is \code{mvn_cdf}.

@@ -24,8 +24,7 @@ A list of class \code{eim} containing:
 \description{
 This constructor creates an \code{eim} S3 object, either by using matrices
 \code{X} and \code{W} directly or by reading them from a JSON file. Each
-\code{eim} object encapsulates the data (votes for candidates and demographic
-groups) required by the underlying Expectation-Maximization algorithm.
+\code{eim} object encapsulates the data (votes for candidates and demographic groups) required by the underlying Expectation-Maximization algorithm.
 }
 \details{
 If \code{X} and \code{W} are directly supplied, they must match the

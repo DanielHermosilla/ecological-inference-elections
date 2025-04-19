@@ -4,8 +4,7 @@ library(jsonlite)
 #'
 #' This constructor creates an `eim` S3 object, either by using matrices
 #' `X` and `W` directly or by reading them from a JSON file. Each
-#' `eim` object encapsulates the data (votes for candidates and demographic
-#' groups) required by the underlying Expectation-Maximization algorithm.
+#' `eim` object encapsulates the data (votes for candidates and demographic groups) required by the underlying Expectation-Maximization algorithm.
 #'
 #' @param X A `(b x c)` matrix representing candidate votes per ballot box.
 #'
@@ -269,12 +268,12 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'   \item{status}{
 #'     The final status ID of the algorithm upon completion:
 #'     \itemize{
-#'       \item \code{0}: Convergenced.
+#'       \item \code{0}: Converged
 #'       \item \code{1}: Maximum time reached.
 #'       \item \code{2}: Maximum iterations reached.
 #'     }
 #'   }
-#'   \item{message}{The finishing status displayed as a message.}
+#'   \item{message}{The finishing status displayed as a message, matching the status ID value.}
 #'   \item{method}{The method for estimating the conditional probability in the E-step.}
 #' }
 #' Aditionally, it will create `samples` and `step_size` parameters if the specified method is `mcmc`, or `mc_method`, `mc_error` and `mc_samples` if the method is `mvn_cdf`.
@@ -641,7 +640,7 @@ bootstrap <- function(object = NULL,
 #' - **is_feasible**:  Boolean indicating whether the statistic of the standard deviation matrix is below the threshold.
 #' - **group_agg**: Vector with the resulting group aggregation. See **Examples** for more details.
 #'
-#' Aditionally, it will create the `W_agg` attribute with the aggregated groups.
+#' Additionally, it will create the `W_agg` attribute with the aggregated groups, along with the attributes corresponding to running [run_em] with the aggregated groups.
 #'
 #' @examples
 #' # Example 1: Using a simulated instance
@@ -857,7 +856,7 @@ get_agg_proxy <- function(object = NULL,
 #' - **sd_threshold**: The threshold used as input.
 #' - **group_agg**: Vector with the resulting group aggregation. See **Examples** for more details.
 #'
-#' Aditionally, it will create the `W_agg` attribute with the aggregated groups.
+#' Additionally, it will create the `W_agg` attribute with the aggregated groups, along with the attributes corresponding to running [run_em] with the aggregated groups.
 #'
 #' @examples
 #' # Example 1: Using a simulated instance
@@ -1046,8 +1045,7 @@ get_agg_opt <- function(object = NULL,
 #' of their estimated probability matrices (`p`). The Welch test is applied using bootstrap-derived standard deviations, and the result is a matrix
 #' of p-values corresponding to each group-candidate combination.
 #'
-#' The method is fully vectorized and uses the Welch-Satterthwaite approximation for degrees of freedom. It is useful when testing for statistically
-#' significant differences between voting probabilities obtained from two different group structures, vote matrices, or weighting matrices.
+#' It uses Welch’s t-test to analyze if there is a significant difference between the estimated probabilities between a treatment and a control set. The test is performed independently for each component of the probability matrix.
 #'
 #' @inheritParams bootstrap
 #'
@@ -1065,23 +1063,20 @@ get_agg_opt <- function(object = NULL,
 #'   - `statistic`: a numeric matrix of t‑statistics with the same dimensions as the estimated probability matrices (`pvals`).
 #'   - `eim1` and `eim2`: the original `eim` objects used for comparison.
 #'
-#' Each entry in the `pvals` matrix is the p‑value from Welch’s t‑test comparing the corresponding elements of the two probability matrices;
-#' each entry in the `statistic` matrix is the corresponding t‑statistic.
+#' Each entry in the pvals matrix is the p-value from Welch’s t-test between the corresponding
+#' entries of the two estimated probability matrices.
 #'
 #' @details
-#' You must provide either:
+#' The user must provide either of the following (but not both):
 #' - Two `eim` objects via `object` and `object2`, or
 #' - Four matrices: `X`, `W`, `X2`, and `W2`, which will be converted into `eim` objects internally.
 #'
-#' Only one input mode is allowed at a time. The function internally computes bootstrapped standard deviations using [bootstrap] on both objects.
 #' The Welch test is computed using the formula:
 #'
 #' \deqn{
 #' t_{ij} = \frac{p_{1,ij} - p_{2,ij}}{\sqrt{(s_{1,ij}^2 + s_{2,ij}^2) / n}},
 #' }
-#' where \eqn{s_{1,ij}^2} and \eqn{s_{2,ij}^2} are the bootstrap variances, and `n` is the number of bootstrap samples.
-#'
-#' The degrees of freedom for each cell are computed using the Welch–Satterthwaite equation.
+#' In this expression, \eqn{s_{1,ij}^2} and \eqn{s_{2,ij}^2} represent the bootstrap sample variances for the treatment and control sets, respectively, while $p_{1,ij}$ and $p_{2,ij}$ are the corresponding estimated probability matrices obtained via the EM algorithm. The number of bootstrap samples is denoted by $n$, and the degrees of freedom for each component are calculated using the Welch–Satterthwaite equation
 #'
 #' @examples
 #' sim <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 123)

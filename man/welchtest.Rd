@@ -43,8 +43,8 @@ A list with components:
 \item \code{eim1} and \code{eim2}: the original \code{eim} objects used for comparison.
 }
 
-Each entry in the \code{pvals} matrix is the p‑value from Welch’s t‑test comparing the corresponding elements of the two probability matrices;
-each entry in the \code{statistic} matrix is the corresponding t‑statistic.
+Each entry in the pvals matrix is the p-value from Welch’s t-test between the corresponding
+entries of the two estimated probability matrices.
 }
 \description{
 This function compares two \code{eim} objects (or sets of matrices that can be converted to such objects) by computing a Welch's t-test on each component
@@ -52,24 +52,20 @@ of their estimated probability matrices (\code{p}). The Welch test is applied us
 of p-values corresponding to each group-candidate combination.
 }
 \details{
-The method is fully vectorized and uses the Welch-Satterthwaite approximation for degrees of freedom. It is useful when testing for statistically
-significant differences between voting probabilities obtained from two different group structures, vote matrices, or weighting matrices.
+It uses Welch’s t-test to analyze if there is a significant difference between the estimated probabilities between a treatment and a control set. The test is performed independently for each component of the probability matrix.
 
-You must provide either:
+The user must provide either of the following (but not both):
 \itemize{
 \item Two \code{eim} objects via \code{object} and \code{object2}, or
 \item Four matrices: \code{X}, \code{W}, \code{X2}, and \code{W2}, which will be converted into \code{eim} objects internally.
 }
 
-Only one input mode is allowed at a time. The function internally computes bootstrapped standard deviations using \link{bootstrap} on both objects.
 The Welch test is computed using the formula:
 
 \deqn{
 t_{ij} = \frac{p_{1,ij} - p_{2,ij}}{\sqrt{(s_{1,ij}^2 + s_{2,ij}^2) / n}},
 }
-where \eqn{s_{1,ij}^2} and \eqn{s_{2,ij}^2} are the bootstrap variances, and \code{n} is the number of bootstrap samples.
-
-The degrees of freedom for each cell are computed using the Welch–Satterthwaite equation.
+In this expression, \eqn{s_{1,ij}^2} and \eqn{s_{2,ij}^2} represent the bootstrap sample variances for the treatment and control sets, respectively, while $p_{1,ij}$ and $p_{2,ij}$ are the corresponding estimated probability matrices obtained via the EM algorithm. The number of bootstrap samples is denoted by $n$, and the degrees of freedom for each component are calculated using the Welch–Satterthwaite equation
 }
 \examples{
 sim <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 123)

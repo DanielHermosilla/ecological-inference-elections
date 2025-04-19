@@ -56,7 +56,7 @@
 #' 	- `lambda = 1` means all individuals are shuffled.
 #' 	- Intermediate values like `lambda = 0.5` shuffle half the voters.
 #'
-#' Using a high level of `lambda` (greater than 0.6) is not recommended, as this could make identification of the voting probabilities difficult. This is because higher values of lambda induce similar ballot-boxes in terms of voters' group.
+#' Using a high level of `lambda` (greater than 0.7) is not recommended, as this could make identification of the voting probabilities difficult. This is because higher values of lambda induce similar ballot-boxes in terms of voters' group.
 #'
 #' @return A list with three components:
 #' \describe{

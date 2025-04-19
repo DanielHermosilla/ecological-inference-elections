@@ -76,7 +76,7 @@ group. More specifically, the first ballot-boxes receive voters from the first g
 }
 }
 
-Using a high level of \code{lambda} (greater than 0.6) is not recommended, as this could make identification of the voting probabilities difficult. This is because higher values of lambda induce similar ballot-boxes in terms of voters' group.
+Using a high level of \code{lambda} (greater than 0.7) is not recommended, as this could make identification of the voting probabilities difficult. This is because higher values of lambda induce similar ballot-boxes in terms of voters' group.
 }
 
 \examples{
