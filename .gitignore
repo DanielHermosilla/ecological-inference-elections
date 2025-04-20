@@ -19,3 +19,6 @@
 !vignettes/
 !vignettes/*
 !vignettes/img/*
+!doc/
+!doc/*
+/Meta/

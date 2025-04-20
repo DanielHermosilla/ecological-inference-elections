@@ -39,7 +39,7 @@ The function builds the \code{X} matrix using the number of votes per candidate,
 Additionally, ballot boxes where the number of votes does not match the number of registered voters (i.e., those where \code{MISMATCH == TRUE}) can be excluded from the dataset by setting \code{remove_mismatch = TRUE}.
 }
 \note{
-Only one parameter is accepted among \code{elect_district} and \code{region}. If either both or any parameters are given, it will return an eim object with an aggregation corresponding to the whole dataset.
+Only one parameter is accepted among \code{elect_district} and \code{region}. If either both parameters are given, it will return an error. If any is supplied, it will return an eim object with an aggregation corresponding to the whole dataset.
 }
 \examples{
 # Load data and create an eim object for the electoral district of "NIEBLA"

@@ -22,7 +22,7 @@
 #' This object can be passed to functions like [`run_em`] or [`get_agg_proxy`] for estimation and group aggregation. See **Example**.
 #'
 #' @note
-#' Only one parameter is accepted among `elect_district` and `region`. If either both or any parameters are given, it will return an eim object with an aggregation corresponding to the whole dataset.
+#' Only one parameter is accepted among `elect_district` and `region`. If either both parameters are given, it will return an error. If any is supplied, it will return an eim object with an aggregation corresponding to the whole dataset.
 #'
 #' @examples
 #' # Load data and create an eim object for the electoral district of "NIEBLA"
@@ -57,7 +57,7 @@ get_XW_chile <- function(elect_district = NULL,
     } else if (!is.null(elect_district) && is.null(region)) {
         df_ed <- df[df$ELECTORAL.DISTRICT == elect_district, ]
         rownames(df_ed) <- df_ed$BALLOT.BOX
-    } else {
+    } else if (is.null(elect.district) && is.null(region)) {
         # If both are provided or both are NULL, use full data
         # Generate unique composite key for rownames
         df_ed <- df
@@ -66,11 +66,18 @@ get_XW_chile <- function(elect_district = NULL,
         df_ed <- df_ed[!duplicated(df_ed$row_id), ]
         # Assign rownames
         rownames(df_ed) <- df_ed$row_id
+    } else {
+        stop("You cannot provide an electoral district and a region simultaneously.")
     }
 
     # Remove mismatches if applicable
     if (remove_mismatch && "MISMATCH" %in% names(df_ed)) {
         df_ed <- df_ed[df_ed$MISMATCH == FALSE, ]
+    }
+
+    if (nrow(df_ed) == 0) {
+        # Handle the empty case
+        stop("No rows matched the filter.")
     }
 
     # Extract candidate votes

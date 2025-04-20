@@ -1,25 +1,4 @@
----
-title: "Testing the EM Accuracy"
-author: "Daniel Hermosilla"
-date: "`r Sys.Date()`"
-
-vignette: >
-  %\VignetteIndexEntry{Testing the EM Accuracy}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
-
-output:
-  rmarkdown::html_vignette:
-    toc: false 
-    number_sections: false 
----
-Based on the `demonstration` vignette, we observed in a summarized way that the Expectation-Maximization algorithm tends to lose accuracy when the ballot boxes are homogeneous with respect to the demographic groups.
-
-However, it is worth exploring — in a more formal and mathematical sense — when this loss of precision begins. To investigate this, we adopt an empirical approach by computing the Mean Absolute Error across different values of lambda.
-
-It is important to note that the alpha parameter, as described in the `simulate_election()` documentation, controls the level of shuffling between groups and serves as a proxy for group heterogeneity.
-
-```{r lambda_comparison, fig.cap = "Mean Absolute Error vs Lambda", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
+## ----lambda_comparison, fig.cap = "Mean Absolute Error vs Lambda", fig.align = "center", message=FALSE, warning=FALSE, results="hide"----
 library(ggplot2)
 library(fastei)
 library(dplyr)
@@ -83,6 +62,4 @@ ggplot(df_all, aes(x = lambda, y = mae, color = method_label)) +
     ) +
     scale_color_brewer(palette = "Set2") +
     theme_minimal(base_size = 12, base_family = "lato")
-```
 
-Therefore, by treating the lambda parameter as a measure of heterogeneity, we observe that the method yields an average MAE below $0.05$ when heterogeneity remains under $75\%$.
