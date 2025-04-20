@@ -5,13 +5,12 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Quick demo • fastei</title>
+<title>Demonstration of the package usage • fastei</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><script src="../deps/MathJax-3.2.2/tex-chtml.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><link href="../extra.css" rel="stylesheet">
-<meta property="og:title" content="Quick demo">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><script src="../deps/MathJax-3.2.2/tex-chtml.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Demonstration of the package usage">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -40,6 +39,7 @@
     <li><a class="dropdown-item" href="../reference/get_agg_opt.html">get_agg_opt()</a></li>
     <li><a class="dropdown-item" href="../reference/get_agg_proxy.html">get_agg_proxy()</a></li>
     <li><a class="dropdown-item" href="../reference/welchtest.html">welchtest()</a></li>
+    <li><a class="dropdown-item" href="../reference/get_XW_chile.html">get_XW_chile()</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Index</a></li>
@@ -63,8 +63,11 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
 
-      <h1>Quick demo</h1>
+      <h1>Demonstration of the package usage</h1>
+                        <h4 data-toc-skip class="author">Daniel
+Hermosilla</h4>
             
+            <h4 data-toc-skip class="date">2025-04-20</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/DanielHermosilla/ecological-inference-elections/blob/HEAD/vignettes/demonstration.Rmd" class="external-link"><code>vignettes/demonstration.Rmd</code></a></small>
       <div class="d-none name"><code>demonstration.Rmd</code></div>
@@ -72,102 +75,191 @@
 
     
     
-<p>The following <em>vignette</em> will provide some useful information
-about a real use case of the library, occupiying the data from the
-Chilean Presidential Elections.</p>
+<p>The Expectation-Maximization algorithm is a statistical framework
+that relies on maximizing the log-likelihood of a conditional
+probability distribution. This algorithm depends on the heterogeneity of
+the sample and, as with every statistical method, it becomes more
+efficient as the sample size increases.</p>
 <div class="section level2">
-<h2 id="data-loading">Data loading<a class="anchor" aria-label="anchor" href="#data-loading"></a>
+<h2 id="running-the-expectation-maximization-algorithm">Running the Expectation-Maximization algorithm<a class="anchor" aria-label="anchor" href="#running-the-expectation-maximization-algorithm"></a>
 </h2>
-<p>Let’s note that the package already includes the dataset that we’re
-interested in, hence, it’ll only be neccesary to load it in.</p>
+<p>One of the most meaningful use cases relies on political elections.
+As of this package, it provides the dataset with the Chilean
+Presidential Election from 2021. Such results are divided among
+electoral districts, where it’s known the ages from each voter.</p>
+<p>To set up the algorithm, you can load a sample using
+<code><a href="../reference/get_XW_chile.html">get_XW_chile()</a></code>:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://danielhermosilla.github.io/ecological-inference-elections/reference/fastei-package.html">fastei</a></span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/get.html" class="external-link">get</a></span><span class="op">(</span><span class="st">"chile_election_2021"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">df</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">##   ELECTORAL.DISTRICT BALLOT.BOX C1 C2 C3 C4 C5 C6 C7 BLANK.VOTES NULL.VOTES</span></span>
-<span><span class="co">## 1  ANTOFAGASTA NORTE        126 12 22  3  4  1  5 71           0          0</span></span>
-<span><span class="co">## 2  ANTOFAGASTA NORTE        127 11 25  4  4  0  6 70           1          0</span></span>
-<span><span class="co">## 3  ANTOFAGASTA NORTE        128 16 23  3  3  1  5 70           1          2</span></span>
-<span><span class="co">## 4  ANTOFAGASTA NORTE        129 10 22  4  4  0  2 75           0          2</span></span>
-<span><span class="co">## 5  ANTOFAGASTA NORTE        130 16 23  4  3  1  3 76           0          1</span></span>
-<span><span class="co">## 6  ANTOFAGASTA NORTE        131 22 25  3  4  3  2 62           0          3</span></span>
-<span><span class="co">##   X18.19 X20.29 X30.39 X40.49 X50.59 X60.69 X70.79 X80. MISMATCH</span></span>
-<span><span class="co">## 1      1      7    103      3      0      3      1    0    FALSE</span></span>
-<span><span class="co">## 2      2     10     98      6      4      1      0    0    FALSE</span></span>
-<span><span class="co">## 3      3      5    111      2      2      0      1    0    FALSE</span></span>
-<span><span class="co">## 4      2      2    103      7      3      2      0    0    FALSE</span></span>
-<span><span class="co">## 5      4      9    112      1      2      0      0    0     TRUE</span></span>
-<span><span class="co">## 6      3      8    103      4      3      1      0    2    FALSE</span></span></code></pre>
-<p>Within the essence of working with elections data, it’s important to
-reduce our observations within electoral districts. Hence, we’ll define
-a function to filter by <code>ELECTORAL.DISTRICT</code> and return the
-results as an <code>eim</code> object</p>
+<span><span class="va">el_golf</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span>elect_district <span class="op">=</span> <span class="st">"EL GOLF"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">el_golf</span></span></code></pre></div>
+<pre><code><span><span class="co">## eim ecological inference model</span></span>
+<span><span class="co">## Candidates' vote matrix (X) [b x c]:</span></span>
+<span><span class="co">##      C1  C2 C3 C4 C5 C6 C7 C8</span></span>
+<span><span class="co">## 109V 27 124 17 60  1  3  3  1</span></span>
+<span><span class="co">## 110V 28 129 12 74  0  3  0  3</span></span>
+<span><span class="co">## 111V 24 114 19 82  3  2  3  0</span></span>
+<span><span class="co">## 112V 24 126 16 65  1  3  3  2</span></span>
+<span><span class="co">## 113V 26 110 13 86  1  4  4  0</span></span>
+<span><span class="co">## .</span></span>
+<span><span class="co">## .</span></span>
+<span><span class="co">## .</span></span>
+<span><span class="co">## Group-level voter matrix (W) [b x g]:</span></span>
+<span><span class="co">##      X18.19 X20.29 X30.39 X40.49 X50.59 X60.69 X70.79 X80.</span></span>
+<span><span class="co">## 109V      8     17     72     50     34     29     19    7</span></span>
+<span><span class="co">## 110V      4     29    101     51     25     18     14    7</span></span>
+<span><span class="co">## 111V      3     23    100     48     25     31     11    6</span></span>
+<span><span class="co">## 112V      2     20     88     47     35     23     17    8</span></span>
+<span><span class="co">## 113V      3     15     93     60     29     24     14    6</span></span>
+<span><span class="co">## .</span></span>
+<span><span class="co">## .</span></span>
+<span><span class="co">## .</span></span></code></pre>
+<p>As shown in the output, it returns an eim object that contains two
+matrices: the number of votes per candidate and the number of votes per
+group.</p>
+<p>Running the algorithm is as simple as calling <code><a href="../reference/run_em.html">run_em()</a></code>.
+The most efficient method tends to be “mult”:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># function that filters a specific electoral district from the Chilean election dataset</span></span>
-<span><span class="va">get_XW_Chile</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">elect_district</span>, <span class="va">merge_blank_null</span> <span class="op">=</span> <span class="cn">TRUE</span>, <span class="va">remove_mismatch</span> <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="co">#  read dataset</span></span>
-<span>    <span class="va">df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/get.html" class="external-link">get</a></span><span class="op">(</span><span class="st">"chile_election_2021"</span><span class="op">)</span></span>
-<span>    <span class="co"># filter a specific electoral district</span></span>
-<span>    <span class="va">df_ed</span> <span class="op">&lt;-</span> <span class="va">df</span><span class="op">[</span><span class="va">df</span><span class="op">$</span><span class="va">ELECTORAL.DISTRICT</span> <span class="op">==</span> <span class="va">elect_district</span>, <span class="op">]</span></span>
-<span>    <span class="co"># remove ballot boxes with mismatch of votes and voters</span></span>
-<span>    <span class="kw">if</span> <span class="op">(</span><span class="va">remove_mismatch</span><span class="op">)</span> <span class="op">{</span></span>
-<span>        <span class="va">df_ed</span> <span class="op">&lt;-</span> <span class="va">df_ed</span><span class="op">[</span><span class="va">df_ed</span><span class="op">$</span><span class="va">MISMATCH</span> <span class="op">==</span> <span class="cn">FALSE</span>, <span class="op">]</span></span>
-<span>    <span class="op">}</span></span>
-<span>    <span class="co"># get columns of candidates' votes</span></span>
-<span>    <span class="va">X</span> <span class="op">&lt;-</span> <span class="va">df_ed</span><span class="op">[</span><span class="va">df_ed</span><span class="op">$</span><span class="va">ELECTORAL.DISTRICT</span> <span class="op">==</span> <span class="va">elect_district</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"C1"</span>, <span class="st">"C2"</span>, <span class="st">"C3"</span>, <span class="st">"C4"</span>, <span class="st">"C5"</span>, <span class="st">"C6"</span>, <span class="st">"C7"</span>, <span class="st">"BLANK.VOTES"</span>, <span class="st">"NULL.VOTES"</span><span class="op">)</span><span class="op">]</span></span>
-<span>    <span class="co"># merge blank and null votes</span></span>
-<span>    <span class="kw">if</span> <span class="op">(</span><span class="va">merge_blank_null</span><span class="op">)</span> <span class="op">{</span></span>
-<span>        <span class="va">X</span><span class="op">$</span><span class="va">C8</span> <span class="op">&lt;-</span> <span class="va">X</span><span class="op">$</span><span class="va">BLANK.VOTES</span> <span class="op">+</span> <span class="va">X</span><span class="op">$</span><span class="va">NULL.VOTES</span></span>
-<span>    <span class="op">}</span></span>
-<span>    <span class="va">X</span> <span class="op">&lt;-</span> <span class="va">X</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"C1"</span>, <span class="st">"C2"</span>, <span class="st">"C3"</span>, <span class="st">"C4"</span>, <span class="st">"C5"</span>, <span class="st">"C6"</span>, <span class="st">"C7"</span>, <span class="st">"C8"</span><span class="op">)</span><span class="op">]</span></span>
-<span>    <span class="co"># convert X to matrix</span></span>
-<span>    <span class="va">X</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">X</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"C1"</span>, <span class="st">"C2"</span>, <span class="st">"C3"</span>, <span class="st">"C4"</span>, <span class="st">"C5"</span>, <span class="st">"C6"</span>, <span class="st">"C7"</span>, <span class="st">"C8"</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
-<span></span>
-<span>    <span class="co"># get voters of ecah demographic group, and convert to matrix</span></span>
-<span>    <span class="va">W</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix</a></span><span class="op">(</span><span class="va">df_ed</span><span class="op">[</span><span class="va">df_ed</span><span class="op">$</span><span class="va">ELECTORAL.DISTRICT</span> <span class="op">==</span> <span class="va">elect_district</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"X18.19"</span>, <span class="st">"X20.29"</span>, <span class="st">"X30.39"</span>, <span class="st">"X40.49"</span>, <span class="st">"X50.59"</span>, <span class="st">"X60.69"</span>, <span class="st">"X70.79"</span>, <span class="st">"X80."</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
-<span></span>
-<span>    <span class="va">obj</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/eim.html">eim</a></span><span class="op">(</span>X <span class="op">=</span> <span class="va">X</span>, W <span class="op">=</span> <span class="va">W</span><span class="op">)</span></span>
-<span>    <span class="kw"><a href="https://rdrr.io/r/base/function.html" class="external-link">return</a></span><span class="op">(</span><span class="va">obj</span><span class="op">)</span></span>
-<span><span class="op">}</span></span></code></pre></div>
-<p>For this case, it would be of our interest to work with the electoral
-district <em>“El Golf”</em>. Also, for allowing us to use mismatches, we
-will create two eim objects.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">obj</span> <span class="op">&lt;-</span> <span class="fu">get_XW_Chile</span><span class="op">(</span><span class="st">"EL GOLF"</span><span class="op">)</span></span>
-<span><span class="va">obj_m</span> <span class="op">&lt;-</span> <span class="fu">get_XW_Chile</span><span class="op">(</span><span class="st">"EL GOLF"</span>, remove_mismatch <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"The amount of mismatches is %d"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">obj_m</span><span class="op">$</span><span class="va">X</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">obj</span><span class="op">$</span><span class="va">X</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] "The amount of mismatches is 84"</span></span></code></pre>
+<code class="sourceCode R"><span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">el_golf</span><span class="op">)</span></span>
+<span><span class="va">results</span><span class="op">$</span><span class="va">prob</span></span></code></pre></div>
+<pre><code><span><span class="co">##                C1        C2         C3        C4           C5          C6</span></span>
+<span><span class="co">## X18.19 0.17335302 0.3662534 0.06827347 0.3684702 0.0082942292 0.001847730</span></span>
+<span><span class="co">## X20.29 0.23096110 0.3552770 0.05025103 0.3192890 0.0044025346 0.009087323</span></span>
+<span><span class="co">## X30.39 0.17763517 0.3822082 0.06952042 0.3435695 0.0038979943 0.007271287</span></span>
+<span><span class="co">## X40.49 0.07993977 0.4924322 0.07641899 0.3349966 0.0014034354 0.008673434</span></span>
+<span><span class="co">## X50.59 0.07247714 0.5266948 0.07631100 0.3007195 0.0005822796 0.013406232</span></span>
+<span><span class="co">## X60.69 0.06038357 0.5792173 0.05364744 0.2847185 0.0036539770 0.011489627</span></span>
+<span><span class="co">## X70.79 0.04059529 0.6000632 0.07755527 0.2635732 0.0010131708 0.012745303</span></span>
+<span><span class="co">## X80.   0.04742709 0.6126189 0.07191224 0.2458078 0.0047671841 0.006747483</span></span>
+<span><span class="co">##                  C7          C8</span></span>
+<span><span class="co">## X18.19 0.0039688649 0.009539133</span></span>
+<span><span class="co">## X20.29 0.0118534405 0.018878539</span></span>
+<span><span class="co">## X30.39 0.0120443400 0.003853111</span></span>
+<span><span class="co">## X40.49 0.0041415557 0.001993975</span></span>
+<span><span class="co">## X50.59 0.0074436338 0.002365353</span></span>
+<span><span class="co">## X60.69 0.0045011495 0.002388437</span></span>
+<span><span class="co">## X70.79 0.0011388151 0.003315761</span></span>
+<span><span class="co">## X80.   0.0007762319 0.009943056</span></span></code></pre>
+<p>Note that each row corresponds to the probability that a demographic
+group (g) voted for a candidate (c). It is worth noting how the results
+differ substantially across groups.</p>
 </div>
 <div class="section level2">
-<h2 id="setting-the-algorithm">Setting the algorithm<a class="anchor" aria-label="anchor" href="#setting-the-algorithm"></a>
+<h2 id="getting-standard-deviation-estimates">Getting standard deviation estimates<a class="anchor" aria-label="anchor" href="#getting-standard-deviation-estimates"></a>
 </h2>
-<p>Before running directly the algorithm there are some things that can
-be done. First of all, we would like to know what’s the best group
-aggregation such that the log-likelihood is maximized. There’s usually a
-reward for aggregating groups within big districts.</p>
-<p><img src="img%2FlogComparison.png"></p>
-<p>However, there’s a trade-off between the log-likelihood and standard
-deviation.</p>
-<p><img src="img%2Ftradeoff.png"></p>
-<p>Formally then, it would be of our best interest to find the best fit
-for creating macro-groups. We’ll use a greedy approach
-<code>get_agg_opt</code> and a heuristic approach
-<code>get_agg_proxy</code>.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">obj</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_opt.html">get_agg_opt</a></span><span class="op">(</span><span class="va">obj</span>, sd_threshold <span class="op">=</span> <span class="fl">0.01</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
-<span><span class="va">obj2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_proxy.html">get_agg_proxy</a></span><span class="op">(</span><span class="va">obj</span>, sd_threshold <span class="op">=</span> <span class="fl">0.01</span>, feasible <span class="op">=</span> <span class="cn">FALSE</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
+<p>It’s important to note that the initial estimates may not always be
+efficient in terms of their standard deviation. Fortunately, the package
+provides a <code><a href="../reference/bootstrap.html">bootstrap()</a></code> function that allows you to estimate
+the variability of the results:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bootstrap.html">bootstrap</a></span><span class="op">(</span><span class="va">results</span>, seed <span class="op">=</span> <span class="fl">42</span>, nboot <span class="op">=</span> <span class="fl">30</span><span class="op">)</span></span>
+<span><span class="va">results</span><span class="op">$</span><span class="va">sd</span></span></code></pre></div>
+<pre><code><span><span class="co">##                 C1          C2          C3          C4           C5</span></span>
+<span><span class="co">## X18.19 0.023656663 0.026480808 0.009298505 0.009766449 0.0027525419</span></span>
+<span><span class="co">## X20.29 0.009368917 0.010904967 0.003941968 0.006586750 0.0008871382</span></span>
+<span><span class="co">## X30.39 0.008602423 0.012493178 0.003692447 0.007852460 0.0006794073</span></span>
+<span><span class="co">## X40.49 0.003594835 0.006707168 0.003020471 0.005772813 0.0004765700</span></span>
+<span><span class="co">## X50.59 0.005039226 0.006803025 0.002870887 0.004198796 0.0002870147</span></span>
+<span><span class="co">## X60.69 0.004471279 0.006686909 0.002833496 0.003948386 0.0004659621</span></span>
+<span><span class="co">## X70.79 0.006562247 0.009258166 0.003269045 0.003892636 0.0004332528</span></span>
+<span><span class="co">## X80.   0.006292520 0.012130330 0.005756465 0.007028998 0.0009060335</span></span>
+<span><span class="co">##                  C6           C7           C8</span></span>
+<span><span class="co">## X18.19 0.0043048984 0.0014099947 0.0030297240</span></span>
+<span><span class="co">## X20.29 0.0010493340 0.0010647241 0.0019462970</span></span>
+<span><span class="co">## X30.39 0.0011381853 0.0010692037 0.0008230757</span></span>
+<span><span class="co">## X40.49 0.0009928529 0.0008721647 0.0009235569</span></span>
+<span><span class="co">## X50.59 0.0008634959 0.0008086666 0.0007431801</span></span>
+<span><span class="co">## X60.69 0.0008964285 0.0006291765 0.0006123745</span></span>
+<span><span class="co">## X70.79 0.0012790629 0.0008211377 0.0005346491</span></span>
+<span><span class="co">## X80.   0.0014054509 0.0009446943 0.0012450797</span></span></code></pre>
+<p>This output is expected, given that the number of ballot boxes in “EL
+GOLF” is substantial. However, it can be insightful to analyze smaller
+districts, such as “NAVIDAD”:</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">navidad</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span>elect_district <span class="op">=</span> <span class="st">"NAVIDAD"</span><span class="op">)</span></span>
+<span><span class="va">navidad</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bootstrap.html">bootstrap</a></span><span class="op">(</span><span class="va">navidad</span>, seed <span class="op">=</span> <span class="fl">42</span>, nboot <span class="op">=</span> <span class="fl">30</span><span class="op">)</span></span>
+<span><span class="va">navidad</span><span class="op">$</span><span class="va">sd</span></span></code></pre></div>
+<pre><code><span><span class="co">##                C1         C2         C3         C4          C5         C6</span></span>
+<span><span class="co">## X18.19 0.10073548 0.07700994 0.03091431 0.14047755 0.117321138 0.03467457</span></span>
+<span><span class="co">## X20.29 0.06985443 0.04618074 0.05291745 0.03692486 0.017272344 0.01842752</span></span>
+<span><span class="co">## X30.39 0.03335711 0.06998826 0.03879997 0.03188312 0.011683782 0.02572788</span></span>
+<span><span class="co">## X40.49 0.03034845 0.03803890 0.03739123 0.03163284 0.007926457 0.01695529</span></span>
+<span><span class="co">## X50.59 0.02542539 0.03268371 0.04370001 0.02763728 0.004648248 0.01464042</span></span>
+<span><span class="co">## X60.69 0.02434051 0.02922861 0.04156857 0.02372657 0.005514694 0.01829065</span></span>
+<span><span class="co">## X70.79 0.03605016 0.02824558 0.06562972 0.02975252 0.006377940 0.02884815</span></span>
+<span><span class="co">## X80.   0.04269759 0.03828681 0.06368583 0.03495586 0.009284809 0.02318517</span></span>
+<span><span class="co">##                C7          C8</span></span>
+<span><span class="co">## X18.19 0.04466024 0.020355085</span></span>
+<span><span class="co">## X20.29 0.04382984 0.004884980</span></span>
+<span><span class="co">## X30.39 0.01910029 0.007479751</span></span>
+<span><span class="co">## X40.49 0.01686899 0.007910498</span></span>
+<span><span class="co">## X50.59 0.01261831 0.009439069</span></span>
+<span><span class="co">## X60.69 0.01077472 0.003820540</span></span>
+<span><span class="co">## X70.79 0.01435463 0.005378466</span></span>
+<span><span class="co">## X80.   0.03329057 0.024833034</span></span></code></pre>
+<p>In this case, the probability variations are noticeably more
+significant, likely due to the smaller sample size.</p>
+</div>
+<div class="section level2">
+<h2 id="reducing-variance-through-group-aggregation">Reducing Variance Through Group Aggregation<a class="anchor" aria-label="anchor" href="#reducing-variance-through-group-aggregation"></a>
+</h2>
+<p>Given the issue of high variability in smaller districts, an
+interesting alternative is to merge some demographic groups while
+maximizing the log-likelihood, subject to a standard deviation
+constraint. One way to approach this is with a <em>“greedy”</em>
+strategy, evaluating up to <span class="math inline">\(2^{G-1}\)</span>
+group combinations.</p>
+<p>To approximate such a solution, the package provides a heuristic:</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">navidad_proxy</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_proxy.html">get_agg_proxy</a></span><span class="op">(</span><span class="va">navidad</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
+<span><span class="va">navidad_proxy</span><span class="op">$</span><span class="va">group_agg</span></span></code></pre></div>
+<pre><code><span><span class="co">## [1] 2 3 4 6 8</span></span></code></pre>
+<p>As shown in the output, the heuristic found a feasible configuration
+by merging groups 1 with 2, 5 with 6, and 7 with 8. We can evaluate the
+effectiveness of this grouping by comparing the mean standard deviation
+to the original formulation:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">navidad</span><span class="op">$</span><span class="va">sd</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">navidad_proxy</span><span class="op">$</span><span class="va">sd</span><span class="op">)</span></span></code></pre></div>
+<pre><code><span><span class="co">## [1] 0.01387241</span></span></code></pre>
+<p>The full greedy algorithm is also included in the package. In theory,
+it explores a large number of combinations and may require substantial
+computation time. However, using the “mult” method offers a fast and
+efficient workaround:</p>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">navidad_opt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_opt.html">get_agg_opt</a></span><span class="op">(</span><span class="va">navidad</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
+<span><span class="va">navidad_opt</span><span class="op">$</span><span class="va">group_agg</span></span></code></pre></div>
+<pre><code><span><span class="co">## [1] 2 3 4 8</span></span></code></pre>
+<p>Notably, the optimal group merging differs only slightly from the
+heuristic result, suggesting that the approximation performs quite well
+in this case.</p>
+</div>
+<div class="section level2">
+<h2 id="comparing-results">Comparing results<a class="anchor" aria-label="anchor" href="#comparing-results"></a>
+</h2>
+<p>An usual use case comes among the question of how much could two
+districts differ. For instance, we can compare the results of “LO
+BARNECHEA” and “EL GOLF”, two districts that usually yield similar
+results:</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">apoquindo</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span>elect_district <span class="op">=</span> <span class="st">"APOQUINDO"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">obj</span><span class="op">$</span><span class="va">group_agg</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 3 4 5 8</span></span></code></pre>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">obj2</span><span class="op">$</span><span class="va">group_agg</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 3 4 8</span></span></code></pre>
-<p>Note that the group aggregation has the same size, however, it had
-chosen different indices. We surely know that <span class="math inline">\([5, 8]\)</span> is the optimal aggregation,
-however, <span class="math inline">\([3, 4]\)</span> isn’t that far from
-said values.</p>
+<span><span class="va">comparison</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/welchtest.html">welchtest</a></span><span class="op">(</span></span>
+<span>    X <span class="op">=</span> <span class="va">el_golf</span><span class="op">$</span><span class="va">X</span>,</span>
+<span>    W <span class="op">=</span> <span class="va">el_golf</span><span class="op">$</span><span class="va">W</span>,</span>
+<span>    X2 <span class="op">=</span> <span class="va">apoquindo</span><span class="op">$</span><span class="va">X</span>,</span>
+<span>    W2 <span class="op">=</span> <span class="va">apoquindo</span><span class="op">$</span><span class="va">W</span>,</span>
+<span>    method <span class="op">=</span> <span class="st">"mult"</span>,</span>
+<span>    nboot <span class="op">=</span> <span class="fl">30</span>,</span>
+<span>    seed <span class="op">=</span> <span class="fl">42</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">nonsignificant</span> <span class="op">&lt;-</span> <span class="va">comparison</span><span class="op">$</span><span class="va">pvals</span> <span class="op">&gt;=</span> <span class="fl">0.05</span></span></code></pre></div>
+<p>Hence, it can be seen that the group whom voting behaviour changes
+the most is group 1, which is the youngest group. This is a common
+pattern in Chilean elections, where younger voters tend to be more
+volatile in their voting behaviour.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
