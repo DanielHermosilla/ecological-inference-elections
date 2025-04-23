@@ -46,7 +46,7 @@ Only one parameter is accepted among \code{elect_district} and \code{region}. If
 eim_obj <- get_XW_chile("NIEBLA", remove_mismatch = FALSE)
 
 # Use it to run the EM algorithm
-result <- run_em(eim_obj)
+result <- run_em(eim_obj, allow_mismatch = TRUE)
 
 # Use it with group aggregation
 agg_result <- get_agg_proxy(

@@ -176,6 +176,7 @@ void allocateRandoms(int M, int S, uint8_t **c1, uint8_t **c2, uint8_t **g1, uin
             (*c2)[i] = (uint8_t)(unif_rand() * TOTAL_CANDIDATES);
             (*g2)[i] = (uint8_t)(unif_rand() * TOTAL_GROUPS);
         } while (!allow_repeat && ((*c2)[i] == (*c1)[i] || (*g2)[i] == (*g1)[i]));
+        // 	} while(!allow_repeat);
     }
     PutRNGstate(); // Finalize RNG state to prevent repeatability
 }
@@ -549,6 +550,7 @@ double *computeQHitAndRun(Matrix const *probabilities, QMethodInput params, doub
         generateOmegaSet(params.M, params.S);
         encode();
         // saveOmegaSetToCSV("omegaset.csv");
+        // error("saved");
     }
     if (multinomialVals == NULL)
     {

@@ -12,7 +12,7 @@
 
 <meta name="author" content="Daniel Hermosilla" />
 
-<meta name="date" content="2025-04-20" />
+<meta name="date" content="2025-04-22" />
 
 <title>Demonstration of the package usage</title>
 
@@ -340,7 +340,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">Demonstration of the package usage</h1>
 <h4 class="author">Daniel Hermosilla</h4>
-<h4 class="date">2025-04-20</h4>
+<h4 class="date">2025-04-22</h4>
 
 
 
@@ -497,8 +497,8 @@ in this case.</p>
 <div id="comparing-results" class="section level1">
 <h1>Comparing results</h1>
 <p>An usual use case comes among the question of how much could two
-districts differ. For instance, we can compare the results of “LO
-BARNECHEA” and “EL GOLF”, two districts that usually yield similar
+districts differ. For instance, we can compare the results of
+“APOQUINDO” and “EL GOLF”, two districts that usually yield similar
 results:</p>
 <div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a>apoquindo <span class="ot">&lt;-</span> <span class="fu">get_XW_chile</span>(<span class="at">elect_district =</span> <span class="st">&quot;APOQUINDO&quot;</span>)</span>
 <span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a></span>
@@ -512,11 +512,104 @@ results:</p>
 <span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a>    <span class="at">seed =</span> <span class="dv">42</span></span>
 <span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a>)</span>
 <span id="cb15-12"><a href="#cb15-12" tabindex="-1"></a></span>
-<span id="cb15-13"><a href="#cb15-13" tabindex="-1"></a>nonsignificant <span class="ot">&lt;-</span> comparison<span class="sc">$</span>pvals <span class="sc">&gt;=</span> <span class="fl">0.05</span></span></code></pre></div>
+<span id="cb15-13"><a href="#cb15-13" tabindex="-1"></a>nonsignificant <span class="ot">&lt;-</span> comparison<span class="sc">$</span>pvals <span class="sc">&gt;=</span> <span class="fl">0.05</span></span>
+<span id="cb15-14"><a href="#cb15-14" tabindex="-1"></a>nonsignificant</span></code></pre></div>
+<pre><code>##           C1    C2    C3    C4    C5    C6    C7    C8
+## X18.19  TRUE  TRUE FALSE FALSE FALSE FALSE  TRUE FALSE
+## X20.29 FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE
+## X30.39 FALSE FALSE FALSE FALSE FALSE  TRUE FALSE FALSE
+## X40.49 FALSE  TRUE  TRUE FALSE FALSE FALSE FALSE FALSE
+## X50.59 FALSE FALSE FALSE FALSE  TRUE FALSE FALSE  TRUE
+## X60.69 FALSE FALSE FALSE FALSE FALSE FALSE FALSE  TRUE
+## X70.79 FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE
+## X80.   FALSE FALSE FALSE FALSE FALSE FALSE FALSE  TRUE</code></pre>
 <p>Hence, it can be seen that the group whom voting behaviour changes
 the most is group 1, which is the youngest group. This is a common
 pattern in Chilean elections, where younger voters tend to be more
 volatile in their voting behaviour.</p>
+</div>
+<div id="simulating-results" class="section level1">
+<h1>Simulating results</h1>
+<p>In this section, we will examine each method using simulated
+elections. The methods “mcmc” and “mvn_cdf” are particularly flexible,
+supporting additional parameters.</p>
+<p>We can generate samples using the function
+<code>simulate_election()</code>:</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a>samples <span class="ot">&lt;-</span> <span class="fu">simulate_election</span>(<span class="at">num_groups =</span> <span class="dv">3</span>, <span class="at">num_candidates =</span> <span class="dv">3</span>, <span class="at">num_ballots =</span> <span class="dv">50</span>, <span class="at">seed =</span> <span class="dv">42</span>)</span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a>object <span class="ot">&lt;-</span> <span class="fu">eim</span>(samples<span class="sc">$</span>X, samples<span class="sc">$</span>W)</span></code></pre></div>
+<p>All the methods attempt to approximate the probability of a group
+voting for a candidate, given observed votes. Let <span class="math inline">\(X_{bgc}\)</span> represent the observed votes and
+<span class="math inline">\(Y_{bgc}\)</span> represent the votes for
+candidate <span class="math inline">\(c\)</span> from group <span class="math inline">\(g\)</span> in ballot box <span class="math inline">\(b\)</span>. Define <span class="math inline">\(q_{bgc} = \mathbb{P}(Y_{bgc}=1 \mid
+X_{bgc})\)</span> as the probability of a specific group voting for a
+candidate given the observed result. The methods aim to approximate:</p>
+<p><span class="math display">\[q_{bgc}=\frac{P(\mathbf{X_b}=\mathbf{x_b}\;\vert\;Y_{bgc}=1)\cdot
+p_{gc}}{\sum_{c&#39;\in\mathcal{C}}P(\mathbf{X_b}=\mathbf{x_b}\;\vert\;Y_{bgc&#39;}=1)\cdot
+p_{gc&#39;}}\]</span></p>
+<div id="multinomial" class="section level2">
+<h2>Multinomial</h2>
+<p>The multinomial method is the most efficient in practice,
+approximating:</p>
+<p><span class="math display">\[q\approx\frac{x_{bc}\cdot p_{gc}\cdot
+r_{bgc}^{-1}}{\sum_{c&#39;\in\mathcal{C}}x_{bc&#39;}\cdot
+p_{gc&#39;}\cdot r_{bgc}^{-1}}\]</span></p>
+<p>Where <span class="math display">\[r_{bgc}
+:=\frac{\sum_{g&#39;\in\mathcal{G}}w_{bg&#39;}p_{g&#39;c}-p_{gc}}{I_b-1}\]</span></p>
+<p>This method has computational complexity <span class="math inline">\(O(B\cdot G\cdot C)\)</span>.</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a>multinomial <span class="ot">&lt;-</span> <span class="fu">run_em</span>(object, <span class="at">method =</span> <span class="st">&quot;mult&quot;</span>)</span>
+<span id="cb18-2"><a href="#cb18-2" tabindex="-1"></a>multinomial_mae <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>(multinomial<span class="sc">$</span>prob <span class="sc">-</span> samples<span class="sc">$</span>real_prob))</span>
+<span id="cb18-3"><a href="#cb18-3" tabindex="-1"></a>multinomial_mae</span></code></pre></div>
+<pre><code>## [1] 0.01648889</code></pre>
+<div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" tabindex="-1"></a>multinomial<span class="sc">$</span>time</span></code></pre></div>
+<pre><code>## [1] 0.000112</code></pre>
+<p>This produces a Mean Absolute Error (MAE) of approximately <span class="math inline">\(1.64\%\)</span>.</p>
+</div>
+<div id="multivariate-pdf" class="section level2">
+<h2>Multivariate PDF</h2>
+<p>It is not necessary to compute the full probability <span class="math inline">\(q_{bgc}\)</span>; instead, it can be approximated
+by simplifying the integration over the hypercube <span class="math inline">\(\mathcal{A}\)</span> in both the numerator and
+denominator:</p>
+<p><span class="math display">\[q_{bgc}\approx\frac{\phi_{bgc}(x)\cdot
+p_{gc}}{\sum_{c&#39;\in\mathcal{C}}\phi_{bgc&#39;}(x)\cdot
+p_{gc}}\]</span></p>
+<p>This method is also time-efficient</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" tabindex="-1"></a>multivariate_pdf <span class="ot">&lt;-</span> <span class="fu">run_em</span>(object, <span class="at">method =</span> <span class="st">&quot;mvn_pdf&quot;</span>)</span>
+<span id="cb22-2"><a href="#cb22-2" tabindex="-1"></a>multivariate_pdf_mae <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>(multivariate_pdf<span class="sc">$</span>prob <span class="sc">-</span> samples<span class="sc">$</span>real_prob))</span>
+<span id="cb22-3"><a href="#cb22-3" tabindex="-1"></a>multivariate_pdf_mae</span></code></pre></div>
+<pre><code>## [1] 0.01540117</code></pre>
+<div class="sourceCode" id="cb24"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" tabindex="-1"></a>multivariate_pdf<span class="sc">$</span>time</span></code></pre></div>
+<pre><code>## [1] 0.169161</code></pre>
+<p>Provides an Mean Absolute Error (MAE) of approximately <span class="math inline">\(1.54\%\)</span>.</p>
+</div>
+<div id="multivariate-cdf" class="section level2">
+<h2>Multivariate CDF</h2>
+<p>Aproximates the first and second moments of the <span class="math inline">\(q_{bgc}\)</span>. Since the approximation is
+continuos, it defines an hypercube defined by:</p>
+<p><span class="math display">\[\mathcal{A}_{bc}(\mathbf{x_b})=\Prod^{C-1}_{c&#39;=1}\left[x_{bc}-\frac{1}{2}-\mathbf{1}_{c&#39;=c},
+x_{bc}+\frac{1}{2}-\mathbf{1}_{c&#39;=c_{c&#39;=c}}\right]\]</span></p>
+<p>Yielding the following approximation:</p>
+<p><span class="math display">\[q_{bgc}\approx\frac{\int_{\mathcal{A}_{bc}(\mathbf{x}_b)}\phi_{bgc}(x)dx\cdot
+p_{gc}}{\sum_{c&#39;\in\mathcal{C}}\int_{\mathcal{A}_{bc&#39;}}\phi_{bgc&#39;}(x)dx\cdot
+p_{gc&#39;}}\]</span></p>
+<p>Where <span class="math inline">\(\phi_{bgc}(\cdot)\)</span>
+corresponds to the Multivariate Normal PDF.</p>
+<div class="sourceCode" id="cb26"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" tabindex="-1"></a>multivariate_cdf <span class="ot">&lt;-</span> <span class="fu">run_em</span>(object, <span class="at">method =</span> <span class="st">&quot;mvn_cdf&quot;</span>, <span class="at">mc_error =</span> <span class="fl">1e-8</span>)</span>
+<span id="cb26-2"><a href="#cb26-2" tabindex="-1"></a>multivariate_cdf_mae <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>(multivariate_cdf<span class="sc">$</span>prob <span class="sc">-</span> samples<span class="sc">$</span>real_prob))</span>
+<span id="cb26-3"><a href="#cb26-3" tabindex="-1"></a>multivariate_cdf_mae</span></code></pre></div>
+<pre><code>## [1] 0.06268439</code></pre>
+<div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" tabindex="-1"></a>multivariate_cdf<span class="sc">$</span>time</span></code></pre></div>
+<pre><code>## [1] 0.013015</code></pre>
+<p>Providing a MAE of <span class="math inline">\(6.5\%\)</span>. Let’s
+denote that, on average, it tends to be much smaller.</p>
+</div>
+<div id="mcmc" class="section level2">
+<h2>MCMC</h2>
+<p>Since there are an exponential number of ways in which the samples
+can be assigned, it is possible to use importance sampling (IS). Let
+<span class="math inline">\(\mathcal{S}_b\)</span> be the set of
+samples, then:</p>
+<p><span class="math display">\[q_{bgc}\approx\frac{\sum_{\mathbf{z}_b\in\mathcal{S}_b}\frac{z_{bgc}}{w_{bg}}\Prod_{g&#39;\in\mathcal{G}}\left(\binom{w_{bg&#39;}{z_{bg&#39;1},\dots,z_{bg&#39;C}}}\Prod_{c&#39;\in\mathcal{C}}p_{g&#39;c&#39;}^{z_{bg&#39;c&#39;}}\right)}{\sum_{\mathbf{z}_b\in\mathcal{S}_b}\Prod_{g&#39;\in\mathcal{G}}\left(\binom{w_{bg&#39;}{z_{bg&#39;1},\dots,z_{bg&#39;C}}}\Prod_{c&#39;\in\mathcal{C}}p_{g&#39;c&#39;}^{z_{bg&#39;c&#39;}}\right)}\]</span></p>
+</div>
 </div>
 
 

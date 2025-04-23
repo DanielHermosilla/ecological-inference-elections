@@ -86,7 +86,7 @@ Notably, the optimal group merging differs only slightly from the heuristic resu
 
 # Comparing results
 
-An usual use case comes among the question of how much could two districts differ. For instance, we can compare the results of "LO BARNECHEA" and "EL GOLF", two districts that usually yield similar results:
+An usual use case comes among the question of how much could two districts differ. For instance, we can compare the results of "APOQUINDO" and "EL GOLF", two districts that usually yield similar results:
 
 ```{r}
 apoquindo <- get_XW_chile(elect_district = "APOQUINDO")
@@ -102,6 +102,88 @@ comparison <- welchtest(
 )
 
 nonsignificant <- comparison$pvals >= 0.05
+nonsignificant
 ```
 
 Hence, it can be seen that the group whom voting behaviour changes the most is group 1, which is the youngest group. This is a common pattern in Chilean elections, where younger voters tend to be more volatile in their voting behaviour.
+
+# Simulating results
+
+In this section, we will examine each method using simulated elections. The methods "mcmc" and "mvn_cdf" are particularly flexible, supporting additional parameters.
+
+We can generate samples using the function `simulate_election()`:
+
+```{r}
+samples <- simulate_election(num_groups = 3, num_candidates = 3, num_ballots = 50, seed = 42)
+object <- eim(samples$X, samples$W)
+```
+
+All the methods attempt to approximate the probability of a group voting for a candidate, given observed votes. Let $X_{bgc}$ represent the observed votes and $Y_{bgc}$ represent the votes for candidate $c$ from group $g$ in ballot box $b$. Define $q_{bgc} = \mathbb{P}(Y_{bgc}=1 \mid X_{bgc})$ as the probability of a specific group voting for a candidate given the observed result. The methods aim to approximate:
+
+$$q_{bgc}=\frac{P(\mathbf{X_b}=\mathbf{x_b}\;\vert\;Y_{bgc}=1)\cdot p_{gc}}{\sum_{c'\in\mathcal{C}}P(\mathbf{X_b}=\mathbf{x_b}\;\vert\;Y_{bgc'}=1)\cdot p_{gc'}}$$
+
+
+## Multinomial
+
+The multinomial method is the most efficient in practice, approximating:
+
+$$q\approx\frac{x_{bc}\cdot p_{gc}\cdot r_{bgc}^{-1}}{\sum_{c'\in\mathcal{C}}x_{bc'}\cdot p_{gc'}\cdot r_{bgc}^{-1}}$$
+
+Where 
+$$r_{bgc} :=\frac{\sum_{g'\in\mathcal{G}}w_{bg'}p_{g'c}-p_{gc}}{I_b-1}$$
+
+This method has computational complexity $O(B\cdot G\cdot C)$.
+
+```{r}
+multinomial <- run_em(object, method = "mult")
+multinomial_mae <- mean(abs(multinomial$prob - samples$real_prob))
+multinomial_mae
+multinomial$time
+```
+
+This produces a Mean Absolute Error (MAE) of approximately $1.64\%$.
+
+## Multivariate PDF
+
+It is not necessary to compute the full probability $q_{bgc}$; instead, it can be approximated by simplifying the integration over the hypercube $\mathcal{A}$ in both the numerator and denominator:
+
+$$q_{bgc}\approx\frac{\phi_{bgc}(x)\cdot p_{gc}}{\sum_{c'\in\mathcal{C}}\phi_{bgc'}(x)\cdot p_{gc}}$$
+
+This method is also time-efficient
+
+```{r}
+multivariate_pdf <- run_em(object, method = "mvn_pdf")
+multivariate_pdf_mae <- mean(abs(multivariate_pdf$prob - samples$real_prob))
+multivariate_pdf_mae
+multivariate_pdf$time
+```
+
+Provides an Mean Absolute Error (MAE) of approximately $1.54\%$.
+
+## Multivariate CDF
+
+Aproximates the first and second moments of the $q_{bgc}$. Since the approximation is continuos, it defines an hypercube defined by:
+
+$$\mathcal{A}_{bc}(\mathbf{x_b})=\Prod^{C-1}_{c'=1}\left[x_{bc}-\frac{1}{2}-\mathbf{1}_{c'=c}, x_{bc}+\frac{1}{2}-\mathbf{1}_{c'=c_{c'=c}}\right]$$
+
+Yielding the following approximation:
+
+$$q_{bgc}\approx\frac{\int_{\mathcal{A}_{bc}(\mathbf{x}_b)}\phi_{bgc}(x)dx\cdot p_{gc}}{\sum_{c'\in\mathcal{C}}\int_{\mathcal{A}_{bc'}}\phi_{bgc'}(x)dx\cdot p_{gc'}}$$
+
+Where $\phi_{bgc}(\cdot)$ corresponds to the Multivariate Normal PDF.
+
+
+```{r}
+multivariate_cdf <- run_em(object, method = "mvn_cdf", mc_error = 1e-8)
+multivariate_cdf_mae <- mean(abs(multivariate_cdf$prob - samples$real_prob))
+multivariate_cdf_mae
+multivariate_cdf$time
+```
+
+Providing a MAE of $6.5\%$. Let's denote that, on average, it tends to be much smaller.
+
+## MCMC
+
+Since there are an exponential number of ways in which the samples can be assigned, it is possible to use importance sampling (IS). Let $\mathcal{S}_b$ be the set of samples, then:
+
+$$q_{bgc}\approx\frac{\sum_{\mathbf{z}_b\in\mathcal{S}_b}\frac{z_{bgc}}{w_{bg}}\Prod_{g'\in\mathcal{G}}\left(\binom{w_{bg'}{z_{bg'1},\dots,z_{bg'C}}}\Prod_{c'\in\mathcal{C}}p_{g'c'}^{z_{bg'c'}}\right)}{\sum_{\mathbf{z}_b\in\mathcal{S}_b}\Prod_{g'\in\mathcal{G}}\left(\binom{w_{bg'}{z_{bg'1},\dots,z_{bg'C}}}\Prod_{c'\in\mathcal{C}}p_{g'c'}^{z_{bg'c'}}\right)}$$

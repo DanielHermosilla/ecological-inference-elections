@@ -29,7 +29,7 @@
 #' eim_obj <- get_XW_chile("NIEBLA", remove_mismatch = FALSE)
 #'
 #' # Use it to run the EM algorithm
-#' result <- run_em(eim_obj)
+#' result <- run_em(eim_obj, allow_mismatch = TRUE)
 #'
 #' # Use it with group aggregation
 #' agg_result <- get_agg_proxy(
@@ -57,7 +57,7 @@ get_XW_chile <- function(elect_district = NULL,
     } else if (!is.null(elect_district) && is.null(region)) {
         df_ed <- df[df$ELECTORAL.DISTRICT == elect_district, ]
         rownames(df_ed) <- df_ed$BALLOT.BOX
-    } else if (is.null(elect.district) && is.null(region)) {
+    } else if (is.null(elect_district) && is.null(region)) {
         # If both are provided or both are NULL, use full data
         # Generate unique composite key for rownames
         df_ed <- df
