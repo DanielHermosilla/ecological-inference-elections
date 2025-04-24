@@ -62,7 +62,7 @@ Matrix standardDeviations(Matrix *bootstrapResults, Matrix *sumMatrix, int total
     {
         for (int j = 0; j < sdMatrix.cols; j++)
         {
-            MATRIX_AT(sdMatrix, i, j) = R_pow(fabs(MATRIX_AT(sdMatrix, i, j) / (totalIter - 1)), 0.5);
+            MATRIX_AT(sdMatrix, i, j) = sqrt(fabs(MATRIX_AT(sdMatrix, i, j) / (totalIter - 1)));
         }
     }
     return sdMatrix;

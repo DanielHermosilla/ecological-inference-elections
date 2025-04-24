@@ -164,7 +164,7 @@ Provides an Mean Absolute Error (MAE) of approximately $1.54\%$.
 
 Aproximates the first and second moments of the $q_{bgc}$. Since the approximation is continuos, it defines an hypercube defined by:
 
-$$\mathcal{A}_{bc}(\mathbf{x_b})=\Prod^{C-1}_{c'=1}\left[x_{bc}-\frac{1}{2}-\mathbf{1}_{c'=c}, x_{bc}+\frac{1}{2}-\mathbf{1}_{c'=c_{c'=c}}\right]$$
+$$\mathcal{A}_{bc}(\mathbf{x_b})=\prod^{C-1}_{c'=1}\left[x_{bc}-\frac{1}{2}-\mathbf{1}_{c'=c}, x_{bc}+\frac{1}{2}-\mathbf{1}_{c'=c_{c'=c}}\right]$$
 
 Yielding the following approximation:
 
@@ -186,7 +186,7 @@ Providing a MAE of $6.5\%$. Let's denote that, on average, it tends to be much s
 
 Since there are an exponential number of ways in which the samples can be assigned, it is possible to use importance sampling (IS). Let $\mathcal{S}_b$ be the set of samples, then:
 
-$$q_{bgc}\approx\frac{\sum_{\mathbf{z}_b\in\mathcal{S}_b}\frac{z_{bgc}}{w_{bg}}\Prod_{g'\in\mathcal{G}}\left(\binom{w_{bg'}{z_{bg'1},\dots,z_{bg'C}}}\Prod_{c'\in\mathcal{C}}p_{g'c'}^{z_{bg'c'}}\right)}{\sum_{\mathbf{z}_b\in\mathcal{S}_b}\Prod_{g'\in\mathcal{G}}\left(\binom{w_{bg'}{z_{bg'1},\dots,z_{bg'C}}}\Prod_{c'\in\mathcal{C}}p_{g'c'}^{z_{bg'c'}}\right)}$$
+$$q_{bgc}\approx\frac{\sum_{\mathbf{z}_b\in\mathcal{S}_b}\frac{z_{bgc}}{w_{bg}}\prod_{g'\in\mathcal{G}}\left(\binom{w_{bg'}{z_{bg'1},\dots,z_{bg'C}}}\prod_{c'\in\mathcal{C}}p_{g'c'}^{z_{bg'c'}}\right)}{\sum_{\mathbf{z}_b\in\mathcal{S}_b}\prod_{g'\in\mathcal{G}}\left(\binom{w_{bg'}{z_{bg'1},\dots,z_{bg'C}}}\prod_{c'\in\mathcal{C}}p_{g'c'}^{z_{bg'c'}}\right)}$$
 
 Hence, it is possible to approximate the posterior by running as following:
 
