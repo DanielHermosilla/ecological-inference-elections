@@ -111,22 +111,22 @@ of p-values corresponding to each group-candidate combination.</p>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list with components:</p><ul><li><p><code>pvals</code>: a numeric matrix of p‑values with the same dimensions as the estimated probability matrices (<code>pvals</code>) from the input objects.</p></li>
-<li><p><code>statistic</code>: a numeric matrix of t‑statistics with the same dimensions as the estimated probability matrices (<code>pvals</code>).</p></li>
+    <p>A list with components:</p><ul><li><p><code>pvals</code>: a numeric matrix of p-values with the same dimensions as the estimated probability matrices (<code>pvals</code>) from the input objects.</p></li>
+<li><p><code>statistic</code>: a numeric matrix of t-statistics with the same dimensions as the estimated probability matrices (<code>pvals</code>).</p></li>
 <li><p><code>eim1</code> and <code>eim2</code>: the original <code>eim</code> objects used for comparison.</p></li>
-</ul><p>Each entry in the pvals matrix is the p-value from Welch’s t-test between the corresponding
+</ul><p>Each entry in the pvals matrix is the p-value from Welch's t-test between the corresponding
 entries of the two estimated probability matrices.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>It uses Welch’s t-test to analyze if there is a significant difference between the estimated probabilities between a treatment and a control set. The test is performed independently for each component of the probability matrix.</p>
+    <p>It uses Welch's t-test to analyze if there is a significant difference between the estimated probabilities between a treatment and a control set. The test is performed independently for each component of the probability matrix.</p>
 <p>The user must provide either of the following (but not both):</p><ul><li><p>Two <code>eim</code> objects via <code>object</code> and <code>object2</code>, or</p></li>
 <li><p>Four matrices: <code>X</code>, <code>W</code>, <code>X2</code>, and <code>W2</code>, which will be converted into <code>eim</code> objects internally.</p></li>
 </ul><p>The Welch test is computed using the formula:</p>
 <p>$$
 t_{ij} = \frac{p_{1,ij} - p_{2,ij}}{\sqrt{(s_{1,ij}^2 + s_{2,ij}^2) / n}},
 $$
-In this expression, \(s_{1,ij}^2\) and \(s_{2,ij}^2\) represent the bootstrap sample variances for the treatment and control sets, respectively, while \(p_{1,ij}\) and \(p_{2,ij}\) are the corresponding estimated probability matrices obtained via the EM algorithm. The number of bootstrap samples is denoted by \(n\), and the degrees of freedom for each component are calculated using the Welch–Satterthwaite equation</p>
+In this expression, \(s_{1,ij}^2\) and \(s_{2,ij}^2\) represent the bootstrap sample variances for the treatment and control sets, respectively, while \(p_{1,ij}\) and \(p_{2,ij}\) are the corresponding estimated probability matrices obtained via the EM algorithm. The number of bootstrap samples is denoted by \(n\), and the degrees of freedom for each component are calculated using the Welch-Satterthwaite equation</p>
     </div>
 
     <div class="section level2">

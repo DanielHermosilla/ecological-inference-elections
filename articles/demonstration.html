@@ -67,7 +67,7 @@
                         <h4 data-toc-skip class="author">Daniel
 Hermosilla</h4>
             
-            <h4 data-toc-skip class="date">2025-04-20</h4>
+            <h4 data-toc-skip class="date">2025-04-24</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/DanielHermosilla/ecological-inference-elections/blob/HEAD/vignettes/demonstration.Rmd" class="external-link"><code>vignettes/demonstration.Rmd</code></a></small>
       <div class="d-none name"><code>demonstration.Rmd</code></div>
@@ -239,8 +239,8 @@ in this case.</p>
 <h2 id="comparing-results">Comparing results<a class="anchor" aria-label="anchor" href="#comparing-results"></a>
 </h2>
 <p>An usual use case comes among the question of how much could two
-districts differ. For instance, we can compare the results of “LO
-BARNECHEA” and “EL GOLF”, two districts that usually yield similar
+districts differ. For instance, we can compare the results of
+“APOQUINDO” and “EL GOLF”, two districts that usually yield similar
 results:</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">apoquindo</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span>elect_district <span class="op">=</span> <span class="st">"APOQUINDO"</span><span class="op">)</span></span>
@@ -255,11 +255,147 @@ results:</p>
 <span>    seed <span class="op">=</span> <span class="fl">42</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">nonsignificant</span> <span class="op">&lt;-</span> <span class="va">comparison</span><span class="op">$</span><span class="va">pvals</span> <span class="op">&gt;=</span> <span class="fl">0.05</span></span></code></pre></div>
+<span><span class="va">nonsignificant</span> <span class="op">&lt;-</span> <span class="va">comparison</span><span class="op">$</span><span class="va">pvals</span> <span class="op">&gt;=</span> <span class="fl">0.05</span></span>
+<span><span class="va">nonsignificant</span></span></code></pre></div>
+<pre><code><span><span class="co">##           C1    C2    C3    C4    C5    C6    C7    C8</span></span>
+<span><span class="co">## X18.19  TRUE  TRUE FALSE FALSE FALSE FALSE  TRUE FALSE</span></span>
+<span><span class="co">## X20.29 FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE</span></span>
+<span><span class="co">## X30.39 FALSE FALSE FALSE FALSE FALSE  TRUE FALSE FALSE</span></span>
+<span><span class="co">## X40.49 FALSE  TRUE  TRUE FALSE FALSE FALSE FALSE FALSE</span></span>
+<span><span class="co">## X50.59 FALSE FALSE FALSE FALSE  TRUE FALSE FALSE  TRUE</span></span>
+<span><span class="co">## X60.69 FALSE FALSE FALSE FALSE FALSE FALSE FALSE  TRUE</span></span>
+<span><span class="co">## X70.79 FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE</span></span>
+<span><span class="co">## X80.   FALSE FALSE FALSE FALSE FALSE FALSE FALSE  TRUE</span></span></code></pre>
 <p>Hence, it can be seen that the group whom voting behaviour changes
 the most is group 1, which is the youngest group. This is a common
 pattern in Chilean elections, where younger voters tend to be more
 volatile in their voting behaviour.</p>
+</div>
+<div class="section level2">
+<h2 id="simulating-results">Simulating results<a class="anchor" aria-label="anchor" href="#simulating-results"></a>
+</h2>
+<p>In this section, we will examine each method using simulated
+elections. The methods “mcmc” and “mvn_cdf” are particularly flexible,
+supporting additional parameters.</p>
+<p>We can generate samples using the function
+<code><a href="../reference/simulate_election.html">simulate_election()</a></code>:</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">samples</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_election.html">simulate_election</a></span><span class="op">(</span>num_groups <span class="op">=</span> <span class="fl">3</span>, num_candidates <span class="op">=</span> <span class="fl">3</span>, num_ballots <span class="op">=</span> <span class="fl">50</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
+<span><span class="va">object</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/eim.html">eim</a></span><span class="op">(</span><span class="va">samples</span><span class="op">$</span><span class="va">X</span>, <span class="va">samples</span><span class="op">$</span><span class="va">W</span><span class="op">)</span></span></code></pre></div>
+<p>All the methods attempt to approximate the probability of a group
+voting for a candidate, given observed votes. Let <span class="math inline">\(X_{bgc}\)</span> represent the observed votes and
+<span class="math inline">\(Y_{bgc}\)</span> represent the votes for
+candidate <span class="math inline">\(c\)</span> from group <span class="math inline">\(g\)</span> in ballot box <span class="math inline">\(b\)</span>. Define <span class="math inline">\(q_{bgc} = \mathbb{P}(Y_{bgc}=1 \mid
+X_{bgc})\)</span> as the probability of a specific group voting for a
+candidate given the observed result. The methods aim to approximate:</p>
+<p><span class="math display">\[q_{bgc}=\frac{P(\mathbf{X_b}=\mathbf{x_b}\;\vert\;Y_{bgc}=1)\cdot
+p_{gc}}{\sum_{c'\in\mathcal{C}}P(\mathbf{X_b}=\mathbf{x_b}\;\vert\;Y_{bgc'}=1)\cdot
+p_{gc'}}\]</span></p>
+<div class="section level3">
+<h3 id="multinomial">Multinomial<a class="anchor" aria-label="anchor" href="#multinomial"></a>
+</h3>
+<p>The multinomial method is the most efficient in practice,
+approximating:</p>
+<p><span class="math display">\[q\approx\frac{x_{bc}\cdot p_{gc}\cdot
+r_{bgc}^{-1}}{\sum_{c'\in\mathcal{C}}x_{bc'}\cdot
+p_{gc'}\cdot r_{bgc}^{-1}}\]</span></p>
+<p>Where <span class="math display">\[r_{bgc}
+:=\frac{\sum_{g'\in\mathcal{G}}w_{bg'}p_{g'c}-p_{gc}}{I_b-1}\]</span></p>
+<p>This method has computational complexity <span class="math inline">\(O(B\cdot G\cdot C)\)</span>.</p>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">multinomial</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">object</span>, method <span class="op">=</span> <span class="st">"mult"</span><span class="op">)</span></span>
+<span><span class="va">multinomial_mae</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">multinomial</span><span class="op">$</span><span class="va">prob</span> <span class="op">-</span> <span class="va">samples</span><span class="op">$</span><span class="va">real_prob</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">multinomial_mae</span></span></code></pre></div>
+<pre><code><span><span class="co">## [1] 0.01648889</span></span></code></pre>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">multinomial</span><span class="op">$</span><span class="va">time</span></span></code></pre></div>
+<pre><code><span><span class="co">## [1] 0.000161</span></span></code></pre>
+<p>This produces a Mean Absolute Error (MAE) of approximately <span class="math inline">\(1.64\%\)</span>.</p>
+</div>
+<div class="section level3">
+<h3 id="multivariate-pdf">Multivariate PDF<a class="anchor" aria-label="anchor" href="#multivariate-pdf"></a>
+</h3>
+<p>It is not necessary to compute the full probability <span class="math inline">\(q_{bgc}\)</span>; instead, it can be approximated
+by simplifying the integration over the hypercube <span class="math inline">\(\mathcal{A}\)</span> in both the numerator and
+denominator:</p>
+<p><span class="math display">\[q_{bgc}\approx\frac{\phi_{bgc}(x)\cdot
+p_{gc}}{\sum_{c'\in\mathcal{C}}\phi_{bgc'}(x)\cdot
+p_{gc}}\]</span></p>
+<p>This method is also time-efficient</p>
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">multivariate_pdf</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">object</span>, method <span class="op">=</span> <span class="st">"mvn_pdf"</span><span class="op">)</span></span>
+<span><span class="va">multivariate_pdf_mae</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">multivariate_pdf</span><span class="op">$</span><span class="va">prob</span> <span class="op">-</span> <span class="va">samples</span><span class="op">$</span><span class="va">real_prob</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">multivariate_pdf_mae</span></span></code></pre></div>
+<pre><code><span><span class="co">## [1] 0.01540117</span></span></code></pre>
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">multivariate_pdf</span><span class="op">$</span><span class="va">time</span></span></code></pre></div>
+<pre><code><span><span class="co">## [1] 0.163759</span></span></code></pre>
+<p>Provides an Mean Absolute Error (MAE) of approximately <span class="math inline">\(1.54\%\)</span>.</p>
+</div>
+<div class="section level3">
+<h3 id="multivariate-cdf">Multivariate CDF<a class="anchor" aria-label="anchor" href="#multivariate-cdf"></a>
+</h3>
+<p>Aproximates the first and second moments of the <span class="math inline">\(q_{bgc}\)</span>. Since the approximation is
+continuos, it defines an hypercube defined by:</p>
+<p><span class="math display">\[\mathcal{A}_{bc}(\mathbf{x_b})=\Prod^{C-1}_{c'=1}\left[x_{bc}-\frac{1}{2}-\mathbf{1}_{c'=c},
+x_{bc}+\frac{1}{2}-\mathbf{1}_{c'=c_{c'=c}}\right]\]</span></p>
+<p>Yielding the following approximation:</p>
+<p><span class="math display">\[q_{bgc}\approx\frac{\int_{\mathcal{A}_{bc}(\mathbf{x}_b)}\phi_{bgc}(x)dx\cdot
+p_{gc}}{\sum_{c'\in\mathcal{C}}\int_{\mathcal{A}_{bc'}}\phi_{bgc'}(x)dx\cdot
+p_{gc'}}\]</span></p>
+<p>Where <span class="math inline">\(\phi_{bgc}(\cdot)\)</span>
+corresponds to the Multivariate Normal PDF.</p>
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">multivariate_cdf</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">object</span>, method <span class="op">=</span> <span class="st">"mvn_cdf"</span>, mc_error <span class="op">=</span> <span class="fl">1e-8</span><span class="op">)</span></span>
+<span><span class="va">multivariate_cdf_mae</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">multivariate_cdf</span><span class="op">$</span><span class="va">prob</span> <span class="op">-</span> <span class="va">samples</span><span class="op">$</span><span class="va">real_prob</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">multivariate_cdf_mae</span></span></code></pre></div>
+<pre><code><span><span class="co">## [1] 0.06268439</span></span></code></pre>
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">multivariate_cdf</span><span class="op">$</span><span class="va">time</span></span></code></pre></div>
+<pre><code><span><span class="co">## [1] 0.01356</span></span></code></pre>
+<p>Providing a MAE of <span class="math inline">\(6.5\%\)</span>. Let’s
+denote that, on average, it tends to be much smaller.</p>
+</div>
+<div class="section level3">
+<h3 id="mcmc">MCMC<a class="anchor" aria-label="anchor" href="#mcmc"></a>
+</h3>
+<p>Since there are an exponential number of ways in which the samples
+can be assigned, it is possible to use importance sampling (IS). Let
+<span class="math inline">\(\mathcal{S}_b\)</span> be the set of
+samples, then:</p>
+<p><span class="math display">\[q_{bgc}\approx\frac{\sum_{\mathbf{z}_b\in\mathcal{S}_b}\frac{z_{bgc}}{w_{bg}}\Prod_{g'\in\mathcal{G}}\left(\binom{w_{bg'}{z_{bg'1},\dots,z_{bg'C}}}\Prod_{c'\in\mathcal{C}}p_{g'c'}^{z_{bg'c'}}\right)}{\sum_{\mathbf{z}_b\in\mathcal{S}_b}\Prod_{g'\in\mathcal{G}}\left(\binom{w_{bg'}{z_{bg'1},\dots,z_{bg'C}}}\Prod_{c'\in\mathcal{C}}p_{g'c'}^{z_{bg'c'}}\right)}\]</span></p>
+<p>Hence, it is possible to approximate the posterior by running as
+following:</p>
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">mcmc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">object</span>, method <span class="op">=</span> <span class="st">"mcmc"</span>, samples <span class="op">=</span> <span class="fl">1000</span>, step_size <span class="op">=</span> <span class="fl">3000</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
+<span><span class="va">mcmc_mae</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">mcmc</span><span class="op">$</span><span class="va">prob</span> <span class="op">-</span> <span class="va">samples</span><span class="op">$</span><span class="va">real_prob</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">mcmc_mae</span></span></code></pre></div>
+<pre><code><span><span class="co">## [1] 0.008539851</span></span></code></pre>
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">mcmc</span><span class="op">$</span><span class="va">time</span></span></code></pre></div>
+<pre><code><span><span class="co">## [1] 2.235114</span></span></code></pre>
+<p>Having a MAE of <span class="math inline">\(0.8\%\)</span>, with a
+running time of <span class="math inline">\(2.58826\)</span> seconds.
+This method is the most flexible, as it allows for the inclusion of
+additional parameters. However, it is also one of the slowest, as it
+requires a large number of samples to achieve a good approximation.</p>
+</div>
+<div class="section level3">
+<h3 id="exact">Exact<a class="anchor" aria-label="anchor" href="#exact"></a>
+</h3>
+<p>Provides the full calculation, using the Law of Total
+Probabilities:</p>
+<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">exact</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">object</span>, method <span class="op">=</span> <span class="st">"exact"</span><span class="op">)</span></span>
+<span><span class="va">exact_mae</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">exact</span><span class="op">$</span><span class="va">prob</span> <span class="op">-</span> <span class="va">samples</span><span class="op">$</span><span class="va">real_prob</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">exact_mae</span></span></code></pre></div>
+<pre><code><span><span class="co">## [1] 0.01642448</span></span></code></pre>
+<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">exact</span><span class="op">$</span><span class="va">time</span></span></code></pre></div>
+<pre><code><span><span class="co">## [1] 26.82422</span></span></code></pre>
+<p>Providing a MAE of <span class="math inline">\(1.6\%\)</span> with
+the longest running time.</p>
+</div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

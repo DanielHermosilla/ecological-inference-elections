@@ -104,10 +104,7 @@
 <span class="r-in"><span><span class="va">eim_obj</span> <span class="op">&lt;-</span> <span class="fu">get_XW_chile</span><span class="op">(</span><span class="st">"NIEBLA"</span>, remove_mismatch <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Use it to run the EM algorithm</span></span></span>
-<span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_obj</span><span class="op">)</span></span></span>
-<span class="r-err co"><span class="r-pr">#&gt;</span> <span class="error">Error in run_em(eim_obj):</span> run_em: Row-wise mismatch in vote totals detected.</span>
-<span class="r-err co"><span class="r-pr">#&gt;</span> Rows with mismatches: 2, 3, 7</span>
-<span class="r-err co"><span class="r-pr">#&gt;</span> To allow mismatches, set `allow_mismatch = TRUE`.</span>
+<span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_obj</span>, allow_mismatch <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Use it with group aggregation</span></span></span>
 <span class="r-in"><span><span class="va">agg_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="get_agg_proxy.html">get_agg_proxy</a></span><span class="op">(</span></span></span>
