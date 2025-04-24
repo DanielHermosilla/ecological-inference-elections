@@ -4,7 +4,7 @@ pkgdown_sha: ~
 articles:
   accuracy: accuracy.html
   demonstration: demonstration.html
-last_built: 2025-04-24T13:18Z
+last_built: 2025-04-24T13:56Z
 urls:
   reference: https://danielhermosilla.github.io/ecological-inference-elections/reference
   article: https://danielhermosilla.github.io/ecological-inference-elections/articles
