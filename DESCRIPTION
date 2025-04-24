@@ -18,8 +18,7 @@ Suggests:
     rmarkdown,
 	ggplot2,
 	dplyr,
-	qpdf,
-	showtext
+	qpdf
 Roxygen: list(markdown = TRUE, load = "source")
 VignetteBuilder: knitr
 Depends: 

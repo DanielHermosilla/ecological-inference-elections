@@ -23,9 +23,6 @@ It is important to note that the alpha parameter, as described in the `simulate_
 library(ggplot2)
 library(fastei)
 library(dplyr)
-library(showtext)
-font_add_google("Lato", "lato")
-showtext_auto()
 
 lambda_values <- seq(0, 1, by = 0.1)
 methods <- c("exact", "mult", "mvn_cdf", "mvn_pdf", "mcmc")
@@ -82,7 +79,7 @@ ggplot(df_all, aes(x = lambda, y = mae, color = method_label)) +
         shape = "Method"
     ) +
     scale_color_brewer(palette = "Set2") +
-    theme_minimal(base_size = 12, base_family = "lato")
+    theme_minimal(base_size = 12)
 ```
 
 Therefore, by treating the lambda parameter as a measure of heterogeneity, we observe that the method yields an average MAE below $0.05$ when heterogeneity remains under $75\%$.

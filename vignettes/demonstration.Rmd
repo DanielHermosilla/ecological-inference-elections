@@ -187,3 +187,27 @@ Providing a MAE of $6.5\%$. Let's denote that, on average, it tends to be much s
 Since there are an exponential number of ways in which the samples can be assigned, it is possible to use importance sampling (IS). Let $\mathcal{S}_b$ be the set of samples, then:
 
 $$q_{bgc}\approx\frac{\sum_{\mathbf{z}_b\in\mathcal{S}_b}\frac{z_{bgc}}{w_{bg}}\Prod_{g'\in\mathcal{G}}\left(\binom{w_{bg'}{z_{bg'1},\dots,z_{bg'C}}}\Prod_{c'\in\mathcal{C}}p_{g'c'}^{z_{bg'c'}}\right)}{\sum_{\mathbf{z}_b\in\mathcal{S}_b}\Prod_{g'\in\mathcal{G}}\left(\binom{w_{bg'}{z_{bg'1},\dots,z_{bg'C}}}\Prod_{c'\in\mathcal{C}}p_{g'c'}^{z_{bg'c'}}\right)}$$
+
+Hence, it is possible to approximate the posterior by running as following:
+
+```{r}
+mcmc <- run_em(object, method = "mcmc", samples = 1000, step_size = 3000, seed = 42)
+mcmc_mae <- mean(abs(mcmc$prob - samples$real_prob))
+mcmc_mae
+mcmc$time
+```
+
+Having a MAE of $0.8\%$, with a running time of $2.58826$ seconds. This method is the most flexible, as it allows for the inclusion of additional parameters. However, it is also one of the slowest, as it requires a large number of samples to achieve a good approximation.
+
+## Exact
+
+Provides the full calculation, using the Law of Total Probabilities:
+
+```{r}
+exact <- run_em(object, method = "exact")
+exact_mae <- mean(abs(exact$prob - samples$real_prob))
+exact_mae
+exact$time
+```
+
+Providing a MAE of $1.6\%$ with the longest running time.

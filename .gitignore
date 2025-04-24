@@ -19,7 +19,7 @@
 !vignettes/
 !vignettes/*
 !vignettes/img/*
-!doc/
-!doc/*
+doc/
+doc/*
 /Meta/
 /doc/

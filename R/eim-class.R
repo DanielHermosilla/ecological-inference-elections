@@ -1350,10 +1350,10 @@ as.matrix.eim <- function(x, ...) {
 #' @seealso The [eim] object implementation.
 #'
 #' @examples
-#'
+#' \dontrun{
 #' model <- eim(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3))
 #'
-#' run_em(model)
+#' model <- run_em(model)
 #'
 #' # Save as RDS
 #' save_eim(model, "model_results.rds")
@@ -1363,6 +1363,7 @@ as.matrix.eim <- function(x, ...) {
 #'
 #' # Save as CSV
 #' save_eim(model, "model_results.csv")
+#' }
 #'
 #' @name save_eim
 #' @aliases save_eim()
