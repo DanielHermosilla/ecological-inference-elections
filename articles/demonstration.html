@@ -309,7 +309,7 @@ p_{gc'}\cdot r_{bgc}^{-1}}\]</span></p>
 <pre><code><span><span class="co">## [1] 0.01648889</span></span></code></pre>
 <div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">multinomial</span><span class="op">$</span><span class="va">time</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 0.000161</span></span></code></pre>
+<pre><code><span><span class="co">## [1] 0.000182</span></span></code></pre>
 <p>This produces a Mean Absolute Error (MAE) of approximately <span class="math inline">\(1.64\%\)</span>.</p>
 </div>
 <div class="section level3">
@@ -329,7 +329,7 @@ p_{gc}}\]</span></p>
 <pre><code><span><span class="co">## [1] 0.01540117</span></span></code></pre>
 <div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">multivariate_pdf</span><span class="op">$</span><span class="va">time</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 0.163759</span></span></code></pre>
+<pre><code><span><span class="co">## [1] 0.332537</span></span></code></pre>
 <p>Provides an Mean Absolute Error (MAE) of approximately <span class="math inline">\(1.54\%\)</span>.</p>
 </div>
 <div class="section level3">
@@ -337,7 +337,7 @@ p_{gc}}\]</span></p>
 </h3>
 <p>Aproximates the first and second moments of the <span class="math inline">\(q_{bgc}\)</span>. Since the approximation is
 continuos, it defines an hypercube defined by:</p>
-<p><span class="math display">\[\mathcal{A}_{bc}(\mathbf{x_b})=\Prod^{C-1}_{c'=1}\left[x_{bc}-\frac{1}{2}-\mathbf{1}_{c'=c},
+<p><span class="math display">\[\mathcal{A}_{bc}(\mathbf{x_b})=\prod^{C-1}_{c'=1}\left[x_{bc}-\frac{1}{2}-\mathbf{1}_{c'=c},
 x_{bc}+\frac{1}{2}-\mathbf{1}_{c'=c_{c'=c}}\right]\]</span></p>
 <p>Yielding the following approximation:</p>
 <p><span class="math display">\[q_{bgc}\approx\frac{\int_{\mathcal{A}_{bc}(\mathbf{x}_b)}\phi_{bgc}(x)dx\cdot
@@ -352,7 +352,7 @@ corresponds to the Multivariate Normal PDF.</p>
 <pre><code><span><span class="co">## [1] 0.06268439</span></span></code></pre>
 <div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">multivariate_cdf</span><span class="op">$</span><span class="va">time</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 0.01356</span></span></code></pre>
+<pre><code><span><span class="co">## [1] 0.022216</span></span></code></pre>
 <p>Providing a MAE of <span class="math inline">\(6.5\%\)</span>. Let’s
 denote that, on average, it tends to be much smaller.</p>
 </div>
@@ -363,7 +363,7 @@ denote that, on average, it tends to be much smaller.</p>
 can be assigned, it is possible to use importance sampling (IS). Let
 <span class="math inline">\(\mathcal{S}_b\)</span> be the set of
 samples, then:</p>
-<p><span class="math display">\[q_{bgc}\approx\frac{\sum_{\mathbf{z}_b\in\mathcal{S}_b}\frac{z_{bgc}}{w_{bg}}\Prod_{g'\in\mathcal{G}}\left(\binom{w_{bg'}{z_{bg'1},\dots,z_{bg'C}}}\Prod_{c'\in\mathcal{C}}p_{g'c'}^{z_{bg'c'}}\right)}{\sum_{\mathbf{z}_b\in\mathcal{S}_b}\Prod_{g'\in\mathcal{G}}\left(\binom{w_{bg'}{z_{bg'1},\dots,z_{bg'C}}}\Prod_{c'\in\mathcal{C}}p_{g'c'}^{z_{bg'c'}}\right)}\]</span></p>
+<p><span class="math display">\[q_{bgc}\approx\frac{\sum_{\mathbf{z}_b\in\mathcal{S}_b}\frac{z_{bgc}}{w_{bg}}\prod_{g'\in\mathcal{G}}\left(\binom{w_{bg'}{z_{bg'1},\dots,z_{bg'C}}}\prod_{c'\in\mathcal{C}}p_{g'c'}^{z_{bg'c'}}\right)}{\sum_{\mathbf{z}_b\in\mathcal{S}_b}\prod_{g'\in\mathcal{G}}\left(\binom{w_{bg'}{z_{bg'1},\dots,z_{bg'C}}}\prod_{c'\in\mathcal{C}}p_{g'c'}^{z_{bg'c'}}\right)}\]</span></p>
 <p>Hence, it is possible to approximate the posterior by running as
 following:</p>
 <div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
@@ -373,7 +373,7 @@ following:</p>
 <pre><code><span><span class="co">## [1] 0.008539851</span></span></code></pre>
 <div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mcmc</span><span class="op">$</span><span class="va">time</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 2.235114</span></span></code></pre>
+<pre><code><span><span class="co">## [1] 3.53308</span></span></code></pre>
 <p>Having a MAE of <span class="math inline">\(0.8\%\)</span>, with a
 running time of <span class="math inline">\(2.58826\)</span> seconds.
 This method is the most flexible, as it allows for the inclusion of
@@ -392,7 +392,7 @@ Probabilities:</p>
 <pre><code><span><span class="co">## [1] 0.01642448</span></span></code></pre>
 <div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">exact</span><span class="op">$</span><span class="va">time</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 26.82422</span></span></code></pre>
+<pre><code><span><span class="co">## [1] 42.98498</span></span></code></pre>
 <p>Providing a MAE of <span class="math inline">\(1.6\%\)</span> with
 the longest running time.</p>
 </div>
