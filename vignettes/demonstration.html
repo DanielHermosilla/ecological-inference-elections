@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Daniel Hermosilla" />
+
+<meta name="date" content="2025-04-21" />
+
+<title>Demonstration of the package usage</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Demonstration of the package usage</h1>
+<h4 class="author">Daniel Hermosilla</h4>
+<h4 class="date">2025-04-21</h4>
+
+
+
+<p>The Expectation-Maximization algorithm is a statistical framework
+that relies on maximizing the log-likelihood of a conditional
+probability distribution. This algorithm depends on the heterogeneity of
+the sample and, as with every statistical method, it becomes more
+efficient as the sample size increases.</p>
+<div id="running-the-expectation-maximization-algorithm" class="section level1">
+<h1>Running the Expectation-Maximization algorithm</h1>
+<p>One of the most meaningful use cases relies on political elections.
+As of this package, it provides the dataset with the Chilean
+Presidential Election from 2021. Such results are divided among
+electoral districts, where it’s known the ages from each voter.</p>
+<p>To set up the algorithm, you can load a sample using
+<code>get_XW_chile()</code>:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(fastei)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>el_golf <span class="ot">&lt;-</span> <span class="fu">get_XW_chile</span>(<span class="at">elect_district =</span> <span class="st">&quot;EL GOLF&quot;</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>el_golf</span></code></pre></div>
+<pre><code>## eim ecological inference model
+## Candidates&#39; vote matrix (X) [b x c]:
+##      C1  C2 C3 C4 C5 C6 C7 C8
+## 109V 27 124 17 60  1  3  3  1
+## 110V 28 129 12 74  0  3  0  3
+## 111V 24 114 19 82  3  2  3  0
+## 112V 24 126 16 65  1  3  3  2
+## 113V 26 110 13 86  1  4  4  0
+## .
+## .
+## .
+## Group-level voter matrix (W) [b x g]:
+##      X18.19 X20.29 X30.39 X40.49 X50.59 X60.69 X70.79 X80.
+## 109V      8     17     72     50     34     29     19    7
+## 110V      4     29    101     51     25     18     14    7
+## 111V      3     23    100     48     25     31     11    6
+## 112V      2     20     88     47     35     23     17    8
+## 113V      3     15     93     60     29     24     14    6
+## .
+## .
+## .</code></pre>
+<p>As shown in the output, it returns an eim object that contains two
+matrices: the number of votes per candidate and the number of votes per
+group.</p>
+<p>Running the algorithm is as simple as calling <code>run_em()</code>.
+The most efficient method tends to be “mult”:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>results <span class="ot">&lt;-</span> <span class="fu">run_em</span>(el_golf)</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>results<span class="sc">$</span>prob</span></code></pre></div>
+<pre><code>##               C1       C2        C3       C4         C5         C6          C7         C8
+## X18.19 0.1733530 0.366253 0.0682735 0.368470 0.00829423 0.00184773 0.003968865 0.00953913
+## X20.29 0.2309611 0.355277 0.0502510 0.319289 0.00440253 0.00908732 0.011853441 0.01887854
+## X30.39 0.1776352 0.382208 0.0695204 0.343569 0.00389799 0.00727129 0.012044340 0.00385311
+## X40.49 0.0799398 0.492432 0.0764190 0.334997 0.00140344 0.00867343 0.004141556 0.00199397
+## X50.59 0.0724771 0.526695 0.0763110 0.300720 0.00058228 0.01340623 0.007443634 0.00236535
+## X60.69 0.0603836 0.579217 0.0536474 0.284718 0.00365398 0.01148963 0.004501149 0.00238844
+## X70.79 0.0405953 0.600063 0.0775553 0.263573 0.00101317 0.01274530 0.001138815 0.00331576
+## X80.   0.0474271 0.612619 0.0719122 0.245808 0.00476718 0.00674748 0.000776232 0.00994306</code></pre>
+<p>Note that each row corresponds to the probability that a demographic
+group (g) voted for a candidate (c). It is worth noting how the results
+differ substantially across groups.</p>
+</div>
+<div id="getting-standard-deviation-estimates" class="section level1">
+<h1>Getting standard deviation estimates</h1>
+<p>It’s important to note that the initial estimates may not always be
+efficient in terms of their standard deviation. Fortunately, the package
+provides a <code>bootstrap()</code> function that allows you to estimate
+the variability of the results:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>results <span class="ot">&lt;-</span> <span class="fu">bootstrap</span>(results, <span class="at">seed =</span> <span class="dv">42</span>, <span class="at">nboot =</span> <span class="dv">30</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>results<span class="sc">$</span>sd</span></code></pre></div>
+<pre><code>##                C1         C2         C3         C4          C5          C6          C7          C8
+## X18.19 0.02365666 0.02648081 0.00929850 0.00976645 0.002752542 0.004304898 0.001409995 0.003029724
+## X20.29 0.00936892 0.01090497 0.00394197 0.00658675 0.000887138 0.001049334 0.001064724 0.001946297
+## X30.39 0.00860242 0.01249318 0.00369245 0.00785246 0.000679407 0.001138185 0.001069204 0.000823076
+## X40.49 0.00359484 0.00670717 0.00302047 0.00577281 0.000476570 0.000992853 0.000872165 0.000923557
+## X50.59 0.00503923 0.00680303 0.00287089 0.00419880 0.000287015 0.000863496 0.000808667 0.000743180
+## X60.69 0.00447128 0.00668691 0.00283350 0.00394839 0.000465962 0.000896428 0.000629177 0.000612374
+## X70.79 0.00656225 0.00925817 0.00326905 0.00389264 0.000433253 0.001279063 0.000821138 0.000534649
+## X80.   0.00629252 0.01213033 0.00575646 0.00702900 0.000906034 0.001405451 0.000944694 0.001245080</code></pre>
+<p>This output is expected, given that the number of ballot boxes in “EL
+GOLF” is substantial. However, it can be insightful to analyze smaller
+districts, such as “NAVIDAD”:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>navidad <span class="ot">&lt;-</span> <span class="fu">get_XW_chile</span>(<span class="at">elect_district =</span> <span class="st">&quot;NAVIDAD&quot;</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>navidad <span class="ot">&lt;-</span> <span class="fu">bootstrap</span>(navidad, <span class="at">seed =</span> <span class="dv">42</span>, <span class="at">nboot =</span> <span class="dv">30</span>)</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>navidad<span class="sc">$</span>sd</span></code></pre></div>
+<pre><code>##               C1        C2        C3        C4         C5        C6        C7         C8
+## X18.19 0.1007355 0.0770099 0.0309143 0.1404776 0.11732114 0.0346746 0.0446602 0.02035509
+## X20.29 0.0698544 0.0461807 0.0529175 0.0369249 0.01727234 0.0184275 0.0438298 0.00488498
+## X30.39 0.0333571 0.0699883 0.0388000 0.0318831 0.01168378 0.0257279 0.0191003 0.00747975
+## X40.49 0.0303485 0.0380389 0.0373912 0.0316328 0.00792646 0.0169553 0.0168690 0.00791050
+## X50.59 0.0254254 0.0326837 0.0437000 0.0276373 0.00464825 0.0146404 0.0126183 0.00943907
+## X60.69 0.0243405 0.0292286 0.0415686 0.0237266 0.00551469 0.0182907 0.0107747 0.00382054
+## X70.79 0.0360502 0.0282456 0.0656297 0.0297525 0.00637794 0.0288481 0.0143546 0.00537847
+## X80.   0.0426976 0.0382868 0.0636858 0.0349559 0.00928481 0.0231852 0.0332906 0.02483303</code></pre>
+<p>In this case, the probability variations are noticeably more
+significant, likely due to the smaller sample size.</p>
+</div>
+<div id="reducing-variance-through-group-aggregation" class="section level1">
+<h1>Reducing Variance Through Group Aggregation</h1>
+<p>Given the issue of high variability in smaller districts, an
+interesting alternative is to merge some demographic groups while
+maximizing the log-likelihood, subject to a standard deviation
+constraint. One way to approach this is with a <em>“greedy”</em>
+strategy, evaluating up to <span class="math inline">\(2^{G-1}\)</span>
+group combinations.</p>
+<p>To approximate such a solution, the package provides a heuristic:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>navidad_proxy <span class="ot">&lt;-</span> <span class="fu">get_agg_proxy</span>(navidad, <span class="at">seed =</span> <span class="dv">42</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>navidad_proxy<span class="sc">$</span>group_agg</span></code></pre></div>
+<pre><code>## [1] 2 3 4 6 8</code></pre>
+<p>As shown in the output, the heuristic found a feasible configuration
+by merging groups 1 with 2, 5 with 6, and 7 with 8. We can evaluate the
+effectiveness of this grouping by comparing the mean standard deviation
+to the original formulation:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">mean</span>(navidad<span class="sc">$</span>sd) <span class="sc">-</span> <span class="fu">mean</span>(navidad_proxy<span class="sc">$</span>sd)</span></code></pre></div>
+<pre><code>## [1] 0.0138724</code></pre>
+<p>The full greedy algorithm is also included in the package. In theory,
+it explores a large number of combinations and may require substantial
+computation time. However, using the “mult” method offers a fast and
+efficient workaround:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a>navidad_opt <span class="ot">&lt;-</span> <span class="fu">get_agg_opt</span>(navidad, <span class="at">seed =</span> <span class="dv">42</span>)</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>navidad_opt<span class="sc">$</span>group_agg</span></code></pre></div>
+<pre><code>## [1] 2 3 4 8</code></pre>
+<p>Notably, the optimal group merging differs only slightly from the
+heuristic result, suggesting that the approximation performs quite well
+in this case.</p>
+</div>
+<div id="comparing-results" class="section level1">
+<h1>Comparing results</h1>
+<p>An usual use case comes among the question of how much could two
+districts differ. For instance, we can compare the results of
+“APOQUINDO” and “EL GOLF”, two districts that usually yield similar
+results:</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a>apoquindo <span class="ot">&lt;-</span> <span class="fu">get_XW_chile</span>(<span class="at">elect_district =</span> <span class="st">&quot;APOQUINDO&quot;</span>)</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a></span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>comparison <span class="ot">&lt;-</span> <span class="fu">welchtest</span>(</span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a>    <span class="at">X =</span> el_golf<span class="sc">$</span>X,</span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a>    <span class="at">W =</span> el_golf<span class="sc">$</span>W,</span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a>    <span class="at">X2 =</span> apoquindo<span class="sc">$</span>X,</span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a>    <span class="at">W2 =</span> apoquindo<span class="sc">$</span>W,</span>
+<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;mult&quot;</span>,</span>
+<span id="cb15-9"><a href="#cb15-9" tabindex="-1"></a>    <span class="at">nboot =</span> <span class="dv">30</span>,</span>
+<span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a>    <span class="at">seed =</span> <span class="dv">42</span></span>
+<span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a>)</span>
+<span id="cb15-12"><a href="#cb15-12" tabindex="-1"></a></span>
+<span id="cb15-13"><a href="#cb15-13" tabindex="-1"></a>nonsignificant <span class="ot">&lt;-</span> comparison<span class="sc">$</span>pvals <span class="sc">&gt;=</span> <span class="fl">0.05</span></span>
+<span id="cb15-14"><a href="#cb15-14" tabindex="-1"></a>nonsignificant</span></code></pre></div>
+<pre><code>##           C1    C2    C3    C4    C5    C6    C7    C8
+## X18.19  TRUE  TRUE FALSE FALSE FALSE FALSE  TRUE FALSE
+## X20.29 FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE
+## X30.39 FALSE FALSE FALSE FALSE FALSE  TRUE FALSE FALSE
+## X40.49 FALSE  TRUE  TRUE FALSE FALSE FALSE FALSE FALSE
+## X50.59 FALSE FALSE FALSE FALSE  TRUE FALSE FALSE  TRUE
+## X60.69 FALSE FALSE FALSE FALSE FALSE FALSE FALSE  TRUE
+## X70.79 FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE
+## X80.   FALSE FALSE FALSE FALSE FALSE FALSE FALSE  TRUE</code></pre>
+<p>Hence, it can be seen that the group whom voting behaviour changes
+the most is group 1, which is the youngest group. This is a common
+pattern in Chilean elections, where younger voters tend to be more
+volatile in their voting behaviour.</p>
+</div>
+<div id="simulating-results" class="section level1">
+<h1>Simulating results</h1>
+<p>In this section, we will examine each method using simulated
+elections. The methods “mcmc” and “mvn_cdf” are particularly flexible,
+supporting additional parameters.</p>
+<p>We can generate samples using the function
+<code>simulate_election()</code>:</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a>samples <span class="ot">&lt;-</span> <span class="fu">simulate_election</span>(<span class="at">num_groups =</span> <span class="dv">3</span>, <span class="at">num_candidates =</span> <span class="dv">3</span>, <span class="at">num_ballots =</span> <span class="dv">50</span>, <span class="at">seed =</span> <span class="dv">42</span>)</span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a>object <span class="ot">&lt;-</span> <span class="fu">eim</span>(samples<span class="sc">$</span>X, samples<span class="sc">$</span>W)</span></code></pre></div>
+<p>All the methods attempt to approximate the probability of a group
+voting for a candidate, given observed votes. Let <span class="math inline">\(X_{bgc}\)</span> represent the observed votes and
+<span class="math inline">\(Y_{bgc}\)</span> represent the votes for
+candidate <span class="math inline">\(c\)</span> from group <span class="math inline">\(g\)</span> in ballot box <span class="math inline">\(b\)</span>. Define <span class="math inline">\(q_{bgc} = \mathbb{P}(Y_{bgc}=1 \mid
+X_{bgc})\)</span> as the probability of a specific group voting for a
+candidate given the observed result. The methods aim to approximate:</p>
+<p><span class="math display">\[q_{bgc}=\frac{P(\mathbf{X_b}=\mathbf{x_b}\;\vert\;Y_{bgc}=1)\cdot
+p_{gc}}{\sum_{c&#39;\in\mathcal{C}}P(\mathbf{X_b}=\mathbf{x_b}\;\vert\;Y_{bgc&#39;}=1)\cdot
+p_{gc&#39;}}\]</span></p>
+<div id="multinomial" class="section level2">
+<h2>Multinomial</h2>
+<p>The multinomial method is the most efficient in practice,
+approximating:</p>
+<p><span class="math display">\[q\approx\frac{x_{bc}\cdot p_{gc}\cdot
+r_{bgc}^{-1}}{\sum_{c&#39;\in\mathcal{C}}x_{bc&#39;}\cdot
+p_{gc&#39;}\cdot r_{bgc}^{-1}}\]</span></p>
+<p>Where <span class="math display">\[r_{bgc}
+:=\frac{\sum_{g&#39;\in\mathcal{G}}w_{bg&#39;}p_{g&#39;c}-p_{gc}}{I_b-1}\]</span></p>
+<p>This method has computational complexity <span class="math inline">\(O(B\cdot G\cdot C)\)</span>.</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a>multinomial <span class="ot">&lt;-</span> <span class="fu">run_em</span>(object, <span class="at">method =</span> <span class="st">&quot;mult&quot;</span>)</span>
+<span id="cb18-2"><a href="#cb18-2" tabindex="-1"></a>multinomial_mae <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>(multinomial<span class="sc">$</span>prob <span class="sc">-</span> samples<span class="sc">$</span>real_prob))</span>
+<span id="cb18-3"><a href="#cb18-3" tabindex="-1"></a>multinomial_mae</span></code></pre></div>
+<pre><code>## [1] 0.0164889</code></pre>
+<p>This produces a Mean Absolute Error (MAE) of approximately <span class="math inline">\(1.64\%\)</span>.</p>
+</div>
+<div id="multivariate-pdf" class="section level2">
+<h2>Multivariate PDF</h2>
+<p>It is not necessary to compute the full probability <span class="math inline">\(q_{bgc}\)</span>; instead, it can be approximated
+by simplifying the integration over the hypercube <span class="math inline">\(\mathcal{A}\)</span> in both the numerator and
+denominator:</p>
+<p><span class="math display">\[q_{bgc}\approx\frac{\phi_{bgc}(x)\cdot
+p_{gc}}{\sum_{c&#39;\in\mathcal{C}}\phi_{bgc&#39;}(x)\cdot
+p_{gc}}\]</span></p>
+</div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

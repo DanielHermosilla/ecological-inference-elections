@@ -16,13 +16,13 @@ URL: https://danielhermosilla.github.io/ecological-inference-elections/reference
 Suggests: 
     knitr,
     rmarkdown,
-    testthat (>= 3.0.0),
 	ggplot2,
-	dplyr
+	dplyr,
+	qpdf,
+	showtext
 Roxygen: list(markdown = TRUE, load = "source")
 VignetteBuilder: knitr
 Depends: 
     R (>= 3.5)
 LazyData: true
 RoxygenNote: 7.3.2
-Config/testthat/edition: 3

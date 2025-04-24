@@ -37,15 +37,15 @@ library(jsonlite)
 #' while others are ommited due to its straightfoward implementantion. The available methods are:
 #'
 #' \itemize{
-#'   \item \code{\link{run_em}} – Runs the EM algorithm.
-#'   \item \code{\link{bootstrap}} – Estimates the standard deviation.
-#'   \item \code{\link{save_eim}} – Saves the object to a file.
-#'   \item \code{\link{get_agg_proxy}} – Estimates an ideal group aggregation given their standard deviations.
-#'   \item \code{\link{get_agg_opt}} – Estimates an ideal group aggregation among all combinations, given the log-likelihood.
-#'   \item \code{print.eim} – Print info about the object.
-#'   \item \code{summary.eim} – Summarize the object.
-#'   \item \code{as.matrix.eim} – Returns the probability matrix.
-#'   \item \code{logLik.eim} – Returns the final log‑likelihood.
+#'   \item \code{\link{run_em}} - Runs the EM algorithm.
+#'   \item \code{\link{bootstrap}} - Estimates the standard deviation.
+#'   \item \code{\link{save_eim}} - Saves the object to a file.
+#'   \item \code{\link{get_agg_proxy}} - Estimates an ideal group aggregation given their standard deviations.
+#'   \item \code{\link{get_agg_opt}} - Estimates an ideal group aggregation among all combinations, given the log-likelihood.
+#'   \item \code{print.eim} - Print info about the object.
+#'   \item \code{summary.eim} - Summarize the object.
+#'   \item \code{as.matrix.eim} - Returns the probability matrix.
+#'   \item \code{logLik.eim} - Returns the final log-likelihood.
 #' }
 #'
 #' @examples
@@ -239,7 +239,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' @param ... Added for compability
 #'
 #' @references
-#' [Thraves, C. and Ubilla, P.: *"Fast Ecological Inference Algorithm for the R×C Case"*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834). Aditionally, the MVN CDF is computed by the methods introduced in [Genz, A. (2000). Numerical computation of multivariate normal probabilities. *Journal of Computational and Graphical Statistics*](https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities)
+#' [Thraves, C. and Ubilla, P.: *"Fast Ecological Inference Algorithm for the RxC Case"*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834). Aditionally, the MVN CDF is computed by the methods introduced in [Genz, A. (2000). Numerical computation of multivariate normal probabilities. *Journal of Computational and Graphical Statistics*](https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities)
 #'
 #' @note
 #' This function can be executed using one of three mutually exclusive approaches:
@@ -821,7 +821,7 @@ get_agg_proxy <- function(object = NULL,
         # Add EM arguments aswell
         # core_args <- all_params[!names(all_params) %in% c("object", "X", "W", "X2", "W2", "json_path", "verbose")]
         # final_args <- c(core_args, list(object = NULL, json_path = NULL, X = object$X, W = object$W_agg, verbose = FALSE))
-        em_results <- run_em(X = object$X, W = object$W_agg, method = method)
+        em_results <- run_em(X = object$X, W = object$W_agg, method = method, allow_mismatch = TRUE)
         object <- c(
             object,
             em_results[setdiff(names(em_results), names(object))]
@@ -1045,7 +1045,7 @@ get_agg_opt <- function(object = NULL,
 #' of their estimated probability matrices (`p`). The Welch test is applied using bootstrap-derived standard deviations, and the result is a matrix
 #' of p-values corresponding to each group-candidate combination.
 #'
-#' It uses Welch’s t-test to analyze if there is a significant difference between the estimated probabilities between a treatment and a control set. The test is performed independently for each component of the probability matrix.
+#' It uses Welch's t-test to analyze if there is a significant difference between the estimated probabilities between a treatment and a control set. The test is performed independently for each component of the probability matrix.
 #'
 #' @inheritParams bootstrap
 #'
@@ -1059,11 +1059,11 @@ get_agg_opt <- function(object = NULL,
 #' @param ... Additional arguments passed to [bootstrap] and [run_em].
 #'
 #' @return A list with components:
-#'   - `pvals`: a numeric matrix of p‑values with the same dimensions as the estimated probability matrices (`pvals`) from the input objects.
-#'   - `statistic`: a numeric matrix of t‑statistics with the same dimensions as the estimated probability matrices (`pvals`).
+#'   - `pvals`: a numeric matrix of p-values with the same dimensions as the estimated probability matrices (`pvals`) from the input objects.
+#'   - `statistic`: a numeric matrix of t-statistics with the same dimensions as the estimated probability matrices (`pvals`).
 #'   - `eim1` and `eim2`: the original `eim` objects used for comparison.
 #'
-#' Each entry in the pvals matrix is the p-value from Welch’s t-test between the corresponding
+#' Each entry in the pvals matrix is the p-value from Welch's t-test between the corresponding
 #' entries of the two estimated probability matrices.
 #'
 #' @details
@@ -1076,7 +1076,7 @@ get_agg_opt <- function(object = NULL,
 #' \deqn{
 #' t_{ij} = \frac{p_{1,ij} - p_{2,ij}}{\sqrt{(s_{1,ij}^2 + s_{2,ij}^2) / n}},
 #' }
-#' In this expression, \eqn{s_{1,ij}^2} and \eqn{s_{2,ij}^2} represent the bootstrap sample variances for the treatment and control sets, respectively, while \eqn{p_{1,ij}} and \eqn{p_{2,ij}} are the corresponding estimated probability matrices obtained via the EM algorithm. The number of bootstrap samples is denoted by \eqn{n}, and the degrees of freedom for each component are calculated using the Welch–Satterthwaite equation
+#' In this expression, \eqn{s_{1,ij}^2} and \eqn{s_{2,ij}^2} represent the bootstrap sample variances for the treatment and control sets, respectively, while \eqn{p_{1,ij}} and \eqn{p_{2,ij}} are the corresponding estimated probability matrices obtained via the EM algorithm. The number of bootstrap samples is denoted by \eqn{n}, and the degrees of freedom for each component are calculated using the Welch-Satterthwaite equation
 #'
 #' @examples
 #' sim <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 123)
@@ -1117,7 +1117,7 @@ welchtest <- function(object = NULL,
     if (input_modes == 0) {
         stop("You must provide either (1) two objects, or (2) four matrices (X, X2, W, W2)")
     } else if (input_modes > 1) {
-        stop("Please provide only one input mode: either objects or matrices — not multiple.")
+        stop("Please provide only one input mode: either objects or matrices - not multiple.")
     }
 
     if (using_matrices) {
@@ -1456,14 +1456,14 @@ save_eim <- function(object, filename, ...) {
 # }
 
 
-#' @title Extract log‑likelihood
+#' @title Extract log-likelihood
 #' @description
-#'   Return the log‑likelihood of the last EM iteration
+#'   Return the log-likelihood of the last EM iteration
 #'
 #' @param object An `eim` object
 #' @param ... Additional parameters that will be ignored
 #'
-#' @return A numeric value with the log‑likelihood from the last iteration.
+#' @return A numeric value with the log-likelihood from the last iteration.
 #' @noRd
 #' @export
 logLik.eim <- function(object, ...) {

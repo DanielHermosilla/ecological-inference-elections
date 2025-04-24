@@ -38,12 +38,12 @@ welchtest(
 \value{
 A list with components:
 \itemize{
-\item \code{pvals}: a numeric matrix of p‑values with the same dimensions as the estimated probability matrices (\code{pvals}) from the input objects.
-\item \code{statistic}: a numeric matrix of t‑statistics with the same dimensions as the estimated probability matrices (\code{pvals}).
+\item \code{pvals}: a numeric matrix of p-values with the same dimensions as the estimated probability matrices (\code{pvals}) from the input objects.
+\item \code{statistic}: a numeric matrix of t-statistics with the same dimensions as the estimated probability matrices (\code{pvals}).
 \item \code{eim1} and \code{eim2}: the original \code{eim} objects used for comparison.
 }
 
-Each entry in the pvals matrix is the p-value from Welch’s t-test between the corresponding
+Each entry in the pvals matrix is the p-value from Welch's t-test between the corresponding
 entries of the two estimated probability matrices.
 }
 \description{
@@ -52,7 +52,7 @@ of their estimated probability matrices (\code{p}). The Welch test is applied us
 of p-values corresponding to each group-candidate combination.
 }
 \details{
-It uses Welch’s t-test to analyze if there is a significant difference between the estimated probabilities between a treatment and a control set. The test is performed independently for each component of the probability matrix.
+It uses Welch's t-test to analyze if there is a significant difference between the estimated probabilities between a treatment and a control set. The test is performed independently for each component of the probability matrix.
 
 The user must provide either of the following (but not both):
 \itemize{
@@ -65,7 +65,7 @@ The Welch test is computed using the formula:
 \deqn{
 t_{ij} = \frac{p_{1,ij} - p_{2,ij}}{\sqrt{(s_{1,ij}^2 + s_{2,ij}^2) / n}},
 }
-In this expression, \eqn{s_{1,ij}^2} and \eqn{s_{2,ij}^2} represent the bootstrap sample variances for the treatment and control sets, respectively, while \eqn{p_{1,ij}} and \eqn{p_{2,ij}} are the corresponding estimated probability matrices obtained via the EM algorithm. The number of bootstrap samples is denoted by \eqn{n}, and the degrees of freedom for each component are calculated using the Welch–Satterthwaite equation
+In this expression, \eqn{s_{1,ij}^2} and \eqn{s_{2,ij}^2} represent the bootstrap sample variances for the treatment and control sets, respectively, while \eqn{p_{1,ij}} and \eqn{p_{2,ij}} are the corresponding estimated probability matrices obtained via the EM algorithm. The number of bootstrap samples is denoted by \eqn{n}, and the degrees of freedom for each component are calculated using the Welch-Satterthwaite equation
 }
 \examples{
 sim <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 123)

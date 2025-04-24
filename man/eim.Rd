@@ -46,15 +46,15 @@ S3 methods for common operations. Some of these methods are fully documented,
 while others are ommited due to its straightfoward implementantion. The available methods are:
 
 \itemize{
-\item \code{\link{run_em}} – Runs the EM algorithm.
-\item \code{\link{bootstrap}} – Estimates the standard deviation.
-\item \code{\link{save_eim}} – Saves the object to a file.
-\item \code{\link{get_agg_proxy}} – Estimates an ideal group aggregation given their standard deviations.
-\item \code{\link{get_agg_opt}} – Estimates an ideal group aggregation among all combinations, given the log-likelihood.
-\item \code{print.eim} – Print info about the object.
-\item \code{summary.eim} – Summarize the object.
-\item \code{as.matrix.eim} – Returns the probability matrix.
-\item \code{logLik.eim} – Returns the final log‑likelihood.
+\item \code{\link{run_em}} - Runs the EM algorithm.
+\item \code{\link{bootstrap}} - Estimates the standard deviation.
+\item \code{\link{save_eim}} - Saves the object to a file.
+\item \code{\link{get_agg_proxy}} - Estimates an ideal group aggregation given their standard deviations.
+\item \code{\link{get_agg_opt}} - Estimates an ideal group aggregation among all combinations, given the log-likelihood.
+\item \code{print.eim} - Print info about the object.
+\item \code{summary.eim} - Summarize the object.
+\item \code{as.matrix.eim} - Returns the probability matrix.
+\item \code{logLik.eim} - Returns the final log-likelihood.
 }
 }
 
