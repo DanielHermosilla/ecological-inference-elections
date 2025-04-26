@@ -345,48 +345,6 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
 }
 
 /*
- * @brief Computes the log-likelihood for a given probability and `q` array
- *
- * Given the conditional probability and the array, it computes the log-likelihood as defined in the paper.
- *
- * @param[in] q Array of matrices of dimension (bxgxc) that represents the probability that a voter of group "g" in
- * ballot box "b" voted for candidate "c" conditional on the observed result.
- * @param[in] prob A matrix of the calculated probabilities
- *
- * @return The value of the log-likelihood.
- *
- */
-
-double logLikelihood(Matrix *prob, double *q)
-{
-    // ---- Define the summatory for the log-likelihood ---- //
-    double logLL = 0;
-    // ---- Outer summatory ----
-    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    { // --- For each ballot box
-        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-        { // --- For each group, given a ballot box
-            // ---- Inner summatory
-            double cSummatory = 0;
-            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-            { // --- For each candidate, given a group and a ballot box
-                double num = MATRIX_AT_PTR(prob, g, c);
-                double den = Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES);
-                if (den == 0)
-                    continue;
-                if (num == 0)
-                    continue;
-                double qval = den;
-                cSummatory += qval * log(num / den);
-            } // --- End c loop
-            logLL += MATRIX_AT_PTR(W, b, g) * cSummatory;
-        } // --- End g loop
-    } // --- End b loop
-    // ---...--- //
-    return logLL;
-}
-
-/*
  * @brief Computes the optimal solution for the `M` step
  *
  * Given the conditional probability and the votations per demographic group, it calculates the new probability for

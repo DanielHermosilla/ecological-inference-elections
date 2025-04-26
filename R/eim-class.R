@@ -656,7 +656,7 @@ bootstrap <- function(object = NULL,
 #' result <- get_agg_proxy(
 #'     X = simulations$X,
 #'     W = simulations$W,
-#'     sd_threshold = 0.015,
+#'     sd_threshold = 0.125,
 #'     seed = 42
 #' )
 #'
@@ -684,7 +684,7 @@ bootstrap <- function(object = NULL,
 #'
 #' solution <- get_agg_proxy(
 #'     X = X, W = W,
-#'     allow_mismatch = TRUE, sd_threshold = 0.03,
+#'     allow_mismatch = TRUE, sd_threshold = 0.175,
 #'     sd_statistic = "average", nboot = 100, seed = 42
 #' )
 #'
@@ -700,7 +700,7 @@ get_agg_proxy <- function(object = NULL,
                           W = NULL,
                           json_path = NULL,
                           sd_statistic = "maximum",
-                          sd_threshold = 0.05,
+                          sd_threshold = 0.15,
                           method = "mult",
                           feasible = TRUE,
                           nboot = 50,
@@ -870,7 +870,7 @@ get_agg_proxy <- function(object = NULL,
 #' result <- get_agg_opt(
 #'     X = simulations$X,
 #'     W = simulations$W,
-#'     sd_threshold = 0.05,
+#'     sd_threshold = 0.22,
 #'     seed = 42
 #' )
 #'
@@ -897,7 +897,7 @@ get_agg_opt <- function(object = NULL,
                         W = NULL,
                         json_path = NULL,
                         sd_statistic = "maximum",
-                        sd_threshold = 0.05,
+                        sd_threshold = 0.15,
                         method = "mult",
                         nboot = 50,
                         allow_mismatch = FALSE,

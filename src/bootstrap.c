@@ -50,8 +50,8 @@ Matrix standardDeviations(Matrix *bootstrapResults, Matrix *sumMatrix, int total
         {
             for (int j = 0; j < sdMatrix.cols; j++)
             {
-                MATRIX_AT(sdMatrix, i, j) +=
-                    R_pow_di(MATRIX_AT(bootstrapResults[h], i, j) - MATRIX_AT_PTR(sumMatrix, i, j), 2);
+                double diff = MATRIX_AT(bootstrapResults[h], i, j) - MATRIX_AT_PTR(sumMatrix, i, j);
+                MATRIX_AT(sdMatrix, i, j) += diff * diff;
             }
         }
         freeMatrix(&bootstrapResults[h]);
@@ -62,7 +62,7 @@ Matrix standardDeviations(Matrix *bootstrapResults, Matrix *sumMatrix, int total
     {
         for (int j = 0; j < sdMatrix.cols; j++)
         {
-            MATRIX_AT(sdMatrix, i, j) = sqrt(fabs(MATRIX_AT(sdMatrix, i, j) / (totalIter - 1)));
+            MATRIX_AT(sdMatrix, i, j) = sqrt(sqrt(fabs(MATRIX_AT(sdMatrix, i, j) / (totalIter - 1))));
         }
     }
     return sdMatrix;

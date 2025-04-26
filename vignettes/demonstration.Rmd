@@ -14,41 +14,39 @@ output:
     number_sections: false
 ---
 
-The Expectation-Maximization algorithm is a statistical framework that relies on maximizing the log-likelihood of a conditional probability distribution. This algorithm depends on the heterogeneity of the sample and, as with every statistical method, it becomes more efficient as the sample size increases.
+The `fastei` library implements the Expectation-Maximization algorithm to estimate probabilities in non-parametric Ecological Inference for the RxC case. It offers both an exact method and four approximation methods suitable for large datasets. The application demonstrated here is based on an electoral context where, for each ballot box, we know the number of voters in each demographic group and the number of votes received by each candidate.
 
-# Running the Expectation-Maximization algorithm 
-One of the most meaningful use cases relies on political elections. As of this package, it provides the dataset with the Chilean Presidential Election from 2021. Such results are divided among electoral districts, where it's known the ages from each voter. 
-
-To set up the algorithm, you can load a sample using `get_XW_chile()`:
+# Estimate Voting Probabilities
+We use data from the First Round of the Chilean Presidential Election of 2021, where at each ballot box we have the voters of eight age ranges (groups), and candidate votes obtained. The function `get_XW_chile()` loads this data at either the country, region, or electoral district level.
 
 ```{r}
 library(fastei)
 
-el_golf <- get_XW_chile(elect_district = "EL GOLF")
+apoquindo <- get_XW_chile(elect_district = "APOQUINDO")
 
-el_golf
+apoquindo
 ```
 
-As shown in the output, it returns an eim object that contains two matrices: the number of votes per candidate and the number of votes per group.
-
+As shown in the output, it returns an eim object that contains two matrices: the number of votes per candidate and the number of votes per group. The rows of both matrices correspond to the specific ballot-box, and the columns are candidates and groups, respectively. This eim object is used as input to run the EM algorithm that estimates the voting probabilities. In this example, it uses the default method `mult`, which is the most efficient in terms of runtime.
 Running the algorithm is as simple as calling `run_em()`. The most efficient method tends to be "mult":
 
 ```{r}
-results <- run_em(el_golf)
+results <- run_em(apoquindo)
 results$prob
 ```
 
-Note that each row corresponds to the probability that a demographic group (g) voted for a candidate (c). It is worth noting how the results differ substantially across groups.
+Note that each row corresponds to the probability that a demographic group (`g`) voted for a candidate (`c`). It is worth noting how the results differ substantially across groups.
 
-# Getting standard deviation estimates
+# Standard deviation estimates
 
-It’s important to note that the initial estimates may not always be efficient in terms of their standard deviation. Fortunately, the package provides a `bootstrap()` function that allows you to estimate the variability of the results:
+We can compute the standard deviation of the estimated probabilities using bootstrapping. This can be done with the function `bootstrap()`.
+
 ```{r}
 results <- bootstrap(results, seed = 42, nboot = 30)
 results$sd
 ```
 
-This output is expected, given that the number of ballot boxes in "EL GOLF" is substantial. However, it can be insightful to analyze smaller districts, such as "NAVIDAD":
+The standard deviations obtained in the district "Apoquindo" are generally low. One reason for this is the high number of ballot boxes in this district. In contrast, standard deviations of estimated probabilities in districts with fewer ballot boxes, such as "Navidad", are larger.
 
 ```{r}
 navidad <- get_XW_chile(elect_district = "NAVIDAD")
@@ -56,16 +54,13 @@ navidad <- bootstrap(navidad, seed = 42, nboot = 30)
 navidad$sd
 ```
 
-In this case, the probability variations are noticeably more significant, likely due to the smaller sample size.
 
-# Reducing Variance Through Group Aggregation
+# Reduce Estimation Error using Group Aggregation
 
-Given the issue of high variability in smaller districts, an interesting alternative is to merge some demographic groups while maximizing the log-likelihood, subject to a standard deviation constraint. One way to approach this is with a *"greedy"* strategy, evaluating up to $2^{G-1}$ group combinations.
-
-To approximate such a solution, the package provides a heuristic:
+Demographic groups can be merged to have probability estimates with lower error. A greedy strategy that maximizes the variability of the distribution of groups across ballot boxes is used, which ensures standard deviations are below 5%. The package provides the following function for the latter:
 
 ```{r}
-navidad_proxy <- get_agg_proxy(navidad, seed = 42)
+navidad_proxy <- get_agg_proxy(navidad, seed = 42, sd_threshold = 0.25)
 navidad_proxy$group_agg
 ```
 
@@ -75,139 +70,122 @@ As shown in the output, the heuristic found a feasible configuration by merging 
 mean(navidad$sd) - mean(navidad_proxy$sd)
 ```
 
-The full greedy algorithm is also included in the package. In theory, it explores a large number of combinations and may require substantial computation time. However, using the "mult" method offers a fast and efficient workaround:
+An exhaustive algorithm is also included in the package. It explores all combinations of adjacent groups in order to maximize the log-likelihood subject to having standard deviations below 2.5%. It might require substantial computation time; therefore it is recommended to use the most efficient method "mult".
 
 ```{r}
-navidad_opt <- get_agg_opt(navidad, seed = 42)
+navidad_opt <- get_agg_opt(navidad, seed = 42, sd_threshold = 0.25)
 navidad_opt$group_agg
 ```
 
-Notably, the optimal group merging differs only slightly from the heuristic result, suggesting that the approximation performs quite well in this case.
+The optimal group aggregation differs slightly from one obtained before.
 
-# Comparing results
+# Test difference between estimates
 
-An usual use case comes among the question of how much could two districts differ. For instance, we can compare the results of "APOQUINDO" and "EL GOLF", two districts that usually yield similar results:
+A relevant question is how significantly different are the probability estimates of two sets of data, such as two different districts. For instance, we can compare the results of the district "APOQUINDO" and "PROVIDENCIA", which belong to the same ward. A Welch's test can be applied to each component of the two probability matrix estimates:
 
 ```{r}
-apoquindo <- get_XW_chile(elect_district = "APOQUINDO")
+providencia <- get_XW_chile(elect_district = "PROVIDENCIA")
 
 comparison <- welchtest(
-    X = el_golf$X,
-    W = el_golf$W,
-    X2 = apoquindo$X,
-    W2 = apoquindo$W,
+    object = providencia,
+    object2 = apoquindo,
     method = "mult",
     nboot = 30,
     seed = 42
 )
 
-nonsignificant <- comparison$pvals >= 0.05
-nonsignificant
+round(comparison$pvals, 3)
 ```
 
-Hence, it can be seen that the group whom voting behaviour changes the most is group 1, which is the youngest group. This is a common pattern in Chilean elections, where younger voters tend to be more volatile in their voting behaviour.
-
-# Simulating results
-
-In this section, we will examine each method using simulated elections. The methods "mcmc" and "mvn_cdf" are particularly flexible, supporting additional parameters.
-
-We can generate samples using the function `simulate_election()`:
+On the other side, it may be notable to see the difference between to electoral districts whom voting tendencies are expected to be different.
 
 ```{r}
-samples <- simulate_election(num_groups = 3, num_candidates = 3, num_ballots = 50, seed = 42)
-object <- eim(samples$X, samples$W)
+la_granja <- get_XW_chile(elect_district = "LA GRANJA")
+lo_barnechea <- get_XW_chile(elect_district = "LO BARNECHEA")
+
+comparison2 <- welchtest(
+    object = la_granja,
+    object2 = lo_barnechea,
+    method = "mult",
+    nboot = 30,
+    seed = 42
+)
+
+round(comparison2$pvals, 3)
 ```
 
-All the methods attempt to approximate the probability of a group voting for a candidate, given observed votes. Let $X_{bgc}$ represent the observed votes and $Y_{bgc}$ represent the votes for candidate $c$ from group $g$ in ballot box $b$. Define $q_{bgc} = \mathbb{P}(Y_{bgc}=1 \mid X_{bgc})$ as the probability of a specific group voting for a candidate given the observed result. The methods aim to approximate:
 
-$$q_{bgc}=\frac{P(\mathbf{X_b}=\mathbf{x_b}\;\vert\;Y_{bgc}=1)\cdot p_{gc}}{\sum_{c'\in\mathcal{C}}P(\mathbf{X_b}=\mathbf{x_b}\;\vert\;Y_{bgc'}=1)\cdot p_{gc'}}$$
+# Simulating Election Results
 
+In this section, we simulate election data multiple times to evaluate the accuracy and speed of each method on average.
+
+We generate random elections with 2 groups, 2 candidates, and 50 ballots, and repeat each method **10 times** to calculate their average performance.
+
+```{r}
+# Helper to repeat and average
+benchmark_method <- function(method_name, ..., reps = 10) {
+    maes <- numeric(reps)
+    times <- numeric(reps)
+
+    for (i in seq_len(reps)) {
+        samples <- simulate_election(num_groups = 2, num_candidates = 2, num_ballots = 50, seed = i)
+        object <- eim(samples$X, samples$W)
+
+        result <- run_em(object, method = method_name, ...)
+
+        maes[i] <- mean(abs(result$prob - samples$real_prob))
+        times[i] <- result$time
+    }
+
+    list(
+        avg_mae = mean(maes),
+        avg_time = mean(times)
+    )
+}
+```
 
 ## Multinomial
 
-The multinomial method is the most efficient in practice, approximating:
-
-$$q\approx\frac{x_{bc}\cdot p_{gc}\cdot r_{bgc}^{-1}}{\sum_{c'\in\mathcal{C}}x_{bc'}\cdot p_{gc'}\cdot r_{bgc}^{-1}}$$
-
-Where 
-$$r_{bgc} :=\frac{\sum_{g'\in\mathcal{G}}w_{bg'}p_{g'c}-p_{gc}}{I_b-1}$$
-
-This method has computational complexity $O(B\cdot G\cdot C)$.
+The multinomial method offers a fast and simple approximation based on the observed votes and prior probabilities. It is ideal for quick estimates, with low computational cost and good overall accuracy for moderately complex elections.
 
 ```{r}
-multinomial <- run_em(object, method = "mult")
-multinomial_mae <- mean(abs(multinomial$prob - samples$real_prob))
-multinomial_mae
-multinomial$time
+multinomial_result <- benchmark_method("mult")
+multinomial_result
 ```
-
-This produces a Mean Absolute Error (MAE) of approximately $1.64\%$.
 
 ## Multivariate PDF
 
-It is not necessary to compute the full probability $q_{bgc}$; instead, it can be approximated by simplifying the integration over the hypercube $\mathcal{A}$ in both the numerator and denominator:
-
-$$q_{bgc}\approx\frac{\phi_{bgc}(x)\cdot p_{gc}}{\sum_{c'\in\mathcal{C}}\phi_{bgc'}(x)\cdot p_{gc}}$$
-
-This method is also time-efficient
+The multivariate PDF method refines the multinomial approximation by accounting for the local shape of the probability distribution.
 
 ```{r}
-multivariate_pdf <- run_em(object, method = "mvn_pdf")
-multivariate_pdf_mae <- mean(abs(multivariate_pdf$prob - samples$real_prob))
-multivariate_pdf_mae
-multivariate_pdf$time
+multivariate_pdf_result <- benchmark_method("mvn_pdf")
+multivariate_pdf_result
 ```
-
-Provides an Mean Absolute Error (MAE) of approximately $1.54\%$.
 
 ## Multivariate CDF
 
-Aproximates the first and second moments of the $q_{bgc}$. Since the approximation is continuos, it defines an hypercube defined by:
-
-$$\mathcal{A}_{bc}(\mathbf{x_b})=\prod^{C-1}_{c'=1}\left[x_{bc}-\frac{1}{2}-\mathbf{1}_{c'=c}, x_{bc}+\frac{1}{2}-\mathbf{1}_{c'=c_{c'=c}}\right]$$
-
-Yielding the following approximation:
-
-$$q_{bgc}\approx\frac{\int_{\mathcal{A}_{bc}(\mathbf{x}_b)}\phi_{bgc}(x)dx\cdot p_{gc}}{\sum_{c'\in\mathcal{C}}\int_{\mathcal{A}_{bc'}}\phi_{bgc'}(x)dx\cdot p_{gc'}}$$
-
-Where $\phi_{bgc}(\cdot)$ corresponds to the Multivariate Normal PDF.
-
+The multivariate CDF method approximates first and second moments of the posterior by integrating over small regions of the multivariate normal distribution. It provides better control over uncertainty at the cost of higher computation, especially if a tight Monte Carlo error is required.
 
 ```{r}
-multivariate_cdf <- run_em(object, method = "mvn_cdf", mc_error = 1e-8)
-multivariate_cdf_mae <- mean(abs(multivariate_cdf$prob - samples$real_prob))
-multivariate_cdf_mae
-multivariate_cdf$time
+multivariate_cdf_result <- benchmark_method("mvn_cdf")
+multivariate_cdf_result
 ```
-
-Providing a MAE of $6.5\%$. Let's denote that, on average, it tends to be much smaller.
 
 ## MCMC
 
-Since there are an exponential number of ways in which the samples can be assigned, it is possible to use importance sampling (IS). Let $\mathcal{S}_b$ be the set of samples, then:
-
-$$q_{bgc}\approx\frac{\sum_{\mathbf{z}_b\in\mathcal{S}_b}\frac{z_{bgc}}{w_{bg}}\prod_{g'\in\mathcal{G}}\left(\binom{w_{bg'}{z_{bg'1},\dots,z_{bg'C}}}\prod_{c'\in\mathcal{C}}p_{g'c'}^{z_{bg'c'}}\right)}{\sum_{\mathbf{z}_b\in\mathcal{S}_b}\prod_{g'\in\mathcal{G}}\left(\binom{w_{bg'}{z_{bg'1},\dots,z_{bg'C}}}\prod_{c'\in\mathcal{C}}p_{g'c'}^{z_{bg'c'}}\right)}$$
-
-Hence, it is possible to approximate the posterior by running as following:
+The MCMC method explores possible voting configurations by random sampling, providing very flexible and accurate results. It typically incurs an initial computational cost to generate valid samples, but after reaching a sufficient number of samples, each additional iteration becomes relatively fast and efficient.
 
 ```{r}
-mcmc <- run_em(object, method = "mcmc", samples = 1000, step_size = 3000, seed = 42)
-mcmc_mae <- mean(abs(mcmc$prob - samples$real_prob))
-mcmc_mae
-mcmc$time
+mcmc_result <- benchmark_method("mcmc", samples = 1000, step_size = 2000)
+mcmc_result
 ```
-
-Having a MAE of $0.8\%$, with a running time of $2.58826$ seconds. This method is the most flexible, as it allows for the inclusion of additional parameters. However, it is also one of the slowest, as it requires a large number of samples to achieve a good approximation.
 
 ## Exact
 
-Provides the full calculation, using the Law of Total Probabilities:
+The exact method computes all possible voting configurations exhaustively. It guarantees the highest theoretical accuracy but becomes quickly infeasible for elections with many candidates, groups, or ballots due to its exponential computational complexity.
 
 ```{r}
-exact <- run_em(object, method = "exact")
-exact_mae <- mean(abs(exact$prob - samples$real_prob))
-exact_mae
-exact$time
+exact_result <- benchmark_method("exact")
+exact_result
 ```
 
-Providing a MAE of $1.6\%$ with the longest running time.
