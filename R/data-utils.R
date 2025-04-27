@@ -12,7 +12,7 @@
 #'
 #' @param merge_blank_null Logical indicating whether blank and null votes should be merged into a single column. Defaults to `TRUE`.
 #'
-#' @param remove_mismatch Logical indicating whether to remove ballot boxes with mismatched vote totals (where `MISMATCH == TRUE`). Defaults to `TRUE`.
+#' @param remove_mismatch Logical indicating whether to remove ballot boxes with mismatched vote totals (where `MISMATCH == TRUE`). Defaults to `FALSE`.
 #'
 #' @return
 #' An [`eim`] object with the following attributes:
@@ -47,7 +47,7 @@
 get_XW_chile <- function(elect_district = NULL,
                          region = NULL,
                          merge_blank_null = TRUE,
-                         remove_mismatch = TRUE) {
+                         remove_mismatch = FALSE) {
     df <- get("chile_election_2021")
 
     # Apply filtering only if exactly one of region or elect_district is provided

@@ -10,7 +10,7 @@ get_agg_opt(
   W = NULL,
   json_path = NULL,
   sd_statistic = "maximum",
-  sd_threshold = 0.05,
+  sd_threshold = 0.15,
   method = "mult",
   nboot = 50,
   allow_mismatch = FALSE,
@@ -85,7 +85,7 @@ simulations <- simulate_election(
 result <- get_agg_opt(
     X = simulations$X,
     W = simulations$W,
-    sd_threshold = 0.05,
+    sd_threshold = 0.22,
     seed = 42
 )
 

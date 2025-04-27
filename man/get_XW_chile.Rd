@@ -9,7 +9,7 @@ get_XW_chile(
   elect_district = NULL,
   region = NULL,
   merge_blank_null = TRUE,
-  remove_mismatch = TRUE
+  remove_mismatch = FALSE
 )
 }
 \arguments{
@@ -19,7 +19,7 @@ get_XW_chile(
 
 \item{merge_blank_null}{Logical indicating whether blank and null votes should be merged into a single column. Defaults to \code{TRUE}.}
 
-\item{remove_mismatch}{Logical indicating whether to remove ballot boxes with mismatched vote totals (where \code{MISMATCH == TRUE}). Defaults to \code{TRUE}.}
+\item{remove_mismatch}{Logical indicating whether to remove ballot boxes with mismatched vote totals (where \code{MISMATCH == TRUE}). Defaults to \code{FALSE}.}
 }
 \value{
 An \code{\link{eim}} object with the following attributes:
