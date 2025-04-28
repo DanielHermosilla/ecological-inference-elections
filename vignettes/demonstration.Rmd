@@ -31,7 +31,7 @@ As shown in the output, it returns an eim object that contains two matrices: the
 Running the algorithm is as simple as calling `run_em()`. The most efficient method tends to be "mult":
 
 ```{r}
-results <- run_em(apoquindo)
+results <- run_em(apoquindo, allow_mismatch = TRUE)
 results$prob
 ```
 
@@ -42,7 +42,7 @@ Note that each row corresponds to the probability that a demographic group (`g`)
 We can compute the standard deviation of the estimated probabilities using bootstrapping. This can be done with the function `bootstrap()`.
 
 ```{r}
-results <- bootstrap(results, seed = 42, nboot = 30)
+results <- bootstrap(results, seed = 42, nboot = 30, allow_mismatch = TRUE)
 results$sd
 ```
 
@@ -50,30 +50,30 @@ The standard deviations obtained in the district "Apoquindo" are generally low. 
 
 ```{r}
 navidad <- get_XW_chile(elect_district = "NAVIDAD")
-navidad <- bootstrap(navidad, seed = 42, nboot = 30)
+navidad <- bootstrap(navidad, seed = 42, nboot = 30, allow_mismatch = TRUE)
 navidad$sd
 ```
 
 
 # Reduce Estimation Error using Group Aggregation
 
-Demographic groups can be merged to have probability estimates with lower error. A greedy strategy that maximizes the variability of the distribution of groups across ballot boxes is used, which ensures standard deviations are below 5%. The package provides the following function for the latter:
+Demographic groups can be merged to have probability estimates with lower error. A greedy strategy that maximizes the variability of the distribution of groups across ballot boxes is used, which ensures standard deviations are below 12.5%. The package provides the following function for the latter:
 
 ```{r}
-navidad_proxy <- get_agg_proxy(navidad, seed = 42, sd_threshold = 0.25)
+navidad_proxy <- get_agg_proxy(navidad, seed = 42, sd_threshold = 0.125, sd_statistic = "average", allow_mismatch = TRUE, verbose = TRUE)
 navidad_proxy$group_agg
 ```
 
-As shown in the output, the heuristic found a feasible configuration by merging groups 1 with 2, 5 with 6, and 7 with 8. We can evaluate the effectiveness of this grouping by comparing the mean standard deviation to the original formulation:
+As shown in the output, the heuristic found a feasible configuration by merging groups 1 with 2. We can evaluate the effectiveness of this grouping by comparing the mean standard deviation to the original formulation:
 
 ```{r}
 mean(navidad$sd) - mean(navidad_proxy$sd)
 ```
 
-An exhaustive algorithm is also included in the package. It explores all combinations of adjacent groups in order to maximize the log-likelihood subject to having standard deviations below 2.5%. It might require substantial computation time; therefore it is recommended to use the most efficient method "mult".
+An exhaustive algorithm is also included in the package. It explores all combinations of adjacent groups in order to maximize the log-likelihood subject to having standard deviations below 12.5%. It might require substantial computation time; therefore it is recommended to use the most efficient method "mult".
 
 ```{r}
-navidad_opt <- get_agg_opt(navidad, seed = 42, sd_threshold = 0.25)
+navidad_opt <- get_agg_opt(navidad, seed = 42, sd_threshold = 0.125, sd_statistic = "average", allow_mismatch = TRUE)
 navidad_opt$group_agg
 ```
 
@@ -89,6 +89,7 @@ providencia <- get_XW_chile(elect_district = "PROVIDENCIA")
 comparison <- welchtest(
     object = providencia,
     object2 = apoquindo,
+    allow_mismatch = TRUE,
     method = "mult",
     nboot = 30,
     seed = 42
@@ -106,6 +107,7 @@ lo_barnechea <- get_XW_chile(elect_district = "LO BARNECHEA")
 comparison2 <- welchtest(
     object = la_granja,
     object2 = lo_barnechea,
+    allow_mismatch = TRUE,
     method = "mult",
     nboot = 30,
     seed = 42

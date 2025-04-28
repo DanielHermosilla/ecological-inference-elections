@@ -58,7 +58,7 @@
 #'
 #' Using a high level of `lambda` (greater than 0.7) is not recommended, as this could make identification of the voting probabilities difficult. This is because higher values of lambda induce similar ballot-boxes in terms of voters' group.
 #'
-#' @return A list with three components:
+#' @return An eim object with three attributes:
 #' \describe{
 #'   \item{\code{X}}{A \code{(b x c)} matrix with candidates' votes for each ballot box.}
 #'   \item{\code{W}}{A \code{(b x g)} matrix with voters' groups for each ballot-box.}
@@ -136,6 +136,9 @@ simulate_election <- function(num_ballots,
     tol <- .Machine$double.eps^0.5
     if (abs(sum(group_proportions) - 1) > tol) {
         stop("group_proportions must sum to 1.")
+    }
+    if (lambda < 0 || lambda > 1) {
+        stop("Lambda must be a decimal between 0 and 1.")
     }
 
     # Build W (b x g), the distribution of groups in each ballot box
@@ -219,10 +222,14 @@ simulate_election <- function(num_ballots,
         }
     }
 
-    # Return the list
-    list(
+    toReturn <- list(
         W = W,
         X = X,
         real_prob = p
     )
+
+    # Return it as an eim object
+    class(toReturn) <- "eim"
+
+    return(toReturn)
 }
