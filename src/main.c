@@ -393,7 +393,7 @@ Matrix getP(const double *q)
 
 int checkGroups()
 {
-    for (u_int16_t g = 0; g < TOTAL_GROUPS; g++)
+    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
     {
         if (GROUP_VOTES[g] == 0)
         {
