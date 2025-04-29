@@ -198,7 +198,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' - `group_proportional`: Computes the probability matrix by taking into account both group and candidate proportions. This is the default method.
 #' - `random`: Use randomized values to fill the probability matrix.
 #'
-#' @param allow_mismatch Boolean, if `TRUE`, allows a mismatch between the voters and votes for each ballot-box, only works if method is `mvn_cdf`, `mvn_pdf`, `mult` and `mcmc`. If `FALSE`, throws an error if there is a mismatch. By default it is `FALSE`.
+#' @param allow_mismatch Boolean, if `TRUE`, allows a mismatch between the voters and votes for each ballot-box, only works if method is `mvn_cdf`, `mvn_pdf`, `mult` and `mcmc`. If `FALSE`, throws an error if there is a mismatch. By default it is `TRUE`.
 #'
 #' @param maxiter An optional integer indicating the maximum number of EM iterations.
 #'   The default value is `1000`.
@@ -254,6 +254,8 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' When called with an `eim` object, the function updates the object with the computed results.
 #' If an `eim` object is not provided, the function will create one internally using either the
 #' supplied matrices or the data from the JSON file before executing the algorithm.
+#'
+#' Also, if the eim object supplied is created with the function [simulate_election], it also returns the real probability with the name `real_prob`. See [simulate_election].
 #'
 #' @seealso The [eim] object implementation.
 #'
@@ -322,7 +324,7 @@ run_em <- function(object = NULL,
                    json_path = NULL,
                    method = "mult",
                    initial_prob = "group_proportional",
-                   allow_mismatch = FALSE,
+                   allow_mismatch = TRUE,
                    maxiter = 1000,
                    maxtime = 3600,
                    param_threshold = 0.001,
@@ -502,7 +504,7 @@ bootstrap <- function(object = NULL,
                       W = NULL,
                       json_path = NULL,
                       nboot = 50,
-                      allow_mismatch = FALSE,
+                      allow_mismatch = TRUE,
                       seed = NULL,
                       ...) {
     # Retrieve the default values from run_em() as a list
@@ -621,7 +623,7 @@ bootstrap <- function(object = NULL,
 #' - `exact`: Solves the E-step using the Total Probability Law.
 #'
 #' @param feasible Logical indicating whether the returned matrix must strictly satisfy the `sd_threshold`.
-#' If `TRUE`, no output is returned if the method does not find a group aggregation whose standard deviation statistic is below the threshold. If `FALSE` and the latter holds, it returns the group aggregation obtained from the DP withe the lowest standard deviation statistic. See **Details** for more information.
+#' If `TRUE`, no output is returned if the method does not find a group aggregation whose standard deviation statistic is below the threshold. If `FALSE` and the latter holds, it returns the group aggregation obtained from the DP with the the lowest standard deviation statistic. See **Details** for more information. Default is `TRUE`.
 #'
 #' @inheritParams bootstrap
 #'
@@ -704,7 +706,7 @@ get_agg_proxy <- function(object = NULL,
                           method = "mult",
                           feasible = TRUE,
                           nboot = 50,
-                          allow_mismatch = FALSE,
+                          allow_mismatch = TRUE,
                           seed = NULL, ...) {
     # Retrieve the default values from run_em() as a list
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
@@ -900,7 +902,7 @@ get_agg_opt <- function(object = NULL,
                         sd_threshold = 0.05,
                         method = "mult",
                         nboot = 50,
-                        allow_mismatch = FALSE,
+                        allow_mismatch = TRUE,
                         seed = NULL,
                         ...) {
     # Retrieve the default values from run_em() as a list

@@ -10,10 +10,10 @@ get_agg_opt(
   W = NULL,
   json_path = NULL,
   sd_statistic = "maximum",
-  sd_threshold = 0.15,
+  sd_threshold = 0.05,
   method = "mult",
   nboot = 50,
-  allow_mismatch = FALSE,
+  allow_mismatch = TRUE,
   seed = NULL,
   ...
 )
@@ -44,7 +44,7 @@ options are:
 \item{nboot}{Integer specifying how many times to run the
 EM algorithm.}
 
-\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box, only works if method is \code{mvn_cdf}, \code{mvn_pdf}, \code{mult} and \code{mcmc}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{FALSE}.}
+\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box, only works if method is \code{mvn_cdf}, \code{mvn_pdf}, \code{mult} and \code{mcmc}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{TRUE}.}
 
 \item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = random} or method is either \code{mcmc} or \code{mvn_cdf}. Aditionally, it sets the random draws of the ballot boxes.}
 
@@ -85,7 +85,7 @@ simulations <- simulate_election(
 result <- get_agg_opt(
     X = simulations$X,
     W = simulations$W,
-    sd_threshold = 0.22,
+    sd_threshold = 0.05,
     seed = 42
 )
 

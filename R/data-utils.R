@@ -22,11 +22,11 @@
 #' This object can be passed to functions like [`run_em`] or [`get_agg_proxy`] for estimation and group aggregation. See **Example**.
 #'
 #' @note
-#' Only one parameter is accepted among `elect_district` and `region`. If either both parameters are given, it will return an error. If any is supplied, it will return an eim object with an aggregation corresponding to the whole dataset.
+#' Only one parameter is accepted among `elect_district` and `region`. If either both parameters are given, it will return an error. If neither of these two inputs is supplied, it will return an eim object with an aggregation corresponding to the whole dataset. To see all electoral districts and regions names, see the function [chile_election_2021].
 #'
 #' @examples
 #' # Load data and create an eim object for the electoral district of "NIEBLA"
-#' eim_obj <- get_XW_chile("NIEBLA", remove_mismatch = FALSE)
+#' eim_obj <- get_XW_chile(elect_district = "NIEBLA", remove_mismatch = FALSE)
 #'
 #' # Use it to run the EM algorithm
 #' result <- run_em(eim_obj, allow_mismatch = TRUE)

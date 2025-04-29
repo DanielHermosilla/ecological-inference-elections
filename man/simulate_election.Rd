@@ -41,7 +41,7 @@ Default value is set to \code{0.5}. See \strong{Shuffling Mechanish} for more de
 If provided, this matrix is used as the underlying voting probability distribution. If not supplied, each row is sampled from a Dirichlet distribution with each parameter set to one.}
 }
 \value{
-A list with three components:
+An eim object with three attributes:
 \describe{
 \item{\code{X}}{A \code{(b x c)} matrix with candidates' votes for each ballot box.}
 \item{\code{W}}{A \code{(b x g)} matrix with voters' groups for each ballot-box.}
@@ -51,8 +51,8 @@ A list with three components:
 \description{
 This function simulates an election by creating matrices representing candidate votes \code{(X)} and voters' demographic group \code{(W)} across a specified number of ballot-boxes. It either (i) receives as input or (ii) generates a probability matrix \code{(prob)}, indicating how likely each demographic group is to vote for each candidate.
 
-By default, the number of voters per ballot box '(ballot_voters)' is set to a vector of 100 with
-length 'num_ballots'. You can optionally override this by providing a custom vector.
+By default, the number of voters per ballot box \code{(ballot_voters)} is set to a vector of 100 with
+length \code{num_ballots}. You can optionally override this by providing a custom vector.
 
 Optional parameters are available to control the distribution of votes:
 \itemize{
@@ -121,6 +121,7 @@ result4 <- simulate_election(
 )
 
 result4$real_prob == custom_prob # TRUE
+# The attribute of the output real_prob matches the input custom_prob.
 }
 \references{
 The algorithm is fully explained in \href{https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834}{'Thraves, C. and Ubilla, P.: \emph{"A Fast Ecological Inference Algorithm for the R×C Case"}}.

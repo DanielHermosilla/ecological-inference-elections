@@ -484,7 +484,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         // ---- Compute the `q`, `p` and `log-likelihood` ---- //
         if (i != 0)
             Free(*qVal);
-        double newLL;
+        // double newLL;
         *qVal = config.computeQ(currentP, config.params, &newLL);
         *logLLarr = newLL;
         newProbability = copyMatrix(currentP);

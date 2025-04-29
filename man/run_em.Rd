@@ -12,7 +12,7 @@ run_em(
   json_path = NULL,
   method = "mult",
   initial_prob = "group_proportional",
-  allow_mismatch = FALSE,
+  allow_mismatch = TRUE,
   maxiter = 1000,
   maxtime = 3600,
   param_threshold = 0.001,
@@ -57,7 +57,7 @@ probability. Accepted values are:
 \item \code{random}: Use randomized values to fill the probability matrix.
 }}
 
-\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box, only works if method is \code{mvn_cdf}, \code{mvn_pdf}, \code{mult} and \code{mcmc}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{FALSE}.}
+\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box, only works if method is \code{mvn_cdf}, \code{mvn_pdf}, \code{mult} and \code{mcmc}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{TRUE}.}
 
 \item{maxiter}{An optional integer indicating the maximum number of EM iterations.
 The default value is \code{1000}.}
@@ -136,6 +136,8 @@ these options. Attempting to provide more than one or none of these inputs will 
 When called with an \code{eim} object, the function updates the object with the computed results.
 If an \code{eim} object is not provided, the function will create one internally using either the
 supplied matrices or the data from the JSON file before executing the algorithm.
+
+Also, if the eim object supplied is created with the function \link{simulate_election}, it also returns the real probability with the name \code{real_prob}. See \link{simulate_election}.
 }
 \examples{
 # Example 1: Compute the Expected-Maximization with default settings

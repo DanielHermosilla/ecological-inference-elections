@@ -12,7 +12,7 @@
 
 <meta name="author" content="Daniel Hermosilla" />
 
-<meta name="date" content="2025-04-26" />
+<meta name="date" content="2025-04-29" />
 
 <title>Demonstration of the package usage</title>
 
@@ -340,7 +340,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">Demonstration of the package usage</h1>
 <h4 class="author">Daniel Hermosilla</h4>
-<h4 class="date">2025-04-26</h4>
+<h4 class="date">2025-04-29</h4>
 
 
 
@@ -369,9 +369,9 @@ region, or electoral district level.</p>
 ##     C1  C2 C3 C4 C5 C6 C7 C8
 ## 37M 36  91 19 48  2  7  2  5
 ## 38M 29 103 17 54  1  6  3  3
+## 39M 32  81 13 73  1  5  5  1
 ## 40M 25  95 21 38  3  4  2  2
 ## 41M 31  86 19 48  0  4  5  2
-## 43M 28  76 16 66  1  2  0  1
 ## .
 ## .
 ## .
@@ -379,9 +379,9 @@ region, or electoral district level.</p>
 ##     X18.19 X20.29 X30.39 X40.49 X50.59 X60.69 X70.79 X80.
 ## 37M      5     27     11     50     23     39     36   19
 ## 38M      5     33     11     48     22     42     36   19
+## 39M      4     19     11     71     29     30     35   11
 ## 40M      6     21      6     49     36     20     29   23
 ## 41M      3     27      6     55     23     29     33   19
-## 43M      4     22      8     58     26     32     28   12
 ## .
 ## .
 ## .</code></pre>
@@ -392,81 +392,114 @@ and the columns are candidates and groups, respectively. This eim object
 is used as input to run the EM algorithm that estimates the voting
 probabilities. In this example, it uses the default method
 <code>mult</code>, which is the most efficient in terms of runtime.
-Running the algorithm is as simple as calling <code>run_em()</code>. The
-most efficient method tends to be “mult”:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>results <span class="ot">&lt;-</span> <span class="fu">run_em</span>(apoquindo)</span>
+Running the algorithm is done by calling <code>run_em()</code>.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>results <span class="ot">&lt;-</span> <span class="fu">run_em</span>(apoquindo, <span class="at">allow_mismatch =</span> <span class="cn">TRUE</span>)</span>
 <span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>results<span class="sc">$</span>prob</span></code></pre></div>
-<pre><code>##               C1       C2        C3       C4          C5         C6         C7          C8
-## X18.19 0.1806515 0.376989 0.0860956 0.322850 0.011663363 0.01752028 0.00398112 0.000248934
-## X20.29 0.2028819 0.345368 0.0434859 0.345362 0.007451561 0.01865991 0.01982330 0.016967085
-## X30.39 0.1614860 0.407416 0.0425603 0.358422 0.002804094 0.00664226 0.01785262 0.002816323
-## X40.49 0.0919461 0.490871 0.0769685 0.327222 0.002723525 0.00314787 0.00209438 0.005026819
-## X50.59 0.1544207 0.408203 0.0980360 0.284291 0.000629671 0.03616074 0.01613318 0.002125242
-## X60.69 0.0977073 0.506266 0.0913807 0.268726 0.002135199 0.02374226 0.00754026 0.002503001
-## X70.79 0.1054746 0.530377 0.0844158 0.231791 0.004141573 0.01871765 0.01645240 0.008630115
-## X80.   0.0725417 0.506508 0.1375007 0.232752 0.009925109 0.02297551 0.00774459 0.010052439</code></pre>
+<pre><code>##               C1       C2        C3       C4         C5         C6         C7          C8
+## X18.19 0.1802139 0.381222 0.0859443 0.319107 0.01045478 0.01869220 0.00402727 0.000337946
+## X20.29 0.2022242 0.342718 0.0492137 0.347218 0.00859855 0.01627647 0.01882333 0.014928080
+## X30.39 0.1620897 0.412978 0.0418010 0.349345 0.00302795 0.00810876 0.01877483 0.003875047
+## X40.49 0.0919471 0.489760 0.0786014 0.327114 0.00211865 0.00412306 0.00289056 0.003446151
+## X50.59 0.1486375 0.414052 0.0939352 0.289347 0.00108884 0.03445299 0.01502335 0.003463570
+## X60.69 0.1006966 0.498932 0.0907125 0.274421 0.00183348 0.02183559 0.00707027 0.004498390
+## X70.79 0.1050869 0.520764 0.0843898 0.235459 0.00599625 0.02185751 0.01716772 0.009278940
+## X80.   0.0759197 0.515196 0.1340978 0.216931 0.00605563 0.03138577 0.01180046 0.008614340</code></pre>
 <p>Note that each row corresponds to the probability that a demographic
 group (<code>g</code>) voted for a candidate (<code>c</code>). It is
-worth noting how the results differ substantially across groups.</p>
+worth noting how the estimated probabilities differ substantially across
+groups.</p>
 </div>
 <div id="standard-deviation-estimates" class="section level1">
 <h1>Standard deviation estimates</h1>
 <p>We can compute the standard deviation of the estimated probabilities
 using bootstrapping. This can be done with the function
 <code>bootstrap()</code>.</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>results <span class="ot">&lt;-</span> <span class="fu">bootstrap</span>(results, <span class="at">seed =</span> <span class="dv">42</span>, <span class="at">nboot =</span> <span class="dv">30</span>)</span>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>results <span class="ot">&lt;-</span> <span class="fu">bootstrap</span>(results, <span class="at">seed =</span> <span class="dv">42</span>, <span class="at">nboot =</span> <span class="dv">30</span>, <span class="at">allow_mismatch =</span> <span class="cn">TRUE</span>)</span>
 <span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>results<span class="sc">$</span>sd</span></code></pre></div>
 <pre><code>##               C1        C2        C3        C4        C5        C6        C7        C8
-## X18.19 0.1001521 0.1306735 0.0495905 0.0768625 0.0411086 0.0377445 0.0433087 0.0348101
-## X20.29 0.0870603 0.1041622 0.0492545 0.0616963 0.0297450 0.0422062 0.0411750 0.0343999
-## X30.39 0.0638314 0.0741414 0.0482003 0.0748830 0.0209337 0.0397243 0.0423865 0.0225451
-## X40.49 0.0582074 0.0761276 0.0530628 0.0677992 0.0236030 0.0302943 0.0333643 0.0271556
-## X50.59 0.0568300 0.0644292 0.0438444 0.0561019 0.0182724 0.0357070 0.0371060 0.0197018
-## X60.69 0.0535008 0.0697318 0.0435381 0.0665059 0.0183714 0.0367374 0.0290873 0.0241956
-## X70.79 0.0745440 0.0895119 0.0498801 0.0729175 0.0201295 0.0369163 0.0351242 0.0264336
-## X80.   0.0753439 0.0995359 0.0682354 0.0833597 0.0256818 0.0339627 0.0386148 0.0263752</code></pre>
-<p>The standard deviations obtained in the district “Apoquindo” are
-generally low. One reason for this is the high number of ballot boxes in
+## X18.19 0.0842983 0.1104061 0.0473710 0.0653673 0.0344226 0.0339010 0.0385901 0.0298427
+## X20.29 0.0638032 0.0834564 0.0448364 0.0600656 0.0272743 0.0376412 0.0325017 0.0283236
+## X30.39 0.0593651 0.0647843 0.0496834 0.0741634 0.0201789 0.0299058 0.0364649 0.0226171
+## X40.49 0.0496704 0.0637814 0.0495729 0.0563505 0.0224752 0.0334156 0.0263871 0.0253727
+## X50.59 0.0473521 0.0601251 0.0392064 0.0576097 0.0170200 0.0333506 0.0318094 0.0202544
+## X60.69 0.0476526 0.0569324 0.0405807 0.0527489 0.0178565 0.0307387 0.0302049 0.0199752
+## X70.79 0.0575189 0.0684034 0.0437416 0.0611392 0.0211882 0.0302405 0.0303888 0.0217142
+## X80.   0.0663738 0.0829299 0.0539449 0.0782614 0.0238078 0.0304614 0.0317490 0.0235278</code></pre>
+<p>The standard deviations obtained in the district “Apoquindo” are low
+in general. One reason for this is the high number of ballot boxes in
 this district. In contrast, standard deviations of estimated
 probabilities in districts with fewer ballot boxes, such as “Navidad”,
 are larger.</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>navidad <span class="ot">&lt;-</span> <span class="fu">get_XW_chile</span>(<span class="at">elect_district =</span> <span class="st">&quot;NAVIDAD&quot;</span>)</span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>navidad <span class="ot">&lt;-</span> <span class="fu">bootstrap</span>(navidad, <span class="at">seed =</span> <span class="dv">42</span>, <span class="at">nboot =</span> <span class="dv">30</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>navidad <span class="ot">&lt;-</span> <span class="fu">bootstrap</span>(navidad, <span class="at">seed =</span> <span class="dv">42</span>, <span class="at">nboot =</span> <span class="dv">30</span>, <span class="at">allow_mismatch =</span> <span class="cn">TRUE</span>)</span>
 <span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>navidad<span class="sc">$</span>sd</span></code></pre></div>
-<pre><code>##              C1       C2       C3       C4        C5       C6       C7        C8
-## X18.19 0.317389 0.277507 0.175825 0.374803 0.3425217 0.186211 0.211330 0.1426712
-## X20.29 0.264300 0.214897 0.230038 0.192158 0.1314243 0.135748 0.209356 0.0698926
-## X30.39 0.182639 0.264553 0.196977 0.178558 0.1080915 0.160399 0.138204 0.0864856
-## X40.49 0.174208 0.195036 0.193368 0.177856 0.0890307 0.130212 0.129881 0.0889410
-## X50.59 0.159453 0.180786 0.209045 0.166245 0.0681781 0.120998 0.112331 0.0971549
-## X60.69 0.156014 0.170964 0.203884 0.154034 0.0742610 0.135243 0.103801 0.0618105
-## X70.79 0.189869 0.168064 0.256183 0.172489 0.0798620 0.169847 0.119811 0.0733380
-## X80.   0.206634 0.195670 0.252361 0.186965 0.0963577 0.152267 0.182457 0.1575850</code></pre>
+<pre><code>##              C1       C2       C3       C4        C5        C6        C7        C8
+## X18.19 0.221445 0.197084 0.178361 0.316767 0.1133461 0.1363737 0.1530546 0.0920340
+## X20.29 0.160627 0.177025 0.180648 0.146600 0.0780093 0.0967868 0.1648977 0.0650915
+## X30.39 0.169369 0.204749 0.179909 0.165457 0.0924042 0.1113282 0.1158746 0.0759069
+## X40.49 0.136526 0.179203 0.186676 0.161614 0.0872194 0.1195483 0.1054725 0.0671645
+## X50.59 0.150186 0.171261 0.187854 0.131232 0.0604818 0.1266073 0.1010022 0.0932496
+## X60.69 0.128079 0.159816 0.167438 0.104372 0.0594549 0.1275434 0.0881908 0.0615353
+## X70.79 0.140322 0.161975 0.172778 0.131363 0.0890872 0.1224683 0.1032846 0.0662606
+## X80.   0.175512 0.179557 0.192946 0.175238 0.0930192 0.1216593 0.1377767 0.1120960</code></pre>
 </div>
 <div id="reduce-estimation-error-using-group-aggregation" class="section level1">
 <h1>Reduce Estimation Error using Group Aggregation</h1>
 <p>Demographic groups can be merged to have probability estimates with
 lower error. A greedy strategy that maximizes the variability of the
 distribution of groups across ballot boxes is used, which ensures
-standard deviations are below 5%. The package provides the following
-function for the latter:</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>navidad_proxy <span class="ot">&lt;-</span> <span class="fu">get_agg_proxy</span>(navidad, <span class="at">seed =</span> <span class="dv">42</span>, <span class="at">sd_threshold =</span> <span class="fl">0.25</span>)</span>
-<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>navidad_proxy<span class="sc">$</span>group_agg</span></code></pre></div>
+standard deviations are below a specific threshold. The package provides
+the following function for the latter:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>navidad_proxy <span class="ot">&lt;-</span> <span class="fu">get_agg_proxy</span>(navidad, <span class="at">seed =</span> <span class="dv">42</span>, <span class="at">sd_threshold =</span> <span class="fl">0.125</span>, <span class="at">sd_statistic =</span> <span class="st">&quot;average&quot;</span>, <span class="at">allow_mismatch =</span> <span class="cn">TRUE</span>, <span class="at">verbose =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
+<pre><code>## 
+## ----------
+## Calculating 8 macro-groups
+## Optimal actions: [1, 2, 3, 4, 5, 6, 7, 8]
+## Objective function:  0.381579
+## Standard deviation of the estimated probability matrix:
+## Matrix (8x8):
+## | 0.215  0.209   0.171   0.298   0.118   0.141   0.167   0.092 |
+## | 0.212  0.177   0.184   0.158   0.084   0.115   0.153   0.062 |
+## | 0.165  0.193   0.175   0.162   0.088   0.119   0.113   0.073 |
+## | 0.149  0.179   0.180   0.164   0.083   0.119   0.101   0.068 |
+## | 0.154  0.163   0.187   0.123   0.068   0.123   0.101   0.095 |
+## | 0.133  0.161   0.165   0.110   0.063   0.125   0.092   0.059 |
+## | 0.133  0.165   0.182   0.138   0.093   0.122   0.101   0.068 |
+## | 0.191  0.186   0.221   0.179   0.111   0.135   0.131   0.105 |
+## Threshold value: 0.1386
+## ----------
+## 
+## ----------
+## Calculating 7 macro-groups
+## Optimal actions: [2, 3, 4, 5, 6, 7, 8]
+## Objective function:  0.374502
+## Standard deviation of the estimated probability matrix:
+## Matrix (7x8):
+## | 0.197  0.151   0.175   0.143   0.083   0.109   0.137   0.071 |
+## | 0.138  0.179   0.170   0.173   0.088   0.130   0.110   0.077 |
+## | 0.139  0.170   0.173   0.153   0.077   0.119   0.106   0.072 |
+## | 0.135  0.154   0.184   0.112   0.065   0.105   0.094   0.091 |
+## | 0.131  0.130   0.148   0.112   0.059   0.109   0.072   0.054 |
+## | 0.120  0.151   0.155   0.123   0.097   0.110   0.089   0.064 |
+## | 0.181  0.170   0.214   0.155   0.120   0.131   0.120   0.095 |
+## Threshold value: 0.1249
+## ----------</code></pre>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>navidad_proxy<span class="sc">$</span>group_agg</span></code></pre></div>
 <pre><code>## [1] 2 3 4 5 6 7 8</code></pre>
 <p>As shown in the output, the heuristic found a feasible configuration
-by merging groups 1 with 2, 5 with 6, and 7 with 8. We can evaluate the
-effectiveness of this grouping by comparing the mean standard deviation
-to the original formulation:</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">mean</span>(navidad<span class="sc">$</span>sd) <span class="sc">-</span> <span class="fu">mean</span>(navidad_proxy<span class="sc">$</span>sd)</span></code></pre></div>
-<pre><code>## [1] 0.0296919</code></pre>
+by merging groups 1 with 2. We can evaluate the effectiveness of this
+grouping by comparing the mean standard deviation to the original
+formulation:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="fu">mean</span>(navidad<span class="sc">$</span>sd) <span class="sc">-</span> <span class="fu">mean</span>(navidad_proxy<span class="sc">$</span>sd)</span></code></pre></div>
+<pre><code>## [1] 0.0115529</code></pre>
 <p>An exhaustive algorithm is also included in the package. It explores
 all combinations of adjacent groups in order to maximize the
-log-likelihood subject to having standard deviations below 2.5%. It
-might require substantial computation time; therefore it is recommended
-to use the most efficient method “mult”.</p>
-<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a>navidad_opt <span class="ot">&lt;-</span> <span class="fu">get_agg_opt</span>(navidad, <span class="at">seed =</span> <span class="dv">42</span>, <span class="at">sd_threshold =</span> <span class="fl">0.25</span>)</span>
-<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>navidad_opt<span class="sc">$</span>group_agg</span></code></pre></div>
-<pre><code>## [1] 2 3 4 5 6 8</code></pre>
+log-likelihood subject to having standard deviations below a given
+threshold. It might require substantial computation time; therefore it
+is recommended to use the default method, “mult”.</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a>navidad_opt <span class="ot">&lt;-</span> <span class="fu">get_agg_opt</span>(navidad, <span class="at">seed =</span> <span class="dv">42</span>, <span class="at">sd_threshold =</span> <span class="fl">0.125</span>, <span class="at">sd_statistic =</span> <span class="st">&quot;average&quot;</span>, <span class="at">allow_mismatch =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>navidad_opt<span class="sc">$</span>group_agg</span></code></pre></div>
+<pre><code>## [1] 1 3 4 5 6 8</code></pre>
 <p>The optimal group aggregation differs slightly from one obtained
 before.</p>
 </div>
@@ -474,54 +507,57 @@ before.</p>
 <h1>Test difference between estimates</h1>
 <p>A relevant question is how significantly different are the
 probability estimates of two sets of data, such as two different
-districts. For instance, we can compare the results of the district
-“APOQUINDO” and “PROVIDENCIA”, which belong to the same ward. A Welch’s
-test can be applied to each component of the two probability matrix
-estimates:</p>
-<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a>providencia <span class="ot">&lt;-</span> <span class="fu">get_XW_chile</span>(<span class="at">elect_district =</span> <span class="st">&quot;PROVIDENCIA&quot;</span>)</span>
-<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a></span>
-<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>comparison <span class="ot">&lt;-</span> <span class="fu">welchtest</span>(</span>
-<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a>    <span class="at">object =</span> providencia,</span>
-<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a>    <span class="at">object2 =</span> apoquindo,</span>
-<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;mult&quot;</span>,</span>
-<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a>    <span class="at">nboot =</span> <span class="dv">30</span>,</span>
-<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a>    <span class="at">seed =</span> <span class="dv">42</span></span>
-<span id="cb15-9"><a href="#cb15-9" tabindex="-1"></a>)</span>
-<span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a></span>
-<span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a><span class="fu">round</span>(comparison<span class="sc">$</span>pvals, <span class="dv">3</span>)</span></code></pre></div>
-<pre><code>##           C1    C2    C3    C4    C5    C6    C7    C8
-## X18.19 0.000 0.963 0.115 0.000 0.353 0.467 0.337 0.951
-## X20.29 0.000 0.000 0.929 0.000 0.726 0.886 0.823 0.532
-## X30.39 0.000 0.000 0.001 0.000 0.233 0.325 0.630 0.943
-## X40.49 0.000 0.000 0.000 0.000 0.712 0.054 0.535 0.970
-## X50.59 0.145 0.001 0.000 0.006 0.008 0.237 0.643 0.066
-## X60.69 0.000 0.000 0.415 0.136 0.799 0.152 0.485 0.640
-## X70.79 0.116 0.084 0.981 0.035 0.679 0.262 0.373 0.339
-## X80.   0.921 0.162 0.002 0.029 0.249 0.262 0.977 0.341</code></pre>
-<p>On the other side, it may be notable to see the difference between to
-electoral districts whom voting tendencies are expected to be
-different.</p>
-<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a>la_granja <span class="ot">&lt;-</span> <span class="fu">get_XW_chile</span>(<span class="at">elect_district =</span> <span class="st">&quot;LA GRANJA&quot;</span>)</span>
-<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a>lo_barnechea <span class="ot">&lt;-</span> <span class="fu">get_XW_chile</span>(<span class="at">elect_district =</span> <span class="st">&quot;LO BARNECHEA&quot;</span>)</span>
-<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a></span>
-<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a>comparison2 <span class="ot">&lt;-</span> <span class="fu">welchtest</span>(</span>
-<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a>    <span class="at">object =</span> la_granja,</span>
-<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a>    <span class="at">object2 =</span> lo_barnechea,</span>
+districts. For instance, we can compare the estimated probabilities of
+the district “APOQUINDO” and “PROVIDENCIA”, which belong to the same
+ward. A Welch’s test can be applied to each component of the two
+probability matrix estimates:</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a>providencia <span class="ot">&lt;-</span> <span class="fu">get_XW_chile</span>(<span class="at">elect_district =</span> <span class="st">&quot;PROVIDENCIA&quot;</span>)</span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a></span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a>comparison <span class="ot">&lt;-</span> <span class="fu">welchtest</span>(</span>
+<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a>    <span class="at">object =</span> providencia,</span>
+<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a>    <span class="at">object2 =</span> apoquindo,</span>
+<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a>    <span class="at">allow_mismatch =</span> <span class="cn">TRUE</span>,</span>
 <span id="cb17-7"><a href="#cb17-7" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;mult&quot;</span>,</span>
 <span id="cb17-8"><a href="#cb17-8" tabindex="-1"></a>    <span class="at">nboot =</span> <span class="dv">30</span>,</span>
 <span id="cb17-9"><a href="#cb17-9" tabindex="-1"></a>    <span class="at">seed =</span> <span class="dv">42</span></span>
 <span id="cb17-10"><a href="#cb17-10" tabindex="-1"></a>)</span>
 <span id="cb17-11"><a href="#cb17-11" tabindex="-1"></a></span>
-<span id="cb17-12"><a href="#cb17-12" tabindex="-1"></a><span class="fu">round</span>(comparison2<span class="sc">$</span>pvals, <span class="dv">3</span>)</span></code></pre></div>
+<span id="cb17-12"><a href="#cb17-12" tabindex="-1"></a><span class="fu">round</span>(comparison<span class="sc">$</span>pvals, <span class="dv">3</span>)</span></code></pre></div>
 <pre><code>##           C1    C2    C3    C4    C5    C6    C7    C8
-## X18.19 0.000 0.000 0.112 0.000 0.263 0.000 0.067 0.667
-## X20.29 0.000 0.000 0.361 0.000 0.008 0.000 0.000 0.921
-## X30.39 0.000 0.000 0.011 0.000 0.054 0.000 0.000 0.492
-## X40.49 0.000 0.000 0.000 0.000 0.023 0.000 0.000 0.199
-## X50.59 0.000 0.000 0.000 0.000 0.234 0.000 0.000 0.279
-## X60.69 0.000 0.000 0.000 0.000 0.227 0.000 0.858 0.305
-## X70.79 0.029 0.000 0.000 0.647 0.928 0.572 0.033 0.366
-## X80.   0.041 0.018 0.001 0.040 0.414 0.022 0.000 0.638</code></pre>
+## X18.19 0.000 0.226 0.293 0.000 0.261 0.988 0.492 0.989
+## X20.29 0.000 0.000 0.561 0.000 0.422 0.646 0.611 0.855
+## X30.39 0.000 0.000 0.001 0.000 0.335 0.303 0.678 0.943
+## X40.49 0.000 0.000 0.000 0.000 0.861 0.077 0.649 0.983
+## X50.59 0.002 0.000 0.000 0.004 0.012 0.102 0.893 0.172
+## X60.69 0.000 0.000 0.858 0.043 0.766 0.066 0.135 0.714
+## X70.79 0.053 0.073 0.086 0.474 0.582 0.161 0.098 0.161
+## X80.   0.340 0.184 0.252 0.323 0.395 0.497 0.958 0.852</code></pre>
+<p>In most cases, voting probabilities are not significantly different.
+On the other hand, it may be noteworthy to observe the difference
+between two electoral districts whose voting tendencies are expected to
+differ.</p>
+<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a>la_granja <span class="ot">&lt;-</span> <span class="fu">get_XW_chile</span>(<span class="at">elect_district =</span> <span class="st">&quot;LA GRANJA&quot;</span>)</span>
+<span id="cb19-2"><a href="#cb19-2" tabindex="-1"></a>lo_barnechea <span class="ot">&lt;-</span> <span class="fu">get_XW_chile</span>(<span class="at">elect_district =</span> <span class="st">&quot;LO BARNECHEA&quot;</span>)</span>
+<span id="cb19-3"><a href="#cb19-3" tabindex="-1"></a></span>
+<span id="cb19-4"><a href="#cb19-4" tabindex="-1"></a>comparison2 <span class="ot">&lt;-</span> <span class="fu">welchtest</span>(</span>
+<span id="cb19-5"><a href="#cb19-5" tabindex="-1"></a>    <span class="at">object =</span> la_granja,</span>
+<span id="cb19-6"><a href="#cb19-6" tabindex="-1"></a>    <span class="at">object2 =</span> lo_barnechea,</span>
+<span id="cb19-7"><a href="#cb19-7" tabindex="-1"></a>    <span class="at">allow_mismatch =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb19-8"><a href="#cb19-8" tabindex="-1"></a>    <span class="at">method =</span> <span class="st">&quot;mult&quot;</span>,</span>
+<span id="cb19-9"><a href="#cb19-9" tabindex="-1"></a>    <span class="at">nboot =</span> <span class="dv">30</span>,</span>
+<span id="cb19-10"><a href="#cb19-10" tabindex="-1"></a>    <span class="at">seed =</span> <span class="dv">42</span></span>
+<span id="cb19-11"><a href="#cb19-11" tabindex="-1"></a>)</span>
+<span id="cb19-12"><a href="#cb19-12" tabindex="-1"></a></span>
+<span id="cb19-13"><a href="#cb19-13" tabindex="-1"></a><span class="fu">round</span>(comparison2<span class="sc">$</span>pvals, <span class="dv">3</span>)</span></code></pre></div>
+<pre><code>##           C1 C2    C3    C4    C5    C6    C7    C8
+## X18.19 0.000  0 0.000 0.000 0.269 0.000 0.282 0.842
+## X20.29 0.000  0 0.385 0.000 0.014 0.000 0.000 0.959
+## X30.39 0.000  0 0.009 0.000 0.016 0.000 0.000 0.409
+## X40.49 0.000  0 0.000 0.000 0.021 0.000 0.000 0.153
+## X50.59 0.000  0 0.000 0.000 0.260 0.000 0.000 0.334
+## X60.69 0.000  0 0.000 0.000 0.157 0.000 0.588 0.608
+## X70.79 0.571  0 0.000 0.562 0.491 0.889 0.013 0.518
+## X80.   0.980  0 0.000 0.396 0.953 0.097 0.032 0.360</code></pre>
 </div>
 <div id="simulating-election-results" class="section level1">
 <h1>Simulating Election Results</h1>
@@ -530,51 +566,51 @@ the accuracy and speed of each method on average.</p>
 <p>We generate random elections with 2 groups, 2 candidates, and 50
 ballots, and repeat each method <strong>10 times</strong> to calculate
 their average performance.</p>
-<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a><span class="co"># Helper to repeat and average</span></span>
-<span id="cb19-2"><a href="#cb19-2" tabindex="-1"></a>benchmark_method <span class="ot">&lt;-</span> <span class="cf">function</span>(method_name, ..., <span class="at">reps =</span> <span class="dv">10</span>) {</span>
-<span id="cb19-3"><a href="#cb19-3" tabindex="-1"></a>    maes <span class="ot">&lt;-</span> <span class="fu">numeric</span>(reps)</span>
-<span id="cb19-4"><a href="#cb19-4" tabindex="-1"></a>    times <span class="ot">&lt;-</span> <span class="fu">numeric</span>(reps)</span>
-<span id="cb19-5"><a href="#cb19-5" tabindex="-1"></a></span>
-<span id="cb19-6"><a href="#cb19-6" tabindex="-1"></a>    <span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_len</span>(reps)) {</span>
-<span id="cb19-7"><a href="#cb19-7" tabindex="-1"></a>        samples <span class="ot">&lt;-</span> <span class="fu">simulate_election</span>(<span class="at">num_groups =</span> <span class="dv">2</span>, <span class="at">num_candidates =</span> <span class="dv">2</span>, <span class="at">num_ballots =</span> <span class="dv">50</span>, <span class="at">seed =</span> i)</span>
-<span id="cb19-8"><a href="#cb19-8" tabindex="-1"></a>        object <span class="ot">&lt;-</span> <span class="fu">eim</span>(samples<span class="sc">$</span>X, samples<span class="sc">$</span>W)</span>
-<span id="cb19-9"><a href="#cb19-9" tabindex="-1"></a></span>
-<span id="cb19-10"><a href="#cb19-10" tabindex="-1"></a>        result <span class="ot">&lt;-</span> <span class="fu">run_em</span>(object, <span class="at">method =</span> method_name, ...)</span>
-<span id="cb19-11"><a href="#cb19-11" tabindex="-1"></a></span>
-<span id="cb19-12"><a href="#cb19-12" tabindex="-1"></a>        maes[i] <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>(result<span class="sc">$</span>prob <span class="sc">-</span> samples<span class="sc">$</span>real_prob))</span>
-<span id="cb19-13"><a href="#cb19-13" tabindex="-1"></a>        times[i] <span class="ot">&lt;-</span> result<span class="sc">$</span>time</span>
-<span id="cb19-14"><a href="#cb19-14" tabindex="-1"></a>    }</span>
-<span id="cb19-15"><a href="#cb19-15" tabindex="-1"></a></span>
-<span id="cb19-16"><a href="#cb19-16" tabindex="-1"></a>    <span class="fu">list</span>(</span>
-<span id="cb19-17"><a href="#cb19-17" tabindex="-1"></a>        <span class="at">avg_mae =</span> <span class="fu">mean</span>(maes),</span>
-<span id="cb19-18"><a href="#cb19-18" tabindex="-1"></a>        <span class="at">avg_time =</span> <span class="fu">mean</span>(times)</span>
-<span id="cb19-19"><a href="#cb19-19" tabindex="-1"></a>    )</span>
-<span id="cb19-20"><a href="#cb19-20" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" tabindex="-1"></a><span class="co"># Helper to repeat and average</span></span>
+<span id="cb21-2"><a href="#cb21-2" tabindex="-1"></a>benchmark_method <span class="ot">&lt;-</span> <span class="cf">function</span>(method_name, ..., <span class="at">reps =</span> <span class="dv">10</span>) {</span>
+<span id="cb21-3"><a href="#cb21-3" tabindex="-1"></a>    maes <span class="ot">&lt;-</span> <span class="fu">numeric</span>(reps)</span>
+<span id="cb21-4"><a href="#cb21-4" tabindex="-1"></a>    times <span class="ot">&lt;-</span> <span class="fu">numeric</span>(reps)</span>
+<span id="cb21-5"><a href="#cb21-5" tabindex="-1"></a></span>
+<span id="cb21-6"><a href="#cb21-6" tabindex="-1"></a>    <span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_len</span>(reps)) {</span>
+<span id="cb21-7"><a href="#cb21-7" tabindex="-1"></a>        samples <span class="ot">&lt;-</span> <span class="fu">simulate_election</span>(<span class="at">num_groups =</span> <span class="dv">2</span>, <span class="at">num_candidates =</span> <span class="dv">2</span>, <span class="at">num_ballots =</span> <span class="dv">50</span>, <span class="at">seed =</span> i)</span>
+<span id="cb21-8"><a href="#cb21-8" tabindex="-1"></a>        object <span class="ot">&lt;-</span> <span class="fu">eim</span>(samples<span class="sc">$</span>X, samples<span class="sc">$</span>W)</span>
+<span id="cb21-9"><a href="#cb21-9" tabindex="-1"></a></span>
+<span id="cb21-10"><a href="#cb21-10" tabindex="-1"></a>        result <span class="ot">&lt;-</span> <span class="fu">run_em</span>(object, <span class="at">method =</span> method_name, ...)</span>
+<span id="cb21-11"><a href="#cb21-11" tabindex="-1"></a></span>
+<span id="cb21-12"><a href="#cb21-12" tabindex="-1"></a>        maes[i] <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>(result<span class="sc">$</span>prob <span class="sc">-</span> samples<span class="sc">$</span>real_prob))</span>
+<span id="cb21-13"><a href="#cb21-13" tabindex="-1"></a>        times[i] <span class="ot">&lt;-</span> result<span class="sc">$</span>time</span>
+<span id="cb21-14"><a href="#cb21-14" tabindex="-1"></a>    }</span>
+<span id="cb21-15"><a href="#cb21-15" tabindex="-1"></a></span>
+<span id="cb21-16"><a href="#cb21-16" tabindex="-1"></a>    <span class="fu">list</span>(</span>
+<span id="cb21-17"><a href="#cb21-17" tabindex="-1"></a>        <span class="at">avg_mae =</span> <span class="fu">mean</span>(maes),</span>
+<span id="cb21-18"><a href="#cb21-18" tabindex="-1"></a>        <span class="at">avg_time =</span> <span class="fu">mean</span>(times)</span>
+<span id="cb21-19"><a href="#cb21-19" tabindex="-1"></a>    )</span>
+<span id="cb21-20"><a href="#cb21-20" tabindex="-1"></a>}</span></code></pre></div>
 <div id="multinomial" class="section level2">
 <h2>Multinomial</h2>
 <p>The multinomial method offers a fast and simple approximation based
 on the observed votes and prior probabilities. It is ideal for quick
 estimates, with low computational cost and good overall accuracy for
 moderately complex elections.</p>
-<div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" tabindex="-1"></a>multinomial_result <span class="ot">&lt;-</span> <span class="fu">benchmark_method</span>(<span class="st">&quot;mult&quot;</span>)</span>
-<span id="cb20-2"><a href="#cb20-2" tabindex="-1"></a>multinomial_result</span></code></pre></div>
+<div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" tabindex="-1"></a>multinomial_result <span class="ot">&lt;-</span> <span class="fu">benchmark_method</span>(<span class="st">&quot;mult&quot;</span>)</span>
+<span id="cb22-2"><a href="#cb22-2" tabindex="-1"></a>multinomial_result</span></code></pre></div>
 <pre><code>## $avg_mae
 ## [1] 0.00867261
 ## 
 ## $avg_time
-## [1] 0.0000749</code></pre>
+## [1] 0.0000702</code></pre>
 </div>
 <div id="multivariate-pdf" class="section level2">
 <h2>Multivariate PDF</h2>
 <p>The multivariate PDF method refines the multinomial approximation by
 accounting for the local shape of the probability distribution.</p>
-<div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" tabindex="-1"></a>multivariate_pdf_result <span class="ot">&lt;-</span> <span class="fu">benchmark_method</span>(<span class="st">&quot;mvn_pdf&quot;</span>)</span>
-<span id="cb22-2"><a href="#cb22-2" tabindex="-1"></a>multivariate_pdf_result</span></code></pre></div>
+<div class="sourceCode" id="cb24"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" tabindex="-1"></a>multivariate_pdf_result <span class="ot">&lt;-</span> <span class="fu">benchmark_method</span>(<span class="st">&quot;mvn_pdf&quot;</span>)</span>
+<span id="cb24-2"><a href="#cb24-2" tabindex="-1"></a>multivariate_pdf_result</span></code></pre></div>
 <pre><code>## $avg_mae
 ## [1] 0.00882399
 ## 
 ## $avg_time
-## [1] 0.0017465</code></pre>
+## [1] 0.001845</code></pre>
 </div>
 <div id="multivariate-cdf" class="section level2">
 <h2>Multivariate CDF</h2>
@@ -583,8 +619,8 @@ the posterior by integrating over small regions of the multivariate
 normal distribution. It provides better control over uncertainty at the
 cost of higher computation, especially if a tight Monte Carlo error is
 required.</p>
-<div class="sourceCode" id="cb24"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" tabindex="-1"></a>multivariate_cdf_result <span class="ot">&lt;-</span> <span class="fu">benchmark_method</span>(<span class="st">&quot;mvn_cdf&quot;</span>)</span>
-<span id="cb24-2"><a href="#cb24-2" tabindex="-1"></a>multivariate_cdf_result</span></code></pre></div>
+<div class="sourceCode" id="cb26"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" tabindex="-1"></a>multivariate_cdf_result <span class="ot">&lt;-</span> <span class="fu">benchmark_method</span>(<span class="st">&quot;mvn_cdf&quot;</span>)</span>
+<span id="cb26-2"><a href="#cb26-2" tabindex="-1"></a>multivariate_cdf_result</span></code></pre></div>
 <pre><code>## $avg_mae
 ## [1] 0.00882562
 ## 
@@ -598,13 +634,13 @@ sampling, providing very flexible and accurate results. It typically
 incurs an initial computational cost to generate valid samples, but
 after reaching a sufficient number of samples, each additional iteration
 becomes relatively fast and efficient.</p>
-<div class="sourceCode" id="cb26"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" tabindex="-1"></a>mcmc_result <span class="ot">&lt;-</span> <span class="fu">benchmark_method</span>(<span class="st">&quot;mcmc&quot;</span>, <span class="at">samples =</span> <span class="dv">1000</span>, <span class="at">step_size =</span> <span class="dv">2000</span>)</span>
-<span id="cb26-2"><a href="#cb26-2" tabindex="-1"></a>mcmc_result</span></code></pre></div>
+<div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" tabindex="-1"></a>mcmc_result <span class="ot">&lt;-</span> <span class="fu">benchmark_method</span>(<span class="st">&quot;mcmc&quot;</span>, <span class="at">samples =</span> <span class="dv">1000</span>, <span class="at">step_size =</span> <span class="dv">2000</span>)</span>
+<span id="cb28-2"><a href="#cb28-2" tabindex="-1"></a>mcmc_result</span></code></pre></div>
 <pre><code>## $avg_mae
 ## [1] 0.00822228
 ## 
 ## $avg_time
-## [1] 1.20965</code></pre>
+## [1] 1.21786</code></pre>
 </div>
 <div id="exact" class="section level2">
 <h2>Exact</h2>
@@ -612,13 +648,13 @@ becomes relatively fast and efficient.</p>
 exhaustively. It guarantees the highest theoretical accuracy but becomes
 quickly infeasible for elections with many candidates, groups, or
 ballots due to its exponential computational complexity.</p>
-<div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" tabindex="-1"></a>exact_result <span class="ot">&lt;-</span> <span class="fu">benchmark_method</span>(<span class="st">&quot;exact&quot;</span>)</span>
-<span id="cb28-2"><a href="#cb28-2" tabindex="-1"></a>exact_result</span></code></pre></div>
+<div class="sourceCode" id="cb30"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" tabindex="-1"></a>exact_result <span class="ot">&lt;-</span> <span class="fu">benchmark_method</span>(<span class="st">&quot;exact&quot;</span>)</span>
+<span id="cb30-2"><a href="#cb30-2" tabindex="-1"></a>exact_result</span></code></pre></div>
 <pre><code>## $avg_mae
 ## [1] 0.00832906
 ## 
 ## $avg_time
-## [1] 0.0334905</code></pre>
+## [1] 0.0316099</code></pre>
 </div>
 </div>
 

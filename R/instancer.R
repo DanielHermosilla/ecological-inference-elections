@@ -3,8 +3,8 @@
 #' @description
 #' This function simulates an election by creating matrices representing candidate votes `(X)` and voters' demographic group `(W)` across a specified number of ballot-boxes. It either (i) receives as input or (ii) generates a probability matrix `(prob)`, indicating how likely each demographic group is to vote for each candidate.
 #'
-#' By default, the number of voters per ballot box '(ballot_voters)' is set to a vector of 100 with
-#' length 'num_ballots'. You can optionally override this by providing a custom vector.
+#' By default, the number of voters per ballot box `(ballot_voters)` is set to a vector of 100 with
+#' length `num_ballots`. You can optionally override this by providing a custom vector.
 #'
 #' Optional parameters are available to control the distribution of votes:
 #' \itemize{
@@ -110,6 +110,7 @@
 #' )
 #'
 #' result4$real_prob == custom_prob # TRUE
+#' # The attribute of the output real_prob matches the input custom_prob.
 #' @export
 simulate_election <- function(num_ballots,
                               num_candidates,

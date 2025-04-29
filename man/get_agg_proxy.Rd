@@ -10,11 +10,11 @@ get_agg_proxy(
   W = NULL,
   json_path = NULL,
   sd_statistic = "maximum",
-  sd_threshold = 0.15,
+  sd_threshold = 0.05,
   method = "mult",
   feasible = TRUE,
   nboot = 50,
-  allow_mismatch = FALSE,
+  allow_mismatch = TRUE,
   seed = NULL,
   ...
 )
@@ -43,12 +43,12 @@ options are:
 }}
 
 \item{feasible}{Logical indicating whether the returned matrix must strictly satisfy the \code{sd_threshold}.
-If \code{TRUE}, no output is returned if the method does not find a group aggregation whose standard deviation statistic is below the threshold. If \code{FALSE} and the latter holds, it returns the group aggregation obtained from the DP withe the lowest standard deviation statistic. See \strong{Details} for more information.}
+If \code{TRUE}, no output is returned if the method does not find a group aggregation whose standard deviation statistic is below the threshold. If \code{FALSE} and the latter holds, it returns the group aggregation obtained from the DP with the the lowest standard deviation statistic. See \strong{Details} for more information. Default is \code{TRUE}.}
 
 \item{nboot}{Integer specifying how many times to run the
 EM algorithm.}
 
-\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box, only works if method is \code{mvn_cdf}, \code{mvn_pdf}, \code{mult} and \code{mcmc}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{FALSE}.}
+\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box, only works if method is \code{mvn_cdf}, \code{mvn_pdf}, \code{mult} and \code{mcmc}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{TRUE}.}
 
 \item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = random} or method is either \code{mcmc} or \code{mvn_cdf}. Aditionally, it sets the random draws of the ballot boxes.}
 
@@ -90,7 +90,7 @@ simulations <- simulate_election(
 result <- get_agg_proxy(
     X = simulations$X,
     W = simulations$W,
-    sd_threshold = 0.125,
+    sd_threshold = 0.015,
     seed = 42
 )
 
@@ -118,7 +118,7 @@ W <- as.matrix(niebla_df[, c(
 
 solution <- get_agg_proxy(
     X = X, W = W,
-    allow_mismatch = TRUE, sd_threshold = 0.175,
+    allow_mismatch = TRUE, sd_threshold = 0.03,
     sd_statistic = "average", nboot = 100, seed = 42
 )
 
