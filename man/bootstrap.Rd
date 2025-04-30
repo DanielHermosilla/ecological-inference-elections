@@ -28,9 +28,9 @@ bootstrap(
 \item{nboot}{Integer specifying how many times to run the
 EM algorithm.}
 
-\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box, only works if method is \code{mvn_cdf}, \code{mvn_pdf}, \code{mult} and \code{mcmc}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{TRUE}.}
+\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box, only works if \code{method} is \code{"mvn_cdf"}, \code{"mvn_pdf"}, \code{"mult"} and \code{"mcmc"}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{TRUE}.}
 
-\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = random} or method is either \code{mcmc} or \code{mvn_cdf}. Aditionally, it sets the random draws of the ballot boxes.}
+\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = "random"} or \code{method} is either \code{mcmc} or \code{mvn_cdf}. Aditionally, it sets the random draws of the ballot boxes.}
 
 \item{...}{Additional arguments passed to the \link{run_em} function that will execute the EM algorithm.}
 }
@@ -54,8 +54,6 @@ these options. Attempting to provide more than one or none of these inputs will 
 When called with an \code{eim} object, the function updates the object with the computed results.
 If an \code{eim} object is not provided, the function will create one internally using either the
 supplied matrices or the data from the JSON file before executing the algorithm.
-
-Also, if the eim object supplied is created with the function \link{simulate_election}, it also returns the real probability with the name \code{real_prob}. See \link{simulate_election}.
 }
 \examples{
 # Example 1: Using an 'eim' object directly

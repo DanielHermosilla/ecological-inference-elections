@@ -120,9 +120,9 @@
         if (!is.logical(args$mismatch)) {
             stop("run_em: Invalid 'mismatch'. Must be a boolean value.")
         }
-        if ("method" %in% names(args) && "method" %in% c("mcmc", "exact")) {
-            stop("run_em: Mismatched results are not supported when using 'mcmc' or 'exact'.")
-        }
+        # if ("method" %in% names(args) && "method" %in% c("exact")) {
+        #    stop("run_em: Mismatched results are not supported when using 'exact'.")
+        # }
     }
 
     # Include nboot aswell if bootstrapping is provided
@@ -140,6 +140,10 @@
     if ("sd_threshold" %in% names(args) &&
         (!is.numeric(args$sd_threshold) || args$sd_threshold <= 0)) {
         stop("Invalid 'sd_threshold'. Must be a positive number.")
+    }
+
+    if ("alternative" %in% names(args) && !args$alternative %in% c("two.sided", "greater", "less")) {
+        stop("Invalid 'alternative'. Must be one of: two.sided, greater, less")
     }
 }
 

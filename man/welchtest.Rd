@@ -13,6 +13,7 @@ welchtest(
   W2 = NULL,
   nboot = 50,
   seed = NULL,
+  alternative = "two.sided",
   ...
 )
 }
@@ -31,7 +32,9 @@ welchtest(
 
 \item{nboot}{Integer specifying how many times to run the EM algorithm per object.}
 
-\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = random} or method is either \code{mcmc} or \code{mvn_cdf}. Aditionally, it sets the random draws of the ballot boxes.}
+\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = "random"} or \code{method} is either \code{mcmc} or \code{mvn_cdf}. Aditionally, it sets the random draws of the ballot boxes.}
+
+\item{alternative}{Character string specifying the type of alternative hypothesis to test. Must be one of \code{"two.sided"} (default), \code{"greater"}, or \code{"less"}. If \code{"two.sided"}, the test checks for any difference in estimated probabilities. If \code{"greater"}, it tests whether the first object has systematically higher probabilities than the second. If \code{"less"}, it tests whether the first has systematically lower probabilities.}
 
 \item{...}{Additional arguments passed to \link{bootstrap} and \link{run_em}.}
 }

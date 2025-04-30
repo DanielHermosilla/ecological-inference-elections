@@ -151,12 +151,6 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
     # Perform matricial validation
     .validate_eim(X, W) # nolint
 
-    # Convert matrices for C API. TODO: Remove this, or use R_PreserveObject on C.
-    param_X <- matrix(as.numeric(X), nrow(X), ncol(X))
-    param_X <- t(param_X)
-    param_W <- matrix(as.numeric(W), nrow(W), ncol(W))
-    # RsetParameters(param_X, param_W)
-
     # Create the S3 object
     obj <- list(
         X = X,
@@ -198,7 +192,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' - `group_proportional`: Computes the probability matrix by taking into account both group and candidate proportions. This is the default method.
 #' - `random`: Use randomized values to fill the probability matrix.
 #'
-#' @param allow_mismatch Boolean, if `TRUE`, allows a mismatch between the voters and votes for each ballot-box, only works if method is `mvn_cdf`, `mvn_pdf`, `mult` and `mcmc`. If `FALSE`, throws an error if there is a mismatch. By default it is `TRUE`.
+#' @param allow_mismatch Boolean, if `TRUE`, allows a mismatch between the voters and votes for each ballot-box, only works if `method` is `"mvn_cdf"`, `"mvn_pdf"`, `"mult"` and `"mcmc"`. If `FALSE`, throws an error if there is a mismatch. By default it is `TRUE`.
 #'
 #' @param maxiter An optional integer indicating the maximum number of EM iterations.
 #'   The default value is `1000`.
@@ -215,26 +209,26 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' @param verbose An optional boolean indicating whether to print informational messages during the EM
 #'   iterations. The default value is `FALSE`.
 #'
-#' @param seed An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if `initial_prob = random` or `method` is either `mcmc` or `mvn_cdf`...
+#' @param seed An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if `initial_prob = "random"` or `method` is either `mcmc` or `mvn_cdf`...
 #'
 #' @param step_size An optional integer specifying the step size for the `mcmc`
-#'   algorithm. This parameter is only applicable when `method = mcmc` and will
+#'   algorithm. This parameter is only applicable when `method = "mcmc"` and will
 #'   be ignored otherwise. The default value is `3000`.
 #'
 #' @param samples An optional integer indicating the number of samples to generate for the
-#'   **MCMC** method. This parameter is only relevant when `method = mcmc`.
+#'   **MCMC** method. This parameter is only relevant when `method = "mcmc"`.
 #'   The default value is `1000`.
 #'
 #' @param mc_method An optional string specifying the method used to estimate the `mvn_cdf` method
 #'   via a Monte Carlo simulation. Accepted values are `genz` and `genz2`, with `genz2`
-#'   set as the default. This parameter is only applicable when `method = mvn_cdf`. See **References** for more details.
+#'   set as the default. This parameter is only applicable when `method = "mvn_cdf"`. See **References** for more details.
 #'
 #' @param mc_error An optional numeric value defining the error threshold for the Monte Carlo
 #'   simulation when estimating the `mvn_cdf` method. The default value is `1e-6`. This parameter is only relevant
-#' when `method = mvn_cdf`.
+#' when `method = "mvn_cdf"`.
 #'
 #' @param mc_samples An optional integer specifying the number of Monte Carlo
-#'   samples for the `mvn_cdf` method. The default value is `5000`. This argument is only applicable when `method = mvn_cdf`.
+#'   samples for the `mvn_cdf` method. The default value is `5000`. This argument is only applicable when `method = "mvn_cdf"`.
 #'
 #' @param ... Added for compability
 #'
@@ -254,8 +248,6 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' When called with an `eim` object, the function updates the object with the computed results.
 #' If an `eim` object is not provided, the function will create one internally using either the
 #' supplied matrices or the data from the JSON file before executing the algorithm.
-#'
-#' Also, if the eim object supplied is created with the function [simulate_election], it also returns the real probability with the name `real_prob`. See [simulate_election].
 #'
 #' @seealso The [eim] object implementation.
 #'
@@ -278,7 +270,9 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'   \item{message}{The finishing status displayed as a message, matching the status ID value.}
 #'   \item{method}{The method for estimating the conditional probability in the E-step.}
 #' }
-#' Aditionally, it will create `samples` and `step_size` parameters if the specified method is `mcmc`, or `mc_method`, `mc_error` and `mc_samples` if the method is `mvn_cdf`.
+#' Aditionally, it will create `samples` and `step_size` parameters if the specified `method = mcmc`, or `mc_method`, `mc_error` and `mc_samples` if `method = mvn_cdf`.
+#'
+#' Also, if the eim object supplied is created with the function [simulate_election], it also returns the real probability with the name `real_prob`. See [simulate_election].
 #'
 #' @examples
 #' # Example 1: Compute the Expected-Maximization with default settings
@@ -351,18 +345,15 @@ run_em <- function(object = NULL,
     }
 
     # Note: Mismatch restricted methods are checked inside .validate_compute
-    if (!allow_mismatch) {
-        mismatch_rows <- which(rowSums(object$X) != rowSums(object$W))
-
-        if (length(mismatch_rows) > 0) {
-            stop(
-                "run_em: Row-wise mismatch in vote totals detected.\n",
-                "Rows with mismatches: ", paste(mismatch_rows, collapse = ", "), "\n",
-                "To allow mismatches, set `allow_mismatch = TRUE`."
-            )
-        }
-    } else {
-        if (method == "exact") stop("run_em: Exact method isn't supported with mismatch")
+    mismatch_rows <- which(rowSums(object$X) != rowSums(object$W))
+    if (!allow_mismatch && length(mismatch_rows) > 0) {
+        stop(
+            "run_em: Row-wise mismatch in vote totals detected.\n",
+            "Rows with mismatches: ", paste(mismatch_rows, collapse = ", "), "\n",
+            "To allow mismatches, set `allow_mismatch = TRUE`."
+        )
+    } else if (method == "exact" && length(mismatch_rows) > 0) {
+        stop("run_em: Exact method isn't supported with mismatch")
     }
 
     object$method <- method
@@ -436,7 +427,7 @@ run_em <- function(object = NULL,
 #'
 #' @inheritParams simulate_election
 #'
-#' @param seed An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if `initial_prob = random` or method is either `mcmc` or `mvn_cdf`. Aditionally, it sets the random draws of the ballot boxes.
+#' @param seed An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if `initial_prob = "random"` or `method` is either `mcmc` or `mvn_cdf`. Aditionally, it sets the random draws of the ballot boxes.
 #'
 #' @param ... Additional arguments passed to the [run_em] function that will execute the EM algorithm.
 #'
@@ -1058,6 +1049,7 @@ get_agg_opt <- function(object = NULL,
 #' @param X2 A second `(b x c)` matrix to compare with `X`.
 #' @param W2 A second `(b x g)` matrix to compare with `W`.
 #' @param nboot Integer specifying how many times to run the EM algorithm per object.
+#' @param alternative Character string specifying the type of alternative hypothesis to test. Must be one of `"two.sided"` (default), `"greater"`, or `"less"`. If `"two.sided"`, the test checks for any difference in estimated probabilities. If `"greater"`, it tests whether the first object has systematically higher probabilities than the second. If `"less"`, it tests whether the first has systematically lower probabilities.
 #' @param ... Additional arguments passed to [bootstrap] and [run_em].
 #'
 #' @return A list with components:
@@ -1100,6 +1092,7 @@ welchtest <- function(object = NULL,
                       W2 = NULL,
                       nboot = 50,
                       seed = NULL,
+                      alternative = "two.sided",
                       ...) {
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint # It would validate nboot too.
@@ -1170,8 +1163,12 @@ welchtest <- function(object = NULL,
     df_den <- ((var1 / nboot)^2) / (nboot - 1) + ((var2 / nboot)^2) / (nboot - 1)
     df <- df_num / df_den
 
-    pvals <- 2 * pt(-abs(t_stat), df)
 
+    pvals <- switch(alternative,
+        "two.sided" = 2 * pt(-abs(t_stat), df),
+        "greater"   = pt(-t_stat, df),
+        "less"      = pt(t_stat, df)
+    )
     em1$sd <- boot1$sd
     em2$sd <- boot2$sd
 

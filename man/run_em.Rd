@@ -57,7 +57,7 @@ probability. Accepted values are:
 \item \code{random}: Use randomized values to fill the probability matrix.
 }}
 
-\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box, only works if method is \code{mvn_cdf}, \code{mvn_pdf}, \code{mult} and \code{mcmc}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{TRUE}.}
+\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box, only works if \code{method} is \code{"mvn_cdf"}, \code{"mvn_pdf"}, \code{"mult"} and \code{"mcmc"}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{TRUE}.}
 
 \item{maxiter}{An optional integer indicating the maximum number of EM iterations.
 The default value is \code{1000}.}
@@ -71,29 +71,29 @@ consecutive probability values required to stop iterating. The default value is 
 \item{ll_threshold}{An optional numeric value indicating the minimum difference between consecutive log-likelihood values to stop iterating. The default value is \code{inf}, essentially deactivating
 the threshold. Note that the algorithm will stop if either \code{ll_threshold} \strong{or} \code{param_threshold} is accomplished.}
 
-\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = random} or \code{method} is either \code{mcmc} or \code{mvn_cdf}...}
+\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = "random"} or \code{method} is either \code{mcmc} or \code{mvn_cdf}...}
 
 \item{verbose}{An optional boolean indicating whether to print informational messages during the EM
 iterations. The default value is \code{FALSE}.}
 
 \item{samples}{An optional integer indicating the number of samples to generate for the
-\strong{MCMC} method. This parameter is only relevant when \code{method = mcmc}.
+\strong{MCMC} method. This parameter is only relevant when \code{method = "mcmc"}.
 The default value is \code{1000}.}
 
 \item{step_size}{An optional integer specifying the step size for the \code{mcmc}
-algorithm. This parameter is only applicable when \code{method = mcmc} and will
+algorithm. This parameter is only applicable when \code{method = "mcmc"} and will
 be ignored otherwise. The default value is \code{3000}.}
 
 \item{mc_method}{An optional string specifying the method used to estimate the \code{mvn_cdf} method
 via a Monte Carlo simulation. Accepted values are \code{genz} and \code{genz2}, with \code{genz2}
-set as the default. This parameter is only applicable when \code{method = mvn_cdf}. See \strong{References} for more details.}
+set as the default. This parameter is only applicable when \code{method = "mvn_cdf"}. See \strong{References} for more details.}
 
 \item{mc_error}{An optional numeric value defining the error threshold for the Monte Carlo
 simulation when estimating the \code{mvn_cdf} method. The default value is \code{1e-6}. This parameter is only relevant
-when \code{method = mvn_cdf}.}
+when \code{method = "mvn_cdf"}.}
 
 \item{mc_samples}{An optional integer specifying the number of Monte Carlo
-samples for the \code{mvn_cdf} method. The default value is \code{5000}. This argument is only applicable when \code{method = mvn_cdf}.}
+samples for the \code{mvn_cdf} method. The default value is \code{5000}. This argument is only applicable when \code{method = "mvn_cdf"}.}
 
 \item{...}{Added for compability}
 }
@@ -116,7 +116,9 @@ The final status ID of the algorithm upon completion:
 \item{message}{The finishing status displayed as a message, matching the status ID value.}
 \item{method}{The method for estimating the conditional probability in the E-step.}
 }
-Aditionally, it will create \code{samples} and \code{step_size} parameters if the specified method is \code{mcmc}, or \code{mc_method}, \code{mc_error} and \code{mc_samples} if the method is \code{mvn_cdf}.
+Aditionally, it will create \code{samples} and \code{step_size} parameters if the specified \code{method = mcmc}, or \code{mc_method}, \code{mc_error} and \code{mc_samples} if \code{method = mvn_cdf}.
+
+Also, if the eim object supplied is created with the function \link{simulate_election}, it also returns the real probability with the name \code{real_prob}. See \link{simulate_election}.
 }
 \description{
 Executes the Expectation-Maximization (EM) algorithm indicating the approximation method to use in the E-step.
@@ -136,8 +138,6 @@ these options. Attempting to provide more than one or none of these inputs will 
 When called with an \code{eim} object, the function updates the object with the computed results.
 If an \code{eim} object is not provided, the function will create one internally using either the
 supplied matrices or the data from the JSON file before executing the algorithm.
-
-Also, if the eim object supplied is created with the function \link{simulate_election}, it also returns the real probability with the name \code{real_prob}. See \link{simulate_election}.
 }
 \examples{
 # Example 1: Compute the Expected-Maximization with default settings
