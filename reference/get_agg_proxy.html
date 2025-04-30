@@ -60,7 +60,7 @@
 <span>  method <span class="op">=</span> <span class="st">"mult"</span>,</span>
 <span>  feasible <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  nboot <span class="op">=</span> <span class="fl">50</span>,</span>
-<span>  allow_mismatch <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  allow_mismatch <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -106,7 +106,7 @@ options are:</p><ul><li><p><code>mult</code>: The default method, using a single
 
 <dt id="arg-feasible">feasible<a class="anchor" aria-label="anchor" href="#arg-feasible"></a></dt>
 <dd><p>Logical indicating whether the returned matrix must strictly satisfy the <code>sd_threshold</code>.
-If <code>TRUE</code>, no output is returned if the method does not find a group aggregation whose standard deviation statistic is below the threshold. If <code>FALSE</code> and the latter holds, it returns the group aggregation obtained from the DP withe the lowest standard deviation statistic. See <strong>Details</strong> for more information.</p></dd>
+If <code>TRUE</code>, no output is returned if the method does not find a group aggregation whose standard deviation statistic is below the threshold. If <code>FALSE</code> and the latter holds, it returns the group aggregation obtained from the DP with the the lowest standard deviation statistic. See <strong>Details</strong> for more information. Default is <code>TRUE</code>.</p></dd>
 
 
 <dt id="arg-nboot">nboot<a class="anchor" aria-label="anchor" href="#arg-nboot"></a></dt>
@@ -115,11 +115,11 @@ EM algorithm.</p></dd>
 
 
 <dt id="arg-allow-mismatch">allow_mismatch<a class="anchor" aria-label="anchor" href="#arg-allow-mismatch"></a></dt>
-<dd><p>Boolean, if <code>TRUE</code>, allows a mismatch between the voters and votes for each ballot-box, only works if method is <code>mvn_cdf</code>, <code>mvn_pdf</code>, <code>mult</code> and <code>mcmc</code>. If <code>FALSE</code>, throws an error if there is a mismatch. By default it is <code>FALSE</code>.</p></dd>
+<dd><p>Boolean, if <code>TRUE</code>, allows a mismatch between the voters and votes for each ballot-box, only works if <code>method</code> is <code>"mvn_cdf"</code>, <code>"mvn_pdf"</code>, <code>"mult"</code> and <code>"mcmc"</code>. If <code>FALSE</code>, throws an error if there is a mismatch. By default it is <code>TRUE</code>.</p></dd>
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
-<dd><p>An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if <code>initial_prob = random</code> or method is either <code>mcmc</code> or <code>mvn_cdf</code>. Aditionally, it sets the random draws of the ballot boxes.</p></dd>
+<dd><p>An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if <code>initial_prob = "random"</code> or <code>method</code> is either <code>mcmc</code> or <code>mvn_cdf</code>. Aditionally, it sets the random draws of the ballot boxes.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

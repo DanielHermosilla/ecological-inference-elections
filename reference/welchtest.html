@@ -65,6 +65,7 @@ of p-values corresponding to each group-candidate combination.</p>
 <span>  W2 <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  nboot <span class="op">=</span> <span class="fl">50</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  alternative <span class="op">=</span> <span class="st">"two.sided"</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -102,7 +103,11 @@ of p-values corresponding to each group-candidate combination.</p>
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
-<dd><p>An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if <code>initial_prob = random</code> or method is either <code>mcmc</code> or <code>mvn_cdf</code>. Aditionally, it sets the random draws of the ballot boxes.</p></dd>
+<dd><p>An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if <code>initial_prob = "random"</code> or <code>method</code> is either <code>mcmc</code> or <code>mvn_cdf</code>. Aditionally, it sets the random draws of the ballot boxes.</p></dd>
+
+
+<dt id="arg-alternative">alternative<a class="anchor" aria-label="anchor" href="#arg-alternative"></a></dt>
+<dd><p>Character string specifying the type of alternative hypothesis to test. Must be one of <code>"two.sided"</code> (default), <code>"greater"</code>, or <code>"less"</code>. If <code>"two.sided"</code>, the test checks for any difference in estimated probabilities. If <code>"greater"</code>, it tests whether the first object has systematically higher probabilities than the second. If <code>"less"</code>, it tests whether the first has systematically lower probabilities.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

@@ -56,7 +56,7 @@
 <span>  W <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  json_path <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  nboot <span class="op">=</span> <span class="fl">50</span>,</span>
-<span>  allow_mismatch <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  allow_mismatch <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -88,11 +88,11 @@ EM algorithm.</p></dd>
 
 
 <dt id="arg-allow-mismatch">allow_mismatch<a class="anchor" aria-label="anchor" href="#arg-allow-mismatch"></a></dt>
-<dd><p>Boolean, if <code>TRUE</code>, allows a mismatch between the voters and votes for each ballot-box, only works if method is <code>mvn_cdf</code>, <code>mvn_pdf</code>, <code>mult</code> and <code>mcmc</code>. If <code>FALSE</code>, throws an error if there is a mismatch. By default it is <code>FALSE</code>.</p></dd>
+<dd><p>Boolean, if <code>TRUE</code>, allows a mismatch between the voters and votes for each ballot-box, only works if <code>method</code> is <code>"mvn_cdf"</code>, <code>"mvn_pdf"</code>, <code>"mult"</code> and <code>"mcmc"</code>. If <code>FALSE</code>, throws an error if there is a mismatch. By default it is <code>TRUE</code>.</p></dd>
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
-<dd><p>An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if <code>initial_prob = random</code> or method is either <code>mcmc</code> or <code>mvn_cdf</code>. Aditionally, it sets the random draws of the ballot boxes.</p></dd>
+<dd><p>An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if <code>initial_prob = "random"</code> or <code>method</code> is either <code>mcmc</code> or <code>mvn_cdf</code>. Aditionally, it sets the random draws of the ballot boxes.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

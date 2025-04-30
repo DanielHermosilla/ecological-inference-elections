@@ -67,7 +67,7 @@
                         <h4 data-toc-skip class="author">Daniel
 Hermosilla</h4>
             
-            <h4 data-toc-skip class="date">2025-04-26</h4>
+            <h4 data-toc-skip class="date">2025-04-30</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/DanielHermosilla/ecological-inference-elections/blob/HEAD/vignettes/demonstration.Rmd" class="external-link"><code>vignettes/demonstration.Rmd</code></a></small>
       <div class="d-none name"><code>demonstration.Rmd</code></div>
@@ -102,9 +102,9 @@ region, or electoral district level.</p>
 <span><span class="co">##     C1  C2 C3 C4 C5 C6 C7 C8</span></span>
 <span><span class="co">## 37M 36  91 19 48  2  7  2  5</span></span>
 <span><span class="co">## 38M 29 103 17 54  1  6  3  3</span></span>
+<span><span class="co">## 39M 32  81 13 73  1  5  5  1</span></span>
 <span><span class="co">## 40M 25  95 21 38  3  4  2  2</span></span>
 <span><span class="co">## 41M 31  86 19 48  0  4  5  2</span></span>
-<span><span class="co">## 43M 28  76 16 66  1  2  0  1</span></span>
 <span><span class="co">## .</span></span>
 <span><span class="co">## .</span></span>
 <span><span class="co">## .</span></span>
@@ -112,9 +112,9 @@ region, or electoral district level.</p>
 <span><span class="co">##     X18.19 X20.29 X30.39 X40.49 X50.59 X60.69 X70.79 X80.</span></span>
 <span><span class="co">## 37M      5     27     11     50     23     39     36   19</span></span>
 <span><span class="co">## 38M      5     33     11     48     22     42     36   19</span></span>
+<span><span class="co">## 39M      4     19     11     71     29     30     35   11</span></span>
 <span><span class="co">## 40M      6     21      6     49     36     20     29   23</span></span>
 <span><span class="co">## 41M      3     27      6     55     23     29     33   19</span></span>
-<span><span class="co">## 43M      4     22      8     58     26     32     28   12</span></span>
 <span><span class="co">## .</span></span>
 <span><span class="co">## .</span></span>
 <span><span class="co">## .</span></span></code></pre>
@@ -125,32 +125,32 @@ and the columns are candidates and groups, respectively. This eim object
 is used as input to run the EM algorithm that estimates the voting
 probabilities. In this example, it uses the default method
 <code>mult</code>, which is the most efficient in terms of runtime.
-Running the algorithm is as simple as calling <code><a href="../reference/run_em.html">run_em()</a></code>. The
-most efficient method tends to be “mult”:</p>
+Running the algorithm is done by calling <code><a href="../reference/run_em.html">run_em()</a></code>.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">apoquindo</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">apoquindo</span>, allow_mismatch <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="va">results</span><span class="op">$</span><span class="va">prob</span></span></code></pre></div>
-<pre><code><span><span class="co">##                C1        C2         C3        C4           C5          C6</span></span>
-<span><span class="co">## X18.19 0.18065151 0.3769887 0.08609561 0.3228505 0.0116633635 0.017520279</span></span>
-<span><span class="co">## X20.29 0.20288189 0.3453684 0.04348590 0.3453619 0.0074515610 0.018659913</span></span>
-<span><span class="co">## X30.39 0.16148597 0.4074162 0.04256031 0.3584222 0.0028040941 0.006642256</span></span>
-<span><span class="co">## X40.49 0.09194612 0.4908708 0.07696848 0.3272220 0.0027235255 0.003147865</span></span>
-<span><span class="co">## X50.59 0.15442068 0.4082031 0.09803601 0.2842914 0.0006296714 0.036160740</span></span>
-<span><span class="co">## X60.69 0.09770731 0.5062656 0.09138068 0.2687257 0.0021351990 0.023742264</span></span>
-<span><span class="co">## X70.79 0.10547464 0.5303769 0.08441581 0.2317909 0.0041415730 0.018717650</span></span>
-<span><span class="co">## X80.   0.07254167 0.5065080 0.13750067 0.2327520 0.0099251090 0.022975509</span></span>
+<pre><code><span><span class="co">##                C1        C2         C3        C4          C5          C6</span></span>
+<span><span class="co">## X18.19 0.18021390 0.3812221 0.08594430 0.3191075 0.010454776 0.018692204</span></span>
+<span><span class="co">## X20.29 0.20222421 0.3427176 0.04921371 0.3472181 0.008598547 0.016276474</span></span>
+<span><span class="co">## X30.39 0.16208968 0.4129782 0.04180096 0.3493445 0.003027951 0.008108756</span></span>
+<span><span class="co">## X40.49 0.09194714 0.4897596 0.07860136 0.3271135 0.002118651 0.004123056</span></span>
+<span><span class="co">## X50.59 0.14863755 0.4140519 0.09393523 0.2893466 0.001088838 0.034452989</span></span>
+<span><span class="co">## X60.69 0.10069659 0.4989324 0.09071251 0.2744208 0.001833485 0.021835588</span></span>
+<span><span class="co">## X70.79 0.10508691 0.5207636 0.08438978 0.2354592 0.005996253 0.021857511</span></span>
+<span><span class="co">## X80.   0.07591972 0.5151956 0.13409775 0.2169307 0.006055633 0.031385766</span></span>
 <span><span class="co">##                 C7           C8</span></span>
-<span><span class="co">## X18.19 0.003981122 0.0002489339</span></span>
-<span><span class="co">## X20.29 0.019823303 0.0169670846</span></span>
-<span><span class="co">## X30.39 0.017852624 0.0028163233</span></span>
-<span><span class="co">## X40.49 0.002094378 0.0050268188</span></span>
-<span><span class="co">## X50.59 0.016133183 0.0021252418</span></span>
-<span><span class="co">## X60.69 0.007540262 0.0025030014</span></span>
-<span><span class="co">## X70.79 0.016452401 0.0086301151</span></span>
-<span><span class="co">## X80.   0.007744594 0.0100524395</span></span></code></pre>
+<span><span class="co">## X18.19 0.004027269 0.0003379456</span></span>
+<span><span class="co">## X20.29 0.018823328 0.0149280799</span></span>
+<span><span class="co">## X30.39 0.018774827 0.0038750467</span></span>
+<span><span class="co">## X40.49 0.002890563 0.0034461514</span></span>
+<span><span class="co">## X50.59 0.015023353 0.0034635700</span></span>
+<span><span class="co">## X60.69 0.007070275 0.0044983903</span></span>
+<span><span class="co">## X70.79 0.017167716 0.0092789396</span></span>
+<span><span class="co">## X80.   0.011800456 0.0086143403</span></span></code></pre>
 <p>Note that each row corresponds to the probability that a demographic
 group (<code>g</code>) voted for a candidate (<code>c</code>). It is
-worth noting how the results differ substantially across groups.</p>
+worth noting how the estimated probabilities differ substantially across
+groups.</p>
 </div>
 <div class="section level2">
 <h2 id="standard-deviation-estimates">Standard deviation estimates<a class="anchor" aria-label="anchor" href="#standard-deviation-estimates"></a>
@@ -159,53 +159,53 @@ worth noting how the results differ substantially across groups.</p>
 using bootstrapping. This can be done with the function
 <code><a href="../reference/bootstrap.html">bootstrap()</a></code>.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bootstrap.html">bootstrap</a></span><span class="op">(</span><span class="va">results</span>, seed <span class="op">=</span> <span class="fl">42</span>, nboot <span class="op">=</span> <span class="fl">30</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bootstrap.html">bootstrap</a></span><span class="op">(</span><span class="va">results</span>, seed <span class="op">=</span> <span class="fl">42</span>, nboot <span class="op">=</span> <span class="fl">30</span>, allow_mismatch <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="va">results</span><span class="op">$</span><span class="va">sd</span></span></code></pre></div>
 <pre><code><span><span class="co">##                C1         C2         C3         C4         C5         C6</span></span>
-<span><span class="co">## X18.19 0.10015206 0.13067346 0.04959047 0.07686245 0.04110860 0.03774454</span></span>
-<span><span class="co">## X20.29 0.08706027 0.10416220 0.04925448 0.06169626 0.02974504 0.04220625</span></span>
-<span><span class="co">## X30.39 0.06383135 0.07414142 0.04820027 0.07488303 0.02093370 0.03972425</span></span>
-<span><span class="co">## X40.49 0.05820743 0.07612755 0.05306283 0.06779917 0.02360305 0.03029427</span></span>
-<span><span class="co">## X50.59 0.05683002 0.06442917 0.04384439 0.05610186 0.01827245 0.03570696</span></span>
-<span><span class="co">## X60.69 0.05350084 0.06973176 0.04353806 0.06650590 0.01837145 0.03673739</span></span>
-<span><span class="co">## X70.79 0.07454396 0.08951194 0.04988014 0.07291749 0.02012949 0.03691629</span></span>
-<span><span class="co">## X80.   0.07534391 0.09953593 0.06823541 0.08335971 0.02568176 0.03396271</span></span>
+<span><span class="co">## X18.19 0.08429831 0.11040608 0.04737099 0.06536731 0.03442258 0.03390104</span></span>
+<span><span class="co">## X20.29 0.06380323 0.08345643 0.04483642 0.06006561 0.02727428 0.03764120</span></span>
+<span><span class="co">## X30.39 0.05936512 0.06478433 0.04968344 0.07416344 0.02017893 0.02990580</span></span>
+<span><span class="co">## X40.49 0.04967044 0.06378142 0.04957294 0.05635050 0.02247519 0.03341556</span></span>
+<span><span class="co">## X50.59 0.04735214 0.06012512 0.03920637 0.05760971 0.01701997 0.03335058</span></span>
+<span><span class="co">## X60.69 0.04765265 0.05693243 0.04058074 0.05274889 0.01785652 0.03073866</span></span>
+<span><span class="co">## X70.79 0.05751887 0.06840338 0.04374161 0.06113917 0.02118821 0.03024047</span></span>
+<span><span class="co">## X80.   0.06637382 0.08292988 0.05394495 0.07826136 0.02380783 0.03046137</span></span>
 <span><span class="co">##                C7         C8</span></span>
-<span><span class="co">## X18.19 0.04330875 0.03481014</span></span>
-<span><span class="co">## X20.29 0.04117495 0.03439988</span></span>
-<span><span class="co">## X30.39 0.04238655 0.02254512</span></span>
-<span><span class="co">## X40.49 0.03336432 0.02715560</span></span>
-<span><span class="co">## X50.59 0.03710602 0.01970179</span></span>
-<span><span class="co">## X60.69 0.02908730 0.02419556</span></span>
-<span><span class="co">## X70.79 0.03512425 0.02643359</span></span>
-<span><span class="co">## X80.   0.03861481 0.02637523</span></span></code></pre>
-<p>The standard deviations obtained in the district “Apoquindo” are
-generally low. One reason for this is the high number of ballot boxes in
+<span><span class="co">## X18.19 0.03859014 0.02984271</span></span>
+<span><span class="co">## X20.29 0.03250173 0.02832356</span></span>
+<span><span class="co">## X30.39 0.03646492 0.02261705</span></span>
+<span><span class="co">## X40.49 0.02638713 0.02537271</span></span>
+<span><span class="co">## X50.59 0.03180943 0.02025445</span></span>
+<span><span class="co">## X60.69 0.03020492 0.01997521</span></span>
+<span><span class="co">## X70.79 0.03038882 0.02171418</span></span>
+<span><span class="co">## X80.   0.03174904 0.02352783</span></span></code></pre>
+<p>The standard deviations obtained in the district “Apoquindo” are low
+in general. One reason for this is the high number of ballot boxes in
 this district. In contrast, standard deviations of estimated
 probabilities in districts with fewer ballot boxes, such as “Navidad”,
 are larger.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">navidad</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span>elect_district <span class="op">=</span> <span class="st">"NAVIDAD"</span><span class="op">)</span></span>
-<span><span class="va">navidad</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bootstrap.html">bootstrap</a></span><span class="op">(</span><span class="va">navidad</span>, seed <span class="op">=</span> <span class="fl">42</span>, nboot <span class="op">=</span> <span class="fl">30</span><span class="op">)</span></span>
+<span><span class="va">navidad</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bootstrap.html">bootstrap</a></span><span class="op">(</span><span class="va">navidad</span>, seed <span class="op">=</span> <span class="fl">42</span>, nboot <span class="op">=</span> <span class="fl">30</span>, allow_mismatch <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="va">navidad</span><span class="op">$</span><span class="va">sd</span></span></code></pre></div>
-<pre><code><span><span class="co">##               C1        C2        C3        C4         C5        C6        C7</span></span>
-<span><span class="co">## X18.19 0.3173885 0.2775066 0.1758247 0.3748034 0.34252173 0.1862111 0.2113297</span></span>
-<span><span class="co">## X20.29 0.2642999 0.2148970 0.2300379 0.1921584 0.13142429 0.1357480 0.2093558</span></span>
-<span><span class="co">## X30.39 0.1826393 0.2645530 0.1969771 0.1785584 0.10809154 0.1603991 0.1382038</span></span>
-<span><span class="co">## X40.49 0.1742081 0.1950356 0.1933681 0.1778562 0.08903065 0.1302125 0.1298807</span></span>
-<span><span class="co">## X50.59 0.1594534 0.1807864 0.2090455 0.1662446 0.06817806 0.1209976 0.1123312</span></span>
-<span><span class="co">## X60.69 0.1560145 0.1709638 0.2038837 0.1540343 0.07426099 0.1352429 0.1038013</span></span>
-<span><span class="co">## X70.79 0.1898688 0.1680642 0.2561830 0.1724892 0.07986201 0.1698474 0.1198108</span></span>
-<span><span class="co">## X80.   0.2066339 0.1956702 0.2523605 0.1869649 0.09635772 0.1522668 0.1824570</span></span>
+<pre><code><span><span class="co">##               C1        C2        C3        C4         C5         C6         C7</span></span>
+<span><span class="co">## X18.19 0.2214451 0.1970844 0.1783613 0.3167673 0.11334607 0.13637371 0.15305458</span></span>
+<span><span class="co">## X20.29 0.1606269 0.1770246 0.1806477 0.1466003 0.07800926 0.09678682 0.16489767</span></span>
+<span><span class="co">## X30.39 0.1693693 0.2047489 0.1799093 0.1654572 0.09240416 0.11132817 0.11587464</span></span>
+<span><span class="co">## X40.49 0.1365256 0.1792028 0.1866755 0.1616137 0.08721944 0.11954829 0.10547254</span></span>
+<span><span class="co">## X50.59 0.1501858 0.1712607 0.1878540 0.1312316 0.06048176 0.12660728 0.10100224</span></span>
+<span><span class="co">## X60.69 0.1280791 0.1598155 0.1674383 0.1043716 0.05945490 0.12754337 0.08819076</span></span>
+<span><span class="co">## X70.79 0.1403220 0.1619747 0.1727775 0.1313626 0.08908717 0.12246832 0.10328463</span></span>
+<span><span class="co">## X80.   0.1755121 0.1795565 0.1929457 0.1752385 0.09301918 0.12165925 0.13777668</span></span>
 <span><span class="co">##                C8</span></span>
-<span><span class="co">## X18.19 0.14267125</span></span>
-<span><span class="co">## X20.29 0.06989264</span></span>
-<span><span class="co">## X30.39 0.08648556</span></span>
-<span><span class="co">## X40.49 0.08894098</span></span>
-<span><span class="co">## X50.59 0.09715487</span></span>
-<span><span class="co">## X60.69 0.06181052</span></span>
-<span><span class="co">## X70.79 0.07333803</span></span>
-<span><span class="co">## X80.   0.15758501</span></span></code></pre>
+<span><span class="co">## X18.19 0.09203398</span></span>
+<span><span class="co">## X20.29 0.06509148</span></span>
+<span><span class="co">## X30.39 0.07590694</span></span>
+<span><span class="co">## X40.49 0.06716454</span></span>
+<span><span class="co">## X50.59 0.09324964</span></span>
+<span><span class="co">## X60.69 0.06153528</span></span>
+<span><span class="co">## X70.79 0.06626062</span></span>
+<span><span class="co">## X80.   0.11209605</span></span></code></pre>
 </div>
 <div class="section level2">
 <h2 id="reduce-estimation-error-using-group-aggregation">Reduce Estimation Error using Group Aggregation<a class="anchor" aria-label="anchor" href="#reduce-estimation-error-using-group-aggregation"></a>
@@ -213,28 +213,28 @@ are larger.</p>
 <p>Demographic groups can be merged to have probability estimates with
 lower error. A greedy strategy that maximizes the variability of the
 distribution of groups across ballot boxes is used, which ensures
-standard deviations are below 5%. The package provides the following
-function for the latter:</p>
+standard deviations are below a specific threshold. The package provides
+the following function for the latter:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">navidad_proxy</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_proxy.html">get_agg_proxy</a></span><span class="op">(</span><span class="va">navidad</span>, seed <span class="op">=</span> <span class="fl">42</span>, sd_threshold <span class="op">=</span> <span class="fl">0.25</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">navidad_proxy</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_proxy.html">get_agg_proxy</a></span><span class="op">(</span><span class="va">navidad</span>, seed <span class="op">=</span> <span class="fl">42</span>, sd_threshold <span class="op">=</span> <span class="fl">0.125</span>, sd_statistic <span class="op">=</span> <span class="st">"average"</span>, allow_mismatch <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="va">navidad_proxy</span><span class="op">$</span><span class="va">group_agg</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] 2 3 4 5 6 7 8</span></span></code></pre>
 <p>As shown in the output, the heuristic found a feasible configuration
-by merging groups 1 with 2, 5 with 6, and 7 with 8. We can evaluate the
-effectiveness of this grouping by comparing the mean standard deviation
-to the original formulation:</p>
+by merging groups 1 with 2. We can evaluate the effectiveness of this
+grouping by comparing the mean standard deviation to the original
+formulation:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">navidad</span><span class="op">$</span><span class="va">sd</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">navidad_proxy</span><span class="op">$</span><span class="va">sd</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 0.02969188</span></span></code></pre>
+<pre><code><span><span class="co">## [1] 0.01155291</span></span></code></pre>
 <p>An exhaustive algorithm is also included in the package. It explores
 all combinations of adjacent groups in order to maximize the
-log-likelihood subject to having standard deviations below 2.5%. It
-might require substantial computation time; therefore it is recommended
-to use the most efficient method “mult”.</p>
+log-likelihood subject to having standard deviations below a given
+threshold. It might require substantial computation time; therefore it
+is recommended to use the default method, “mult”.</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">navidad_opt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_opt.html">get_agg_opt</a></span><span class="op">(</span><span class="va">navidad</span>, seed <span class="op">=</span> <span class="fl">42</span>, sd_threshold <span class="op">=</span> <span class="fl">0.25</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">navidad_opt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_opt.html">get_agg_opt</a></span><span class="op">(</span><span class="va">navidad</span>, seed <span class="op">=</span> <span class="fl">42</span>, sd_threshold <span class="op">=</span> <span class="fl">0.125</span>, sd_statistic <span class="op">=</span> <span class="st">"average"</span>, allow_mismatch <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="va">navidad_opt</span><span class="op">$</span><span class="va">group_agg</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 2 3 4 5 6 8</span></span></code></pre>
+<pre><code><span><span class="co">## [1] 1 3 4 5 6 8</span></span></code></pre>
 <p>The optimal group aggregation differs slightly from one obtained
 before.</p>
 </div>
@@ -243,16 +243,17 @@ before.</p>
 </h2>
 <p>A relevant question is how significantly different are the
 probability estimates of two sets of data, such as two different
-districts. For instance, we can compare the results of the district
-“APOQUINDO” and “PROVIDENCIA”, which belong to the same ward. A Welch’s
-test can be applied to each component of the two probability matrix
-estimates:</p>
+districts. For instance, we can compare the estimated probabilities of
+the district “APOQUINDO” and “PROVIDENCIA”, which belong to the same
+ward. A Welch’s test can be applied to each component of the two
+probability matrix estimates:</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">providencia</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span>elect_district <span class="op">=</span> <span class="st">"PROVIDENCIA"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">comparison</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/welchtest.html">welchtest</a></span><span class="op">(</span></span>
 <span>    object <span class="op">=</span> <span class="va">providencia</span>,</span>
 <span>    object2 <span class="op">=</span> <span class="va">apoquindo</span>,</span>
+<span>    allow_mismatch <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>    method <span class="op">=</span> <span class="st">"mult"</span>,</span>
 <span>    nboot <span class="op">=</span> <span class="fl">30</span>,</span>
 <span>    seed <span class="op">=</span> <span class="fl">42</span></span>
@@ -260,17 +261,18 @@ estimates:</p>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">comparison</span><span class="op">$</span><span class="va">pvals</span>, <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">##           C1    C2    C3    C4    C5    C6    C7    C8</span></span>
-<span><span class="co">## X18.19 0.000 0.963 0.115 0.000 0.353 0.467 0.337 0.951</span></span>
-<span><span class="co">## X20.29 0.000 0.000 0.929 0.000 0.726 0.886 0.823 0.532</span></span>
-<span><span class="co">## X30.39 0.000 0.000 0.001 0.000 0.233 0.325 0.630 0.943</span></span>
-<span><span class="co">## X40.49 0.000 0.000 0.000 0.000 0.712 0.054 0.535 0.970</span></span>
-<span><span class="co">## X50.59 0.145 0.001 0.000 0.006 0.008 0.237 0.643 0.066</span></span>
-<span><span class="co">## X60.69 0.000 0.000 0.415 0.136 0.799 0.152 0.485 0.640</span></span>
-<span><span class="co">## X70.79 0.116 0.084 0.981 0.035 0.679 0.262 0.373 0.339</span></span>
-<span><span class="co">## X80.   0.921 0.162 0.002 0.029 0.249 0.262 0.977 0.341</span></span></code></pre>
-<p>On the other side, it may be notable to see the difference between to
-electoral districts whom voting tendencies are expected to be
-different.</p>
+<span><span class="co">## X18.19 0.000 0.226 0.293 0.000 0.261 0.988 0.492 0.989</span></span>
+<span><span class="co">## X20.29 0.000 0.000 0.561 0.000 0.422 0.646 0.611 0.855</span></span>
+<span><span class="co">## X30.39 0.000 0.000 0.001 0.000 0.335 0.303 0.678 0.943</span></span>
+<span><span class="co">## X40.49 0.000 0.000 0.000 0.000 0.861 0.077 0.649 0.983</span></span>
+<span><span class="co">## X50.59 0.002 0.000 0.000 0.004 0.012 0.102 0.893 0.172</span></span>
+<span><span class="co">## X60.69 0.000 0.000 0.858 0.043 0.766 0.066 0.135 0.714</span></span>
+<span><span class="co">## X70.79 0.053 0.073 0.086 0.474 0.582 0.161 0.098 0.161</span></span>
+<span><span class="co">## X80.   0.340 0.184 0.252 0.323 0.395 0.497 0.958 0.852</span></span></code></pre>
+<p>In most cases, voting probabilities are not significantly different.
+On the other hand, it may be noteworthy to observe the difference
+between two electoral districts whose voting tendencies are expected to
+differ.</p>
 <div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">la_granja</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span>elect_district <span class="op">=</span> <span class="st">"LA GRANJA"</span><span class="op">)</span></span>
 <span><span class="va">lo_barnechea</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span>elect_district <span class="op">=</span> <span class="st">"LO BARNECHEA"</span><span class="op">)</span></span>
@@ -278,21 +280,22 @@ different.</p>
 <span><span class="va">comparison2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/welchtest.html">welchtest</a></span><span class="op">(</span></span>
 <span>    object <span class="op">=</span> <span class="va">la_granja</span>,</span>
 <span>    object2 <span class="op">=</span> <span class="va">lo_barnechea</span>,</span>
+<span>    allow_mismatch <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>    method <span class="op">=</span> <span class="st">"mult"</span>,</span>
 <span>    nboot <span class="op">=</span> <span class="fl">30</span>,</span>
 <span>    seed <span class="op">=</span> <span class="fl">42</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">comparison2</span><span class="op">$</span><span class="va">pvals</span>, <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">##           C1    C2    C3    C4    C5    C6    C7    C8</span></span>
-<span><span class="co">## X18.19 0.000 0.000 0.112 0.000 0.263 0.000 0.067 0.667</span></span>
-<span><span class="co">## X20.29 0.000 0.000 0.361 0.000 0.008 0.000 0.000 0.921</span></span>
-<span><span class="co">## X30.39 0.000 0.000 0.011 0.000 0.054 0.000 0.000 0.492</span></span>
-<span><span class="co">## X40.49 0.000 0.000 0.000 0.000 0.023 0.000 0.000 0.199</span></span>
-<span><span class="co">## X50.59 0.000 0.000 0.000 0.000 0.234 0.000 0.000 0.279</span></span>
-<span><span class="co">## X60.69 0.000 0.000 0.000 0.000 0.227 0.000 0.858 0.305</span></span>
-<span><span class="co">## X70.79 0.029 0.000 0.000 0.647 0.928 0.572 0.033 0.366</span></span>
-<span><span class="co">## X80.   0.041 0.018 0.001 0.040 0.414 0.022 0.000 0.638</span></span></code></pre>
+<pre><code><span><span class="co">##           C1 C2    C3    C4    C5    C6    C7    C8</span></span>
+<span><span class="co">## X18.19 0.000  0 0.000 0.000 0.269 0.000 0.282 0.842</span></span>
+<span><span class="co">## X20.29 0.000  0 0.385 0.000 0.014 0.000 0.000 0.959</span></span>
+<span><span class="co">## X30.39 0.000  0 0.009 0.000 0.016 0.000 0.000 0.409</span></span>
+<span><span class="co">## X40.49 0.000  0 0.000 0.000 0.021 0.000 0.000 0.153</span></span>
+<span><span class="co">## X50.59 0.000  0 0.000 0.000 0.260 0.000 0.000 0.334</span></span>
+<span><span class="co">## X60.69 0.000  0 0.000 0.000 0.157 0.000 0.588 0.608</span></span>
+<span><span class="co">## X70.79 0.571  0 0.000 0.562 0.491 0.889 0.013 0.518</span></span>
+<span><span class="co">## X80.   0.980  0 0.000 0.396 0.953 0.097 0.032 0.360</span></span></code></pre>
 </div>
 <div class="section level2">
 <h2 id="simulating-election-results">Simulating Election Results<a class="anchor" aria-label="anchor" href="#simulating-election-results"></a>
@@ -337,7 +340,7 @@ moderately complex elections.</p>
 <span><span class="co">## [1] 0.008672613</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## $avg_time</span></span>
-<span><span class="co">## [1] 6.8e-05</span></span></code></pre>
+<span><span class="co">## [1] 7.65e-05</span></span></code></pre>
 </div>
 <div class="section level3">
 <h3 id="multivariate-pdf">Multivariate PDF<a class="anchor" aria-label="anchor" href="#multivariate-pdf"></a>
@@ -351,7 +354,7 @@ accounting for the local shape of the probability distribution.</p>
 <span><span class="co">## [1] 0.008823992</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## $avg_time</span></span>
-<span><span class="co">## [1] 0.0017829</span></span></code></pre>
+<span><span class="co">## [1] 0.0018351</span></span></code></pre>
 </div>
 <div class="section level3">
 <h3 id="multivariate-cdf">Multivariate CDF<a class="anchor" aria-label="anchor" href="#multivariate-cdf"></a>
@@ -368,7 +371,7 @@ required.</p>
 <span><span class="co">## [1] 0.008825618</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## $avg_time</span></span>
-<span><span class="co">## [1] 0.0019625</span></span></code></pre>
+<span><span class="co">## [1] 0.0020429</span></span></code></pre>
 </div>
 <div class="section level3">
 <h3 id="mcmc">MCMC<a class="anchor" aria-label="anchor" href="#mcmc"></a>
@@ -385,7 +388,7 @@ becomes relatively fast and efficient.</p>
 <span><span class="co">## [1] 0.008222279</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## $avg_time</span></span>
-<span><span class="co">## [1] 1.206021</span></span></code></pre>
+<span><span class="co">## [1] 1.260844</span></span></code></pre>
 </div>
 <div class="section level3">
 <h3 id="exact">Exact<a class="anchor" aria-label="anchor" href="#exact"></a>
@@ -401,7 +404,7 @@ ballots due to its exponential computational complexity.</p>
 <span><span class="co">## [1] 0.00832906</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## $avg_time</span></span>
-<span><span class="co">## [1] 0.0312628</span></span></code></pre>
+<span><span class="co">## [1] 0.0345067</span></span></code></pre>
 </div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

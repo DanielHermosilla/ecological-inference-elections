@@ -60,7 +60,7 @@ Certain methods may require additional arguments, which can be passed through <c
 <span>  json_path <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  method <span class="op">=</span> <span class="st">"mult"</span>,</span>
 <span>  initial_prob <span class="op">=</span> <span class="st">"group_proportional"</span>,</span>
-<span>  allow_mismatch <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  allow_mismatch <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  maxiter <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span>  maxtime <span class="op">=</span> <span class="fl">3600</span>,</span>
 <span>  param_threshold <span class="op">=</span> <span class="fl">0.001</span>,</span>
@@ -116,7 +116,7 @@ probability. Accepted values are:</p><ul><li><p><code>uniform</code>: Assigns eq
 
 
 <dt id="arg-allow-mismatch">allow_mismatch<a class="anchor" aria-label="anchor" href="#arg-allow-mismatch"></a></dt>
-<dd><p>Boolean, if <code>TRUE</code>, allows a mismatch between the voters and votes for each ballot-box, only works if method is <code>mvn_cdf</code>, <code>mvn_pdf</code>, <code>mult</code> and <code>mcmc</code>. If <code>FALSE</code>, throws an error if there is a mismatch. By default it is <code>FALSE</code>.</p></dd>
+<dd><p>Boolean, if <code>TRUE</code>, allows a mismatch between the voters and votes for each ballot-box, only works if <code>method</code> is <code>"mvn_cdf"</code>, <code>"mvn_pdf"</code>, <code>"mult"</code> and <code>"mcmc"</code>. If <code>FALSE</code>, throws an error if there is a mismatch. By default it is <code>TRUE</code>.</p></dd>
 
 
 <dt id="arg-maxiter">maxiter<a class="anchor" aria-label="anchor" href="#arg-maxiter"></a></dt>
@@ -140,7 +140,7 @@ the threshold. Note that the algorithm will stop if either <code>ll_threshold</c
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
-<dd><p>An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if <code>initial_prob = random</code> or <code>method</code> is either <code>mcmc</code> or <code>mvn_cdf</code>...</p></dd>
+<dd><p>An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if <code>initial_prob = "random"</code> or <code>method</code> is either <code>mcmc</code> or <code>mvn_cdf</code>...</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
@@ -150,31 +150,31 @@ iterations. The default value is <code>FALSE</code>.</p></dd>
 
 <dt id="arg-samples">samples<a class="anchor" aria-label="anchor" href="#arg-samples"></a></dt>
 <dd><p>An optional integer indicating the number of samples to generate for the
-<strong>MCMC</strong> method. This parameter is only relevant when <code>method = mcmc</code>.
+<strong>MCMC</strong> method. This parameter is only relevant when <code>method = "mcmc"</code>.
 The default value is <code>1000</code>.</p></dd>
 
 
 <dt id="arg-step-size">step_size<a class="anchor" aria-label="anchor" href="#arg-step-size"></a></dt>
 <dd><p>An optional integer specifying the step size for the <code>mcmc</code>
-algorithm. This parameter is only applicable when <code>method = mcmc</code> and will
+algorithm. This parameter is only applicable when <code>method = "mcmc"</code> and will
 be ignored otherwise. The default value is <code>3000</code>.</p></dd>
 
 
 <dt id="arg-mc-method">mc_method<a class="anchor" aria-label="anchor" href="#arg-mc-method"></a></dt>
 <dd><p>An optional string specifying the method used to estimate the <code>mvn_cdf</code> method
 via a Monte Carlo simulation. Accepted values are <code>genz</code> and <code>genz2</code>, with <code>genz2</code>
-set as the default. This parameter is only applicable when <code>method = mvn_cdf</code>. See <strong>References</strong> for more details.</p></dd>
+set as the default. This parameter is only applicable when <code>method = "mvn_cdf"</code>. See <strong>References</strong> for more details.</p></dd>
 
 
 <dt id="arg-mc-error">mc_error<a class="anchor" aria-label="anchor" href="#arg-mc-error"></a></dt>
 <dd><p>An optional numeric value defining the error threshold for the Monte Carlo
 simulation when estimating the <code>mvn_cdf</code> method. The default value is <code>1e-6</code>. This parameter is only relevant
-when <code>method = mvn_cdf</code>.</p></dd>
+when <code>method = "mvn_cdf"</code>.</p></dd>
 
 
 <dt id="arg-mc-samples">mc_samples<a class="anchor" aria-label="anchor" href="#arg-mc-samples"></a></dt>
 <dd><p>An optional integer specifying the number of Monte Carlo
-samples for the <code>mvn_cdf</code> method. The default value is <code>5000</code>. This argument is only applicable when <code>method = mvn_cdf</code>.</p></dd>
+samples for the <code>mvn_cdf</code> method. The default value is <code>5000</code>. This argument is only applicable when <code>method = "mvn_cdf"</code>.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -211,7 +211,8 @@ samples for the <code>mvn_cdf</code> method. The default value is <code>5000</co
 <dd><p>The method for estimating the conditional probability in the E-step.</p></dd>
 
 
-</dl><p>Aditionally, it will create <code>samples</code> and <code>step_size</code> parameters if the specified method is <code>mcmc</code>, or <code>mc_method</code>, <code>mc_error</code> and <code>mc_samples</code> if the method is <code>mvn_cdf</code>.</p>
+</dl><p>Aditionally, it will create <code>samples</code> and <code>step_size</code> parameters if the specified <code>method = mcmc</code>, or <code>mc_method</code>, <code>mc_error</code> and <code>mc_samples</code> if <code>method = mvn_cdf</code>.</p>
+<p>Also, if the eim object supplied is created with the function <a href="simulate_election.html">simulate_election</a>, it also returns the real probability with the name <code>real_prob</code>. See <a href="simulate_election.html">simulate_election</a>.</p>
     </div>
     <div class="section level2">
     <h2 id="note">Note<a class="anchor" aria-label="anchor" href="#note"></a></h2>

@@ -54,7 +54,7 @@
 <span>  elect_district <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  region <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  merge_blank_null <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  remove_mismatch <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  remove_mismatch <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -75,7 +75,7 @@
 
 
 <dt id="arg-remove-mismatch">remove_mismatch<a class="anchor" aria-label="anchor" href="#arg-remove-mismatch"></a></dt>
-<dd><p>Logical indicating whether to remove ballot boxes with mismatched vote totals (where <code>MISMATCH == TRUE</code>). Defaults to <code>TRUE</code>.</p></dd>
+<dd><p>Logical indicating whether to remove ballot boxes with mismatched vote totals (where <code>MISMATCH == TRUE</code>). Defaults to <code>FALSE</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -91,7 +91,7 @@
     </div>
     <div class="section level2">
     <h2 id="note">Note<a class="anchor" aria-label="anchor" href="#note"></a></h2>
-    <p>Only one parameter is accepted among <code>elect_district</code> and <code>region</code>. If either both parameters are given, it will return an error. If any is supplied, it will return an eim object with an aggregation corresponding to the whole dataset.</p>
+    <p>Only one parameter is accepted among <code>elect_district</code> and <code>region</code>. If either both parameters are given, it will return an error. If neither of these two inputs is supplied, it will return an eim object with an aggregation corresponding to the whole dataset. To see all electoral districts and regions names, see the function <a href="chile_election_2021.html">chile_election_2021</a>.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
@@ -101,7 +101,7 @@
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># Load data and create an eim object for the electoral district of "NIEBLA"</span></span></span>
-<span class="r-in"><span><span class="va">eim_obj</span> <span class="op">&lt;-</span> <span class="fu">get_XW_chile</span><span class="op">(</span><span class="st">"NIEBLA"</span>, remove_mismatch <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">eim_obj</span> <span class="op">&lt;-</span> <span class="fu">get_XW_chile</span><span class="op">(</span>elect_district <span class="op">=</span> <span class="st">"NIEBLA"</span>, remove_mismatch <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Use it to run the EM algorithm</span></span></span>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_obj</span>, allow_mismatch <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
