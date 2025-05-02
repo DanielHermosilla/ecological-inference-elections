@@ -67,7 +67,7 @@
                         <h4 data-toc-skip class="author">Daniel
 Hermosilla</h4>
             
-            <h4 data-toc-skip class="date">2025-04-30</h4>
+            <h4 data-toc-skip class="date">2025-05-02</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/DanielHermosilla/ecological-inference-elections/blob/HEAD/vignettes/demonstration.Rmd" class="external-link"><code>vignettes/demonstration.Rmd</code></a></small>
       <div class="d-none name"><code>demonstration.Rmd</code></div>
@@ -245,10 +245,61 @@ before.</p>
 probability estimates of two sets of data, such as two different
 districts. For instance, we can compare the estimated probabilities of
 the district “APOQUINDO” and “PROVIDENCIA”, which belong to the same
-ward. A Welch’s test can be applied to each component of the two
-probability matrix estimates:</p>
+ward.</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">providencia</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span>elect_district <span class="op">=</span> <span class="st">"PROVIDENCIA"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hadley/reshape" class="external-link">reshape2</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://sjmgarnier.github.io/viridis/" class="external-link">viridis</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">plot_district</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">district1</span>, <span class="va">district2</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="co"># Run EM algorithm for both districts</span></span>
+<span>    <span class="va">em1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span>elect_district <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/chartr.html" class="external-link">toupper</a></span><span class="op">(</span><span class="va">district1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="va">em2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span>elect_district <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/chartr.html" class="external-link">toupper</a></span><span class="op">(</span><span class="va">district2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span>    <span class="va">df1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/reshape2/man/melt.html" class="external-link">melt</a></span><span class="op">(</span><span class="va">em1</span><span class="op">$</span><span class="va">prob</span><span class="op">)</span></span>
+<span>    <span class="va">df2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/reshape2/man/melt.html" class="external-link">melt</a></span><span class="op">(</span><span class="va">em2</span><span class="op">$</span><span class="va">prob</span><span class="op">)</span></span>
+<span>    <span class="va">df1</span><span class="op">$</span><span class="va">Matrix</span> <span class="op">&lt;-</span> <span class="va">district1</span></span>
+<span>    <span class="va">df2</span><span class="op">$</span><span class="va">Matrix</span> <span class="op">&lt;-</span> <span class="va">district2</span></span>
+<span>    <span class="va">combined_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span><span class="va">df1</span>, <span class="va">df2</span><span class="op">)</span></span>
+<span></span>
+<span>    <span class="co"># Add text to each cell of the matrix</span></span>
+<span>    <span class="va">value_range</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="va">combined_df</span><span class="op">$</span><span class="va">value</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span>    <span class="va">combined_df</span><span class="op">$</span><span class="va">label</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.2f"</span>, <span class="va">combined_df</span><span class="op">$</span><span class="va">value</span><span class="op">)</span></span>
+<span>    <span class="va">combined_df</span><span class="op">$</span><span class="va">text_color</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">combined_df</span><span class="op">$</span><span class="va">value</span> <span class="op">&gt;</span> <span class="fl">0.5</span>, <span class="st">"black"</span>, <span class="st">"white"</span><span class="op">)</span></span>
+<span></span>
+<span>    <span class="co"># Call the plot</span></span>
+<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">combined_df</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">Var2</span>, y <span class="op">=</span> <span class="va">Var1</span>, fill <span class="op">=</span> <span class="va">value</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>        <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_tile.html" class="external-link">geom_tile</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>        <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_text.html" class="external-link">geom_text</a></span><span class="op">(</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>label <span class="op">=</span> <span class="va">label</span>, color <span class="op">=</span> <span class="va">text_color</span><span class="op">)</span>, size <span class="op">=</span> <span class="fl">3</span><span class="op">)</span> <span class="op">+</span></span>
+<span>        <span class="fu"><a href="https://sjmgarnier.github.io/viridis/reference/scale_viridis.html" class="external-link">scale_fill_viridis</a></span><span class="op">(</span></span>
+<span>            name <span class="op">=</span> <span class="st">"Probability"</span>,</span>
+<span>            limits <span class="op">=</span> <span class="va">value_range</span>,</span>
+<span>            option <span class="op">=</span> <span class="st">"viridis"</span></span>
+<span>        <span class="op">)</span> <span class="op">+</span></span>
+<span>        <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_identity.html" class="external-link">scale_color_identity</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>        <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/facet_wrap.html" class="external-link">facet_wrap</a></span><span class="op">(</span><span class="op">~</span><span class="va">Matrix</span><span class="op">)</span> <span class="op">+</span></span>
+<span>        <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_fixed.html" class="external-link">coord_fixed</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>        <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_bw</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>        <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span></span>
+<span>            title <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"Predicted probabilities between"</span>, <span class="va">district1</span>, <span class="st">"and"</span>, <span class="va">district2</span><span class="op">)</span>,</span>
+<span>            x <span class="op">=</span> <span class="st">"Candidate votes"</span>, y <span class="op">=</span> <span class="st">"Voter's age range"</span>, fill <span class="op">=</span> <span class="st">"Probability"</span></span>
+<span>        <span class="op">)</span> <span class="op">+</span></span>
+<span>        <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span></span>
+<span>            strip.text <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_text</a></span><span class="op">(</span>size <span class="op">=</span> <span class="fl">12</span><span class="op">)</span>,</span>
+<span>            plot.title <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_text</a></span><span class="op">(</span>size <span class="op">=</span> <span class="fl">16</span>, hjust <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span>
+<span>        <span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">plot_district</span><span class="op">(</span><span class="st">"Apoquindo"</span>, <span class="st">"Providencia"</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="demonstration_files/figure-html/prov_apoq_comparison-1.png" alt="Providencia and Apoquindo comparison" width="768"><p class="caption">
+Providencia and Apoquindo comparison
+</p>
+</div>
+<p>A Welch’s test can be applied to each component of the two
+probability matrix estimates:</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">providencia</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span><span class="st">"PROVIDENCIA"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">comparison</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/welchtest.html">welchtest</a></span><span class="op">(</span></span>
 <span>    object <span class="op">=</span> <span class="va">providencia</span>,</span>
@@ -273,9 +324,16 @@ probability matrix estimates:</p>
 On the other hand, it may be noteworthy to observe the difference
 between two electoral districts whose voting tendencies are expected to
 differ.</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">la_granja</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span>elect_district <span class="op">=</span> <span class="st">"LA GRANJA"</span><span class="op">)</span></span>
-<span><span class="va">lo_barnechea</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span>elect_district <span class="op">=</span> <span class="st">"LO BARNECHEA"</span><span class="op">)</span></span>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">plot_district</span><span class="op">(</span><span class="st">"La Granja"</span>, <span class="st">"Lo Barnechea"</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="demonstration_files/figure-html/granja_lobarnechea_comparison-1.png" alt="Lo Barnechea and La Granja comparison" width="768"><p class="caption">
+Lo Barnechea and La Granja comparison
+</p>
+</div>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">la_granja</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span><span class="st">"LA GRANJA"</span><span class="op">)</span></span>
+<span><span class="va">lo_barnechea</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span><span class="st">"LO BARNECHEA"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">comparison2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/welchtest.html">welchtest</a></span><span class="op">(</span></span>
 <span>    object <span class="op">=</span> <span class="va">la_granja</span>,</span>
@@ -300,112 +358,110 @@ differ.</p>
 <div class="section level2">
 <h2 id="simulating-election-results">Simulating Election Results<a class="anchor" aria-label="anchor" href="#simulating-election-results"></a>
 </h2>
-<p>In this section, we simulate election data multiple times to evaluate
-the accuracy and speed of each method on average.</p>
-<p>We generate random elections with 2 groups, 2 candidates, and 50
-ballots, and repeat each method <strong>10 times</strong> to calculate
-their average performance.</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Helper to repeat and average</span></span>
-<span><span class="va">benchmark_method</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">method_name</span>, <span class="va">...</span>, <span class="va">reps</span> <span class="op">=</span> <span class="fl">10</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="va">maes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="va">reps</span><span class="op">)</span></span>
-<span>    <span class="va">times</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="va">reps</span><span class="op">)</span></span>
-<span></span>
-<span>    <span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">reps</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
-<span>        <span class="va">samples</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_election.html">simulate_election</a></span><span class="op">(</span>num_groups <span class="op">=</span> <span class="fl">2</span>, num_candidates <span class="op">=</span> <span class="fl">2</span>, num_ballots <span class="op">=</span> <span class="fl">50</span>, seed <span class="op">=</span> <span class="va">i</span><span class="op">)</span></span>
-<span>        <span class="va">object</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/eim.html">eim</a></span><span class="op">(</span><span class="va">samples</span><span class="op">$</span><span class="va">X</span>, <span class="va">samples</span><span class="op">$</span><span class="va">W</span><span class="op">)</span></span>
-<span></span>
-<span>        <span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">object</span>, method <span class="op">=</span> <span class="va">method_name</span>, <span class="va">...</span><span class="op">)</span></span>
-<span></span>
-<span>        <span class="va">maes</span><span class="op">[</span><span class="va">i</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">prob</span> <span class="op">-</span> <span class="va">samples</span><span class="op">$</span><span class="va">real_prob</span><span class="op">)</span><span class="op">)</span></span>
-<span>        <span class="va">times</span><span class="op">[</span><span class="va">i</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">result</span><span class="op">$</span><span class="va">time</span></span>
-<span>    <span class="op">}</span></span>
-<span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>        avg_mae <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">maes</span><span class="op">)</span>,</span>
-<span>        avg_time <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">times</span><span class="op">)</span></span>
-<span>    <span class="op">)</span></span>
-<span><span class="op">}</span></span></code></pre></div>
-<div class="section level3">
-<h3 id="multinomial">Multinomial<a class="anchor" aria-label="anchor" href="#multinomial"></a>
-</h3>
-<p>The multinomial method offers a fast and simple approximation based
-on the observed votes and prior probabilities. It is ideal for quick
-estimates, with low computational cost and good overall accuracy for
-moderately complex elections.</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">multinomial_result</span> <span class="op">&lt;-</span> <span class="fu">benchmark_method</span><span class="op">(</span><span class="st">"mult"</span><span class="op">)</span></span>
-<span><span class="va">multinomial_result</span></span></code></pre></div>
-<pre><code><span><span class="co">## $avg_mae</span></span>
-<span><span class="co">## [1] 0.008672613</span></span>
-<span><span class="co">## </span></span>
-<span><span class="co">## $avg_time</span></span>
-<span><span class="co">## [1] 7.65e-05</span></span></code></pre>
-</div>
-<div class="section level3">
-<h3 id="multivariate-pdf">Multivariate PDF<a class="anchor" aria-label="anchor" href="#multivariate-pdf"></a>
-</h3>
-<p>The multivariate PDF method refines the multinomial approximation by
-accounting for the local shape of the probability distribution.</p>
+<p>It is possible to simulate an artificial election and get its values
+as an eim object with the simulated probability. This is useful for
+testing the package’s performance and comparing the different methods
+available.</p>
 <div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">multivariate_pdf_result</span> <span class="op">&lt;-</span> <span class="fu">benchmark_method</span><span class="op">(</span><span class="st">"mvn_pdf"</span><span class="op">)</span></span>
-<span><span class="va">multivariate_pdf_result</span></span></code></pre></div>
-<pre><code><span><span class="co">## $avg_mae</span></span>
-<span><span class="co">## [1] 0.008823992</span></span>
-<span><span class="co">## </span></span>
-<span><span class="co">## $avg_time</span></span>
-<span><span class="co">## [1] 0.0018351</span></span></code></pre>
-</div>
-<div class="section level3">
-<h3 id="multivariate-cdf">Multivariate CDF<a class="anchor" aria-label="anchor" href="#multivariate-cdf"></a>
-</h3>
-<p>The multivariate CDF method approximates first and second moments of
-the posterior by integrating over small regions of the multivariate
-normal distribution. It provides better control over uncertainty at the
-cost of higher computation, especially if a tight Monte Carlo error is
-required.</p>
+<code class="sourceCode R"><span><span class="va">election_values</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_election.html">simulate_election</a></span><span class="op">(</span>num_ballots <span class="op">=</span> <span class="fl">50</span>, num_groups <span class="op">=</span> <span class="fl">2</span>, num_candidates <span class="op">=</span> <span class="fl">2</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
+<span><span class="va">election_values</span><span class="op">$</span><span class="va">real_prob</span></span></code></pre></div>
+<pre><code><span><span class="co">##           [,1]      [,2]</span></span>
+<span><span class="co">## [1,] 0.5511892 0.4488108</span></span>
+<span><span class="co">## [2,] 0.2014062 0.7985938</span></span></code></pre>
 <div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">multivariate_cdf_result</span> <span class="op">&lt;-</span> <span class="fu">benchmark_method</span><span class="op">(</span><span class="st">"mvn_cdf"</span><span class="op">)</span></span>
-<span><span class="va">multivariate_cdf_result</span></span></code></pre></div>
-<pre><code><span><span class="co">## $avg_mae</span></span>
-<span><span class="co">## [1] 0.008825618</span></span>
-<span><span class="co">## </span></span>
-<span><span class="co">## $avg_time</span></span>
-<span><span class="co">## [1] 0.0020429</span></span></code></pre>
-</div>
-<div class="section level3">
-<h3 id="mcmc">MCMC<a class="anchor" aria-label="anchor" href="#mcmc"></a>
-</h3>
-<p>The MCMC method explores possible voting configurations by random
-sampling, providing very flexible and accurate results. It typically
-incurs an initial computational cost to generate valid samples, but
-after reaching a sufficient number of samples, each additional iteration
-becomes relatively fast and efficient.</p>
+<code class="sourceCode R"><span><span class="va">election_values</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">election_values</span><span class="op">)</span></span>
+<span><span class="va">election_values</span><span class="op">$</span><span class="va">prob</span></span></code></pre></div>
+<pre><code><span><span class="co">##           [,1]      [,2]</span></span>
+<span><span class="co">## [1,] 0.5482835 0.4517165</span></span>
+<span><span class="co">## [2,] 0.2027921 0.7972079</span></span></code></pre>
+<p>Moreover, it is possible to handle a given probability matrix as the
+simulated probability, leaving the sorting aspect to the function.</p>
 <div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">mcmc_result</span> <span class="op">&lt;-</span> <span class="fu">benchmark_method</span><span class="op">(</span><span class="st">"mcmc"</span>, samples <span class="op">=</span> <span class="fl">1000</span>, step_size <span class="op">=</span> <span class="fl">2000</span><span class="op">)</span></span>
-<span><span class="va">mcmc_result</span></span></code></pre></div>
-<pre><code><span><span class="co">## $avg_mae</span></span>
-<span><span class="co">## [1] 0.008222279</span></span>
-<span><span class="co">## </span></span>
-<span><span class="co">## $avg_time</span></span>
-<span><span class="co">## [1] 1.260844</span></span></code></pre>
-</div>
-<div class="section level3">
-<h3 id="exact">Exact<a class="anchor" aria-label="anchor" href="#exact"></a>
-</h3>
-<p>The exact method computes all possible voting configurations
-exhaustively. It guarantees the highest theoretical accuracy but becomes
-quickly infeasible for elections with many candidates, groups, or
-ballots due to its exponential computational complexity.</p>
+<code class="sourceCode R"><span><span class="va">artificial_probability</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">0.5</span>, <span class="fl">0.5</span>, <span class="fl">0.5</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">2</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="va">election_values_2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_election.html">simulate_election</a></span><span class="op">(</span></span>
+<span>    num_ballots <span class="op">=</span> <span class="fl">50</span>, num_groups <span class="op">=</span> <span class="fl">2</span>, num_candidates <span class="op">=</span> <span class="fl">2</span>, seed <span class="op">=</span> <span class="fl">42</span>,</span>
+<span>    prob <span class="op">=</span> <span class="va">artificial_probability</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">election_values_2</span></span></code></pre></div>
+<pre><code><span><span class="co">## eim ecological inference model</span></span>
+<span><span class="co">## Candidates' vote matrix (X) [b x c]:</span></span>
+<span><span class="co">##      [,1] [,2]</span></span>
+<span><span class="co">## [1,]   50   50</span></span>
+<span><span class="co">## [2,]   52   48</span></span>
+<span><span class="co">## [3,]   51   49</span></span>
+<span><span class="co">## [4,]   62   38</span></span>
+<span><span class="co">## [5,]   52   48</span></span>
+<span><span class="co">## .</span></span>
+<span><span class="co">## .</span></span>
+<span><span class="co">## .</span></span>
+<span><span class="co">## Group-level voter matrix (W) [b x g]:</span></span>
+<span><span class="co">##      [,1] [,2]</span></span>
+<span><span class="co">## [1,]   76   24</span></span>
+<span><span class="co">## [2,]   76   24</span></span>
+<span><span class="co">## [3,]   75   25</span></span>
+<span><span class="co">## [4,]   71   29</span></span>
+<span><span class="co">## [5,]   77   23</span></span>
+<span><span class="co">## .</span></span>
+<span><span class="co">## .</span></span>
+<span><span class="co">## .</span></span></code></pre>
+<p>Let’s note that there is a lambda parameter that controls the
+heterogeneity of group voting. A value of 0 represents full
+heterogeneity, in contrast to values close to 1. This is explained in
+detail in the <code><a href="../reference/simulate_election.html">simulate_election()</a></code> documentation.</p>
 <div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">exact_result</span> <span class="op">&lt;-</span> <span class="fu">benchmark_method</span><span class="op">(</span><span class="st">"exact"</span><span class="op">)</span></span>
-<span><span class="va">exact_result</span></span></code></pre></div>
-<pre><code><span><span class="co">## $avg_mae</span></span>
-<span><span class="co">## [1] 0.00832906</span></span>
-<span><span class="co">## </span></span>
-<span><span class="co">## $avg_time</span></span>
-<span><span class="co">## [1] 0.0345067</span></span></code></pre>
-</div>
+<code class="sourceCode R"><span><span class="va">heterogeneity</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_election.html">simulate_election</a></span><span class="op">(</span></span>
+<span>    num_ballots <span class="op">=</span> <span class="fl">50</span>, num_groups <span class="op">=</span> <span class="fl">2</span>, num_candidates <span class="op">=</span> <span class="fl">2</span>, seed <span class="op">=</span> <span class="fl">42</span>,</span>
+<span>    lambda <span class="op">=</span> <span class="fl">0.1</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">heterogeneity</span></span></code></pre></div>
+<pre><code><span><span class="co">## eim ecological inference model</span></span>
+<span><span class="co">## Candidates' vote matrix (X) [b x c]:</span></span>
+<span><span class="co">##      [,1] [,2]</span></span>
+<span><span class="co">## [1,]   71   29</span></span>
+<span><span class="co">## [2,]   80   20</span></span>
+<span><span class="co">## [3,]   78   22</span></span>
+<span><span class="co">## [4,]   70   30</span></span>
+<span><span class="co">## [5,]   72   28</span></span>
+<span><span class="co">## .</span></span>
+<span><span class="co">## .</span></span>
+<span><span class="co">## .</span></span>
+<span><span class="co">## Group-level voter matrix (W) [b x g]:</span></span>
+<span><span class="co">##      [,1] [,2]</span></span>
+<span><span class="co">## [1,]   95    5</span></span>
+<span><span class="co">## [2,]   94    6</span></span>
+<span><span class="co">## [3,]   95    5</span></span>
+<span><span class="co">## [4,]   97    3</span></span>
+<span><span class="co">## [5,]   95    5</span></span>
+<span><span class="co">## .</span></span>
+<span><span class="co">## .</span></span>
+<span><span class="co">## .</span></span></code></pre>
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">homogeneity</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_election.html">simulate_election</a></span><span class="op">(</span></span>
+<span>    num_ballots <span class="op">=</span> <span class="fl">50</span>, num_groups <span class="op">=</span> <span class="fl">2</span>, num_candidates <span class="op">=</span> <span class="fl">2</span>, seed <span class="op">=</span> <span class="fl">42</span>,</span>
+<span>    lambda <span class="op">=</span> <span class="fl">0.9</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">homogeneity</span></span></code></pre></div>
+<pre><code><span><span class="co">## eim ecological inference model</span></span>
+<span><span class="co">## Candidates' vote matrix (X) [b x c]:</span></span>
+<span><span class="co">##      [,1] [,2]</span></span>
+<span><span class="co">## [1,]   23   77</span></span>
+<span><span class="co">## [2,]   31   69</span></span>
+<span><span class="co">## [3,]   20   80</span></span>
+<span><span class="co">## [4,]   30   70</span></span>
+<span><span class="co">## [5,]   34   66</span></span>
+<span><span class="co">## .</span></span>
+<span><span class="co">## .</span></span>
+<span><span class="co">## .</span></span>
+<span><span class="co">## Group-level voter matrix (W) [b x g]:</span></span>
+<span><span class="co">##      [,1] [,2]</span></span>
+<span><span class="co">## [1,]   53   47</span></span>
+<span><span class="co">## [2,]   49   51</span></span>
+<span><span class="co">## [3,]   61   39</span></span>
+<span><span class="co">## [4,]   63   37</span></span>
+<span><span class="co">## [5,]   56   44</span></span>
+<span><span class="co">## .</span></span>
+<span><span class="co">## .</span></span>
+<span><span class="co">## .</span></span></code></pre>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

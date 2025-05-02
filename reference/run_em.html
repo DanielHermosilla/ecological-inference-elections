@@ -140,7 +140,7 @@ the threshold. Note that the algorithm will stop if either <code>ll_threshold</c
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
-<dd><p>An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if <code>initial_prob = "random"</code> or <code>method</code> is either <code>mcmc</code> or <code>mvn_cdf</code>...</p></dd>
+<dd><p>An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if <code>initial_prob = "random"</code> or <code>method</code> is either <code>"mcmc"</code> or <code>"mvn_cdf"</code>.</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
@@ -211,7 +211,7 @@ samples for the <code>mvn_cdf</code> method. The default value is <code>5000</co
 <dd><p>The method for estimating the conditional probability in the E-step.</p></dd>
 
 
-</dl><p>Aditionally, it will create <code>samples</code> and <code>step_size</code> parameters if the specified <code>method = mcmc</code>, or <code>mc_method</code>, <code>mc_error</code> and <code>mc_samples</code> if <code>method = mvn_cdf</code>.</p>
+</dl><p>Aditionally, it will create <code>samples</code> and <code>step_size</code> parameters if the specified <code>method = "mcmc"</code>, or <code>mc_method</code>, <code>mc_error</code> and <code>mc_samples</code> if <code>method = "mvn_cdf"</code>.</p>
 <p>Also, if the eim object supplied is created with the function <a href="simulate_election.html">simulate_election</a>, it also returns the real probability with the name <code>real_prob</code>. See <a href="simulate_election.html">simulate_election</a>.</p>
     </div>
     <div class="section level2">
