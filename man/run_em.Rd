@@ -71,7 +71,7 @@ consecutive probability values required to stop iterating. The default value is 
 \item{ll_threshold}{An optional numeric value indicating the minimum difference between consecutive log-likelihood values to stop iterating. The default value is \code{inf}, essentially deactivating
 the threshold. Note that the algorithm will stop if either \code{ll_threshold} \strong{or} \code{param_threshold} is accomplished.}
 
-\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = "random"} or \code{method} is either \code{mcmc} or \code{mvn_cdf}...}
+\item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = "random"} or \code{method} is either \code{"mcmc"} or \code{"mvn_cdf"}.}
 
 \item{verbose}{An optional boolean indicating whether to print informational messages during the EM
 iterations. The default value is \code{FALSE}.}
@@ -116,7 +116,7 @@ The final status ID of the algorithm upon completion:
 \item{message}{The finishing status displayed as a message, matching the status ID value.}
 \item{method}{The method for estimating the conditional probability in the E-step.}
 }
-Aditionally, it will create \code{samples} and \code{step_size} parameters if the specified \code{method = mcmc}, or \code{mc_method}, \code{mc_error} and \code{mc_samples} if \code{method = mvn_cdf}.
+Aditionally, it will create \code{samples} and \code{step_size} parameters if the specified \code{method = "mcmc"}, or \code{mc_method}, \code{mc_error} and \code{mc_samples} if \code{method = "mvn_cdf"}.
 
 Also, if the eim object supplied is created with the function \link{simulate_election}, it also returns the real probability with the name \code{real_prob}. See \link{simulate_election}.
 }

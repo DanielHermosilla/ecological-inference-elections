@@ -109,7 +109,7 @@
 #'     prob = custom_prob
 #' )
 #'
-#' result4$real_prob == custom_prob # TRUE
+#' result4$real_prob == custom_prob
 #' # The attribute of the output real_prob matches the input custom_prob.
 #' @export
 simulate_election <- function(num_ballots,

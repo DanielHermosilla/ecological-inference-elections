@@ -120,7 +120,7 @@ result4 <- simulate_election(
     prob = custom_prob
 )
 
-result4$real_prob == custom_prob # TRUE
+result4$real_prob == custom_prob
 # The attribute of the output real_prob matches the input custom_prob.
 }
 \references{

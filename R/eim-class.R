@@ -209,7 +209,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' @param verbose An optional boolean indicating whether to print informational messages during the EM
 #'   iterations. The default value is `FALSE`.
 #'
-#' @param seed An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if `initial_prob = "random"` or `method` is either `mcmc` or `mvn_cdf`...
+#' @param seed An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if `initial_prob = "random"` or `method` is either `"mcmc"` or `"mvn_cdf"`.
 #'
 #' @param step_size An optional integer specifying the step size for the `mcmc`
 #'   algorithm. This parameter is only applicable when `method = "mcmc"` and will
@@ -270,7 +270,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'   \item{message}{The finishing status displayed as a message, matching the status ID value.}
 #'   \item{method}{The method for estimating the conditional probability in the E-step.}
 #' }
-#' Aditionally, it will create `samples` and `step_size` parameters if the specified `method = mcmc`, or `mc_method`, `mc_error` and `mc_samples` if `method = mvn_cdf`.
+#' Aditionally, it will create `samples` and `step_size` parameters if the specified `method = "mcmc"`, or `mc_method`, `mc_error` and `mc_samples` if `method = "mvn_cdf"`.
 #'
 #' Also, if the eim object supplied is created with the function [simulate_election], it also returns the real probability with the name `real_prob`. See [simulate_election].
 #'
@@ -427,7 +427,7 @@ run_em <- function(object = NULL,
 #'
 #' @inheritParams simulate_election
 #'
-#' @param seed An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if `initial_prob = "random"` or `method` is either `mcmc` or `mvn_cdf`. Aditionally, it sets the random draws of the ballot boxes.
+#' @param seed An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if `initial_prob = "random"` or `method` is either `"mcmc"` or `"mvn_cdf"`. Aditionally, it sets the random draws of the ballot boxes.
 #'
 #' @param ... Additional arguments passed to the [run_em] function that will execute the EM algorithm.
 #'

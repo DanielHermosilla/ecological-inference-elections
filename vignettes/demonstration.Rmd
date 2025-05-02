@@ -81,10 +81,61 @@ The optimal group aggregation differs slightly from one obtained before.
 
 # Test difference between estimates
 
-A relevant question is how significantly different are the probability estimates of two sets of data, such as two different districts. For instance, we can compare the estimated probabilities of the district "APOQUINDO" and "PROVIDENCIA", which belong to the same ward. A Welch's test can be applied to each component of the two probability matrix estimates:
+A relevant question is how significantly different are the probability estimates of two sets of data, such as two different districts. For instance, we can compare the estimated probabilities of the district "APOQUINDO" and "PROVIDENCIA", which belong to the same ward.
+
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(reshape2)
+library(viridis)
+
+plot_district <- function(district1, district2) {
+    # Run EM algorithm for both districts
+    em1 <- run_em(get_XW_chile(elect_district = toupper(district1)))
+    em2 <- run_em(get_XW_chile(elect_district = toupper(district2)))
+
+    df1 <- melt(em1$prob)
+    df2 <- melt(em2$prob)
+    df1$Matrix <- district1
+    df2$Matrix <- district2
+    combined_df <- rbind(df1, df2)
+
+    # Add text to each cell of the matrix
+    value_range <- range(combined_df$value, na.rm = TRUE)
+    combined_df$label <- sprintf("%.2f", combined_df$value)
+    combined_df$text_color <- ifelse(combined_df$value > 0.5, "black", "white")
+
+    # Call the plot
+    ggplot(combined_df, aes(x = Var2, y = Var1, fill = value)) +
+        geom_tile() +
+        geom_text(aes(label = label, color = text_color), size = 3) +
+        scale_fill_viridis(
+            name = "Probability",
+            limits = value_range,
+            option = "viridis"
+        ) +
+        scale_color_identity() +
+        facet_wrap(~Matrix) +
+        coord_fixed() +
+        theme_bw() +
+        labs(
+            title = paste("Predicted probabilities between", district1, "and", district2),
+            x = "Candidate votes", y = "Voter's age range", fill = "Probability"
+        ) +
+        theme(
+            strip.text = element_text(size = 12),
+            plot.title = element_text(size = 16, hjust = 0.5)
+        )
+}
+```
+
+```{r prov_apoq_comparison, fig.width = 8, fig.height = 6.5, fig.cap = "Providencia and Apoquindo comparison", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
+plot_district("Apoquindo", "Providencia")
+```
+
+A Welch's test can be applied to each component of the two probability matrix estimates:
 
 ```{r}
-providencia <- get_XW_chile(elect_district = "PROVIDENCIA")
+providencia <- get_XW_chile("PROVIDENCIA")
 
 comparison <- welchtest(
     object = providencia,
@@ -100,9 +151,14 @@ round(comparison$pvals, 3)
 
 In most cases, voting probabilities are not significantly different. On the other hand, it may be noteworthy to observe the difference between two electoral districts whose voting tendencies are expected to differ.
 
+```{r granja_lobarnechea_comparison, fig.width = 8, fig.height=6.5, fig.cap = "Lo Barnechea and La Granja comparison", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
+plot_district("La Granja", "Lo Barnechea")
+```
+
+
 ```{r}
-la_granja <- get_XW_chile(elect_district = "LA GRANJA")
-lo_barnechea <- get_XW_chile(elect_district = "LO BARNECHEA")
+la_granja <- get_XW_chile("LA GRANJA")
+lo_barnechea <- get_XW_chile("LO BARNECHEA")
 
 comparison2 <- welchtest(
     object = la_granja,
@@ -119,75 +175,44 @@ round(comparison2$pvals, 3)
 
 # Simulating Election Results
 
-In this section, we simulate election data multiple times to evaluate the accuracy and speed of each method on average.
-
-We generate random elections with 2 groups, 2 candidates, and 50 ballots, and repeat each method **10 times** to calculate their average performance.
+It is possible to simulate an artificial election and get its values as an eim object with the simulated probability. This is useful for testing the package's performance and comparing the different methods available.
 
 ```{r}
-# Helper to repeat and average
-benchmark_method <- function(method_name, ..., reps = 10) {
-    maes <- numeric(reps)
-    times <- numeric(reps)
-
-    for (i in seq_len(reps)) {
-        samples <- simulate_election(num_groups = 2, num_candidates = 2, num_ballots = 50, seed = i)
-        object <- eim(samples$X, samples$W)
-
-        result <- run_em(object, method = method_name, ...)
-
-        maes[i] <- mean(abs(result$prob - samples$real_prob))
-        times[i] <- result$time
-    }
-
-    list(
-        avg_mae = mean(maes),
-        avg_time = mean(times)
-    )
-}
+election_values <- simulate_election(num_ballots = 50, num_groups = 2, num_candidates = 2, seed = 42)
+election_values$real_prob
 ```
-
-## Multinomial
-
-The multinomial method offers a fast and simple approximation based on the observed votes and prior probabilities. It is ideal for quick estimates, with low computational cost and good overall accuracy for moderately complex elections.
 
 ```{r}
-multinomial_result <- benchmark_method("mult")
-multinomial_result
+election_values <- run_em(election_values)
+election_values$prob
 ```
 
-## Multivariate PDF
-
-The multivariate PDF method refines the multinomial approximation by accounting for the local shape of the probability distribution.
+Moreover, it is possible to handle a given probability matrix as the simulated probability, leaving the sorting aspect to the function.
 
 ```{r}
-multivariate_pdf_result <- benchmark_method("mvn_pdf")
-multivariate_pdf_result
+artificial_probability <- matrix(c(0.5, 0.5, 0.5, 0.5), nrow = 2, byrow = TRUE)
+election_values_2 <- simulate_election(
+    num_ballots = 50, num_groups = 2, num_candidates = 2, seed = 42,
+    prob = artificial_probability
+)
+election_values_2
 ```
 
-## Multivariate CDF
-
-The multivariate CDF method approximates first and second moments of the posterior by integrating over small regions of the multivariate normal distribution. It provides better control over uncertainty at the cost of higher computation, especially if a tight Monte Carlo error is required.
+Let's note that there is a lambda parameter that controls the heterogeneity of group voting. A value of 0 represents full heterogeneity, in contrast to values close to 1. This is explained in detail in the `simulate_election()` documentation.
 
 ```{r}
-multivariate_cdf_result <- benchmark_method("mvn_cdf")
-multivariate_cdf_result
+heterogeneity <- simulate_election(
+    num_ballots = 50, num_groups = 2, num_candidates = 2, seed = 42,
+    lambda = 0.1
+)
+heterogeneity
 ```
 
-## MCMC
-
-The MCMC method explores possible voting configurations by random sampling, providing very flexible and accurate results. It typically incurs an initial computational cost to generate valid samples, but after reaching a sufficient number of samples, each additional iteration becomes relatively fast and efficient.
 
 ```{r}
-mcmc_result <- benchmark_method("mcmc", samples = 1000, step_size = 2000)
-mcmc_result
+homogeneity <- simulate_election(
+    num_ballots = 50, num_groups = 2, num_candidates = 2, seed = 42,
+    lambda = 0.9
+)
+homogeneity
 ```
-
-## Exact
-
-The exact method computes all possible voting configurations exhaustively. It guarantees the highest theoretical accuracy but becomes quickly infeasible for elections with many candidates, groups, or ballots due to its exponential computational complexity.
-
-```{r}
-exact_result <- benchmark_method("exact")
-exact_result
-```
-

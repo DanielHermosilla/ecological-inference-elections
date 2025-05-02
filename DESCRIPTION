@@ -17,6 +17,8 @@ Suggests:
     knitr,
     rmarkdown,
 	ggplot2,
+	reshape2,
+	viridis,
 	dplyr,
 	qpdf
 Roxygen: list(markdown = TRUE, load = "source")
