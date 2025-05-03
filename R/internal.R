@@ -80,39 +80,42 @@
         stop("run_em: Invalid 'verbose'. It has to be a boolean.")
     }
 
-    # mcmc: Step_size argument
-    if ("step_size" %in% names(args)) {
-        if (!is.numeric(args$step_size) || as.integer(args$step_size) != args$step_size || args$step_size < 0) {
-            stop("run_em: Invalid 'step_size'. Must be a positive integer.")
+    # mcmc: mcmc_stepsize argument
+    if ("mcmc_stepsize" %in% names(args)) {
+        if (!is.numeric(args$mcmc_stepsize) || as.integer(args$mcmc_stepsize) != args$mcmc_stepsize || args$mcmc_stepsize < 0) {
+            stop("run_em: Invalid 'mcmc_stepsize'. Must be a positive integer.")
         }
-        if (args$step_size < 15) {
-            warning("Warning: A small 'step_size' could lead to highly correlated samples.")
+        if (args$mcmc_stepsize < 15) {
+            warning("Warning: A small 'mcmc_stepsize' could lead to highly correlated samples.")
         }
     }
 
     # mcmc: Samples argument
     if ("samples" %in% names(args) &&
-        (!is.numeric(args$samples) || as.integer(args$samples) != args$samples || args$samples < 0)) {
-        stop("run_em: Invalid 'samples'. Must be a positive integer.")
+        (!is.numeric(args$mcmc_samples) || as.integer(args$mcmc_samples) != args$mcmc_samples || args$mcmc_samples < 0)) {
+        stop("run_em: Invalid 'mcmc_samples'. Must be a positive integer.")
     }
 
     # CDF: Mc_method argument
     valid_cdf_methods <- c("genz", "genz2")
-    if ("mc_method" %in% names(args) &&
-        (!is.character(args$mc_method) || !args$mc_method %in% valid_cdf_methods)) {
-        stop("run_em: Invalid 'mc_method'. Must be one of: ", paste(valid_cdf_methods, collapse = ", "))
+    if ("mvnc_method
+" %in% names(args) &&
+        (!is.character(args$mvnc_method) || !args$mvnc_method
+            %in% valid_cdf_methods)) {
+        stop("run_em: Invalid 'mvnc_method
+'. Must be one of: ", paste(valid_cdf_methods, collapse = ", "))
     }
 
     # CDF: Mc_error argument
-    if ("mc_error" %in% names(args) &&
-        (!is.numeric(args$mc_error) || args$mc_error <= 0)) {
-        stop("run_em: Invalid 'mc_error'. Must be a positive number.")
+    if ("mvnc_error" %in% names(args) &&
+        (!is.numeric(args$mvnc_error) || args$mvnc_error <= 0)) {
+        stop("run_em: Invalid 'mvnc_error'. Must be a positive number.")
     }
 
     # CDF: Mc_error argument
-    if ("mc_samples" %in% names(args) &&
-        (!is.numeric(args$mc_samples) || as.integer(args$mc_samples) != args$mc_samples || args$mc_samples < 0)) {
-        stop("run_em: Invalid 'mc_samples'. Must be a positive integer.")
+    if ("mvnc_samples" %in% names(args) &&
+        (!is.numeric(args$mvnc_samples) || as.integer(args$mvnc_samples) != args$mvnc_samples || args$mvnc_samples < 0)) {
+        stop("run_em: Invalid 'mvnc_samples'. Must be a positive integer.")
     }
 
     # Check mismatch

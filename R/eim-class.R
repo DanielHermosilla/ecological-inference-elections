@@ -139,11 +139,11 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
             "time",
             "method",
             "W_agg",
-            "samples",
-            "step_size",
-            "mc_method",
-            "mc_samples",
-            "mc_error"
+            "mcmc_samples",
+            "mcmc_stepsize",
+            "mvnc_method",
+            "mvnc_samples",
+            "mvnc_error"
         )
         extra_params <- matrices[names(matrices) %in% allowed_params] # TODO: Validate them
     }
@@ -211,23 +211,23 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'
 #' @param seed An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if `initial_prob = "random"` or `method` is either `"mcmc"` or `"mvn_cdf"`.
 #'
-#' @param step_size An optional integer specifying the step size for the `mcmc`
+#' @param mcmc_stepsize An optional integer specifying the step size for the `mcmc`
 #'   algorithm. This parameter is only applicable when `method = "mcmc"` and will
 #'   be ignored otherwise. The default value is `3000`.
 #'
-#' @param samples An optional integer indicating the number of samples to generate for the
+#' @param mcmc_samples An optional integer indicating the number of samples to generate for the
 #'   **MCMC** method. This parameter is only relevant when `method = "mcmc"`.
 #'   The default value is `1000`.
 #'
-#' @param mc_method An optional string specifying the method used to estimate the `mvn_cdf` method
+#' @param mvnc_method An optional string specifying the method used to estimate the `mvn_cdf` method
 #'   via a Monte Carlo simulation. Accepted values are `genz` and `genz2`, with `genz2`
 #'   set as the default. This parameter is only applicable when `method = "mvn_cdf"`. See **References** for more details.
 #'
-#' @param mc_error An optional numeric value defining the error threshold for the Monte Carlo
+#' @param mvnc_error An optional numeric value defining the error threshold for the Monte Carlo
 #'   simulation when estimating the `mvn_cdf` method. The default value is `1e-6`. This parameter is only relevant
 #' when `method = "mvn_cdf"`.
 #'
-#' @param mc_samples An optional integer specifying the number of Monte Carlo
+#' @param mvnc_samples An optional integer specifying the number of Monte Carlo
 #'   samples for the `mvn_cdf` method. The default value is `5000`. This argument is only applicable when `method = "mvn_cdf"`.
 #'
 #' @param ... Added for compability
@@ -270,7 +270,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'   \item{message}{The finishing status displayed as a message, matching the status ID value.}
 #'   \item{method}{The method for estimating the conditional probability in the E-step.}
 #' }
-#' Aditionally, it will create `samples` and `step_size` parameters if the specified `method = "mcmc"`, or `mc_method`, `mc_error` and `mc_samples` if `method = "mvn_cdf"`.
+#' Aditionally, it will create `mcmc_samples` and `mcmc_stepsize` parameters if the specified `method = "mcmc"`, or `mvnc_method`, `mvnc_error` and `mvnc_samples` if `method = "mvn_cdf"`.
 #'
 #' Also, if the eim object supplied is created with the function [simulate_election], it also returns the real probability with the name `real_prob`. See [simulate_election].
 #'
@@ -288,8 +288,8 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' model <- run_em(
 #'     object = model,
 #'     method = "mcmc",
-#'     step_size = 1500,
-#'     samples = 800
+#'     mcmc_stepsize = 1500,
+#'     mcmc_samples = 800
 #' )
 #'
 #' # Example 3: Run the MVN CDF method with default settings
@@ -325,11 +325,11 @@ run_em <- function(object = NULL,
                    ll_threshold = as.double(-Inf),
                    seed = NULL,
                    verbose = FALSE,
-                   samples = 1000,
-                   step_size = 3000,
-                   mc_method = "genz2",
-                   mc_error = 1e-5,
-                   mc_samples = 5000,
+                   mcmc_samples = 1000,
+                   mcmc_stepsize = 3000,
+                   mvnc_method = "genz2",
+                   mvnc_error = 1e-5,
+                   mvnc_samples = 5000,
                    ...) {
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint
@@ -361,16 +361,16 @@ run_em <- function(object = NULL,
     # Default values
     if (method == "mcmc") {
         # Step size
-        object$step_size <- as.integer(if ("step_size" %in% names(all_params)) all_params$step_size else 3000)
+        object$mcmc_stepsize <- as.integer(if ("mcmc_stepsize" %in% names(all_params)) all_params$mcmc_stepsize else 3000)
         # Samples
-        object$samples <- as.integer(if ("samples" %in% names(all_params)) all_params$samples else 1000)
+        object$mcmc_samples <- as.integer(if ("mcmc_samples" %in% names(all_params)) all_params$mcmc_samples else 1000)
     } else if (method == "mvn_cdf") {
         # Montecarlo method
-        object$mc_method <- if ("mc_method" %in% names(all_params)) all_params$mc_method else "genz2"
+        object$mvnc_method <- if ("mvnc_method" %in% names(all_params)) all_params$mvnc_method else "genz2"
         # Montecarlo samples
-        object$mc_samples <- if ("mc_samples" %in% names(all_params)) all_params$mc_samples else 5000
+        object$mvnc_samples <- if ("mvnc_samples" %in% names(all_params)) all_params$mvnc_samples else 5000
         # Montecarlo error
-        object$mc_error <- if ("mc_error" %in% names(all_params)) all_params$mc_error else 1e-6
+        object$mvnc_error <- if ("mvnc_error" %in% names(all_params)) all_params$mvnc_error else 1e-6
     }
 
     RsetParameters(t(object$X), object$W)
@@ -383,11 +383,11 @@ run_em <- function(object = NULL,
         param_threshold,
         ll_threshold,
         verbose,
-        as.integer(if (!is.null(object$step_size)) object$step_size else 1000),
-        as.integer(if (!is.null(object$samples)) object$samples else 3000),
-        if (!is.null(object$mc_method)) object$mc_method else "genz2",
-        as.numeric(if (!is.null(object$mc_samples)) object$mc_samples else 5000),
-        as.numeric(if (!is.null(object$mc_error)) object$mc_error else 1e-6)
+        as.integer(if (!is.null(object$mcmc_stepsize)) object$mcmc_stepsize else 1000),
+        as.integer(if (!is.null(object$mcmc_samples)) object$mcmc_samples else 3000),
+        if (!is.null(object$mvnc_method)) object$mvnc_method else "genz2",
+        as.numeric(if (!is.null(object$mvnc_samples)) object$mvnc_samples else 5000),
+        as.numeric(if (!is.null(object$mvnc_error)) object$mvnc_error else 1e-6)
     )
     # ---------- ... ---------- #
 
@@ -455,7 +455,7 @@ run_em <- function(object = NULL,
 #'     method = "mvn_cdf",
 #'     maxiter = 500,
 #'     verbose = FALSE,
-#'     mc_samples = 5000
+#'     mvnc_samples = 5000
 #' )
 #'
 #' # Access standard deviation throughout 'model'
@@ -543,24 +543,24 @@ bootstrap <- function(object = NULL,
     }
 
     # Handle method-specific defaults
-    step_size <- 0L
-    samples <- 0L
-    mc_method <- ""
-    mc_samples <- 0L
-    mc_error <- 0.0
+    mcmc_stepsize <- 0L
+    mcmc_samples <- 0L
+    mvnc_method <- ""
+    mvnc_samples <- 0L
+    mvnc_error <- 0.0
 
     if (method == "mcmc") {
-        step_size <- if (!is.null(all_params$step_size)) all_params$step_size else 3000
-        samples <- if (!is.null(all_params$samples)) all_params$samples else 1000
-        mc_method <- ""
-        mc_samples <- 0L
-        mc_error <- 0.0
+        mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
+        mcmc_samples <- if (!is.null(all_params$mcmc_samples)) all_params$mcmc_samples else 1000
+        mvnc_method <- ""
+        mvnc_samples <- 0L
+        mvnc_error <- 0.0
     } else if (method == "mvn_cdf") {
-        mc_method <- if (!is.null(all_params$mc_method)) all_params$method else "genz2"
-        mc_samples <- if (!is.null(all_params$mc_samples)) all_params$mc_samples else 5000
-        mc_error <- if (!is.null(all_params$mc_error)) all_params$mc_error else 1e-6
-        step_size <- 0L
-        samples <- 0L
+        mvnc_method <- if (!is.null(all_params$mvnc_method)) all_params$method else "genz2"
+        mvnc_samples <- if (!is.null(all_params$mvnc_samples)) all_params$mvnc_samples else 5000
+        mvnc_error <- if (!is.null(all_params$mvnc_error)) all_params$mvnc_error else 1e-6
+        mcmc_stepsize <- 0L
+        mcmc_samples <- 0L
     }
 
     # Call C bootstrap function
@@ -575,11 +575,11 @@ bootstrap <- function(object = NULL,
         as.double(param_threshold),
         as.double(ll_threshold),
         as.logical(verbose),
-        as.integer(step_size),
-        as.integer(samples),
-        as.character(mc_method),
-        as.double(mc_error),
-        as.integer(mc_samples)
+        as.integer(mcmc_stepsize),
+        as.integer(mcmc_samples),
+        as.character(mvnc_method),
+        as.double(mvnc_error),
+        as.integer(mvnc_samples)
     )
 
     object$sd <- result
@@ -750,24 +750,24 @@ get_agg_proxy <- function(object = NULL,
     }
 
     # Handle method-specific defaults
-    step_size <- 0L
-    samples <- 0L
-    mc_method <- ""
-    mc_samples <- 0L
-    mc_error <- 0.0
+    mcmc_stepsize <- 0L
+    mcmc_samples <- 0L
+    mvnc_method <- ""
+    mvnc_samples <- 0L
+    mvnc_error <- 0.0
 
     if (method == "mcmc") {
-        step_size <- if (!is.null(all_params$step_size)) all_params$step_size else 3000
-        samples <- if (!is.null(all_params$samples)) all_params$samples else 1000
-        mc_method <- ""
-        mc_samples <- 0L
-        mc_error <- 0.0
+        mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
+        mcmc_samples <- if (!is.null(all_params$mcmc_samples)) all_params$mcmc_samples else 1000
+        mvnc_method <- ""
+        mvnc_samples <- 0L
+        mvnc_error <- 0.0
     } else if (method == "mvn_cdf") {
-        mc_method <- if (!is.null(all_params$mc_method)) all_params$method else "genz2"
-        mc_samples <- if (!is.null(all_params$mc_samples)) all_params$mc_samples else 5000
-        mc_error <- if (!is.null(all_params$mc_error)) all_params$mc_error else 1e-6
-        step_size <- 0L
-        samples <- 0L
+        mvnc_method <- if (!is.null(all_params$mvnc_method)) all_params$method else "genz2"
+        mvnc_samples <- if (!is.null(all_params$mvnc_samples)) all_params$mvnc_samples else 5000
+        mvnc_error <- if (!is.null(all_params$mvnc_error)) all_params$mvnc_error else 1e-6
+        mcmc_stepsize <- 0L
+        mcmc_samples <- 0L
     }
 
     result <- groupAgg(
@@ -784,11 +784,11 @@ get_agg_proxy <- function(object = NULL,
         as.double(param_threshold),
         as.double(ll_threshold),
         as.logical(verbose),
-        as.integer(step_size),
-        as.integer(samples),
-        as.character(mc_method),
-        as.double(mc_error),
-        as.integer(mc_samples)
+        as.integer(mcmc_stepsize),
+        as.integer(mcmc_samples),
+        as.character(mvnc_method),
+        as.double(mvnc_error),
+        as.integer(mvnc_samples)
     )
 
     # If the returned matrix isn't the best non-feasible result
@@ -943,24 +943,24 @@ get_agg_opt <- function(object = NULL,
     }
 
     # Handle method-specific defaults
-    step_size <- 0L
-    samples <- 0L
-    mc_method <- ""
-    mc_samples <- 0L
-    mc_error <- 0.0
+    mcmc_stepsize <- 0L
+    mcmc_samples <- 0L
+    mvnc_method <- ""
+    mvnc_samples <- 0L
+    mvnc_error <- 0.0
 
     if (method == "mcmc") {
-        step_size <- if (!is.null(all_params$step_size)) all_params$step_size else 3000
-        samples <- if (!is.null(all_params$samples)) all_params$samples else 1000
-        mc_method <- ""
-        mc_samples <- 0L
-        mc_error <- 0.0
+        mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
+        mcmc_samples <- if (!is.null(all_params$mcmc_samples)) all_params$mcmc_samples else 1000
+        mvnc_method <- ""
+        mvnc_samples <- 0L
+        mvnc_error <- 0.0
     } else if (method == "mvn_cdf") {
-        mc_method <- if (!is.null(all_params$mc_method)) all_params$mc_method else "genz2"
-        mc_samples <- if (!is.null(all_params$mc_samples)) all_params$mc_samples else 5000
-        mc_error <- if (!is.null(all_params$mc_error)) all_params$mc_error else 1e-6
-        step_size <- 0L
-        samples <- 0L
+        mvnc_method <- if (!is.null(all_params$mvnc_method)) all_params$mvnc_method else "genz2"
+        mvnc_samples <- if (!is.null(all_params$mvnc_samples)) all_params$mvnc_samples else 5000
+        mvnc_error <- if (!is.null(all_params$mvnc_error)) all_params$mvnc_error else 1e-6
+        mcmc_stepsize <- 0L
+        mcmc_samples <- 0L
     }
 
     result <- groupAggGreedy(
@@ -976,11 +976,11 @@ get_agg_opt <- function(object = NULL,
         as.double(param_threshold),
         as.double(ll_threshold),
         as.logical(verbose),
-        as.integer(step_size),
-        as.integer(samples),
-        as.character(mc_method),
-        as.double(mc_error),
-        as.integer(mc_samples)
+        as.integer(mcmc_stepsize),
+        as.integer(mcmc_samples),
+        as.character(mvnc_method),
+        as.double(mvnc_error),
+        as.integer(mvnc_samples)
     )
 
     if (result$indices[[1]] == -1) {
@@ -1020,12 +1020,12 @@ get_agg_opt <- function(object = NULL,
     object$initial_prob <- initial_prob
 
     if (method == "mvn_cdf") {
-        object$mc_error <- mc_error
-        object$mc_samples <- mc_samples
-        object$mc_method <- mc_method
+        object$mvnc_error <- mvnc_error
+        object$mvnc_samples <- mvnc_samples
+        object$mvnc_method <- mvnc_method
     } else if (method == "mcmc") {
-        object$step_size <- step_size
-        object$samples <- samples
+        object$mcmc_stepsize <- mcmc_stepsize
+        object$mcmc_samples <- mcmc_samples
     }
 
     class(object) <- "eim"
@@ -1242,12 +1242,12 @@ print.eim <- function(x, ...) {
     if (is_method) {
         cat("Method:\t", object$method, "\n")
         if (object$method == "mcmc") {
-            cat("Step size (M):", object$step_size, "\n")
-            cat("Samples (S):", object$samples, "\n")
+            cat("Step size (M):", object$mcmc_stepsize, "\n")
+            cat("Samples (S):", object$mcmc_samples, "\n")
         } else if (object$method == "mvn_cdf") {
-            cat("Montecarlo method:", object$mc_method, "\n")
-            cat("Montecarlo iterations:", object$mc_samples, "\n")
-            cat("Montecarlo error:", object$mc_error, "\n")
+            cat("Montecarlo method:", object$mvnc_method, "\n")
+            cat("Montecarlo iterations:", object$mvnc_samples, "\n")
+            cat("Montecarlo error:", object$mvnc_error, "\n")
         }
         cat("Total Iterations:", object$iterations, "\n")
         cat("Total Time (s):", object$time, "\n")
