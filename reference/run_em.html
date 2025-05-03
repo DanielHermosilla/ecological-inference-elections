@@ -67,11 +67,11 @@ Certain methods may require additional arguments, which can be passed through <c
 <span>  ll_threshold <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/double.html" class="external-link">as.double</a></span><span class="op">(</span><span class="op">-</span><span class="cn">Inf</span><span class="op">)</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  samples <span class="op">=</span> <span class="fl">1000</span>,</span>
-<span>  step_size <span class="op">=</span> <span class="fl">3000</span>,</span>
-<span>  mc_method <span class="op">=</span> <span class="st">"genz2"</span>,</span>
-<span>  mc_error <span class="op">=</span> <span class="fl">0.00001</span>,</span>
-<span>  mc_samples <span class="op">=</span> <span class="fl">5000</span>,</span>
+<span>  mcmc_samples <span class="op">=</span> <span class="fl">1000</span>,</span>
+<span>  mcmc_stepsize <span class="op">=</span> <span class="fl">3000</span>,</span>
+<span>  mvnc_method <span class="op">=</span> <span class="st">"genz2"</span>,</span>
+<span>  mvnc_error <span class="op">=</span> <span class="fl">0.00001</span>,</span>
+<span>  mvnc_samples <span class="op">=</span> <span class="fl">5000</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -148,31 +148,31 @@ the threshold. Note that the algorithm will stop if either <code>ll_threshold</c
 iterations. The default value is <code>FALSE</code>.</p></dd>
 
 
-<dt id="arg-samples">samples<a class="anchor" aria-label="anchor" href="#arg-samples"></a></dt>
+<dt id="arg-mcmc-samples">mcmc_samples<a class="anchor" aria-label="anchor" href="#arg-mcmc-samples"></a></dt>
 <dd><p>An optional integer indicating the number of samples to generate for the
 <strong>MCMC</strong> method. This parameter is only relevant when <code>method = "mcmc"</code>.
 The default value is <code>1000</code>.</p></dd>
 
 
-<dt id="arg-step-size">step_size<a class="anchor" aria-label="anchor" href="#arg-step-size"></a></dt>
+<dt id="arg-mcmc-stepsize">mcmc_stepsize<a class="anchor" aria-label="anchor" href="#arg-mcmc-stepsize"></a></dt>
 <dd><p>An optional integer specifying the step size for the <code>mcmc</code>
 algorithm. This parameter is only applicable when <code>method = "mcmc"</code> and will
 be ignored otherwise. The default value is <code>3000</code>.</p></dd>
 
 
-<dt id="arg-mc-method">mc_method<a class="anchor" aria-label="anchor" href="#arg-mc-method"></a></dt>
+<dt id="arg-mvnc-method">mvnc_method<a class="anchor" aria-label="anchor" href="#arg-mvnc-method"></a></dt>
 <dd><p>An optional string specifying the method used to estimate the <code>mvn_cdf</code> method
 via a Monte Carlo simulation. Accepted values are <code>genz</code> and <code>genz2</code>, with <code>genz2</code>
 set as the default. This parameter is only applicable when <code>method = "mvn_cdf"</code>. See <strong>References</strong> for more details.</p></dd>
 
 
-<dt id="arg-mc-error">mc_error<a class="anchor" aria-label="anchor" href="#arg-mc-error"></a></dt>
+<dt id="arg-mvnc-error">mvnc_error<a class="anchor" aria-label="anchor" href="#arg-mvnc-error"></a></dt>
 <dd><p>An optional numeric value defining the error threshold for the Monte Carlo
 simulation when estimating the <code>mvn_cdf</code> method. The default value is <code>1e-6</code>. This parameter is only relevant
 when <code>method = "mvn_cdf"</code>.</p></dd>
 
 
-<dt id="arg-mc-samples">mc_samples<a class="anchor" aria-label="anchor" href="#arg-mc-samples"></a></dt>
+<dt id="arg-mvnc-samples">mvnc_samples<a class="anchor" aria-label="anchor" href="#arg-mvnc-samples"></a></dt>
 <dd><p>An optional integer specifying the number of Monte Carlo
 samples for the <code>mvn_cdf</code> method. The default value is <code>5000</code>. This argument is only applicable when <code>method = "mvn_cdf"</code>.</p></dd>
 
@@ -211,7 +211,7 @@ samples for the <code>mvn_cdf</code> method. The default value is <code>5000</co
 <dd><p>The method for estimating the conditional probability in the E-step.</p></dd>
 
 
-</dl><p>Aditionally, it will create <code>samples</code> and <code>step_size</code> parameters if the specified <code>method = "mcmc"</code>, or <code>mc_method</code>, <code>mc_error</code> and <code>mc_samples</code> if <code>method = "mvn_cdf"</code>.</p>
+</dl><p>Aditionally, it will create <code>mcmc_samples</code> and <code>mcmc_stepsize</code> parameters if the specified <code>method = "mcmc"</code>, or <code>mvnc_method</code>, <code>mvnc_error</code> and <code>mvnc_samples</code> if <code>method = "mvn_cdf"</code>.</p>
 <p>Also, if the eim object supplied is created with the function <a href="simulate_election.html">simulate_election</a>, it also returns the real probability with the name <code>real_prob</code>. See <a href="simulate_election.html">simulate_election</a>.</p>
     </div>
     <div class="section level2">
@@ -249,8 +249,8 @@ supplied matrices or the data from the JSON file before executing the algorithm.
 <span class="r-in"><span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu">run_em</span><span class="op">(</span></span></span>
 <span class="r-in"><span>    object <span class="op">=</span> <span class="va">model</span>,</span></span>
 <span class="r-in"><span>    method <span class="op">=</span> <span class="st">"mcmc"</span>,</span></span>
-<span class="r-in"><span>    step_size <span class="op">=</span> <span class="fl">1500</span>,</span></span>
-<span class="r-in"><span>    samples <span class="op">=</span> <span class="fl">800</span></span></span>
+<span class="r-in"><span>    mcmc_stepsize <span class="op">=</span> <span class="fl">1500</span>,</span></span>
+<span class="r-in"><span>    mcmc_samples <span class="op">=</span> <span class="fl">800</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Example 3: Run the MVN CDF method with default settings</span></span></span>
