@@ -7,9 +7,9 @@
     #    stop("run_em:\tInvalid input: no vector inputs allowed")
     # }
 
-    object_provided <- "object" %in% names(args)
-    x_provided <- "X" %in% names(args)
-    w_provided <- "W" %in% names(args)
+    object_provided <- "object" %in% names(args) || "object1" %in% names(args)
+    x_provided <- "X" %in% names(args) || "X1" %in% names(args)
+    w_provided <- "W" %in% names(args) || "W1" %in% names(args)
     xw_provided <- x_provided || w_provided
     json_provided <- "json_path" %in% names(args)
 

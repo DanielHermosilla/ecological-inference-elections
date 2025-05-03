@@ -1042,10 +1042,10 @@ get_agg_opt <- function(object = NULL,
 #'
 #' @inheritParams bootstrap
 #'
-#' @param object An `eim` object, as returned by [eim].
+#' @param object1 An `eim` object, as returned by [eim].
 #' @param object2 A second `eim` object to compare with `object`.
-#' @param X A `(b x c)` matrix representing candidate votes per ballot box.
-#' @param W A `(b x g)` matrix representing group votes per ballot box.
+#' @param X1 A `(b x c)` matrix representing candidate votes per ballot box.
+#' @param W1 A `(b x g)` matrix representing group votes per ballot box.
 #' @param X2 A second `(b x c)` matrix to compare with `X`.
 #' @param W2 A second `(b x g)` matrix to compare with `W`.
 #' @param nboot Integer specifying how many times to run the EM algorithm per object.
@@ -1062,8 +1062,8 @@ get_agg_opt <- function(object = NULL,
 #'
 #' @details
 #' The user must provide either of the following (but not both):
-#' - Two `eim` objects via `object` and `object2`, or
-#' - Four matrices: `X`, `W`, `X2`, and `W2`, which will be converted into `eim` objects internally.
+#' - Two `eim` objects via `object1` and `object2`, or
+#' - Four matrices: `X1`, `W1`, `X2`, and `W2`, which will be converted into `eim` objects internally.
 #'
 #' The Welch test is computed using the formula:
 #'
@@ -1075,25 +1075,26 @@ get_agg_opt <- function(object = NULL,
 #' @examples
 #' sim <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 123)
 #' sim2 <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 124)
-#' eim1 <- eim(sim$X, sim$W)
-#' eim2 <- eim(sim2$X, sim2$W)
 #'
-#' result <- welchtest(object = eim1, object2 = eim2, nboot = 100)
+#' result <- welchtest(eim1, eim2, nboot = 100)
 #'
 #' # Check which entries are significantly different
 #' which(result$pvals < 0.05, arr.ind = TRUE)
 #'
 #' @export
-welchtest <- function(object = NULL,
+welchtest <- function(object1 = NULL,
                       object2 = NULL,
-                      X = NULL,
-                      W = NULL,
+                      X1 = NULL,
+                      W1 = NULL,
                       X2 = NULL,
                       W2 = NULL,
                       nboot = 50,
                       seed = NULL,
                       alternative = "two.sided",
                       ...) {
+    object <- object1
+    X <- X1
+    W <- W1
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint # It would validate nboot too.
 
@@ -1130,11 +1131,12 @@ welchtest <- function(object = NULL,
     }
     boot1 <- do.call(bootstrap, c(
         list(object = object),
-        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X", "X2", "W", "W2", "json_path")]
+        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X", "X2", "W", "W2", "json_path")],
+        list(verbose = FALSE)
     ))
     em1 <- do.call(run_em, c(
         list(object = object),
-        bootstrap_args[!names(bootstrap_args) %in% c("verbose", "object", "nboot", "object2", "X", "X2", "W", "W2", "json_path")],
+        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X", "X2", "W", "W2", "json_path")],
         list(verbose = FALSE)
     ))
 
@@ -1144,11 +1146,12 @@ welchtest <- function(object = NULL,
     # Second object
     boot2 <- do.call(bootstrap, c(
         list(object = object2),
-        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X", "X2", "W", "W2", "json_path")]
+        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X", "X2", "W", "W2", "json_path")],
+        list(verbose = FALSE)
     ))
     em2 <- do.call(run_em, c(
         list(object = object2),
-        bootstrap_args[!names(bootstrap_args) %in% c("verbose", "nboot", "object", "object2", "X", "X2", "W", "W2", "json_path")],
+        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X", "X2", "W", "W2", "json_path")],
         list(verbose = FALSE)
     ))
 

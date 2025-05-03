@@ -52,10 +52,10 @@ get_XW_chile <- function(elect_district = NULL,
 
     # Apply filtering only if exactly one of region or elect_district is provided
     if (!is.null(region) && is.null(elect_district)) {
-        df_ed <- df[df$REGION == region, ]
+        df_ed <- df[df$REGION == toupper(region), ]
         rownames(df_ed) <- paste(df_ed$ELECTORAL.DISTRICT, df_ed$BALLOT.BOX, sep = " - ")
     } else if (!is.null(elect_district) && is.null(region)) {
-        df_ed <- df[df$ELECTORAL.DISTRICT == elect_district, ]
+        df_ed <- df[df$ELECTORAL.DISTRICT == toupper(elect_district), ]
         rownames(df_ed) <- df_ed$BALLOT.BOX
     } else if (is.null(elect_district) && is.null(region)) {
         # If both are provided or both are NULL, use full data

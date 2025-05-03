@@ -5,10 +5,10 @@
 \title{Performs a matrix-wise Welch's t-test for two eim objects}
 \usage{
 welchtest(
-  object = NULL,
+  object1 = NULL,
   object2 = NULL,
-  X = NULL,
-  W = NULL,
+  X1 = NULL,
+  W1 = NULL,
   X2 = NULL,
   W2 = NULL,
   nboot = 50,
@@ -18,13 +18,13 @@ welchtest(
 )
 }
 \arguments{
-\item{object}{An \code{eim} object, as returned by \link{eim}.}
+\item{object1}{An \code{eim} object, as returned by \link{eim}.}
 
 \item{object2}{A second \code{eim} object to compare with \code{object}.}
 
-\item{X}{A \verb{(b x c)} matrix representing candidate votes per ballot box.}
+\item{X1}{A \verb{(b x c)} matrix representing candidate votes per ballot box.}
 
-\item{W}{A \verb{(b x g)} matrix representing group votes per ballot box.}
+\item{W1}{A \verb{(b x g)} matrix representing group votes per ballot box.}
 
 \item{X2}{A second \verb{(b x c)} matrix to compare with \code{X}.}
 
@@ -59,8 +59,8 @@ It uses Welch's t-test to analyze if there is a significant difference between t
 
 The user must provide either of the following (but not both):
 \itemize{
-\item Two \code{eim} objects via \code{object} and \code{object2}, or
-\item Four matrices: \code{X}, \code{W}, \code{X2}, and \code{W2}, which will be converted into \code{eim} objects internally.
+\item Two \code{eim} objects via \code{object1} and \code{object2}, or
+\item Four matrices: \code{X1}, \code{W1}, \code{X2}, and \code{W2}, which will be converted into \code{eim} objects internally.
 }
 
 The Welch test is computed using the formula:
@@ -73,10 +73,8 @@ In this expression, \eqn{s_{1,ij}^2} and \eqn{s_{2,ij}^2} represent the bootstra
 \examples{
 sim <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 123)
 sim2 <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 124)
-eim1 <- eim(sim$X, sim$W)
-eim2 <- eim(sim2$X, sim2$W)
 
-result <- welchtest(object = eim1, object2 = eim2, nboot = 100)
+result <- welchtest(eim1, eim2, nboot = 100)
 
 # Check which entries are significantly different
 which(result$pvals < 0.05, arr.ind = TRUE)

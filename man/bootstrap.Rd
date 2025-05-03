@@ -71,7 +71,7 @@ model <- bootstrap(
     method = "mvn_cdf",
     maxiter = 500,
     verbose = FALSE,
-    mc_samples = 5000
+    mvnc_samples = 5000
 )
 
 # Access standard deviation throughout 'model'
