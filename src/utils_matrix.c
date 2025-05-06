@@ -631,6 +631,35 @@ Matrix createDiagonalMatrix(const double *vector, int size)
     return diag;
 }
 
+void choleskyMat(Matrix *matrix)
+{
+    checkMatrix(matrix);
+    char lCh = 'L';
+    if (matrix->rows != matrix->cols)
+    {
+        error("Matrix handling: Matrix must be square.\n");
+    }
+
+    int n = matrix->rows;
+    if (n == 1)
+    {
+        double val = matrix->data[0];
+        if (val != 0.0)
+            matrix->data[0] = 1.0 / val;
+        return;
+    }
+
+    int info;
+    F77_CALL(dpotrf)(&lCh, &n, matrix->data, &n, &info FCONE);
+    for (int i = 0; i < n; i++)
+    {
+        for (int j = i + 1; j < n; j++)
+        {
+            MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT_PTR(matrix, j, i);
+        }
+    }
+}
+
 /**
  * @brief Computes the inverse of a symmetric positive-definite matrix using Cholesky decomposition.
  *
@@ -698,14 +727,13 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
     // Fill upper triangle = mirror of lower triangle
     for (int i = 0; i < n; i++)
     {
-        for (int j = 0; j < n; j++)
+        for (int j = i + 1; j < n; j++)
         {
             MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT_PTR(matrix, j, i);
         }
     }
     freeMatrix(&emergencyMat);
 }
-
 /**
  * @brief Inverts a real symmetric NxN matrix (overwrites the input).
  *

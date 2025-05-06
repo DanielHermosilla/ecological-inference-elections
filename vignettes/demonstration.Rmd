@@ -1,6 +1,6 @@
 ---
 title: "Demonstration of the package usage"
-author: "Daniel Hermosilla"
+author: "Charles Thraves, Pablo Ubilla, Daniel Hermosilla"
 date: "`r Sys.Date()`"
 
 vignette: >
@@ -31,7 +31,7 @@ As shown in the output, it returns an eim object that contains two matrices: the
 Running the algorithm is done by calling `run_em()`.
 
 ```{r}
-eim_apo <- run_em(eim_apo, allow_mismatch = TRUE)
+eim_apo <- run_em(eim_apo)
 eim_apo$prob
 ```
 
@@ -49,9 +49,9 @@ eim_apo$sd
 The standard deviations obtained in the district "Apoquindo" are low in general. One reason for this is the high number of ballot boxes in this district. In contrast, standard deviations of estimated probabilities in districts with fewer ballot boxes, such as "Navidad", are larger.
 
 ```{r}
-navidad <- get_XW_chile(elect_district = "NAVIDAD")
-navidad <- bootstrap(navidad, seed = 42, nboot = 30)
-navidad$sd
+eim_nav <- get_XW_chile(elect_district = "NAVIDAD")
+eim_nav <- bootstrap(eim_nav, seed = 42, nboot = 30)
+eim_nav$sd
 ```
 It is possible to see the difference in a visual way by plotting the standard deviations of the estimated probabilities across groups. 
 
@@ -72,6 +72,12 @@ plot_district <- function(matrix1, district1, matrix2, district2, value = "prob"
     # Add text to each cell of the matrix
     combined_df$label <- sprintf("%.2f", combined_df$value)
     combined_df$text_color <- ifelse(combined_df$value > round(max(combined_df$value) * 0.75 + min(combined_df$value) * 0.25, 2), "black", "white")
+    districts <- sort(c(district1, district2))
+    title <- ifelse(value == "prob",
+        paste("Estimated probabilities in districts:", districts[1], "and", districts[2]),
+        paste("Standard deviation of estimated probabilities in districts:", districts[1], "and", districts[2])
+    )
+
 
     # Call the plot
     ggplot(combined_df, aes(x = Var2, y = Var1, fill = value)) +
@@ -86,7 +92,7 @@ plot_district <- function(matrix1, district1, matrix2, district2, value = "prob"
         coord_fixed() +
         theme_bw() +
         labs(
-            title = paste(title, "in districts:", district1, "and", district2),
+            title = title,
             x = "Candidates' votes", y = "Voters' age range", fill = value
         )
 }
@@ -95,7 +101,7 @@ plot_district <- function(matrix1, district1, matrix2, district2, value = "prob"
 
 ```{r, navidad_apoq_sd_comparison, fig.width = 8, fig.height = 6.5, fig.cap = "Navidad and Apoquindo standard deviation comparison", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
 plot_district(
-    matrix1 = navidad$sd, district1 = "Navidad",
+    matrix1 = eim_nav$sd, district1 = "Navidad",
     matrix2 = eim_apo$sd, district2 = "Apoquindo", value = "sd"
 )
 ```
@@ -106,21 +112,21 @@ plot_district(
 Demographic groups can be merged to have probability estimates with lower error. A greedy strategy that maximizes the variability of the distribution of groups across ballot boxes is used, which ensures standard deviations are below a specific threshold. The package provides the following function for the latter:
 
 ```{r}
-navidad_proxy <- get_agg_proxy(navidad, seed = 42, sd_threshold = 0.125, sd_statistic = "average")
-navidad_proxy$group_agg
+eim_nav_proxy <- get_agg_proxy(eim_nav, seed = 42, sd_threshold = 0.1, sd_statistic = "average")
+eim_nav_proxy$group_agg
 ```
 
 As shown in the output, the heuristic found a feasible configuration by merging groups 1 with 2. We can evaluate the effectiveness of this grouping by comparing the mean standard deviation to the original formulation:
 
 ```{r}
-mean(navidad$sd) - mean(navidad_proxy$sd)
+mean(eim_nav$sd) - mean(eim_nav_proxy$sd)
 ```
 
 An exhaustive algorithm is also included in the package. It explores all combinations of adjacent groups in order to maximize the log-likelihood subject to having standard deviations below a given threshold. It might require substantial computation time; therefore it is recommended to use the default method, "mult".
 
 ```{r}
-navidad_opt <- get_agg_opt(navidad, seed = 42, sd_threshold = 0.125, sd_statistic = "average")
-navidad_opt$group_agg
+eim_nav_opt <- get_agg_opt(eim_nav, seed = 42, sd_threshold = 0.1, sd_statistic = "average")
+eim_nav_opt$group_agg
 ```
 
 The optimal group aggregation differs slightly from one obtained before.
@@ -130,19 +136,18 @@ The optimal group aggregation differs slightly from one obtained before.
 A relevant question is how significantly different are the probability estimates of two sets of data, such as two different districts. For instance, we can compare the estimated probabilities of the district "APOQUINDO" and "PROVIDENCIA", which belong to the same ward.
 
 ```{r prov_apoq_comparison, fig.width = 8, fig.height = 6.5, fig.cap = "Providencia and Apoquindo comparison", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
-providencia <- get_XW_chile("PROVIDENCIA")
-providencia <- run_em(providencia)
+eim_prov <- get_XW_chile("PROVIDENCIA")
+eim_prov <- run_em(eim_prov)
 eim_apo <- run_em(eim_apo)
-plot_district(eim_apo$prob, "Apoquindo", providencia$prob, "Providencia")
+plot_district(eim_apo$prob, "Apoquindo", eim_prov$prob, "Providencia")
 ```
 
 A Welch's test can be applied to each component of the two probability matrix estimates:
 
 ```{r}
 comparison <- welchtest(
-    object1 = providencia,
+    object1 = eim_prov,
     object2 = eim_apo,
-    allow_mismatch = TRUE,
     method = "mult",
     nboot = 30,
     seed = 42
@@ -154,18 +159,18 @@ round(comparison$pvals, 3)
 In most cases, voting probabilities are not significantly different. On the other hand, it may be noteworthy to observe the difference between two electoral districts whose voting tendencies are expected to differ.
 
 ```{r granja_lobarnechea_comparison, fig.width = 8, fig.height=6.5, fig.cap = "Lo Barnechea and La Granja comparison", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
-la_granja <- get_XW_chile("LA GRANJA")
-la_granja <- run_em(la_granja)
-lo_barnechea <- get_XW_chile("LO BARNECHEA")
-lo_barnechea <- run_em(lo_barnechea)
-plot_district(la_granja$prob, "La Granja", lo_barnechea$prob, "Lo Barnechea")
+eim_gra <- get_XW_chile("LA GRANJA")
+eim_gra <- run_em(eim_gra)
+eim_bar <- get_XW_chile("LO BARNECHEA")
+eim_bar <- run_em(eim_bar)
+plot_district(eim_gra$prob, "La Granja", eim_bar$prob, "Lo Barnechea")
 ```
 
 
 ```{r}
 comparison2 <- welchtest(
-    object1 = la_granja,
-    object2 = lo_barnechea,
+    object1 = eim_gra,
+    object2 = eim_bar,
     method = "mult",
     nboot = 30,
     seed = 42,
@@ -180,50 +185,86 @@ round(comparison2$pvals, 3)
 It is possible to simulate an artificial election and get its values as an eim object with the simulated probability. This is useful for testing the package's performance and comparing the different methods available.
 
 ```{r}
-election_values <- simulate_election(num_ballots = 50, num_groups = 2, num_candidates = 3, seed = 42)
+eim_sim <- simulate_election(num_ballots = 15, num_groups = 2, num_candidates = 3, seed = 42)
 
-election_values
+eim_sim
 ```
 
-Having the following underlying probability matrix:
+The real voting probabilities of each group for each candidate can be obtained as follows:
 
 ```{r}
-election_values$real_prob
+eim_sim$real_prob
 ```
+
+In this case, we can access these values since this is a simulation; however, this is not possible when working with real data.
 
 The estimated voting probabilities are:
 
 ```{r}
-election_values <- run_em(election_values)
-election_values$prob
+eim_sim <- run_em(eim_sim)
+eim_sim$prob
 ```
 
 It is possible to provide a specific voting probability for each candidate for each group.
 
 ```{r}
-input_probability <- matrix(c(0.9, 0.05, 0.05, 0.2, 0.3, 05), nrow = 2, byrow = TRUE)
-election_values_2 <- simulate_election(
-    num_ballots = 50, num_groups = 2, num_candidates = 3, seed = 42,
+input_probability <- matrix(c(0.9, 0.05, 0.05, 0.2, 0.3, 0.5), nrow = 2, byrow = TRUE)
+input_probability
+```
+
+```{r}
+eim_sim2 <- simulate_election(
+    num_ballots = 30, num_groups = 2, num_candidates = 3, seed = 42,
     prob = input_probability
 )
-election_values_2
+eim_sim2
+eim_sim2$real_prob
 ```
 
-There is a parameter, lambda, that controls for the heterogeneity of voters' groups across ballot boxes. A value of lambda = 0 indicates that voters are all randomly assigned in ballot boxes, in contrast to lambda = 1. This is explained in detail in the documentation in `simulate_election()`.
+There is a parameter, lambda, that controls for the heterogeneity of voters' groups across ballot boxes. A value of lambda = 0 indicates that voters are all randomly assigned in ballot boxes; in contrast to lambda = 1, in which case voters are assigned in ballot boxes according to their demographic group. This is explained in detail in the documentation in `simulate_election()`.
+
 
 ```{r}
-election1 <- simulate_election(
-    num_ballots = 50, num_groups = 2, num_candidates = 2, seed = 42,
+plot_matrix <- function(mat) {
+    # Initial configurations
+    df <- reshape2::melt(mat)
+    colnames(df) <- c("Row", "Column", "Value")
+    df$Row <- factor(df$Row, levels = rev(sort(unique(df$Row))))
+    df$Column <- factor(df$Column, levels = sort(unique(df$Column)))
+    df$Label <- sprintf("%d", df$Value)
+    df$text_color <- ifelse(df$Value > 50, "black", "white")
+
+    # Plot
+    ggplot(df, aes(x = Column, y = Row, fill = Value)) +
+        geom_tile() +
+        geom_text(aes(label = Label, color = text_color), size = 3) +
+        scale_color_identity() +
+        scale_fill_viridis_c(option = "inferno", begin = 0.5) +
+        coord_fixed() +
+        theme_minimal(base_size = 13) +
+        labs(
+            title = "Voters distribution",
+            x = "Group votes",
+            y = "Ballot boxes",
+            fill = "Voters"
+        )
+}
+```
+
+
+```{r, eim_sim3_heatmap, fig.width = 8, fig.height = 6.5, fig.cap = "Voters' heatmap for a low lambda value", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
+eim_sim3 <- simulate_election(
+    num_ballots = 10, num_groups = 2, num_candidates = 2, seed = 42,
     lambda = 0.1
 )
-election1
+plot_matrix(eim_sim3$W)
 ```
 
 
-```{r}
-election2 <- simulate_election(
-    num_ballots = 50, num_groups = 2, num_candidates = 2, seed = 42,
+```{r, eim_sim4_heatmap, fig.width = 8, fig.height = 6.5, fig.cap = "Voters' heatmap for a high lambda value", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
+eim_sim4 <- simulate_election(
+    num_ballots = 10, num_groups = 2, num_candidates = 2, seed = 42,
     lambda = 0.9
 )
-election2
+plot_matrix(eim_sim4$W)
 ```

@@ -139,6 +139,8 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
 
     // ---- Initialize randomizer ---- //
     GetRNGstate();
+    // Rprintf("Using the cholesky matrix of:\n");
+    // printMatrix(cholesky);
 
     // ---- Initialize Montecarlo variables ---- //
     double intsum = 0;
@@ -207,6 +209,7 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
     } while (currentError > epsilon && currentIterations < iterations);
     // ---...--- //
     PutRNGstate();
+    // Rprintf("returning %.10f\n", intsum / currentIterations);
 
     return intsum / currentIterations;
 }
@@ -288,6 +291,10 @@ void getMainParameters(int b, Matrix const probabilitiesReduced, Matrix **choles
 
     // ---- Get mu and sigma ---- //
     getAverageConditional(b, &probabilitiesReduced, mu, cholesky);
+    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+    { // ---- For each group ----
+        choleskyMat(cholesky[g]);
+    }
 
     // ---...--- //
 }
@@ -398,6 +405,7 @@ double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params
             } // --- End c loop
             // ---...--- //
         } // --- End g loop
+        // error("stopping here"); // Erse this
         Free(feature);
         freeMatrix(&mu);
         Free(choleskyVals);

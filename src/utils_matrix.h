@@ -500,6 +500,8 @@ extern "C"
      * @param[in] colB Index of the second column to swap.
      */
     void swapMatrixColumns(Matrix *matrix, int colA, int colB);
+
+    void choleskyMat(Matrix *matrix);
 #ifdef __cplusplus
 }
 #endif

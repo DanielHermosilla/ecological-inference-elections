@@ -426,14 +426,14 @@ Matrix aggregateGroups(
 
             if (verbose)
             {
-                Rprintf("Optimal actions:\t[");
+                Rprintf("Group aggregations:\t[");
                 for (int k = 0; k < i - 1; k++)
                 {
                     // Sum 1 to the index for using R's indexing
                     Rprintf("%d, ", boundaries[k] + 1);
                 }
                 Rprintf("%d]\n", boundaries[i - 1] + 1);
-                Rprintf("Objective function:\t%f\n", bestVal);
+                Rprintf("Groups standard deviation:\t%f\n", bestVal);
             }
             // ---- Calculate the bootstrap matrix according the cutting boundaries
             bootstrapMatrix = testBootstrap(&quality, set_method, xmat, wmat, boundaries, i, bootiter, q_method,
