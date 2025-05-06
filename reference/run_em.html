@@ -69,7 +69,7 @@ Certain methods may require additional arguments, which can be passed through <c
 <span>  verbose <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  mcmc_samples <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span>  mcmc_stepsize <span class="op">=</span> <span class="fl">3000</span>,</span>
-<span>  mvnc_method <span class="op">=</span> <span class="st">"genz2"</span>,</span>
+<span>  mvnc_method <span class="op">=</span> <span class="st">"genz"</span>,</span>
 <span>  mvnc_error <span class="op">=</span> <span class="fl">0.00001</span>,</span>
 <span>  mvnc_samples <span class="op">=</span> <span class="fl">5000</span>,</span>
 <span>  <span class="va">...</span></span>
@@ -162,7 +162,7 @@ be ignored otherwise. The default value is <code>3000</code>.</p></dd>
 
 <dt id="arg-mvnc-method">mvnc_method<a class="anchor" aria-label="anchor" href="#arg-mvnc-method"></a></dt>
 <dd><p>An optional string specifying the method used to estimate the <code>mvn_cdf</code> method
-via a Monte Carlo simulation. Accepted values are <code>genz</code> and <code>genz2</code>, with <code>genz2</code>
+via a Monte Carlo simulation. Accepted values are <code>genz</code> and <code>genz2</code>, with <code>genz</code>
 set as the default. This parameter is only applicable when <code>method = "mvn_cdf"</code>. See <strong>References</strong> for more details.</p></dd>
 
 
