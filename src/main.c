@@ -500,9 +500,15 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
                 Rprintf("Delta log-likelihood: %f\n", fabs(newLL - oldLL));
         }
         // ---...--- //
+        /*
+         * For avoiding loops between same iterations (such as in the case of mvn_cdf), we impose that the
+         * log-likelihood shouldn't decrease from the 50th iteration and on.
+         */
+        bool decreasing = oldLL > newLL && i >= 50 ? true : false;
 
         // ---- Check convergence ---- //
-        if (i >= 1 && (fabs(newLL - oldLL) < LLconvergence || convergeMatrix(&newProbability, currentP, convergence)))
+        if (i >= 1 && (fabs(newLL - oldLL) < LLconvergence || convergeMatrix(&newProbability, currentP, convergence)) ||
+            decreasing)
         {
             // ---- End timer ----
             clock_gettime(CLOCK_MONOTONIC_RAW, &end);

@@ -291,7 +291,7 @@ void getMainParameters(int b, Matrix const probabilitiesReduced, Matrix **choles
 
     // ---- Get mu and sigma ---- //
     getAverageConditional(b, &probabilitiesReduced, mu, cholesky);
-    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+    for (uint16_t g = 0; g < TOTAL_GROUPS && TOTAL_CANDIDATES != 2; g++)
     { // ---- For each group ----
         choleskyMat(cholesky[g]);
     }
