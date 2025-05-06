@@ -21,7 +21,7 @@ run_em(
   verbose = FALSE,
   mcmc_samples = 1000,
   mcmc_stepsize = 3000,
-  mvnc_method = "genz2",
+  mvnc_method = "genz",
   mvnc_error = 0.00001,
   mvnc_samples = 5000,
   ...
@@ -85,7 +85,7 @@ algorithm. This parameter is only applicable when \code{method = "mcmc"} and wil
 be ignored otherwise. The default value is \code{3000}.}
 
 \item{mvnc_method}{An optional string specifying the method used to estimate the \code{mvn_cdf} method
-via a Monte Carlo simulation. Accepted values are \code{genz} and \code{genz2}, with \code{genz2}
+via a Monte Carlo simulation. Accepted values are \code{genz} and \code{genz2}, with \code{genz}
 set as the default. This parameter is only applicable when \code{method = "mvn_cdf"}. See \strong{References} for more details.}
 
 \item{mvnc_error}{An optional numeric value defining the error threshold for the Monte Carlo

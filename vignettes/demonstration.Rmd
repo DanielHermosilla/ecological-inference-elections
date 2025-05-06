@@ -227,43 +227,45 @@ There is a parameter, lambda, that controls for the heterogeneity of voters' gro
 ```{r}
 plot_matrix <- function(mat) {
     # Initial configurations
+    mat <- t(mat)
     df <- reshape2::melt(mat)
     colnames(df) <- c("Row", "Column", "Value")
     df$Row <- factor(df$Row, levels = rev(sort(unique(df$Row))))
     df$Column <- factor(df$Column, levels = sort(unique(df$Column)))
     df$Label <- sprintf("%d", df$Value)
-    df$text_color <- ifelse(df$Value > 50, "black", "white")
+    df$text_color <- ifelse(df$Value > 30, "black", "white")
 
     # Plot
     ggplot(df, aes(x = Column, y = Row, fill = Value)) +
         geom_tile() +
-        geom_text(aes(label = Label, color = text_color), size = 3) +
+        geom_text(aes(label = Label, color = text_color), size = 2) +
         scale_color_identity() +
         scale_fill_viridis_c(option = "inferno", begin = 0.5) +
         coord_fixed() +
-        theme_minimal(base_size = 13) +
+        theme_minimal(base_size = 9) +
+        theme(axis.text.y = element_text(size = 7), axis.text.x = element_text(size = 7)) +
         labs(
             title = "Voters distribution",
-            x = "Group votes",
-            y = "Ballot boxes",
+            x = "Ballot Box",
+            y = "Dem. Group",
             fill = "Voters"
         )
 }
 ```
 
 
-```{r, eim_sim3_heatmap, fig.width = 8, fig.height = 6.5, fig.cap = "Voters' heatmap for a low lambda value", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
+```{r, eim_sim3_heatmap, fig.width = 8, fig.height = 3.5, fig.cap = "Voters' heatmap for a low lambda value", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
 eim_sim3 <- simulate_election(
-    num_ballots = 10, num_groups = 2, num_candidates = 2, seed = 42,
+    num_ballots = 20, num_groups = 4, num_candidates = 2, seed = 42,
     lambda = 0.1
 )
 plot_matrix(eim_sim3$W)
 ```
 
 
-```{r, eim_sim4_heatmap, fig.width = 8, fig.height = 6.5, fig.cap = "Voters' heatmap for a high lambda value", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
+```{r, eim_sim4_heatmap, fig.width = 8, fig.height = 3.5, fig.cap = "Voters' heatmap for a high lambda value", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
 eim_sim4 <- simulate_election(
-    num_ballots = 10, num_groups = 2, num_candidates = 2, seed = 42,
+    num_ballots = 20, num_groups = 4, num_candidates = 2, seed = 42,
     lambda = 0.9
 )
 plot_matrix(eim_sim4$W)
