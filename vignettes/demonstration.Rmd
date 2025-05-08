@@ -55,7 +55,7 @@ eim_nav$sd
 ```
 It is possible to see the difference in a visual way by plotting the standard deviations of the estimated probabilities across groups. 
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, echo=TRUE}
 library(ggplot2)
 library(reshape2)
 library(viridis)
@@ -67,17 +67,11 @@ plot_district <- function(matrix1, district1, matrix2, district2, value = "prob"
     df2$Matrix <- district2
     combined_df <- rbind(df1, df2)
     color <- ifelse(value == "prob", "plasma", "viridis")
-    title <- ifelse(value == "prob", "Estimated probabilities", "Standard deviation of estimated probabilties")
 
     # Add text to each cell of the matrix
     combined_df$label <- sprintf("%.2f", combined_df$value)
     combined_df$text_color <- ifelse(combined_df$value > round(max(combined_df$value) * 0.75 + min(combined_df$value) * 0.25, 2), "black", "white")
     districts <- sort(c(district1, district2))
-    title <- ifelse(value == "prob",
-        paste("Estimated probabilities in districts:", districts[1], "and", districts[2]),
-        paste("Standard deviation of estimated probabilities in districts:", districts[1], "and", districts[2])
-    )
-
 
     # Call the plot
     ggplot(combined_df, aes(x = Var2, y = Var1, fill = value)) +
@@ -85,16 +79,70 @@ plot_district <- function(matrix1, district1, matrix2, district2, value = "prob"
         geom_text(aes(label = label, color = text_color), size = 3) +
         scale_fill_viridis(
             name = value,
-            option = color
+            option = color,
         ) +
         scale_color_identity() +
         facet_wrap(~Matrix) +
         coord_fixed() +
         theme_bw() +
         labs(
-            title = title,
+            title = ifelse(value == "prob",
+                paste("Estimated probabilities in districts:", districts[1], "and", districts[2]),
+                paste("Standard deviation of estimated probabilities in districts:", districts[1], "and", districts[2])
+            ),
             x = "Candidates' votes", y = "Voters' age range", fill = value
         )
+}
+
+plot_matrix <- function(mat, sd = FALSE, y_labels = NULL) {
+    # Initial configurations
+    if (!sd) mat <- t(mat)
+    df <- reshape2::melt(mat)
+    colnames(df) <- c("Row", "Column", "Value")
+    df$Row <- factor(df$Row, levels = rev(sort(unique(df$Row))))
+    df$Column <- factor(df$Column, levels = sort(unique(df$Column)))
+    if (!sd) {
+        df$Label <- sprintf("%d", df$Value)
+        title_text <- "Voters distribution"
+        x_lab <- "Ballot Box"
+        y_lab <- "Dem. Group"
+        fill_lab <- "Voters"
+        df$text_color <- ifelse(df$Value > 30, "black", "white")
+        option <- "inferno"
+        start <- 0.5
+        limits <- NULL
+    } else {
+        df$Label <- sprintf("%.2f", df$Value)
+        title_text <- "Standard deviation of estimated probabilities on district: Navidad"
+        x_lab <- "Candidates' votes"
+        y_lab <- "Voters' age range"
+        fill_lab <- "sd"
+        df$text_color <- ifelse(df$Value > 0.13, "black", "white")
+        option <- "viridis"
+        start <- 0
+        limits <- c(0, 0.2)
+    }
+
+    # Plot
+    p <- ggplot(df, aes(x = Column, y = Row, fill = Value)) +
+        geom_tile() +
+        geom_text(aes(label = Label, color = text_color), size = 3) +
+        scale_color_identity() +
+        scale_fill_viridis_c(option = option, begin = start, limits = limits) +
+        coord_fixed() +
+        theme_bw() +
+        theme(axis.text.y = element_text(size = 7), axis.text.x = element_text(size = 7)) +
+        labs(
+            title = title_text,
+            x = x_lab,
+            y = y_lab,
+            fill = fill_lab
+        )
+    # Add custom y-axis labels if provided
+    if (!is.null(y_labels)) {
+        p <- p + scale_y_discrete(labels = y_labels)
+    }
+    p
 }
 ```
 
@@ -116,10 +164,15 @@ eim_nav_proxy <- get_agg_proxy(eim_nav, seed = 42, sd_threshold = 0.1, sd_statis
 eim_nav_proxy$group_agg
 ```
 
-As shown in the output, the heuristic found a feasible configuration by merging groups 1 with 2. We can evaluate the effectiveness of this grouping by comparing the mean standard deviation to the original formulation:
+ As shown in the output, the heuristic finds a group aggregation that merges the first and last four age ranges, namely, macro-groups with voters aged 18-49, and older than 50. We can evaluate the effectiveness of this grouping by comparing the mean standard deviation to the original formulation:
 
 ```{r}
 mean(eim_nav$sd) - mean(eim_nav_proxy$sd)
+```
+
+
+```{r, standard_deviation_proxy, fig.width = 8, fig.height = 3.5, fig.cap = "Navidad aggregated standard deviation with proxy method", fig.align = "center", message=FALSE, warning=FALSE, echo=TRUE}
+plot_matrix(eim_nav_proxy$sd, sd = TRUE, y_labels = c("X18.49", "X50."))
 ```
 
 An exhaustive algorithm is also included in the package. It explores all combinations of adjacent groups in order to maximize the log-likelihood subject to having standard deviations below a given threshold. It might require substantial computation time; therefore it is recommended to use the default method, "mult".
@@ -129,16 +182,26 @@ eim_nav_opt <- get_agg_opt(eim_nav, seed = 42, sd_threshold = 0.1, sd_statistic 
 eim_nav_opt$group_agg
 ```
 
-The optimal group aggregation differs slightly from one obtained before.
+
+```{r, standard_deviation_opt, fig.width = 8, fig.height = 3.5, fig.cap = "Navidad aggregated standard deviation with opt method", fig.align = "center", message=FALSE, warning=FALSE}
+plot_matrix(eim_nav_opt$sd, sd = TRUE, y_labels = c("X18.49", "X50.69", "X70."))
+```
+
+
+
+The optimal group aggregation differs slightly from one obtained before. In this case, the group aggregation consists in the three age range: 18-49, 50-69, and older than 70.
 
 # Test difference between estimates
 
 A relevant question is how significantly different are the probability estimates of two sets of data, such as two different districts. For instance, we can compare the estimated probabilities of the district "APOQUINDO" and "PROVIDENCIA", which belong to the same ward.
 
-```{r prov_apoq_comparison, fig.width = 8, fig.height = 6.5, fig.cap = "Providencia and Apoquindo comparison", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
+```{r}
 eim_prov <- get_XW_chile("PROVIDENCIA")
 eim_prov <- run_em(eim_prov)
 eim_apo <- run_em(eim_apo)
+```
+
+```{r prov_apoc_comparison, fig.width = 8, fig.height = 6.5, fig.cap = "Providencia and Apoquindo comparison", fig.align = "center", message=FALSE, warning=FALSE, echo=TRUE}
 plot_district(eim_apo$prob, "Apoquindo", eim_prov$prob, "Providencia")
 ```
 
@@ -158,14 +221,17 @@ round(comparison$pvals, 3)
 
 In most cases, voting probabilities are not significantly different. On the other hand, it may be noteworthy to observe the difference between two electoral districts whose voting tendencies are expected to differ.
 
-```{r granja_lobarnechea_comparison, fig.width = 8, fig.height=6.5, fig.cap = "Lo Barnechea and La Granja comparison", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
+```{r}
 eim_gra <- get_XW_chile("LA GRANJA")
 eim_gra <- run_em(eim_gra)
 eim_bar <- get_XW_chile("LO BARNECHEA")
 eim_bar <- run_em(eim_bar)
-plot_district(eim_gra$prob, "La Granja", eim_bar$prob, "Lo Barnechea")
 ```
 
+
+```{r granja_lobarnechea_comparison, fig.width = 8, fig.height=6.5, fig.cap = "Lo Barnechea and La Granja comparison", fig.align = "center", message=FALSE, warning=FALSE, echo = FALSE, results="hide"}
+plot_district(eim_gra$prob, "La Granja", eim_bar$prob, "Lo Barnechea")
+```
 
 ```{r}
 comparison2 <- welchtest(
@@ -186,7 +252,6 @@ It is possible to simulate an artificial election and get its values as an eim o
 
 ```{r}
 eim_sim <- simulate_election(num_ballots = 15, num_groups = 2, num_candidates = 3, seed = 42)
-
 eim_sim
 ```
 
@@ -223,50 +288,24 @@ eim_sim2$real_prob
 
 There is a parameter, lambda, that controls for the heterogeneity of voters' groups across ballot boxes. A value of lambda = 0 indicates that voters are all randomly assigned in ballot boxes; in contrast to lambda = 1, in which case voters are assigned in ballot boxes according to their demographic group. This is explained in detail in the documentation in `simulate_election()`.
 
-
 ```{r}
-plot_matrix <- function(mat) {
-    # Initial configurations
-    mat <- t(mat)
-    df <- reshape2::melt(mat)
-    colnames(df) <- c("Row", "Column", "Value")
-    df$Row <- factor(df$Row, levels = rev(sort(unique(df$Row))))
-    df$Column <- factor(df$Column, levels = sort(unique(df$Column)))
-    df$Label <- sprintf("%d", df$Value)
-    df$text_color <- ifelse(df$Value > 30, "black", "white")
-
-    # Plot
-    ggplot(df, aes(x = Column, y = Row, fill = Value)) +
-        geom_tile() +
-        geom_text(aes(label = Label, color = text_color), size = 2) +
-        scale_color_identity() +
-        scale_fill_viridis_c(option = "inferno", begin = 0.5) +
-        coord_fixed() +
-        theme_minimal(base_size = 9) +
-        theme(axis.text.y = element_text(size = 7), axis.text.x = element_text(size = 7)) +
-        labs(
-            title = "Voters distribution",
-            x = "Ballot Box",
-            y = "Dem. Group",
-            fill = "Voters"
-        )
-}
-```
-
-
-```{r, eim_sim3_heatmap, fig.width = 8, fig.height = 3.5, fig.cap = "Voters' heatmap for a low lambda value", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
 eim_sim3 <- simulate_election(
     num_ballots = 20, num_groups = 4, num_candidates = 2, seed = 42,
     lambda = 0.1
 )
+```
+
+```{r, eim_sim3_heatmap, fig.width = 8, fig.height = 3.5, fig.cap = "Voters' heatmap for a low lambda value", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
 plot_matrix(eim_sim3$W)
 ```
 
-
-```{r, eim_sim4_heatmap, fig.width = 8, fig.height = 3.5, fig.cap = "Voters' heatmap for a high lambda value", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
+```{r}
 eim_sim4 <- simulate_election(
     num_ballots = 20, num_groups = 4, num_candidates = 2, seed = 42,
     lambda = 0.9
 )
+```
+
+```{r, eim_sim4_heatmap, fig.width = 8, fig.height = 3.5, fig.cap = "Voters' heatmap for a high lambda value", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
 plot_matrix(eim_sim4$W)
 ```
