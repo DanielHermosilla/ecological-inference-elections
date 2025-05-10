@@ -67,7 +67,7 @@
                         <h4 data-toc-skip class="author">Charles
 Thraves, Pablo Ubilla, Daniel Hermosilla</h4>
             
-            <h4 data-toc-skip class="date">2025-05-08</h4>
+            <h4 data-toc-skip class="date">2025-05-10</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/DanielHermosilla/ecological-inference-elections/blob/HEAD/vignettes/demonstration.Rmd" class="external-link"><code>vignettes/demonstration.Rmd</code></a></small>
       <div class="d-none name"><code>demonstration.Rmd</code></div>
@@ -213,7 +213,8 @@ standard deviations of the estimated probabilities across groups.</p>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/hadley/reshape" class="external-link">reshape2</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://sjmgarnier.github.io/viridis/" class="external-link">viridis</a></span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">plot_district</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">matrix1</span>, <span class="va">district1</span>, <span class="va">matrix2</span>, <span class="va">district2</span>, <span class="va">value</span> <span class="op">=</span> <span class="st">"prob"</span><span class="op">)</span> <span class="op">{</span></span>
+<span><span class="va">plot_district</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">matrix1</span>, <span class="va">district1</span>, <span class="va">matrix2</span>, <span class="va">district2</span>, <span class="va">sd</span> <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="va">value</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">sd</span> <span class="op">==</span> <span class="cn">FALSE</span>, <span class="st">"prob"</span>, <span class="st">"sd"</span><span class="op">)</span></span>
 <span>    <span class="va">df1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/reshape2/man/melt.html" class="external-link">melt</a></span><span class="op">(</span><span class="va">matrix1</span><span class="op">)</span></span>
 <span>    <span class="va">df2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/reshape2/man/melt.html" class="external-link">melt</a></span><span class="op">(</span><span class="va">matrix2</span><span class="op">)</span></span>
 <span>    <span class="va">df1</span><span class="op">$</span><span class="va">Matrix</span> <span class="op">&lt;-</span> <span class="va">district1</span></span>
@@ -245,9 +246,42 @@ standard deviations of the estimated probabilities across groups.</p>
 <span>            <span class="op">)</span>,</span>
 <span>            x <span class="op">=</span> <span class="st">"Candidates' votes"</span>, y <span class="op">=</span> <span class="st">"Voters' age range"</span>, fill <span class="op">=</span> <span class="va">value</span></span>
 <span>        <span class="op">)</span></span>
-<span><span class="op">}</span></span>
-<span></span>
-<span><span class="va">plot_matrix</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">mat</span>, <span class="va">sd</span> <span class="op">=</span> <span class="cn">FALSE</span>, <span class="va">y_labels</span> <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span> <span class="op">{</span></span>
+<span><span class="op">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">plot_district</span><span class="op">(</span></span>
+<span>    matrix1 <span class="op">=</span> <span class="va">eim_nav</span><span class="op">$</span><span class="va">sd</span>, district1 <span class="op">=</span> <span class="st">"Navidad"</span>,</span>
+<span>    matrix2 <span class="op">=</span> <span class="va">eim_apo</span><span class="op">$</span><span class="va">sd</span>, district2 <span class="op">=</span> <span class="st">"Apoquindo"</span>, sd <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="demonstration_files/figure-html/navidad_apoq_sd_comparison-1.png" alt="Navidad and Apoquindo standard deviation comparison" width="768"><p class="caption">
+Navidad and Apoquindo standard deviation comparison
+</p>
+</div>
+</div>
+<div class="section level2">
+<h2 id="reduce-estimation-error-using-group-aggregation">Reduce Estimation Error using Group Aggregation<a class="anchor" aria-label="anchor" href="#reduce-estimation-error-using-group-aggregation"></a>
+</h2>
+<p>Demographic groups can be merged to have probability estimates with
+lower error. A greedy strategy that maximizes the variability of the
+distribution of groups across ballot boxes is used, which ensures
+standard deviations are below a specific threshold. The package provides
+the following function for the latter:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">eim_nav_proxy</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_proxy.html">get_agg_proxy</a></span><span class="op">(</span><span class="va">eim_nav</span>, seed <span class="op">=</span> <span class="fl">42</span>, sd_threshold <span class="op">=</span> <span class="fl">0.1</span>, sd_statistic <span class="op">=</span> <span class="st">"average"</span><span class="op">)</span></span>
+<span><span class="va">eim_nav_proxy</span><span class="op">$</span><span class="va">group_agg</span></span></code></pre></div>
+<pre><code><span><span class="co">## [1] 4 8</span></span></code></pre>
+<p>As shown in the output, the heuristic finds a group aggregation that
+merges the first and last four age ranges, namely, macro-groups with
+voters aged 18-49, and older than 50. We can evaluate the effectiveness
+of this grouping by comparing the mean standard deviation to the
+original formulation:</p>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">eim_nav</span><span class="op">$</span><span class="va">sd</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">eim_nav_proxy</span><span class="op">$</span><span class="va">sd</span><span class="op">)</span></span></code></pre></div>
+<pre><code><span><span class="co">## [1] 0.05028999</span></span></code></pre>
+<p>It is possible to see the aggregated standard deviations
+visually:</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">plot_matrix</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">mat</span>, <span class="va">sd</span> <span class="op">=</span> <span class="cn">FALSE</span>, <span class="va">y_labels</span> <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span> <span class="op">{</span></span>
 <span>    <span class="co"># Initial configurations</span></span>
 <span>    <span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="va">sd</span><span class="op">)</span> <span class="va">mat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="va">mat</span><span class="op">)</span></span>
 <span>    <span class="va">df</span> <span class="op">&lt;-</span> <span class="fu">reshape2</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/reshape2/man/melt.html" class="external-link">melt</a></span><span class="op">(</span><span class="va">mat</span><span class="op">)</span></span>
@@ -297,38 +331,7 @@ standard deviations of the estimated probabilities across groups.</p>
 <span>    <span class="op">}</span></span>
 <span>    <span class="va">p</span></span>
 <span><span class="op">}</span></span></code></pre></div>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">plot_district</span><span class="op">(</span></span>
-<span>    matrix1 <span class="op">=</span> <span class="va">eim_nav</span><span class="op">$</span><span class="va">sd</span>, district1 <span class="op">=</span> <span class="st">"Navidad"</span>,</span>
-<span>    matrix2 <span class="op">=</span> <span class="va">eim_apo</span><span class="op">$</span><span class="va">sd</span>, district2 <span class="op">=</span> <span class="st">"Apoquindo"</span>, value <span class="op">=</span> <span class="st">"sd"</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-<div class="figure" style="text-align: center">
-<img src="demonstration_files/figure-html/navidad_apoq_sd_comparison-1.png" alt="Navidad and Apoquindo standard deviation comparison" width="768"><p class="caption">
-Navidad and Apoquindo standard deviation comparison
-</p>
-</div>
-</div>
-<div class="section level2">
-<h2 id="reduce-estimation-error-using-group-aggregation">Reduce Estimation Error using Group Aggregation<a class="anchor" aria-label="anchor" href="#reduce-estimation-error-using-group-aggregation"></a>
-</h2>
-<p>Demographic groups can be merged to have probability estimates with
-lower error. A greedy strategy that maximizes the variability of the
-distribution of groups across ballot boxes is used, which ensures
-standard deviations are below a specific threshold. The package provides
-the following function for the latter:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">eim_nav_proxy</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_proxy.html">get_agg_proxy</a></span><span class="op">(</span><span class="va">eim_nav</span>, seed <span class="op">=</span> <span class="fl">42</span>, sd_threshold <span class="op">=</span> <span class="fl">0.1</span>, sd_statistic <span class="op">=</span> <span class="st">"average"</span><span class="op">)</span></span>
-<span><span class="va">eim_nav_proxy</span><span class="op">$</span><span class="va">group_agg</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 4 8</span></span></code></pre>
-<p>As shown in the output, the heuristic finds a group aggregation that
-merges the first and last four age ranges, namely, macro-groups with
-voters aged 18-49, and older than 50. We can evaluate the effectiveness
-of this grouping by comparing the mean standard deviation to the
-original formulation:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">eim_nav</span><span class="op">$</span><span class="va">sd</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">eim_nav_proxy</span><span class="op">$</span><span class="va">sd</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 0.05028999</span></span></code></pre>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">plot_matrix</span><span class="op">(</span><span class="va">eim_nav_proxy</span><span class="op">$</span><span class="va">sd</span>, sd <span class="op">=</span> <span class="cn">TRUE</span>, y_labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"X18.49"</span>, <span class="st">"X50."</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
 <img src="demonstration_files/figure-html/standard_deviation_proxy-1.png" alt="Navidad aggregated standard deviation with proxy method" width="768"><p class="caption">
@@ -340,11 +343,11 @@ all combinations of adjacent groups in order to maximize the
 log-likelihood subject to having standard deviations below a given
 threshold. It might require substantial computation time; therefore it
 is recommended to use the default method, “mult”.</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_nav_opt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_opt.html">get_agg_opt</a></span><span class="op">(</span><span class="va">eim_nav</span>, seed <span class="op">=</span> <span class="fl">42</span>, sd_threshold <span class="op">=</span> <span class="fl">0.1</span>, sd_statistic <span class="op">=</span> <span class="st">"average"</span><span class="op">)</span></span>
 <span><span class="va">eim_nav_opt</span><span class="op">$</span><span class="va">group_agg</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] 4 6 8</span></span></code></pre>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">plot_matrix</span><span class="op">(</span><span class="va">eim_nav_opt</span><span class="op">$</span><span class="va">sd</span>, sd <span class="op">=</span> <span class="cn">TRUE</span>, y_labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"X18.49"</span>, <span class="st">"X50.69"</span>, <span class="st">"X70."</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
 <img src="demonstration_files/figure-html/standard_deviation_opt-1.png" alt="Navidad aggregated standard deviation with opt method" width="768"><p class="caption">
@@ -363,11 +366,11 @@ probability estimates of two sets of data, such as two different
 districts. For instance, we can compare the estimated probabilities of
 the district “APOQUINDO” and “PROVIDENCIA”, which belong to the same
 ward.</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_prov</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span><span class="st">"PROVIDENCIA"</span><span class="op">)</span></span>
 <span><span class="va">eim_prov</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_prov</span><span class="op">)</span></span>
 <span><span class="va">eim_apo</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_apo</span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">plot_district</span><span class="op">(</span><span class="va">eim_apo</span><span class="op">$</span><span class="va">prob</span>, <span class="st">"Apoquindo"</span>, <span class="va">eim_prov</span><span class="op">$</span><span class="va">prob</span>, <span class="st">"Providencia"</span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
 <img src="demonstration_files/figure-html/prov_apoc_comparison-1.png" alt="Providencia and Apoquindo comparison" width="768"><p class="caption">
@@ -376,7 +379,7 @@ Providencia and Apoquindo comparison
 </div>
 <p>A Welch’s test can be applied to each component of the two
 probability matrix estimates:</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">comparison</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/welchtest.html">welchtest</a></span><span class="op">(</span></span>
 <span>    object1 <span class="op">=</span> <span class="va">eim_prov</span>,</span>
 <span>    object2 <span class="op">=</span> <span class="va">eim_apo</span>,</span>
@@ -399,7 +402,7 @@ probability matrix estimates:</p>
 On the other hand, it may be noteworthy to observe the difference
 between two electoral districts whose voting tendencies are expected to
 differ.</p>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_gra</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span><span class="st">"LA GRANJA"</span><span class="op">)</span></span>
 <span><span class="va">eim_gra</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_gra</span><span class="op">)</span></span>
 <span><span class="va">eim_bar</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span><span class="st">"LO BARNECHEA"</span><span class="op">)</span></span>
@@ -409,7 +412,7 @@ differ.</p>
 Lo Barnechea and La Granja comparison
 </p>
 </div>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">comparison2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/welchtest.html">welchtest</a></span><span class="op">(</span></span>
 <span>    object1 <span class="op">=</span> <span class="va">eim_gra</span>,</span>
 <span>    object2 <span class="op">=</span> <span class="va">eim_bar</span>,</span>
@@ -436,7 +439,7 @@ Lo Barnechea and La Granja comparison
 as an eim object with the simulated probability. This is useful for
 testing the package’s performance and comparing the different methods
 available.</p>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_election.html">simulate_election</a></span><span class="op">(</span>num_ballots <span class="op">=</span> <span class="fl">15</span>, num_groups <span class="op">=</span> <span class="fl">2</span>, num_candidates <span class="op">=</span> <span class="fl">3</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
 <span><span class="va">eim_sim</span></span></code></pre></div>
 <pre><code><span><span class="co">## eim ecological inference model</span></span>
@@ -462,7 +465,7 @@ available.</p>
 <span><span class="co">## .</span></span></code></pre>
 <p>The real voting probabilities of each group for each candidate can be
 obtained as follows:</p>
-<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim</span><span class="op">$</span><span class="va">real_prob</span></span></code></pre></div>
 <pre><code><span><span class="co">##           [,1]      [,2]      [,3]</span></span>
 <span><span class="co">## [1,] 0.2588692 0.3615164 0.3796145</span></span>
@@ -470,7 +473,7 @@ obtained as follows:</p>
 <p>In this case, we can access these values since this is a simulation;
 however, this is not possible when working with real data.</p>
 <p>The estimated voting probabilities are:</p>
-<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_sim</span><span class="op">)</span></span>
 <span><span class="va">eim_sim</span><span class="op">$</span><span class="va">prob</span></span></code></pre></div>
 <pre><code><span><span class="co">##           [,1]      [,2]      [,3]</span></span>
@@ -478,13 +481,13 @@ however, this is not possible when working with real data.</p>
 <span><span class="co">## [2,] 0.3014838 0.1827996 0.5157166</span></span></code></pre>
 <p>It is possible to provide a specific voting probability for each
 candidate for each group.</p>
-<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">input_probability</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.9</span>, <span class="fl">0.05</span>, <span class="fl">0.05</span>, <span class="fl">0.2</span>, <span class="fl">0.3</span>, <span class="fl">0.5</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">2</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="va">input_probability</span></span></code></pre></div>
 <pre><code><span><span class="co">##      [,1] [,2] [,3]</span></span>
 <span><span class="co">## [1,]  0.9 0.05 0.05</span></span>
 <span><span class="co">## [2,]  0.2 0.30 0.50</span></span></code></pre>
-<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_election.html">simulate_election</a></span><span class="op">(</span></span>
 <span>    num_ballots <span class="op">=</span> <span class="fl">30</span>, num_groups <span class="op">=</span> <span class="fl">2</span>, num_candidates <span class="op">=</span> <span class="fl">3</span>, seed <span class="op">=</span> <span class="fl">42</span>,</span>
 <span>    prob <span class="op">=</span> <span class="va">input_probability</span></span>
@@ -511,7 +514,7 @@ candidate for each group.</p>
 <span><span class="co">## .</span></span>
 <span><span class="co">## .</span></span>
 <span><span class="co">## .</span></span></code></pre>
-<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim2</span><span class="op">$</span><span class="va">real_prob</span></span></code></pre></div>
 <pre><code><span><span class="co">##      [,1] [,2] [,3]</span></span>
 <span><span class="co">## [1,]  0.9 0.05 0.05</span></span>
@@ -522,24 +525,24 @@ voters are all randomly assigned in ballot boxes; in contrast to lambda
 = 1, in which case voters are assigned in ballot boxes according to
 their demographic group. This is explained in detail in the
 documentation in <code><a href="../reference/simulate_election.html">simulate_election()</a></code>.</p>
-<div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim3</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_election.html">simulate_election</a></span><span class="op">(</span></span>
 <span>    num_ballots <span class="op">=</span> <span class="fl">20</span>, num_groups <span class="op">=</span> <span class="fl">4</span>, num_candidates <span class="op">=</span> <span class="fl">2</span>, seed <span class="op">=</span> <span class="fl">42</span>,</span>
 <span>    lambda <span class="op">=</span> <span class="fl">0.1</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb40"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">plot_matrix</span><span class="op">(</span><span class="va">eim_sim3</span><span class="op">$</span><span class="va">W</span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
 <img src="demonstration_files/figure-html/eim_sim3_heatmap-1.png" alt="Voters' heatmap for a low lambda value" width="768"><p class="caption">
 Voters’ heatmap for a low lambda value
 </p>
 </div>
-<div class="sourceCode" id="cb40"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb41"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim4</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_election.html">simulate_election</a></span><span class="op">(</span></span>
 <span>    num_ballots <span class="op">=</span> <span class="fl">20</span>, num_groups <span class="op">=</span> <span class="fl">4</span>, num_candidates <span class="op">=</span> <span class="fl">2</span>, seed <span class="op">=</span> <span class="fl">42</span>,</span>
 <span>    lambda <span class="op">=</span> <span class="fl">0.9</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb41"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb42"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">plot_matrix</span><span class="op">(</span><span class="va">eim_sim4</span><span class="op">$</span><span class="va">W</span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
 <img src="demonstration_files/figure-html/eim_sim4_heatmap-1.png" alt="Voters' heatmap for a high lambda value" width="768"><p class="caption">
