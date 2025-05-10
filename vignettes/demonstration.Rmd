@@ -60,7 +60,8 @@ library(ggplot2)
 library(reshape2)
 library(viridis)
 
-plot_district <- function(matrix1, district1, matrix2, district2, value = "prob") {
+plot_district <- function(matrix1, district1, matrix2, district2, sd = FALSE) {
+    value <- ifelse(sd == FALSE, "prob", "sd")
     df1 <- melt(matrix1)
     df2 <- melt(matrix2)
     df1$Matrix <- district1
@@ -93,7 +94,34 @@ plot_district <- function(matrix1, district1, matrix2, district2, value = "prob"
             x = "Candidates' votes", y = "Voters' age range", fill = value
         )
 }
+```
 
+
+```{r, navidad_apoq_sd_comparison, fig.width = 8, fig.height = 6.5, fig.cap = "Navidad and Apoquindo standard deviation comparison", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
+plot_district(
+    matrix1 = eim_nav$sd, district1 = "Navidad",
+    matrix2 = eim_apo$sd, district2 = "Apoquindo", sd = TRUE
+)
+```
+
+
+# Reduce Estimation Error using Group Aggregation
+
+Demographic groups can be merged to have probability estimates with lower error. A greedy strategy that maximizes the variability of the distribution of groups across ballot boxes is used, which ensures standard deviations are below a specific threshold. The package provides the following function for the latter:
+
+```{r}
+eim_nav_proxy <- get_agg_proxy(eim_nav, seed = 42, sd_threshold = 0.1, sd_statistic = "average")
+eim_nav_proxy$group_agg
+```
+
+ As shown in the output, the heuristic finds a group aggregation that merges the first and last four age ranges, namely, macro-groups with voters aged 18-49, and older than 50. We can evaluate the effectiveness of this grouping by comparing the mean standard deviation to the original formulation:
+
+```{r}
+mean(eim_nav$sd) - mean(eim_nav_proxy$sd)
+```
+It is possible to see the aggregated standard deviations visually:
+
+```{r}
 plot_matrix <- function(mat, sd = FALSE, y_labels = NULL) {
     # Initial configurations
     if (!sd) mat <- t(mat)
@@ -145,31 +173,6 @@ plot_matrix <- function(mat, sd = FALSE, y_labels = NULL) {
     p
 }
 ```
-
-
-```{r, navidad_apoq_sd_comparison, fig.width = 8, fig.height = 6.5, fig.cap = "Navidad and Apoquindo standard deviation comparison", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
-plot_district(
-    matrix1 = eim_nav$sd, district1 = "Navidad",
-    matrix2 = eim_apo$sd, district2 = "Apoquindo", value = "sd"
-)
-```
-
-
-# Reduce Estimation Error using Group Aggregation
-
-Demographic groups can be merged to have probability estimates with lower error. A greedy strategy that maximizes the variability of the distribution of groups across ballot boxes is used, which ensures standard deviations are below a specific threshold. The package provides the following function for the latter:
-
-```{r}
-eim_nav_proxy <- get_agg_proxy(eim_nav, seed = 42, sd_threshold = 0.1, sd_statistic = "average")
-eim_nav_proxy$group_agg
-```
-
- As shown in the output, the heuristic finds a group aggregation that merges the first and last four age ranges, namely, macro-groups with voters aged 18-49, and older than 50. We can evaluate the effectiveness of this grouping by comparing the mean standard deviation to the original formulation:
-
-```{r}
-mean(eim_nav$sd) - mean(eim_nav_proxy$sd)
-```
-
 
 ```{r, standard_deviation_proxy, fig.width = 8, fig.height = 3.5, fig.cap = "Navidad aggregated standard deviation with proxy method", fig.align = "center", message=FALSE, warning=FALSE, echo=TRUE}
 plot_matrix(eim_nav_proxy$sd, sd = TRUE, y_labels = c("X18.49", "X50."))

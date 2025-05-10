@@ -1076,7 +1076,7 @@ get_agg_opt <- function(object = NULL,
 #' sim <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 123)
 #' sim2 <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 124)
 #'
-#' result <- welchtest(eim1, eim2, nboot = 100)
+#' result <- welchtest(sim1, sim2, nboot = 100)
 #'
 #' # Check which entries are significantly different
 #' which(result$pvals < 0.05, arr.ind = TRUE)

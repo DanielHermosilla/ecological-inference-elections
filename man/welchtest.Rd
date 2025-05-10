@@ -74,7 +74,7 @@ In this expression, \eqn{s_{1,ij}^2} and \eqn{s_{2,ij}^2} represent the bootstra
 sim <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 123)
 sim2 <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 124)
 
-result <- welchtest(eim1, eim2, nboot = 100)
+result <- welchtest(sim1, sim2, nboot = 100)
 
 # Check which entries are significantly different
 which(result$pvals < 0.05, arr.ind = TRUE)
