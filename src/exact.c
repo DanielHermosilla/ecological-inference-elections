@@ -41,7 +41,7 @@ SOFTWARE.
 #endif
 
 #ifndef Realloc
-#define Realloc(p, n, t) ((t *)R_chk_realloc((void *)(p), (size_t)((n) * sizeof(t))))
+#define Realloc(p, n, t) ((t *)R_chk_realloc((void *)(p), (size_t)(n), sizeof(t)))
 #endif
 
 Set **HSETS = NULL;       // Global pointer to store all H sets

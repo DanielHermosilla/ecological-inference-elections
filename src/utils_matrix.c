@@ -46,7 +46,7 @@ SOFTWARE.
 #endif
 
 #ifndef Realloc
-#define Realloc(p, n, t) ((t *)R_chk_realloc((void *)(p), (size_t)((n) * sizeof(t))))
+#define Realloc(p, n, t) ((t *)R_chk_realloc((void *)(p), (size_t)(n), sizeof(t)))
 #endif
 
 #ifndef BLAS_INT
