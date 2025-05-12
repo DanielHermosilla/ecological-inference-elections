@@ -1,12 +1,12 @@
 #' fastei: Methods for "A Fast Ecological Inference Algorithm for the R\eqn{\times}C case"
 #'
-#' Package that implements the methods of [Thraves, C. and Ubilla, P. (2024): *"A Fast Ecological Inference Algorithm for the R×C Case"*.](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834)
+#' Package that implements the methods of [Thraves, C.,Ubilla, P. and Hermosilla, D. (2024): *"A Fast Ecological Inference Algorithm for the R×C Case"*.](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834)
 #'
 #' Includes a method ([run_em]) to solve the R\eqn{\times}C Ecological Inference problem for the non-parametric case by using the EM algorithm with different approximation methods for the E-Step. The standard deviation of the estimated probabilities can be computed using bootstrapping ([bootstrap]).
 #'
 #' It also provides a function that generates synthetic election data ([simulate_election]) and a function that imports real election data ([chile_election_2021]) from the Chilean first-round presidential election of 2021.
 #'
-#' The setting in which the documentation presents the Ecological Inference problem is an election context where for a set of ballot-boxes we observe (i) the votes obtained by each candidate and (ii) the number of voters of each demographic group (for example, these can be defined by age ranges or sex). See [Thraves, C. and Ubilla, P. (2024): *"A Fast Ecological Inference Algorithm for the R×C Case"*.](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834)
+#' The setting in which the documentation presents the Ecological Inference problem is an election context where for a set of ballot-boxes we observe (i) the votes obtained by each candidate and (ii) the number of voters of each demographic group (for example, these can be defined by age ranges or sex). See [Thraves, C.,Ubilla, P. and Hermosilla, D. (2024): *"A Fast Ecological Inference Algorithm for the R×C Case"*.](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834)
 #'
 #' The methods to compute the conditional probabilities of the E-Step included in this package are the following:
 #' - **Markov Chain Monte Carlo** `(mcmc)`: Performs MCMC to sample vote outcomes for each ballot-box consistent with the observed data. This sample is used to estimate the conditional probability of the *E*-Step.
