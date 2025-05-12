@@ -25,6 +25,7 @@ SOFTWARE.
 #include <R_ext/Memory.h>
 #include <R_ext/RS.h> /* for R_Calloc/R_Free, F77_CALL */
 #include <R_ext/Random.h>
+#include <Rinternals.h>
 #include <Rmath.h>
 #include <math.h>
 #ifdef _OPENMP

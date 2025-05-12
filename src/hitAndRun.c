@@ -26,6 +26,7 @@ SOFTWARE.
 #include <R_ext/Memory.h>
 #include <R_ext/Random.h>
 #include <R_ext/Utils.h> // for R_CheckUserInterrupt()
+#include <Rinternals.h>
 #include <Rmath.h>
 #include <math.h>
 #include <stdio.h>
@@ -241,7 +242,8 @@ void generateOmegaSet(int M, int S)
 
         // Impose the first step
         Matrix *append = Calloc(1, Matrix);
-        *append = copyMatrix(&startingZ);
+        *append = copMatrix
+(&startingZ);
         OMEGASET[b]->data[0] = append;
         freeMatrix(&startingZ);
 
@@ -252,7 +254,8 @@ void generateOmegaSet(int M, int S)
             // TODO: El sampling debe hacerse de tamaño M*S
             // ---- Copy the initial matrix ----
             Matrix *pastMatrix = OMEGASET[b]->data[s - 1];
-            Matrix steppingZ = copyMatrix(pastMatrix);
+            Matrix steppingZ = copMatrix
+(pastMatrix);
             for (int m = 0; m < M; m++)
             { // --- For each step size given a sample and a ballot box
                 // ---- Sample random indexes ---- //
@@ -282,7 +285,8 @@ void generateOmegaSet(int M, int S)
             } // --- End the step size loop
             // ---- Add the combination to the OmegaSet ---- //
             Matrix *append = Calloc(1, Matrix);
-            *append = copyMatrix(&steppingZ);
+            *append = copMatrix
+(&steppingZ);
             OMEGASET[b]->data[s] = append;
             freeMatrix(&steppingZ);
             // ---...--- //

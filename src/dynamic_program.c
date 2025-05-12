@@ -2,6 +2,7 @@
 #include "utils_matrix.h"
 #include <R.h>
 #include <R_ext/Memory.h>
+#include <Rinternals.h>
 #include <Rmath.h>
 #include <dirent.h>
 #include <float.h>
@@ -645,7 +646,8 @@ static void enumerateAllPartitions(int start, int G, int *currentBoundaries, int
                 res->bestMat = (Matrix *)Calloc(1, Matrix);
                 *res->bestMat = finalP;
                 res->bestBootstrap = (Matrix *)Calloc(1, Matrix);
-                *res->bestBootstrap = copyMatrix(&bootstrapedMat);
+                *res->bestBootstrap = copMatrix
+(&bootstrapedMat);
                 freeMatrix(&bootstrapedMat);
 
                 // copy boundaries
@@ -741,7 +743,8 @@ Matrix aggregateGroupsExhaustive(Matrix *xmat, Matrix *wmat, int *results, int *
         *bestBootstrap = res.bestBootstrap;
 
     // copy & clean up
-    Matrix bestCopy = copyMatrix(res.bestMat);
+    Matrix bestCopy = copMatrix
+(res.bestMat);
     freeMatrix(res.bestMat);
     Free(res.bestMat);
     Free(res.bestBoundaries);

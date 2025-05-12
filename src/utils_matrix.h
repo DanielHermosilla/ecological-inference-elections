@@ -363,7 +363,7 @@ extern "C"
      */
     void inverseMatrixLU(Matrix *matrix);
 
-    Matrix copyMatrix(const Matrix *original);
+    Matrix copMatrix(const Matrix *original);
 
     /**
      * @brief Extracts the n-th row of a matrix as a dynamically allocated array.
@@ -462,7 +462,7 @@ extern "C"
      * This function uses malloc to allocate memory for both the Matrix struct and its data array.
      * The caller is responsible for freeing the memory (using free) when it is no longer needed.
      */
-    Matrix *copyMatrixPtr(const Matrix *orig);
+    Matrix *copMatrixPtr(const Matrix *orig);
 
     /*
      * Given an array of actions, it merges columns by summing the row values, generating a new matrix.

@@ -26,6 +26,7 @@ SOFTWARE.
 #include <R_ext/BLAS.h>
 #include <R_ext/Memory.h>
 #include <R_ext/RS.h> /* for R_Calloc/R_Free, F77_CALL */
+#include <Rinternals.h>
 #include <Rmath.h>
 #include <stdint.h>
 

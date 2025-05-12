@@ -24,6 +24,7 @@ SOFTWARE.
 #include <R.h>
 #include <R_ext/Memory.h>
 #include <R_ext/Utils.h> // for R_CheckUserInterrupt()
+#include <Rinternals.h>
 #include <Rmath.h>
 #include <math.h>
 #include <stdint.h>

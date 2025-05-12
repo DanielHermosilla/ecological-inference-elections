@@ -1,6 +1,8 @@
 #include "bootstrap.h"
 #include <R.h>
 #include <R_ext/Memory.h>
+#include <R_ext/Utils.h> // for R_CheckUserInterrupt()
+#include <Rinternals.h>
 #include <Rmath.h>
 #include <stdbool.h>
 #include <stdint.h>

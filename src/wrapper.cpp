@@ -24,7 +24,9 @@ SOFTWARE.
 #include "bootstrap.h"
 #include "dynamic_program.h"
 #include "main.h"
+#include <R.h>
 #include <Rcpp.h>
+#include <Rinternals.h>
 #include <vector>
 
 Matrix convertToMatrix(const Rcpp::NumericMatrix &mat)

@@ -26,6 +26,7 @@ SOFTWARE.
 #include <R_ext/Lapack.h>
 #include <R_ext/Memory.h>
 #include <R_ext/RS.h> /* for R_Calloc/R_Free, F77_CALL */
+#include <Rinternals.h>
 #include <math.h>
 #ifdef _OPENMP
 #include <omp.h> // Parallelization
@@ -686,7 +687,7 @@ void inverseSymmetricPositiveMatrix(Matrix *matrix)
     }
 
     // copy for "emergency" fallback
-    Matrix emergencyMat = copyMatrix(matrix);
+    Matrix emergencyMat = copMatrix(matrix);
 
     int info;
     F77_CALL(dpotrf)(&lCh, &n, matrix->data, &n, &info FCONE);
@@ -888,7 +889,7 @@ void inverseMatrixLU(Matrix *matrix)
     Free(ipiv);
 }
 
-Matrix copyMatrix(const Matrix *original)
+Matrix copMatrix(const Matrix *original)
 {
     checkMatrix(original); // Ensure the original matrix is valid
 
@@ -1009,7 +1010,7 @@ void addRowToMatrix(Matrix *matrix, const double *newRow)
     }
 
     // Reallocate memory for the new row
-    Matrix temp = copyMatrix(matrix);
+    Matrix temp = copMatrix(matrix);
     size_t newSize = (matrix->rows + 1) * matrix->cols;
     double *newData = Realloc(matrix->data, newSize, double);
 
@@ -1059,7 +1060,7 @@ void removeRow(Matrix *matrix, int rowIndex)
     }
 
     // Shift rows up to overwrite the specified row
-    Matrix temp = copyMatrix(matrix);
+    Matrix temp = copMatrix(matrix);
     matrix->rows -= 1;
     matrix->data = Realloc(matrix->data, matrix->rows * matrix->cols, double);
 
@@ -1097,7 +1098,7 @@ void addRowOfZeros(Matrix *matrix, int rowIndex)
     }
 
     // Resize the matrix to have one additional row
-    Matrix temp = copyMatrix(matrix);
+    Matrix temp = copMatrix(matrix);
     matrix->rows += 1;
     matrix->data = Realloc(matrix->data, matrix->rows * matrix->cols, double);
     if (!matrix->data)
@@ -1205,13 +1206,13 @@ void addColumnOfZeros(Matrix *matrix, int colIndex)
  * This function uses malloc to allocate memory for both the Matrix struct and its data array.
  * The caller is responsible for freeing the memory (using free) when it is no longer needed.
  */
-Matrix *copyMatrixPtr(const Matrix *orig)
+Matrix *copMatrixPtr(const Matrix *orig)
 {
     // Allocate memory for the new Matrix structure.
     Matrix *copy = (Matrix *)Calloc(1, Matrix);
     if (copy == NULL)
     {
-        error("Memory allocation error in copyMatrix: could not allocate Matrix struct");
+        error("Memory allocation error in copMatrix: could not allocate Matrix struct");
     }
 
     // Copy the dimensions.
@@ -1226,7 +1227,7 @@ Matrix *copyMatrixPtr(const Matrix *orig)
     if (copy->data == NULL)
     {
         free(copy);
-        error("Memory allocation error in copyMatrix: could not allocate data array");
+        error("Memory allocation error in copMatrix: could not allocate data array");
     }
 
     // Copy the data from the original matrix.

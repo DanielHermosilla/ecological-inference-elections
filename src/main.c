@@ -26,6 +26,7 @@ SOFTWARE.
 #include <R_ext/BLAS.h>
 #include <R_ext/Memory.h>
 #include <R_ext/RS.h> /* for R_Calloc/R_Free, F77_CALL */
+#include <Rinternals.h>
 #include <dirent.h>
 #include <math.h>
 #include <stdbool.h>
@@ -79,8 +80,8 @@ void setParameters(Matrix *xCPP, Matrix *wCPP)
 {
     // Must generate a copy because of R's gc() in c++
 
-    Matrix *x = copyMatrixPtr(xCPP);
-    Matrix *w = copyMatrixPtr(wCPP);
+    Matrix *x = copMatrixPtr(xCPP);
+    Matrix *w = copMatrixPtr(wCPP);
 
     // ---- Validation checks ---- //
     // ---- Check if there's a NULL pointer ----
@@ -487,7 +488,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         // double newLL;
         *qVal = config.computeQ(currentP, config.params, &newLL);
         *logLLarr = newLL;
-        newProbability = copyMatrix(currentP);
+        newProbability = copMatrix(currentP);
         freeMatrix(currentP);
         *currentP = getP(*qVal); // M-Step
 
@@ -553,7 +554,7 @@ results:
     *logLLarr = newLL;
     *time = elapsed_total;
     // ---- Matrix must be returned without a pointer
-    Matrix finalProbability = copyMatrix(currentP);
+    Matrix finalProbability = copMatrix(currentP);
     freeMatrix(currentP);
     freeMatrix(&newProbability);
 
