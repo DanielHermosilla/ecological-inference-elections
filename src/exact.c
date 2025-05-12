@@ -40,6 +40,10 @@ SOFTWARE.
 #define Free(p) R_chk_free((void *)(p))
 #endif
 
+#ifndef Realloc
+#define Realloc(p, n, t) ((t *)R_chk_realloc((void *)(p), (size_t)(n), sizeof(t)))
+#endif
+
 Set **HSETS = NULL;       // Global pointer to store all H sets
 Set **KSETS = NULL;       // Global pointer to store all K sets
 size_t **CANDIDATEARRAYS; // 2D array indexed by [c][b]

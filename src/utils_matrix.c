@@ -45,6 +45,10 @@ SOFTWARE.
 #define Free(p) R_chk_free((void *)(p))
 #endif
 
+#ifndef Realloc
+#define Realloc(p, n, t) ((t *)R_chk_realloc((void *)(p), (size_t)(n), sizeof(t)))
+#endif
+
 #ifndef BLAS_INT
 #define BLAS_INT int
 #endif
