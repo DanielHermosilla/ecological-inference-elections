@@ -26,7 +26,7 @@
 #'
 #' @examples
 #' # Load data and create an eim object for the electoral district of "NIEBLA"
-#' eim_obj <- get_XW_chile(elect_district = "NIEBLA", remove_mismatch = FALSE)
+#' eim_obj <- get_eim_chile(elect_district = "NIEBLA", remove_mismatch = FALSE)
 #'
 #' # Use it to run the EM algorithm
 #' result <- run_em(eim_obj, allow_mismatch = TRUE)
@@ -42,12 +42,12 @@
 #' agg_result$group_agg
 #'
 #' @seealso [chile_election_2021]
-#' @aliases get_XW_chile()
+#' @aliases get_eim_chile()
 #' @export
-get_XW_chile <- function(elect_district = NULL,
-                         region = NULL,
-                         merge_blank_null = TRUE,
-                         remove_mismatch = FALSE) {
+get_eim_chile <- function(elect_district = NULL,
+                          region = NULL,
+                          merge_blank_null = TRUE,
+                          remove_mismatch = FALSE) {
     df <- get("chile_election_2021")
 
     # Apply filtering only if exactly one of region or elect_district is provided

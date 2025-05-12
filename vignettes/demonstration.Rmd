@@ -17,12 +17,12 @@ output:
 The `fastei` library implements the Expectation-Maximization algorithm to estimate probabilities in non-parametric Ecological Inference for the RxC case. It offers both an exact method and four approximation methods suitable for large datasets. The application demonstrated here is based on an electoral context where, for each ballot box, we know the number of voters in each demographic group and the number of votes received by each candidate.
 
 # Estimate Voting Probabilities
-We use data from the First Round of the Chilean Presidential Election of 2021, where at each ballot box we have the voters of eight age ranges (groups), and candidate votes obtained. The function `get_XW_chile()` loads this data at either the country, region, or electoral district level.
+We use data from the First Round of the Chilean Presidential Election of 2021, where at each ballot box we have the voters of eight age ranges (groups), and candidate votes obtained. The function `get_eim_chile()` loads this data at either the country, region, or electoral district level.
 
 ```{r}
 library(fastei)
 
-eim_apo <- get_XW_chile(elect_district = "APOQUINDO")
+eim_apo <- get_eim_chile(elect_district = "APOQUINDO")
 
 eim_apo
 ```
@@ -49,7 +49,7 @@ eim_apo$sd
 The standard deviations obtained in the district "Apoquindo" are low in general. One reason for this is the high number of ballot boxes in this district. In contrast, standard deviations of estimated probabilities in districts with fewer ballot boxes, such as "Navidad", are larger.
 
 ```{r}
-eim_nav <- get_XW_chile(elect_district = "NAVIDAD")
+eim_nav <- get_eim_chile(elect_district = "NAVIDAD")
 eim_nav <- bootstrap(eim_nav, seed = 42, nboot = 30)
 eim_nav$sd
 ```
@@ -174,6 +174,8 @@ plot_matrix <- function(mat, sd = FALSE, y_labels = NULL) {
 }
 ```
 
+We can visualize the standard deviations of the estimated probabilities.
+
 ```{r, standard_deviation_proxy, fig.width = 8, fig.height = 3.5, fig.cap = "Navidad aggregated standard deviation with proxy method", fig.align = "center", message=FALSE, warning=FALSE, echo=TRUE}
 plot_matrix(eim_nav_proxy$sd, sd = TRUE, y_labels = c("X18.49", "X50."))
 ```
@@ -185,21 +187,20 @@ eim_nav_opt <- get_agg_opt(eim_nav, seed = 42, sd_threshold = 0.1, sd_statistic 
 eim_nav_opt$group_agg
 ```
 
+The optimal group aggregation differs slightly from one obtained before. In this case, the group aggregation consists in the three age range: 18-49, 50-69, and older than 70.
+
+We can visualize the standard deviations of the estimated probabilities.
 
 ```{r, standard_deviation_opt, fig.width = 8, fig.height = 3.5, fig.cap = "Navidad aggregated standard deviation with opt method", fig.align = "center", message=FALSE, warning=FALSE}
 plot_matrix(eim_nav_opt$sd, sd = TRUE, y_labels = c("X18.49", "X50.69", "X70."))
 ```
-
-
-
-The optimal group aggregation differs slightly from one obtained before. In this case, the group aggregation consists in the three age range: 18-49, 50-69, and older than 70.
 
 # Test difference between estimates
 
 A relevant question is how significantly different are the probability estimates of two sets of data, such as two different districts. For instance, we can compare the estimated probabilities of the district "APOQUINDO" and "PROVIDENCIA", which belong to the same ward.
 
 ```{r}
-eim_prov <- get_XW_chile("PROVIDENCIA")
+eim_prov <- get_eim_chile("PROVIDENCIA")
 eim_prov <- run_em(eim_prov)
 eim_apo <- run_em(eim_apo)
 ```
@@ -225,9 +226,9 @@ round(comparison$pvals, 3)
 In most cases, voting probabilities are not significantly different. On the other hand, it may be noteworthy to observe the difference between two electoral districts whose voting tendencies are expected to differ.
 
 ```{r}
-eim_gra <- get_XW_chile("LA GRANJA")
+eim_gra <- get_eim_chile("LA GRANJA")
 eim_gra <- run_em(eim_gra)
-eim_bar <- get_XW_chile("LO BARNECHEA")
+eim_bar <- get_eim_chile("LO BARNECHEA")
 eim_bar <- run_em(eim_bar)
 ```
 
@@ -302,6 +303,13 @@ eim_sim3 <- simulate_election(
 plot_matrix(eim_sim3$W)
 ```
 
+Having the following estimated probabilities:
+
+```{r}
+run_em(eim_sim3)$prob
+```
+
+On the other side, it is possible to simulate an heterogeneous sample
 ```{r}
 eim_sim4 <- simulate_election(
     num_ballots = 20, num_groups = 4, num_candidates = 2, seed = 42,
@@ -311,4 +319,10 @@ eim_sim4 <- simulate_election(
 
 ```{r, eim_sim4_heatmap, fig.width = 8, fig.height = 3.5, fig.cap = "Voters' heatmap for a high lambda value", fig.align = "center", message=FALSE, warning=FALSE, results="hide"}
 plot_matrix(eim_sim4$W)
+```
+
+With the underlying probabilities
+
+```{r}
+run_em(eim_sim4)$prob
 ```

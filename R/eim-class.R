@@ -233,7 +233,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' @param ... Added for compability
 #'
 #' @references
-#' [Thraves, C. and Ubilla, P.: *"Fast Ecological Inference Algorithm for the RxC Case"*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834). Aditionally, the MVN CDF is computed by the methods introduced in [Genz, A. (2000). Numerical computation of multivariate normal probabilities. *Journal of Computational and Graphical Statistics*](https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities)
+#' [Thraves, C., Ubilla, P. and Hermosilla, D.: *"Fast Ecological Inference Algorithm for the RxC Case"*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834). Aditionally, the MVN CDF is computed by the methods introduced in [Genz, A. (2000). Numerical computation of multivariate normal probabilities. *Journal of Computational and Graphical Statistics*](https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities)
 #'
 #' @note
 #' This function can be executed using one of three mutually exclusive approaches:
@@ -1073,7 +1073,7 @@ get_agg_opt <- function(object = NULL,
 #' In this expression, \eqn{s_{1,ij}^2} and \eqn{s_{2,ij}^2} represent the bootstrap sample variances for the treatment and control sets, respectively, while \eqn{p_{1,ij}} and \eqn{p_{2,ij}} are the corresponding estimated probability matrices obtained via the EM algorithm. The number of bootstrap samples is denoted by \eqn{n}, and the degrees of freedom for each component are calculated using the Welch-Satterthwaite equation
 #'
 #' @examples
-#' sim <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 123)
+#' sim1 <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 123)
 #' sim2 <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 124)
 #'
 #' result <- welchtest(sim1, sim2, nboot = 100)
