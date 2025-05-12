@@ -37,6 +37,14 @@ SOFTWARE.
 #include <stdlib.h>
 #include <unistd.h>
 
+#ifndef Calloc
+#define Calloc(n, type) ((type *)R_chk_calloc((size_t)(n), sizeof(type)))
+#endif
+
+#ifndef Free
+#define Free(p) R_chk_free((void *)(p))
+#endif
+
 #ifndef BLAS_INT
 #define BLAS_INT int
 #endif

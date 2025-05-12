@@ -1,8 +1,9 @@
 Package: fastei 
 Title: Methods for ''A Fast Alternative for the R x C Ecological Inference Problem''
 Version: 0.0.0.2
-Author: Charles Thraves, Pablo Ubilla, Daniel Hermosilla
-Maintainer: Daniel Hermosilla <daniel.hermosilla.r@ug.uchile.cl>
+Authors@R: c(person(given = "Charles", family = "Thraves", role = "aut"),
+             person(given = "Pablo", family = "Ubilla", role = "aut"),
+             person(given = "Daniel", family = "Hermosilla", role = c("aut", "cre"), email = "daniel.hermosilla.r@ug.uchile.cl"))
 Description: Estimates the probability matrix for the R×C Ecological Inference problem using the Expectation-Maximization Algorithm with four approximation methods for the E-Step, and an exact method as well. It also provides a bootstrap function to estimate the standard deviation of the estimated probabilities. In addition, it has functions that aggregate rows optimally to have more reliable estimates in cases of having few data points. For comparing the probability estimates of two groups, a Welch's t-test routine is implemented. The library has data from the first round of the Chilean Presidential Election 2021 and can also generate synthetic election data. 
 License: MIT + file LICENSE
 Encoding: UTF-8

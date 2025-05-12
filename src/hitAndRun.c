@@ -32,6 +32,14 @@ SOFTWARE.
 #include <stdio.h>
 #include <unistd.h>
 
+#ifndef Calloc
+#define Calloc(n, type) ((type *)R_chk_calloc((size_t)(n), sizeof(type)))
+#endif
+
+#ifndef Free
+#define Free(p) R_chk_free((void *)(p))
+#endif
+
 OmegaSet **OMEGASET = NULL; // Global pointer to store all H sets
 double **multinomialVals = NULL;
 double *logGammaArr = NULL;
@@ -242,8 +250,7 @@ void generateOmegaSet(int M, int S)
 
         // Impose the first step
         Matrix *append = Calloc(1, Matrix);
-        *append = copMatrix
-(&startingZ);
+        *append = copMatrix(&startingZ);
         OMEGASET[b]->data[0] = append;
         freeMatrix(&startingZ);
 
@@ -254,8 +261,7 @@ void generateOmegaSet(int M, int S)
             // TODO: El sampling debe hacerse de tamaño M*S
             // ---- Copy the initial matrix ----
             Matrix *pastMatrix = OMEGASET[b]->data[s - 1];
-            Matrix steppingZ = copMatrix
-(pastMatrix);
+            Matrix steppingZ = copMatrix(pastMatrix);
             for (int m = 0; m < M; m++)
             { // --- For each step size given a sample and a ballot box
                 // ---- Sample random indexes ---- //
@@ -285,8 +291,7 @@ void generateOmegaSet(int M, int S)
             } // --- End the step size loop
             // ---- Add the combination to the OmegaSet ---- //
             Matrix *append = Calloc(1, Matrix);
-            *append = copMatrix
-(&steppingZ);
+            *append = copMatrix(&steppingZ);
             OMEGASET[b]->data[s] = append;
             freeMatrix(&steppingZ);
             // ---...--- //

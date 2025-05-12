@@ -32,6 +32,14 @@ SOFTWARE.
 #include <stdlib.h>
 #include <unistd.h>
 
+#ifndef Calloc
+#define Calloc(n, type) ((type *)R_chk_calloc((size_t)(n), sizeof(type)))
+#endif
+
+#ifndef Free
+#define Free(p) R_chk_free((void *)(p))
+#endif
+
 Set **HSETS = NULL;       // Global pointer to store all H sets
 Set **KSETS = NULL;       // Global pointer to store all K sets
 size_t **CANDIDATEARRAYS; // 2D array indexed by [c][b]

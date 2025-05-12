@@ -19,6 +19,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+
 #include "main.h"
 #include "globals.h"
 #include "utils_matrix.h"
@@ -36,6 +37,14 @@ SOFTWARE.
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+
+#ifndef Calloc
+#define Calloc(n, type) ((type *)R_chk_calloc((size_t)(n), sizeof(type)))
+#endif
+
+#ifndef Free
+#define Free(p) R_chk_free((void *)(p))
+#endif
 
 #ifndef CLOCK_MONOTONIC_RAW
 #define CLOCK_MONOTONIC_RAW 4

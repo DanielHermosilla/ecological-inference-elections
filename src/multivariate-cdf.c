@@ -36,6 +36,14 @@ SOFTWARE.
 #include <string.h>
 #include <unistd.h>
 
+#ifndef Calloc
+#define Calloc(n, type) ((type *)R_chk_calloc((size_t)(n), sizeof(type)))
+#endif
+
+#ifndef Free
+#define Free(p) R_chk_free((void *)(p))
+#endif
+
 /*
  * @brief Compute the Montecarlo approximation proposed by Alan genz towards the most recent method, using univariate
  * conditional with quasirandom numbers.
