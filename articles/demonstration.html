@@ -67,7 +67,7 @@
                         <h4 data-toc-skip class="author">Charles
 Thraves, Pablo Ubilla, Daniel Hermosilla</h4>
             
-            <h4 data-toc-skip class="date">2025-05-10</h4>
+            <h4 data-toc-skip class="date">2025-05-12</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/DanielHermosilla/ecological-inference-elections/blob/HEAD/vignettes/demonstration.Rmd" class="external-link"><code>vignettes/demonstration.Rmd</code></a></small>
       <div class="d-none name"><code>demonstration.Rmd</code></div>
@@ -89,12 +89,12 @@ candidate.</p>
 <p>We use data from the First Round of the Chilean Presidential Election
 of 2021, where at each ballot box we have the voters of eight age ranges
 (groups), and candidate votes obtained. The function
-<code><a href="../reference/get_XW_chile.html">get_XW_chile()</a></code> loads this data at either the country,
+<code><a href="../reference/get_eim_chile.html">get_eim_chile()</a></code> loads this data at either the country,
 region, or electoral district level.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://danielhermosilla.github.io/ecological-inference-elections/reference/fastei-package.html">fastei</a></span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">eim_apo</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span>elect_district <span class="op">=</span> <span class="st">"APOQUINDO"</span><span class="op">)</span></span>
+<span><span class="va">eim_apo</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_eim_chile.html">get_eim_chile</a></span><span class="op">(</span>elect_district <span class="op">=</span> <span class="st">"APOQUINDO"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">eim_apo</span></span></code></pre></div>
 <pre><code><span><span class="co">## eim ecological inference model</span></span>
@@ -185,7 +185,7 @@ this district. In contrast, standard deviations of estimated
 probabilities in districts with fewer ballot boxes, such as “Navidad”,
 are larger.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">eim_nav</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span>elect_district <span class="op">=</span> <span class="st">"NAVIDAD"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">eim_nav</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_eim_chile.html">get_eim_chile</a></span><span class="op">(</span>elect_district <span class="op">=</span> <span class="st">"NAVIDAD"</span><span class="op">)</span></span>
 <span><span class="va">eim_nav</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bootstrap.html">bootstrap</a></span><span class="op">(</span><span class="va">eim_nav</span>, seed <span class="op">=</span> <span class="fl">42</span>, nboot <span class="op">=</span> <span class="fl">30</span><span class="op">)</span></span>
 <span><span class="va">eim_nav</span><span class="op">$</span><span class="va">sd</span></span></code></pre></div>
 <pre><code><span><span class="co">##               C1        C2        C3        C4         C5         C6         C7</span></span>
@@ -331,6 +331,8 @@ visually:</p>
 <span>    <span class="op">}</span></span>
 <span>    <span class="va">p</span></span>
 <span><span class="op">}</span></span></code></pre></div>
+<p>We can visualize the standard deviations of the estimated
+probabilities.</p>
 <div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">plot_matrix</span><span class="op">(</span><span class="va">eim_nav_proxy</span><span class="op">$</span><span class="va">sd</span>, sd <span class="op">=</span> <span class="cn">TRUE</span>, y_labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"X18.49"</span>, <span class="st">"X50."</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
@@ -347,6 +349,11 @@ is recommended to use the default method, “mult”.</p>
 <code class="sourceCode R"><span><span class="va">eim_nav_opt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_opt.html">get_agg_opt</a></span><span class="op">(</span><span class="va">eim_nav</span>, seed <span class="op">=</span> <span class="fl">42</span>, sd_threshold <span class="op">=</span> <span class="fl">0.1</span>, sd_statistic <span class="op">=</span> <span class="st">"average"</span><span class="op">)</span></span>
 <span><span class="va">eim_nav_opt</span><span class="op">$</span><span class="va">group_agg</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] 4 6 8</span></span></code></pre>
+<p>The optimal group aggregation differs slightly from one obtained
+before. In this case, the group aggregation consists in the three age
+range: 18-49, 50-69, and older than 70.</p>
+<p>We can visualize the standard deviations of the estimated
+probabilities.</p>
 <div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">plot_matrix</span><span class="op">(</span><span class="va">eim_nav_opt</span><span class="op">$</span><span class="va">sd</span>, sd <span class="op">=</span> <span class="cn">TRUE</span>, y_labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"X18.49"</span>, <span class="st">"X50.69"</span>, <span class="st">"X70."</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
@@ -354,9 +361,6 @@ is recommended to use the default method, “mult”.</p>
 Navidad aggregated standard deviation with opt method
 </p>
 </div>
-<p>The optimal group aggregation differs slightly from one obtained
-before. In this case, the group aggregation consists in the three age
-range: 18-49, 50-69, and older than 70.</p>
 </div>
 <div class="section level2">
 <h2 id="test-difference-between-estimates">Test difference between estimates<a class="anchor" aria-label="anchor" href="#test-difference-between-estimates"></a>
@@ -367,7 +371,7 @@ districts. For instance, we can compare the estimated probabilities of
 the district “APOQUINDO” and “PROVIDENCIA”, which belong to the same
 ward.</p>
 <div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">eim_prov</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span><span class="st">"PROVIDENCIA"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">eim_prov</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_eim_chile.html">get_eim_chile</a></span><span class="op">(</span><span class="st">"PROVIDENCIA"</span><span class="op">)</span></span>
 <span><span class="va">eim_prov</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_prov</span><span class="op">)</span></span>
 <span><span class="va">eim_apo</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_apo</span><span class="op">)</span></span></code></pre></div>
 <div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
@@ -403,9 +407,9 @@ On the other hand, it may be noteworthy to observe the difference
 between two electoral districts whose voting tendencies are expected to
 differ.</p>
 <div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">eim_gra</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span><span class="st">"LA GRANJA"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">eim_gra</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_eim_chile.html">get_eim_chile</a></span><span class="op">(</span><span class="st">"LA GRANJA"</span><span class="op">)</span></span>
 <span><span class="va">eim_gra</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_gra</span><span class="op">)</span></span>
-<span><span class="va">eim_bar</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_XW_chile.html">get_XW_chile</a></span><span class="op">(</span><span class="st">"LO BARNECHEA"</span><span class="op">)</span></span>
+<span><span class="va">eim_bar</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_eim_chile.html">get_eim_chile</a></span><span class="op">(</span><span class="st">"LO BARNECHEA"</span><span class="op">)</span></span>
 <span><span class="va">eim_bar</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_bar</span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
 <img src="demonstration_files/figure-html/granja_lobarnechea_comparison-1.png" alt="Lo Barnechea and La Granja comparison" width="768"><p class="caption">
@@ -537,18 +541,36 @@ documentation in <code><a href="../reference/simulate_election.html">simulate_el
 Voters’ heatmap for a low lambda value
 </p>
 </div>
+<p>Having the following estimated probabilities:</p>
 <div class="sourceCode" id="cb41"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_sim3</span><span class="op">)</span><span class="op">$</span><span class="va">prob</span></span></code></pre></div>
+<pre><code><span><span class="co">##           [,1]      [,2]</span></span>
+<span><span class="co">## [1,] 0.3686854 0.6313146</span></span>
+<span><span class="co">## [2,] 0.6627212 0.3372788</span></span>
+<span><span class="co">## [3,] 0.2112870 0.7887130</span></span>
+<span><span class="co">## [4,] 0.1805033 0.8194967</span></span></code></pre>
+<p>On the other side, it is possible to simulate an heterogeneous
+sample</p>
+<div class="sourceCode" id="cb43"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim4</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_election.html">simulate_election</a></span><span class="op">(</span></span>
 <span>    num_ballots <span class="op">=</span> <span class="fl">20</span>, num_groups <span class="op">=</span> <span class="fl">4</span>, num_candidates <span class="op">=</span> <span class="fl">2</span>, seed <span class="op">=</span> <span class="fl">42</span>,</span>
 <span>    lambda <span class="op">=</span> <span class="fl">0.9</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb42"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb44"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">plot_matrix</span><span class="op">(</span><span class="va">eim_sim4</span><span class="op">$</span><span class="va">W</span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
 <img src="demonstration_files/figure-html/eim_sim4_heatmap-1.png" alt="Voters' heatmap for a high lambda value" width="768"><p class="caption">
 Voters’ heatmap for a high lambda value
 </p>
 </div>
+<p>With the underlying probabilities</p>
+<div class="sourceCode" id="cb45"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_sim4</span><span class="op">)</span><span class="op">$</span><span class="va">prob</span></span></code></pre></div>
+<pre><code><span><span class="co">##           [,1]      [,2]</span></span>
+<span><span class="co">## [1,] 0.3731878 0.6268122</span></span>
+<span><span class="co">## [2,] 0.5431853 0.4568147</span></span>
+<span><span class="co">## [3,] 0.9365629 0.0634371</span></span>
+<span><span class="co">## [4,] 0.8711210 0.1288790</span></span></code></pre>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
