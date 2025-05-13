@@ -525,8 +525,8 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
 
             if (verbose)
             {
-                Rprintf("The convergence was found on iteration %d, with a log-likelihood of %.4f  and took %.5f "
-                        "seconds!\n",
+                Rprintf("Converged after %d iterations (log-likelihood: %.4f) in %.5f "
+                        "seconds.\n",
                         i + 1, newLL, elapsed_total);
             }
             *finishing_reason = 0;
@@ -540,13 +540,13 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
         R_CheckUserInterrupt();
 
         if (verbose)
-            Rprintf("Time spent: %f\n----------\n", elapsed_total);
+            Rprintf("Elapsed time: %f\n----------\n", elapsed_total);
 
         // ---- The maximum time was reached
         if (elapsed_total >= maxSeconds)
         {
             if (verbose)
-                Rprintf("Maximum time limit reached.\n");
+                Rprintf("Time limit reached.\n");
             *finishing_reason = 1;
             goto results;
         }
@@ -555,7 +555,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     }
     // ---- Handle case where maxiter is achieved ----
     if (verbose)
-        Rprintf("Maximum iterations reached without convergence.\n");
+        Rprintf("Maximum number of iterations reached without convergence.\n");
 
     *finishing_reason = 2;
     // ---...--- //

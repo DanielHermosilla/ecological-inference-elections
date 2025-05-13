@@ -21,9 +21,9 @@ run_em(
   verbose = FALSE,
   mcmc_samples = 1000,
   mcmc_stepsize = 3000,
-  mvnc_method = "genz",
-  mvnc_error = 0.00001,
-  mvnc_samples = 5000,
+  mvncdf_method = "genz",
+  mvncdf_error = 0.00001,
+  mvncdf_samples = 5000,
   ...
 )
 }
@@ -84,15 +84,15 @@ The default value is \code{1000}.}
 algorithm. This parameter is only applicable when \code{method = "mcmc"} and will
 be ignored otherwise. The default value is \code{3000}.}
 
-\item{mvnc_method}{An optional string specifying the method used to estimate the \code{mvn_cdf} method
+\item{mvncdf_method}{An optional string specifying the method used to estimate the \code{mvn_cdf} method
 via a Monte Carlo simulation. Accepted values are \code{genz} and \code{genz2}, with \code{genz}
 set as the default. This parameter is only applicable when \code{method = "mvn_cdf"}. See \strong{References} for more details.}
 
-\item{mvnc_error}{An optional numeric value defining the error threshold for the Monte Carlo
+\item{mvncdf_error}{An optional numeric value defining the error threshold for the Monte Carlo
 simulation when estimating the \code{mvn_cdf} method. The default value is \code{1e-6}. This parameter is only relevant
 when \code{method = "mvn_cdf"}.}
 
-\item{mvnc_samples}{An optional integer specifying the number of Monte Carlo
+\item{mvncdf_samples}{An optional integer specifying the number of Monte Carlo
 samples for the \code{mvn_cdf} method. The default value is \code{5000}. This argument is only applicable when \code{method = "mvn_cdf"}.}
 
 \item{...}{Added for compability}
@@ -116,7 +116,7 @@ The final status ID of the algorithm upon completion:
 \item{message}{The finishing status displayed as a message, matching the status ID value.}
 \item{method}{The method for estimating the conditional probability in the E-step.}
 }
-Aditionally, it will create \code{mcmc_samples} and \code{mcmc_stepsize} parameters if the specified \code{method = "mcmc"}, or \code{mvnc_method}, \code{mvnc_error} and \code{mvnc_samples} if \code{method = "mvn_cdf"}.
+Aditionally, it will create \code{mcmc_samples} and \code{mcmc_stepsize} parameters if the specified \code{method = "mcmc"}, or \code{mvncdf_method}, \code{mvncdf_error} and \code{mvncdf_samples} if \code{method = "mvn_cdf"}.
 
 Also, if the eim object supplied is created with the function \link{simulate_election}, it also returns the real probability with the name \code{real_prob}. See \link{simulate_election}.
 }
@@ -140,6 +140,7 @@ If an \code{eim} object is not provided, the function will create one internally
 supplied matrices or the data from the JSON file before executing the algorithm.
 }
 \examples{
+\dontrun{
 # Example 1: Compute the Expected-Maximization with default settings
 simulations <- simulate_election(
     num_ballots = 300,
@@ -149,19 +150,17 @@ simulations <- simulate_election(
 model <- eim(simulations$X, simulations$W)
 model <- run_em(model) # Returns the object with updated attributes
 
-# Example 2: Compute the Expected-Maximization using the MCMC method
+# Example 2: Compute the Expected-Maximization using the mvn_pdf method
 model <- run_em(
     object = model,
-    method = "mcmc",
-    mcmc_stepsize = 1500,
-    mcmc_samples = 800
+    method = "mvn_pdf",
 )
 
-# Example 3: Run the MVN CDF method with default settings
+# Example 3: Run the mvn_cdf method with default settings
 model <- run_em(object = model, method = "mvn_cdf")
 
 # Example 4: Perform an Exact estimation using user-defined parameters
-\dontrun{
+
 run_em(
     json_path = "a/json/file.json",
     method = "exact",

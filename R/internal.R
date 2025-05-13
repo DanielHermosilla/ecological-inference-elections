@@ -98,24 +98,24 @@
 
     # CDF: Mc_method argument
     valid_cdf_methods <- c("genz", "genz2")
-    if ("mvnc_method
+    if ("mvncdf_method
 " %in% names(args) &&
-        (!is.character(args$mvnc_method) || !args$mvnc_method
+        (!is.character(args$mvncdf_method) || !args$mvncdf_method
             %in% valid_cdf_methods)) {
-        stop("run_em: Invalid 'mvnc_method
+        stop("run_em: Invalid 'mvncdf_method
 '. Must be one of: ", paste(valid_cdf_methods, collapse = ", "))
     }
 
     # CDF: Mc_error argument
-    if ("mvnc_error" %in% names(args) &&
-        (!is.numeric(args$mvnc_error) || args$mvnc_error <= 0)) {
-        stop("run_em: Invalid 'mvnc_error'. Must be a positive number.")
+    if ("mvncdf_error" %in% names(args) &&
+        (!is.numeric(args$mvncdf_error) || args$mvncdf_error <= 0)) {
+        stop("run_em: Invalid 'mvncdf_error'. Must be a positive number.")
     }
 
     # CDF: Mc_error argument
-    if ("mvnc_samples" %in% names(args) &&
-        (!is.numeric(args$mvnc_samples) || as.integer(args$mvnc_samples) != args$mvnc_samples || args$mvnc_samples < 0)) {
-        stop("run_em: Invalid 'mvnc_samples'. Must be a positive integer.")
+    if ("mvncdf_samples" %in% names(args) &&
+        (!is.numeric(args$mvncdf_samples) || as.integer(args$mvncdf_samples) != args$mvncdf_samples || args$mvncdf_samples < 0)) {
+        stop("run_em: Invalid 'mvncdf_samples'. Must be a positive integer.")
     }
 
     # Check mismatch

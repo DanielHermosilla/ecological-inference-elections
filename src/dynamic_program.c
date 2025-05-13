@@ -486,7 +486,7 @@ Matrix aggregateGroups(
         // --- Case it converges
         if (quality <= set_threshold)
         {
-            for (int b = 0; b < i & i != 1; b++)
+            for (int b = 0; (b < i) & (i != 1); b++)
             {
                 results[b] = boundaries[b];
             }
@@ -495,18 +495,18 @@ Matrix aggregateGroups(
             *cuts = i;
             results[0] = i == 1 ? wmat->cols - 1 : results[0];
 
-            if (i != 1 & boundaries != NULL)
+            if ((i != 1) & (boundaries != NULL))
                 Free(boundaries);
             return bootstrapMatrix;
         }
         // --- Case it is a better candidate than before
         if (quality < bestValue)
         {
-            for (int b = 0; b < i & i != 1; b++)
+            for (int b = 0; (b < i) & (i != 1); b++)
             {
                 results[b] = boundaries[b];
             }
-            if (i != 1 & boundaries != NULL)
+            if ((i != 1) & (boundaries != NULL))
                 Free(boundaries);
             bestMatrix = bootstrapMatrix;
             results[0] = i == 1 ? wmat->cols - 1 : results[0];

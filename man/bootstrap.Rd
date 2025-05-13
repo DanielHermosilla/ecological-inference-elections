@@ -56,6 +56,7 @@ If an \code{eim} object is not provided, the function will create one internally
 supplied matrices or the data from the JSON file before executing the algorithm.
 }
 \examples{
+\dontrun{
 # Example 1: Using an 'eim' object directly
 simulations <- simulate_election(
     num_ballots = 200,
@@ -68,10 +69,9 @@ model <- eim(X = simulations$X, W = simulations$W)
 model <- bootstrap(
     object = model,
     nboot = 30,
-    method = "mvn_cdf",
+    method = "mult",
     maxiter = 500,
     verbose = FALSE,
-    mvnc_samples = 5000
 )
 
 # Access standard deviation throughout 'model'
@@ -82,10 +82,10 @@ print(model$sd)
 model <- bootstrap(
     X = simulations$X,
     W = simulations$W,
-    nboot = 70,
+    nboot = 15,
     method = "mvn_pdf",
     maxiter = 100,
-    maxtime = 15,
+    maxtime = 5,
     param_threshold = 0.01,
     allow_mismatch = FALSE
 )
@@ -93,7 +93,7 @@ model <- bootstrap(
 print(model$sd)
 
 # Example 3: Using a JSON file as input
-\dontrun{
+
 model <- bootstrap(
     json_path = "path/to/election_data.json",
     nboot = 70,
