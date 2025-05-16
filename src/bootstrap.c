@@ -70,7 +70,6 @@ Matrix standardDeviations(Matrix *bootstrapResults, Matrix *sumMatrix, int total
             MATRIX_AT_PTR(sumMatrix, i, j) /= totalIter;
         }
     }
-    printMatrix(sumMatrix);
 
     Matrix sdMatrix = createMatrix(sumMatrix->rows, sumMatrix->cols);
 
