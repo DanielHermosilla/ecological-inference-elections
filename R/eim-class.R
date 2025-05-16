@@ -1138,12 +1138,12 @@ welchtest <- function(object1 = NULL,
     }
     boot1 <- do.call(bootstrap, c(
         list(object = object),
-        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X", "X2", "W", "W2", "json_path")],
+        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X1", "X", "X2", "W1", "W", "W2", "json_path")],
         list(verbose = FALSE)
     ))
     em1 <- do.call(run_em, c(
         list(object = object),
-        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X", "X2", "W", "W2", "json_path")],
+        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X1", "X", "X2", "W1", "W", "W2", "json_path")],
         list(verbose = FALSE)
     ))
 
@@ -1153,12 +1153,12 @@ welchtest <- function(object1 = NULL,
     # Second object
     boot2 <- do.call(bootstrap, c(
         list(object = object2),
-        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X", "X2", "W", "W2", "json_path")],
+        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X1", "X", "X2", "W1", "W", "W2", "json_path")],
         list(verbose = FALSE)
     ))
     em2 <- do.call(run_em, c(
         list(object = object2),
-        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X", "X2", "W", "W2", "json_path")],
+        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X1", "X", "X2", "W1", "W", "W2", "json_path")],
         list(verbose = FALSE)
     ))
 
