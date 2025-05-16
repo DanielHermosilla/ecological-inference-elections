@@ -35,19 +35,28 @@ otherwise, it yields an error.
 }
 }
 \examples{
-\dontrun{
+\donttest{
 model <- eim(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3))
 
 model <- run_em(model)
 
+td <- tempdir()
+out_rds <- file.path(td, "model_results.rds")
+out_json <- file.path(td, "model_results.json")
+out_csv <- file.path(td, "model_results.csv")
+
 # Save as RDS
-save_eim(model, "model_results.rds")
+save_eim(model, filename = out_rds)
 
 # Save as JSON
-save_eim(model, "model_results.json")
+save_eim(model, filename = out_json)
 
 # Save as CSV
-save_eim(model, "model_results.csv")
+save_eim(model, filename = out_csv)
+
+# Remove the files
+files <- c(out_rds, out_json, out_csv)
+file.remove(files)
 }
 
 }

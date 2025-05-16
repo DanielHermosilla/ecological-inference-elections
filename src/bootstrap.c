@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2025 Daniel Hermosilla
+Copyright (c) 2025 fastei team
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -93,7 +93,7 @@ Matrix standardDeviations(Matrix *bootstrapResults, Matrix *sumMatrix, int total
     {
         for (int j = 0; j < sdMatrix.cols; j++)
         {
-            MATRIX_AT(sdMatrix, i, j) = sqrt(sqrt(fabs(MATRIX_AT(sdMatrix, i, j) / (totalIter - 1))));
+            MATRIX_AT(sdMatrix, i, j) = sqrt(MATRIX_AT(sdMatrix, i, j) / (totalIter - 1));
         }
     }
     return sdMatrix;

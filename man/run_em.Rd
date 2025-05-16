@@ -140,7 +140,7 @@ If an \code{eim} object is not provided, the function will create one internally
 supplied matrices or the data from the JSON file before executing the algorithm.
 }
 \examples{
-\dontrun{
+\donttest{
 # Example 1: Compute the Expected-Maximization with default settings
 simulations <- simulate_election(
     num_ballots = 300,
@@ -158,7 +158,8 @@ model <- run_em(
 
 # Example 3: Run the mvn_cdf method with default settings
 model <- run_em(object = model, method = "mvn_cdf")
-
+}
+\dontrun{
 # Example 4: Perform an Exact estimation using user-defined parameters
 
 run_em(

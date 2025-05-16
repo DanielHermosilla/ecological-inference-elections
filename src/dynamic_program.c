@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2025 Daniel Hermosilla
+Copyright (c) 2025 fastei team
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -531,9 +531,9 @@ Matrix aggregateGroups(
                 totalMacrogroups, bestValue);
         else
             Rprintf(
-                "\nThe maximum threshold value was not accomplished. The closest macro-group had %d aggregations with "
-                "an statistic of %.4f, corresponding to the lesser threshold.",
-                totalMacrogroups, bestValue);
+                "\nNo group aggregation yielded a standard deviation matrix statistic below the specified threshold.\n"
+                "The aggregation with the lowest statistic had a value of %.4f — still above the threshold of %.4f.",
+                bestValue, set_threshold);
     }
     // ---...--- //
     *bestResult = true;

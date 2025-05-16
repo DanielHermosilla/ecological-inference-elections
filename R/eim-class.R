@@ -275,7 +275,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' Also, if the eim object supplied is created with the function [simulate_election], it also returns the real probability with the name `real_prob`. See [simulate_election].
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Example 1: Compute the Expected-Maximization with default settings
 #' simulations <- simulate_election(
 #'     num_ballots = 300,
@@ -293,7 +293,8 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'
 #' # Example 3: Run the mvn_cdf method with default settings
 #' model <- run_em(object = model, method = "mvn_cdf")
-#'
+#' }
+#' \dontrun{
 #' # Example 4: Perform an Exact estimation using user-defined parameters
 #'
 #' run_em(
@@ -439,7 +440,7 @@ run_em <- function(object = NULL,
 #' Returns an `eim` object with the `sd` field containing the estimated standard deviations of the probabilities and the amount of iterations that were made. If an `eim` object is provided, its attributes (see [run_em]) are retained in the returned object.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Example 1: Using an 'eim' object directly
 #' simulations <- simulate_election(
 #'     num_ballots = 200,
@@ -474,9 +475,11 @@ run_em <- function(object = NULL,
 #' )
 #'
 #' print(model$sd)
+#' }
 #'
 #' # Example 3: Using a JSON file as input
 #'
+#' \dontrun{
 #' model <- bootstrap(
 #'     json_path = "path/to/election_data.json",
 #'     nboot = 70,
@@ -871,7 +874,7 @@ get_agg_proxy <- function(object = NULL,
 #' # two macro-groups: one that includes the original groups 1, 2, and 3;
 #' # the remaining one with groups 4, 5, 6, 7 and 8.
 #' # {[1, 2, 3], [4, 5, 6, 7, 8]}
-#' \dontrun{
+#' \donttest{
 #' # Example 2: Getting an unfeasible result
 #' result2 <- get_agg_opt(
 #'     X = simulations$X,
@@ -1094,6 +1097,24 @@ welchtest <- function(object1 = NULL,
     object <- object1
     X <- X1
     W <- W1
+    provided <- c(!is.null(X1), !is.null(W1), !is.null(X2), !is.null(W2))
+    if (any(provided) && !all(provided)) {
+        stop(
+            "Invalid input: you must provide all four matrices (X1, W1, X2, W2) ",
+            "if you choose the matrix interface."
+        )
+    }
+    # now your existing logic
+    using_objects <- !is.null(object1) && !is.null(object2)
+    using_matrices <- all(provided)
+    input_modes <- sum(using_objects, using_matrices)
+
+    if (input_modes == 0) {
+        stop("Invalid input: must supply two objects or four matrices.")
+    } else if (input_modes > 1) {
+        stop("Invalid input: supply only one interface: objects OR matrices, not both.")
+    }
+
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint # It would validate nboot too.
 
@@ -1101,19 +1122,6 @@ welchtest <- function(object1 = NULL,
     bootstrap_defaults <- formals(bootstrap)
     bootstrap_args <- modifyList(as.list(bootstrap_defaults), all_params)
     bootstrap_args <- bootstrap_args[names(bootstrap_args) != "..."] # Remove ellipsis
-
-    # Create boolean flags to check which set of inputs is being used
-    using_objects <- !is.null(object) && !is.null(object2)
-    using_matrices <- !is.null(X) && !is.null(W) && !is.null(X2) && !is.null(W2)
-
-    # Count how many valid input modes are being used
-    input_modes <- sum(using_objects, using_matrices)
-
-    if (input_modes == 0) {
-        stop("You must provide either (1) two objects, or (2) four matrices (X, X2, W, W2)")
-    } else if (input_modes > 1) {
-        stop("Please provide only one input mode: either objects or matrices - not multiple.")
-    }
 
     if (using_matrices) {
         object <- eim(X, W)
@@ -1351,19 +1359,28 @@ as.matrix.eim <- function(x, ...) {
 #' @seealso The [eim] object implementation.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' model <- eim(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3))
 #'
 #' model <- run_em(model)
 #'
+#' td <- tempdir()
+#' out_rds <- file.path(td, "model_results.rds")
+#' out_json <- file.path(td, "model_results.json")
+#' out_csv <- file.path(td, "model_results.csv")
+#'
 #' # Save as RDS
-#' save_eim(model, "model_results.rds")
+#' save_eim(model, filename = out_rds)
 #'
 #' # Save as JSON
-#' save_eim(model, "model_results.json")
+#' save_eim(model, filename = out_json)
 #'
 #' # Save as CSV
-#' save_eim(model, "model_results.csv")
+#' save_eim(model, filename = out_csv)
+#'
+#' # Remove the files
+#' files <- c(out_rds, out_json, out_csv)
+#' file.remove(files)
 #' }
 #'
 #' @name save_eim

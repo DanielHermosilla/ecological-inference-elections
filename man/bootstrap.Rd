@@ -56,7 +56,7 @@ If an \code{eim} object is not provided, the function will create one internally
 supplied matrices or the data from the JSON file before executing the algorithm.
 }
 \examples{
-\dontrun{
+\donttest{
 # Example 1: Using an 'eim' object directly
 simulations <- simulate_election(
     num_ballots = 200,
@@ -91,9 +91,11 @@ model <- bootstrap(
 )
 
 print(model$sd)
+}
 
 # Example 3: Using a JSON file as input
 
+\dontrun{
 model <- bootstrap(
     json_path = "path/to/election_data.json",
     nboot = 70,

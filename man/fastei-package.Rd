@@ -60,5 +60,10 @@ Authors:
   \item Pablo Ubilla
 }
 
+Other contributors:
+\itemize{
+  \item Hanson Troy [contributor, copyright holder]
+}
+
 }
 \concept{package}
