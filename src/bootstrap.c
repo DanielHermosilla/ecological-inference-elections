@@ -202,6 +202,7 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
         int finishing_reason, iterTotal;
         Matrix resultP = EMAlgoritm(&iterP, q_method, convergence, log_convergence, maxIter, maxSeconds, false, &time,
                                     &iterTotal, &logLLarr, &qval, &finishing_reason, inputParams);
+        Rprintf("Iteración %d: %.4f\n", i, MATRIX_AT(resultP, 0, 0));
         // Sum each value so later we can get the mean
         for (int j = 0; j < wmat->cols; j++)
         {
