@@ -1115,8 +1115,8 @@ welchtest <- function(object1 = NULL,
         stop("Invalid input: supply only one interface: objects OR matrices, not both.")
     }
 
-    all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
-    .validate_compute(all_params) # nolint # It would validate nboot too.
+    # all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
+    # .validate_compute(all_params) # nolint # It would validate nboot too.
 
     # Retrieve default values from bootstrap() and update with user parameters
     bootstrap_defaults <- formals(bootstrap)
