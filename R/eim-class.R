@@ -1138,7 +1138,7 @@ welchtest <- function(object1 = NULL,
     }
     boot1 <- do.call(bootstrap, c(
         list(object = object),
-        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X1", "X", "X2", "W1", "W", "W2", "json_path")],
+        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X", "X1", "X2", "W", "W1", "W2", "json_path")],
         list(verbose = FALSE)
     ))
     em1 <- do.call(run_em, c(
@@ -1153,12 +1153,12 @@ welchtest <- function(object1 = NULL,
     # Second object
     boot2 <- do.call(bootstrap, c(
         list(object = object2),
-        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X1", "X", "X2", "W1", "W", "W2", "json_path")],
+        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X", "X1", "X2", "W", "W1", "W2", "json_path")],
         list(verbose = FALSE)
     ))
     em2 <- do.call(run_em, c(
         list(object = object2),
-        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X1", "X", "X2", "W1", "W", "W2", "json_path")],
+        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X", "X1", "X2", "W", "W1", "W2", "json_path")],
         list(verbose = FALSE)
     ))
 
@@ -1192,6 +1192,108 @@ welchtest <- function(object1 = NULL,
 
     return(result)
 }
+
+waldtest <- function(object1 = NULL,
+                     object2 = NULL,
+                     X1 = NULL,
+                     W1 = NULL,
+                     X2 = NULL,
+                     W2 = NULL,
+                     nboot = 50,
+                     seed = NULL,
+                     ...) {
+    object <- object1
+    X <- X1
+    W <- W1
+    provided <- c(!is.null(X1), !is.null(W1), !is.null(X2), !is.null(W2))
+    if (any(provided) && !all(provided)) {
+        stop(
+            "Invalid input: you must provide all four matrices (X1, W1, X2, W2) ",
+            "if you choose the matrix interface."
+        )
+    }
+    # now your existing logic
+    using_objects <- !is.null(object1) && !is.null(object2)
+    using_matrices <- all(provided)
+    input_modes <- sum(using_objects, using_matrices)
+
+    if (input_modes == 0) {
+        stop("Invalid input: must supply two objects or four matrices.")
+    } else if (input_modes > 1) {
+        stop("Invalid input: supply only one interface: objects OR matrices, not both.")
+    }
+
+    all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
+    # .validate_compute(all_params) # nolint # It would validate nboot too.
+
+    # Retrieve default values from bootstrap() and update with user parameters
+    bootstrap_defaults <- formals(bootstrap)
+    bootstrap_args <- modifyList(as.list(bootstrap_defaults), all_params)
+    bootstrap_args <- bootstrap_args[names(bootstrap_args) != "..."] # Remove ellipsis
+
+    if (using_matrices) {
+        object <- eim(X, W)
+        object2 <- eim(X2, W2)
+    }
+
+    if (ncol(object$X) != ncol(object2$X) || ncol(object$W) != ncol(object2$W)) {
+        stop("Column dimensions must be the same for both 'eim' objects")
+    }
+
+    # First object
+    if (!is.null(all_params$verbose) && all_params$verbose) {
+        message("Obtaining the values of the first object.\n")
+    }
+    boot1 <- do.call(bootstrap, c(
+        list(object = object),
+        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X", "X1", "X2", "W", "W1", "W2", "json_path")],
+        list(verbose = FALSE)
+    ))
+    em1 <- do.call(run_em, c(
+        list(object = object),
+        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X1", "X", "X2", "W1", "W", "W2", "json_path")],
+        list(verbose = FALSE)
+    ))
+
+    if (!is.null(all_params$verbose) && all_params$verbose) {
+        message("Obtaining the values of the second object.\n")
+    }
+    # Second object
+    boot2 <- do.call(bootstrap, c(
+        list(object = object2),
+        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X", "X1", "X2", "W", "W1", "W2", "json_path")],
+        list(verbose = FALSE)
+    ))
+    em2 <- do.call(run_em, c(
+        list(object = object2),
+        bootstrap_args[!names(bootstrap_args) %in% c("object", "object2", "X", "X1", "X2", "W", "W1", "W2", "json_path")],
+        list(verbose = FALSE)
+    ))
+
+    # Matrix-wise p-values
+    var1 <- boot1$sd^2
+    var2 <- boot2$sd^2
+
+    delta <- em1$prob - em2$prob
+    se_delta <- sqrt(var1^2 + var2^2)
+
+    z <- delta / se_delta
+    pvals <- 2 * pnorm(-abs(z))
+
+    em1$sd <- boot1$sd
+    em2$sd <- boot2$sd
+
+    result <- list()
+    result$pvals <- pvals
+    result$statistic <- z
+    class(em1) <- "eim"
+    class(em2) <- "eim"
+    result$eim1 <- em1
+    result$eim2 <- em2
+
+    return(result)
+}
+
 
 #' @description According to the state of the algorithm (either computed or not), it prints a message with its most relevant parameters
 #'
