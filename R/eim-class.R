@@ -1276,7 +1276,7 @@ waldtest <- function(object1 = NULL,
     var2 <- boot2$sd^2
 
     delta <- em1$prob - em2$prob
-    se_delta <- sqrt(var1^2 + var2^2)
+    se_delta <- sqrt(var1 + var2)
 
     z <- delta / se_delta
     pvals <- 2 * pnorm(-abs(z))
