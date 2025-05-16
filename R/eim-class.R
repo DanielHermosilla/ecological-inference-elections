@@ -1193,6 +1193,7 @@ welchtest <- function(object1 = NULL,
     return(result)
 }
 
+#' @export
 waldtest <- function(object1 = NULL,
                      object2 = NULL,
                      X1 = NULL,
