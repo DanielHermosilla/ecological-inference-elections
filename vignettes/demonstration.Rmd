@@ -30,9 +30,9 @@ eim_apo
 As shown in the output, it returns an eim object that contains two matrices: the number of votes per candidate and the number of votes per group. The rows of both matrices correspond to the specific ballot-box, and the columns are candidates and groups, respectively. This eim object is used as input to run the EM algorithm that estimates the voting probabilities. In this example, it uses the default method `mult`, which is the most efficient in terms of runtime.
 Running the algorithm is done by calling `run_em()`.
 
-```{r}
+```{r, digits=4}
 eim_apo <- run_em(eim_apo)
-eim_apo$prob
+round(eim_apo$prob, 4)
 ```
 
 Note that each row corresponds to the probability that a demographic group (`g`) voted for a candidate (`c`). It is worth noting how the estimated probabilities differ substantially across groups.
@@ -43,7 +43,7 @@ We can compute the standard deviation of the estimated probabilities using boots
 
 ```{r}
 eim_apo <- bootstrap(eim_apo, seed = 42, nboot = 30)
-eim_apo$sd
+round(eim_apo$sd, 4)
 ```
 
 The standard deviations obtained in the district "Apoquindo" are low in general. One reason for this is the high number of ballot boxes in this district. In contrast, standard deviations of estimated probabilities in districts with fewer ballot boxes, such as "Navidad", are larger.
@@ -51,7 +51,7 @@ The standard deviations obtained in the district "Apoquindo" are low in general.
 ```{r}
 eim_nav <- get_eim_chile(elect_district = "NAVIDAD")
 eim_nav <- bootstrap(eim_nav, seed = 42, nboot = 30)
-eim_nav$sd
+round(eim_nav$sd, 4)
 ```
 It is possible to see the difference in a visual way by plotting the standard deviations of the estimated probabilities across groups. 
 
@@ -70,14 +70,14 @@ plot_district <- function(matrix1, district1, matrix2, district2, sd = FALSE) {
     color <- ifelse(value == "prob", "plasma", "viridis")
 
     # Add text to each cell of the matrix
-    combined_df$label <- sprintf("%.2f", combined_df$value)
+    combined_df$label <- sprintf("%.3f", combined_df$value)
     combined_df$text_color <- ifelse(combined_df$value > round(max(combined_df$value) * 0.75 + min(combined_df$value) * 0.25, 2), "black", "white")
     districts <- sort(c(district1, district2))
 
     # Call the plot
     ggplot(combined_df, aes(x = Var2, y = Var1, fill = value)) +
         geom_tile() +
-        geom_text(aes(label = label, color = text_color), size = 3) +
+        geom_text(aes(label = label, color = text_color), size = 2.5) +
         scale_fill_viridis(
             name = value,
             option = color,
@@ -110,7 +110,7 @@ plot_district(
 Demographic groups can be merged to have probability estimates with lower error. A greedy strategy that maximizes the variability of the distribution of groups across ballot boxes is used, which ensures standard deviations are below a specific threshold. The package provides the following function for the latter:
 
 ```{r}
-eim_nav_proxy <- get_agg_proxy(eim_nav, seed = 42, sd_threshold = 0.1, sd_statistic = "average")
+eim_nav_proxy <- get_agg_proxy(eim_nav, seed = 6, sd_threshold = 0.03, sd_statistic = "maximum")
 eim_nav_proxy$group_agg
 ```
 
@@ -140,7 +140,7 @@ plot_matrix <- function(mat, sd = FALSE, y_labels = NULL) {
         start <- 0.5
         limits <- NULL
     } else {
-        df$Label <- sprintf("%.2f", df$Value)
+        df$Label <- sprintf("%.3f", df$Value)
         title_text <- "Standard deviation of estimated probabilities on district: Navidad"
         x_lab <- "Candidates' votes"
         y_lab <- "Voters' age range"
@@ -148,7 +148,7 @@ plot_matrix <- function(mat, sd = FALSE, y_labels = NULL) {
         df$text_color <- ifelse(df$Value > 0.13, "black", "white")
         option <- "viridis"
         start <- 0
-        limits <- c(0, 0.2)
+        limits <- c(0, 0.1)
     }
 
     # Plot
@@ -183,62 +183,35 @@ plot_matrix(eim_nav_proxy$sd, sd = TRUE, y_labels = c("X18.49", "X50."))
 An exhaustive algorithm is also included in the package. It explores all combinations of adjacent groups in order to maximize the log-likelihood subject to having standard deviations below a given threshold. It might require substantial computation time; therefore it is recommended to use the default method, "mult".
 
 ```{r}
-eim_nav_opt <- get_agg_opt(eim_nav, seed = 42, sd_threshold = 0.1, sd_statistic = "average")
+eim_nav_opt <- get_agg_opt(eim_nav, seed = 6, sd_threshold = 0.03, sd_statistic = "maximum")
 eim_nav_opt$group_agg
 ```
 
-The optimal group aggregation differs slightly from one obtained before. In this case, the group aggregation consists in the three age range: 18-49, 50-69, and older than 70.
+The optimal group aggregation differs slightly from one obtained before. In this case, the group aggregation consists in the three age range: 18-29, 30-49, and older than 70.
 
 We can visualize the standard deviations of the estimated probabilities.
 
 ```{r, standard_deviation_opt, fig.width = 8, fig.height = 3.5, fig.cap = "Navidad aggregated standard deviation with opt method", fig.align = "center", message=FALSE, warning=FALSE}
-plot_matrix(eim_nav_opt$sd, sd = TRUE, y_labels = c("X18.49", "X50.69", "X70."))
+plot_matrix(eim_nav_opt$sd, sd = TRUE, y_labels = c("X18.29", "X30.49", "X50."))
 ```
 
 # Test difference between estimates
 
-A relevant question is how significantly different are the probability estimates of two sets of data, such as two different districts. For instance, we can compare the estimated probabilities of the district "APOQUINDO" and "PROVIDENCIA", which belong to the same ward.
+A relevant question is how significantly different are the probability estimates of two sets of data, such as two different districts. For instance, we can compare the estimated probabilities of the district "LO BARNECHEA" and "LA GRANJA", whose voting tendencies are expected to differ. 
 
-```{r}
-eim_prov <- get_eim_chile("PROVIDENCIA")
-eim_prov <- run_em(eim_prov)
-eim_apo <- run_em(eim_apo)
-```
-
-```{r prov_apoc_comparison, fig.width = 8, fig.height = 6.5, fig.cap = "Providencia and Apoquindo comparison", fig.align = "center", message=FALSE, warning=FALSE, echo=TRUE}
-plot_district(eim_apo$prob, "Apoquindo", eim_prov$prob, "Providencia")
-```
-
-A Welch's test can be applied to each component of the two probability matrix estimates:
-
-```{r}
-comparison <- welchtest(
-    object1 = eim_prov,
-    object2 = eim_apo,
-    method = "mult",
-    nboot = 30,
-    seed = 42
-)
-
-round(comparison$pvals, 3)
-```
-
-In most cases, voting probabilities are not significantly different. On the other hand, it may be noteworthy to observe the difference between two electoral districts whose voting tendencies are expected to differ.
-
-```{r}
+```{r, granja_lobarnechea_comparison, fig.width = 8, fig.height=6.5, fig.cap = "Lo Barnechea and La Granja comparison", fig.align = "center", message=FALSE}
 eim_gra <- get_eim_chile("LA GRANJA")
 eim_gra <- run_em(eim_gra)
 eim_bar <- get_eim_chile("LO BARNECHEA")
 eim_bar <- run_em(eim_bar)
-```
 
-
-```{r granja_lobarnechea_comparison, fig.width = 8, fig.height=6.5, fig.cap = "Lo Barnechea and La Granja comparison", fig.align = "center", message=FALSE, warning=FALSE, echo = FALSE, results="hide"}
 plot_district(eim_gra$prob, "La Granja", eim_bar$prob, "Lo Barnechea")
 ```
 
+A Wald test can be applied to each component of the two probability matrix estimates:
+
 ```{r}
-comparison2 <- welchtest(
+comparison2 <- waldtest(
     object1 = eim_gra,
     object2 = eim_bar,
     method = "mult",
@@ -249,6 +222,34 @@ comparison2 <- welchtest(
 round(comparison2$pvals, 3)
 ```
 
+Conversely, one may examine the alternative scenario in which ballot boxes within a given region are partitioned into equally sized groups. In this configuration, both groups are expected to exhibit identical probability distributions.
+
+```{r, half_comparison, fig.width = 8, fig.height=6.5, fig.cap = "Equally sorted districts comparison", fig.align = "center", message=FALSE, warning=FALSE}
+eimRM <- get_eim_chile(region = "METROPOLITANA DE SANTIAGO")
+
+n <- nrow(eimRM$X)
+n_train <- floor(n * 0.5)
+train_indices <- sample(seq_len(n), n_train)
+
+eimRMhalf1 <- eim(X = eimRM$X[train_indices, ], W = eimRM$W[train_indices, ])
+eimRMhalf2 <- eim(X = eimRM$X[-train_indices, ], W = eimRM$W[-train_indices, ])
+
+eimRMhalf1 <- run_em(eimRMhalf1)
+eimRMhalf2 <- run_em(eimRMhalf2)
+
+plot_district(eimRMhalf1$prob, "Half 1", eimRMhalf2$prob, "Half 2")
+```
+
+```{r}
+comparison2 <- waldtest(
+    object1 = eimRMhalf1,
+    object2 = eimRMhalf2,
+    nboot = 10,
+    seed = 42
+)
+
+round(comparison2$pvals, 4)
+```
 
 # Simulating Election Results
 

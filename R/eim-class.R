@@ -1193,6 +1193,55 @@ welchtest <- function(object1 = NULL,
     return(result)
 }
 
+#' Performs a matrix-wise Wald test for two eim objects
+#'
+#' This function compares two `eim` objects (or sets of matrices that can be converted to such objects) by computing a Wald test on each component
+#' of their estimated probability matrices (`p`). The Wald test is applied using bootstrap-derived standard deviations, and the result is a matrix
+#' of p-values corresponding to each group-candidate combination.
+#'
+#' It uses Wald test to analyze if there is a significant difference between the estimated probabilities between a treatment and a control set. The test is performed independently for each component of the probability matrix.
+#'
+#' @inheritParams bootstrap
+#'
+#' @param object1 An `eim` object, as returned by [eim].
+#' @param object2 A second `eim` object to compare with `object`.
+#' @param X1 A `(b x c)` matrix representing candidate votes per ballot box.
+#' @param W1 A `(b x g)` matrix representing group votes per ballot box.
+#' @param X2 A second `(b x c)` matrix to compare with `X`.
+#' @param W2 A second `(b x g)` matrix to compare with `W`.
+#' @param nboot Integer specifying how many times to run the EM algorithm per object.
+#' @param alternative Character string specifying the type of alternative hypothesis to test. Must be one of `"two.sided"` (default), `"greater"`, or `"less"`. If `"two.sided"`, the test checks for any difference in estimated probabilities. If `"greater"`, it tests whether the first object has systematically higher probabilities than the second. If `"less"`, it tests whether the first has systematically lower probabilities.
+#' @param ... Additional arguments passed to [bootstrap] and [run_em].
+#'
+#' @return A list with components:
+#'   - `pvals`: a numeric matrix of p-values with the same dimensions as the estimated probability matrices (`pvals`) from the input objects.
+#'   - `statistic`: a numeric matrix of z-statistics with the same dimensions as the estimated probability matrices (`pvals`).
+#'   - `eim1` and `eim2`: the original `eim` objects used for comparison.
+#'
+#' Each entry in the pvals matrix is the p-value from Wald test between the corresponding
+#' entries of the two estimated probability matrices.
+#'
+#' @details
+#' The user must provide either of the following (but not both):
+#' - Two `eim` objects via `object1` and `object2`, or
+#' - Four matrices: `X1`, `W1`, `X2`, and `W2`, which will be converted into `eim` objects internally.
+#'
+#' The Wald test is computed using the formula:
+#'
+#' \deqn{
+#' z_{ij} = \frac{p_{1,ij}-p_{2,ij}}{\sqrt{s_{1,ij}^2+s_{2,ij}^2}}
+#' }
+#' In this expression, \eqn{s_{1,ij}^2} and \eqn{s_{2,ij}^2} represent the bootstrap sample variances for the treatment and control sets, respectively, while \eqn{p_{1,ij}} and \eqn{p_{2,ij}} are the corresponding estimated probability matrices obtained via the EM algorithm.
+#'
+#' @examples
+#' sim1 <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 123)
+#' sim2 <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 124)
+#'
+#' result <- waldtest(sim1, sim2, nboot = 100)
+#'
+#' # Check which entries are significantly different
+#' which(result$pvals < 0.05, arr.ind = TRUE)
+#'
 #' @export
 waldtest <- function(object1 = NULL,
                      object2 = NULL,
@@ -1202,6 +1251,7 @@ waldtest <- function(object1 = NULL,
                      W2 = NULL,
                      nboot = 50,
                      seed = NULL,
+                     alternative = "two.sided",
                      ...) {
     object <- object1
     X <- X1
@@ -1279,7 +1329,12 @@ waldtest <- function(object1 = NULL,
     se_delta <- sqrt(var1 + var2)
 
     z <- delta / se_delta
-    pvals <- 2 * pnorm(-abs(z))
+
+    pvals <- switch(alternative,
+        "two.sided" = 2 * pnorm(-abs(z)),
+        "greater"   = pnorm(-z),
+        "less"      = pnorm(z)
+    )
 
     em1$sd <- boot1$sd
     em2$sd <- boot2$sd

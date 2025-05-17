@@ -80,7 +80,7 @@ static void precomputeLogGammas()
         if (BALLOTS_VOTES[b] > biggestB)
             biggestB = BALLOTS_VOTES[b];
     }
-    logGammaArr2 = (double *)R_alloc(biggestB + 1, sizeof(double)); // R_alloc frees memory automatically
+    logGammaArr2 = (double *)Calloc(biggestB + 1, double); // R_alloc frees memory automatically
     for (int i = 0; i <= biggestB; i++)
     {
         logGammaArr2[i] = lgamma1p(i);
@@ -189,4 +189,13 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, do
     // *ll -= TOTAL_BALLOTS * TOTAL_CANDIDATES * log(totalWP);
     freeMatrix(&WP);
     return array2;
+}
+
+void cleanMultinomial(void)
+{
+    if (logGammaArr2 != NULL)
+    {
+        Free(logGammaArr2);
+        logGammaArr2 = NULL;
+    }
 }

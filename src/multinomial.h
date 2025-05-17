@@ -25,6 +25,8 @@ extern "C"
      *
      */
     double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, double *ll);
+
+    void cleanMultinomial(void);
 #ifdef __cplusplus
 }
 #endif

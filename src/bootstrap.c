@@ -142,32 +142,19 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
     int *indices = Calloc(bdim * bootiter, int);
     GetRNGstate();
     // For each bootstrap replicate i
+sampling:
     for (int i = 0; i < bootiter; i++)
     {
-        while (true)
+        indices[bdim * i] = (int)(unif_rand() * bdim + 1);
+    }
+    // Check that every index is not the same
+    for (int i = 1; i < bootiter; i++)
+    {
+        if (indices[i] != indices[i - 1])
+            break;
+        if (i == bootiter - 1)
         {
-            // Sample bdim picks for this replicate
-            for (int b = 0; b < bdim; b++)
-            {
-                indices[i * bdim + b] = (int)(unif_rand() * bdim);
-            }
-
-            // Check if all picks are identical
-            bool allSame = true;
-            int firstVal = indices[i * bdim];
-            for (int b = 1; b < bdim; b++)
-            {
-                if (indices[i * bdim + b] != firstVal)
-                {
-                    allSame = false;
-                    break;
-                }
-            }
-            // If not all the same, break out. Otherwise re-sample the block.
-            if (!allSame)
-            {
-                break;
-            }
+            goto sampling;
         }
     }
     PutRNGstate();
@@ -184,7 +171,7 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
         if (verbose && (i % (bootiter / 20) == 0)) // Print every 5% (20 intervals)
         {
             double progress = (double)i / bootiter * 100;
-            Rprintf("An %.0f%% of iterations have been done.\n", progress);
+            Rprintf("%.0f%% of iterations completed.\n", progress);
         }
         // ---- Declare variables for the current iteration
         Matrix iterX = createMatrix(xmat->rows, xmat->cols);
@@ -211,6 +198,7 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
         }
 
         results[i] = resultP;
+        // printMatrix(&resultP);
         // memcpy(&results[i * matsize], resultP.data, matsize * sizeof(double));
 
         // ---- Release loop allocated variables ---- //
@@ -223,6 +211,10 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
         else if (strcmp(q_method, "mcmc") == 0)
         {
             cleanHitAndRun();
+        }
+        else if (strcmp(q_method, "mult"))
+        {
+            cleanMultinomial();
         }
         Free(qval);         // Check, for a possible segmentation fault
         freeMatrix(&iterP); // Check, for a possible segmentation fault

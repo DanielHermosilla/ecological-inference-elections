@@ -75,6 +75,10 @@ void cleanGlobals(const std::string &EMAlg, bool everything)
         cleanHitAndRun();
     else if (EMAlg == "exact")
         cleanExact();
+    else if (EMAlg == "mult")
+    {
+        cleanMultinomial();
+    }
 }
 
 // ---- Set Parameters ---- //
@@ -209,7 +213,7 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
 
     // We'll hold the boundary indices here
     int G = WR.cols;
-    int *cuttingBuffer = new int[G - 1];
+    int *cuttingBuffer = new int[G];
     int usedCuts = 0; // how many boundaries we actually use
     bool bestResult = false;
     Matrix sdResult =

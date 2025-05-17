@@ -449,9 +449,9 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     if (verbose)
     {
         Rprintf("Starting the EM algorithm.\n");
-        Rprintf("The method to calculate the conditional probability will be '%s' with the following "
-                "parameters:\nProbability convergence threshold:\t%f\nLog-likelihood convergence "
-                "threshold:\t%f\nMaximum iterations:\t%d\n",
+        Rprintf("Conditional probability will be estimated using the '%s' method with the following "
+                "parameters:\n- Probability convergence threshold:\t%f\n- Log-likelihood convergence "
+                "threshold:\t%f\n- Maximum number of iterations:\t%d\n",
                 q_method, convergence, LLconvergence, maxIter);
     }
 

@@ -457,7 +457,7 @@ Matrix aggregateGroups(
 
             if (verbose)
             {
-                Rprintf("Group aggregations:\t[");
+                Rprintf("Group aggregation:\t[");
                 for (int k = 0; k < i - 1; k++)
                 {
                     // Sum 1 to the index for using R's indexing
@@ -479,9 +479,9 @@ Matrix aggregateGroups(
         }
         if (verbose)
         {
-            Rprintf("Standard deviation of the estimated probability matrix:\n");
+            Rprintf("Standard deviation matrix:\n");
             printMatrix(&bootstrapMatrix);
-            Rprintf("Threshold value:\t%.4f\n----------\n", quality);
+            Rprintf("Statistic value:\t%.4f\n----------\n", quality);
         }
         // --- Case it converges
         if (quality <= set_threshold)
@@ -525,15 +525,17 @@ Matrix aggregateGroups(
         int totalMacrogroups = *cuts;
         totalMacrogroups += *cuts == -1 ? 2 : 0;
         if (!feasible)
-            Rprintf(
-                "\nThe maximum threshold value was not accomplished. Returning the results of having %d macro-groups, "
-                "having an statistic of %.4f, corresponding to the lesser threshold.\n",
-                totalMacrogroups, bestValue);
+            Rprintf("\nNo group aggregation yielded a standard deviation matrix statistic below the specified "
+                    "threshold. The aggregation with the lowest value was %.4f — still above the threshold of %.4f. If "
+                    "you would like to retrieve this group aggregation despite its standard deviation matrix statistic "
+                    "being above the threshold, set feasible = FALSE.\n",
+                    bestValue, set_threshold);
         else
-            Rprintf(
-                "\nNo group aggregation yielded a standard deviation matrix statistic below the specified threshold.\n"
-                "The aggregation with the lowest statistic had a value of %.4f — still above the threshold of %.4f.",
-                bestValue, set_threshold);
+            Rprintf("\nNo group aggregation yielded a standard deviation matrix statistic below the specified "
+                    "threshold. The aggregation with the lowest value was %.4f — still above the threshold of %.4f. "
+                    "Because "
+                    "'feasibile' parameter is set to FALSE, the group aggregation will be returned anyway.\n",
+                    bestValue, set_threshold);
     }
     // ---...--- //
     *bestResult = true;
@@ -632,6 +634,10 @@ static void enumerateAllPartitions(int start, int G, int *currentBoundaries, int
         else if (strcmp(opts->q_method, "mcmc") == 0)
         {
             cleanHitAndRun();
+        }
+        else if (strcmp(opts->q_method, "mult") == 0)
+        {
+            cleanMultinomial();
         }
         freeMatrix(&initP);
         // free the merged aggregator:
@@ -751,6 +757,12 @@ Matrix aggregateGroupsExhaustive(Matrix *xmat, Matrix *wmat, int *results, int *
         *cuts = 0;
         if (results)
             results[0] = -1;
+        if (verbose)
+            Rprintf(
+                "\nNo group aggregation yielded a standard deviation matrix statistic below the specified threshold. "
+                "The aggregation with the lowest statistic was still above the threshold of %.4f. As a result, no "
+                "group aggregation is returned.",
+                max_qual);
         return createMatrix(1, 1);
     }
 
