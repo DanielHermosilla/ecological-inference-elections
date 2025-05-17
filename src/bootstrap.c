@@ -143,12 +143,12 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
     GetRNGstate();
     // For each bootstrap replicate i
 sampling:
-    for (int i = 0; i < bootiter; i++)
+    for (int i = 0; i < bdim * bootiter; i++)
     {
-        indices[bdim * i] = (int)(unif_rand() * bdim + 1);
+        indices[i] = (int)(unif_rand() * bdim + 1);
     }
     // Check that every index is not the same
-    for (int i = 1; i < bootiter; i++)
+    for (int i = 1; i < bdim * bootiter; i++)
     {
         if (indices[i] != indices[i - 1])
             break;
