@@ -13,7 +13,7 @@ otherwise, it yields an error."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">fastei</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -98,20 +98,33 @@ otherwise, it yields an error.</p>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
 <span class="r-in"><span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu"><a href="eim.html">eim</a></span><span class="op">(</span>X <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">9</span>, <span class="fl">3</span>, <span class="fl">3</span><span class="op">)</span>, W <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">9</span>, <span class="fl">3</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu"><a href="run_em.html">run_em</a></span><span class="op">(</span><span class="va">model</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="va">td</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">out_rds</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">td</span>, <span class="st">"model_results.rds"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">out_json</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">td</span>, <span class="st">"model_results.json"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">out_csv</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">td</span>, <span class="st">"model_results.csv"</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Save as RDS</span></span></span>
-<span class="r-in"><span><span class="fu">save_eim</span><span class="op">(</span><span class="va">model</span>, <span class="st">"model_results.rds"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu">save_eim</span><span class="op">(</span><span class="va">model</span>, filename <span class="op">=</span> <span class="va">out_rds</span><span class="op">)</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Results saved as RDS: /var/folders/2z/n3hh9hls78sfgxccsssr10bc0000gn/T//RtmpRuy5RW/model_results.rds</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Save as JSON</span></span></span>
-<span class="r-in"><span><span class="fu">save_eim</span><span class="op">(</span><span class="va">model</span>, <span class="st">"model_results.json"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu">save_eim</span><span class="op">(</span><span class="va">model</span>, filename <span class="op">=</span> <span class="va">out_json</span><span class="op">)</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Results saved as JSON: /var/folders/2z/n3hh9hls78sfgxccsssr10bc0000gn/T//RtmpRuy5RW/model_results.json</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Save as CSV</span></span></span>
-<span class="r-in"><span><span class="fu">save_eim</span><span class="op">(</span><span class="va">model</span>, <span class="st">"model_results.csv"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
+<span class="r-in"><span><span class="fu">save_eim</span><span class="op">(</span><span class="va">model</span>, filename <span class="op">=</span> <span class="va">out_csv</span><span class="op">)</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Probability matrix saved as CSV: /var/folders/2z/n3hh9hls78sfgxccsssr10bc0000gn/T//RtmpRuy5RW/model_results.csv</span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Remove the files</span></span></span>
+<span class="r-in"><span><span class="va">files</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">out_rds</span>, <span class="va">out_json</span>, <span class="va">out_csv</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/files.html" class="external-link">file.remove</a></span><span class="op">(</span><span class="va">files</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] TRUE TRUE TRUE</span>
+<span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>
@@ -124,7 +137,7 @@ otherwise, it yields an error.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Developed by Daniel Hermosilla.</p>
+  <p>Developed by Charles Thraves, Pablo Ubilla, Daniel Hermosilla.</p>
 </div>
 
     </footer></div>

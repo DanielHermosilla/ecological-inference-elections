@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">fastei</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,7 +67,7 @@
                         <h4 data-toc-skip class="author">Charles
 Thraves, Pablo Ubilla, Daniel Hermosilla</h4>
             
-            <h4 data-toc-skip class="date">2025-05-12</h4>
+            <h4 data-toc-skip class="date">2025-05-17</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/DanielHermosilla/ecological-inference-elections/blob/HEAD/vignettes/demonstration.Rmd" class="external-link"><code>vignettes/demonstration.Rmd</code></a></small>
       <div class="d-none name"><code>demonstration.Rmd</code></div>
@@ -128,25 +128,16 @@ probabilities. In this example, it uses the default method
 Running the algorithm is done by calling <code><a href="../reference/run_em.html">run_em()</a></code>.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_apo</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_apo</span><span class="op">)</span></span>
-<span><span class="va">eim_apo</span><span class="op">$</span><span class="va">prob</span></span></code></pre></div>
-<pre><code><span><span class="co">##                C1        C2         C3        C4          C5          C6</span></span>
-<span><span class="co">## X18.19 0.18021390 0.3812221 0.08594430 0.3191075 0.010454776 0.018692204</span></span>
-<span><span class="co">## X20.29 0.20222421 0.3427176 0.04921371 0.3472181 0.008598547 0.016276474</span></span>
-<span><span class="co">## X30.39 0.16208968 0.4129782 0.04180096 0.3493445 0.003027951 0.008108756</span></span>
-<span><span class="co">## X40.49 0.09194714 0.4897596 0.07860136 0.3271135 0.002118651 0.004123056</span></span>
-<span><span class="co">## X50.59 0.14863755 0.4140519 0.09393523 0.2893466 0.001088838 0.034452989</span></span>
-<span><span class="co">## X60.69 0.10069659 0.4989324 0.09071251 0.2744208 0.001833485 0.021835588</span></span>
-<span><span class="co">## X70.79 0.10508691 0.5207636 0.08438978 0.2354592 0.005996253 0.021857511</span></span>
-<span><span class="co">## X80.   0.07591972 0.5151956 0.13409775 0.2169307 0.006055633 0.031385766</span></span>
-<span><span class="co">##                 C7           C8</span></span>
-<span><span class="co">## X18.19 0.004027269 0.0003379456</span></span>
-<span><span class="co">## X20.29 0.018823328 0.0149280799</span></span>
-<span><span class="co">## X30.39 0.018774827 0.0038750467</span></span>
-<span><span class="co">## X40.49 0.002890563 0.0034461514</span></span>
-<span><span class="co">## X50.59 0.015023353 0.0034635700</span></span>
-<span><span class="co">## X60.69 0.007070275 0.0044983903</span></span>
-<span><span class="co">## X70.79 0.017167716 0.0092789396</span></span>
-<span><span class="co">## X80.   0.011800456 0.0086143403</span></span></code></pre>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">eim_apo</span><span class="op">$</span><span class="va">prob</span>, <span class="fl">4</span><span class="op">)</span></span></code></pre></div>
+<pre><code><span><span class="co">##            C1     C2     C3     C4     C5     C6     C7     C8</span></span>
+<span><span class="co">## X18.19 0.1802 0.3812 0.0859 0.3191 0.0105 0.0187 0.0040 0.0003</span></span>
+<span><span class="co">## X20.29 0.2022 0.3427 0.0492 0.3472 0.0086 0.0163 0.0188 0.0149</span></span>
+<span><span class="co">## X30.39 0.1621 0.4130 0.0418 0.3493 0.0030 0.0081 0.0188 0.0039</span></span>
+<span><span class="co">## X40.49 0.0919 0.4898 0.0786 0.3271 0.0021 0.0041 0.0029 0.0034</span></span>
+<span><span class="co">## X50.59 0.1486 0.4141 0.0939 0.2893 0.0011 0.0345 0.0150 0.0035</span></span>
+<span><span class="co">## X60.69 0.1007 0.4989 0.0907 0.2744 0.0018 0.0218 0.0071 0.0045</span></span>
+<span><span class="co">## X70.79 0.1051 0.5208 0.0844 0.2355 0.0060 0.0219 0.0172 0.0093</span></span>
+<span><span class="co">## X80.   0.0759 0.5152 0.1341 0.2169 0.0061 0.0314 0.0118 0.0086</span></span></code></pre>
 <p>Note that each row corresponds to the probability that a demographic
 group (<code>g</code>) voted for a candidate (<code>c</code>). It is
 worth noting how the estimated probabilities differ substantially across
@@ -160,25 +151,16 @@ using bootstrapping. This can be done with the function
 <code><a href="../reference/bootstrap.html">bootstrap()</a></code>.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_apo</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bootstrap.html">bootstrap</a></span><span class="op">(</span><span class="va">eim_apo</span>, seed <span class="op">=</span> <span class="fl">42</span>, nboot <span class="op">=</span> <span class="fl">30</span><span class="op">)</span></span>
-<span><span class="va">eim_apo</span><span class="op">$</span><span class="va">sd</span></span></code></pre></div>
-<pre><code><span><span class="co">##                C1         C2         C3         C4         C5         C6</span></span>
-<span><span class="co">## X18.19 0.08429831 0.11040608 0.04737099 0.06536731 0.03442258 0.03390104</span></span>
-<span><span class="co">## X20.29 0.06380323 0.08345643 0.04483642 0.06006561 0.02727428 0.03764120</span></span>
-<span><span class="co">## X30.39 0.05936512 0.06478433 0.04968344 0.07416344 0.02017893 0.02990580</span></span>
-<span><span class="co">## X40.49 0.04967044 0.06378142 0.04957294 0.05635050 0.02247519 0.03341556</span></span>
-<span><span class="co">## X50.59 0.04735214 0.06012512 0.03920637 0.05760971 0.01701997 0.03335058</span></span>
-<span><span class="co">## X60.69 0.04765265 0.05693243 0.04058074 0.05274889 0.01785652 0.03073866</span></span>
-<span><span class="co">## X70.79 0.05751887 0.06840338 0.04374161 0.06113917 0.02118821 0.03024047</span></span>
-<span><span class="co">## X80.   0.06637382 0.08292988 0.05394495 0.07826136 0.02380783 0.03046137</span></span>
-<span><span class="co">##                C7         C8</span></span>
-<span><span class="co">## X18.19 0.03859014 0.02984271</span></span>
-<span><span class="co">## X20.29 0.03250173 0.02832356</span></span>
-<span><span class="co">## X30.39 0.03646492 0.02261705</span></span>
-<span><span class="co">## X40.49 0.02638713 0.02537271</span></span>
-<span><span class="co">## X50.59 0.03180943 0.02025445</span></span>
-<span><span class="co">## X60.69 0.03020492 0.01997521</span></span>
-<span><span class="co">## X70.79 0.03038882 0.02171418</span></span>
-<span><span class="co">## X80.   0.03174904 0.02352783</span></span></code></pre>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">eim_apo</span><span class="op">$</span><span class="va">sd</span>, <span class="fl">4</span><span class="op">)</span></span></code></pre></div>
+<pre><code><span><span class="co">##            C1     C2     C3     C4     C5     C6     C7    C8</span></span>
+<span><span class="co">## X18.19 0.0071 0.0122 0.0022 0.0043 0.0012 0.0011 0.0015 9e-04</span></span>
+<span><span class="co">## X20.29 0.0041 0.0070 0.0020 0.0036 0.0007 0.0014 0.0011 8e-04</span></span>
+<span><span class="co">## X30.39 0.0035 0.0042 0.0025 0.0055 0.0004 0.0009 0.0013 5e-04</span></span>
+<span><span class="co">## X40.49 0.0025 0.0041 0.0025 0.0032 0.0005 0.0011 0.0007 6e-04</span></span>
+<span><span class="co">## X50.59 0.0022 0.0036 0.0015 0.0033 0.0003 0.0011 0.0010 4e-04</span></span>
+<span><span class="co">## X60.69 0.0023 0.0032 0.0016 0.0028 0.0003 0.0009 0.0009 4e-04</span></span>
+<span><span class="co">## X70.79 0.0033 0.0047 0.0019 0.0037 0.0004 0.0009 0.0009 5e-04</span></span>
+<span><span class="co">## X80.   0.0044 0.0069 0.0029 0.0061 0.0006 0.0009 0.0010 6e-04</span></span></code></pre>
 <p>The standard deviations obtained in the district “Apoquindo” are low
 in general. One reason for this is the high number of ballot boxes in
 this district. In contrast, standard deviations of estimated
@@ -187,25 +169,16 @@ are larger.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_nav</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_eim_chile.html">get_eim_chile</a></span><span class="op">(</span>elect_district <span class="op">=</span> <span class="st">"NAVIDAD"</span><span class="op">)</span></span>
 <span><span class="va">eim_nav</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bootstrap.html">bootstrap</a></span><span class="op">(</span><span class="va">eim_nav</span>, seed <span class="op">=</span> <span class="fl">42</span>, nboot <span class="op">=</span> <span class="fl">30</span><span class="op">)</span></span>
-<span><span class="va">eim_nav</span><span class="op">$</span><span class="va">sd</span></span></code></pre></div>
-<pre><code><span><span class="co">##               C1        C2        C3        C4         C5         C6         C7</span></span>
-<span><span class="co">## X18.19 0.2214451 0.1970844 0.1783613 0.3167673 0.11334607 0.13637371 0.15305458</span></span>
-<span><span class="co">## X20.29 0.1606269 0.1770246 0.1806477 0.1466003 0.07800926 0.09678682 0.16489767</span></span>
-<span><span class="co">## X30.39 0.1693693 0.2047489 0.1799093 0.1654572 0.09240416 0.11132817 0.11587464</span></span>
-<span><span class="co">## X40.49 0.1365256 0.1792028 0.1866755 0.1616137 0.08721944 0.11954829 0.10547254</span></span>
-<span><span class="co">## X50.59 0.1501858 0.1712607 0.1878540 0.1312316 0.06048176 0.12660728 0.10100224</span></span>
-<span><span class="co">## X60.69 0.1280791 0.1598155 0.1674383 0.1043716 0.05945490 0.12754337 0.08819076</span></span>
-<span><span class="co">## X70.79 0.1403220 0.1619747 0.1727775 0.1313626 0.08908717 0.12246832 0.10328463</span></span>
-<span><span class="co">## X80.   0.1755121 0.1795565 0.1929457 0.1752385 0.09301918 0.12165925 0.13777668</span></span>
-<span><span class="co">##                C8</span></span>
-<span><span class="co">## X18.19 0.09203398</span></span>
-<span><span class="co">## X20.29 0.06509148</span></span>
-<span><span class="co">## X30.39 0.07590694</span></span>
-<span><span class="co">## X40.49 0.06716454</span></span>
-<span><span class="co">## X50.59 0.09324964</span></span>
-<span><span class="co">## X60.69 0.06153528</span></span>
-<span><span class="co">## X70.79 0.06626062</span></span>
-<span><span class="co">## X80.   0.11209605</span></span></code></pre>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">eim_nav</span><span class="op">$</span><span class="va">sd</span>, <span class="fl">4</span><span class="op">)</span></span></code></pre></div>
+<pre><code><span><span class="co">##            C1     C2     C3     C4     C5     C6     C7     C8</span></span>
+<span><span class="co">## X18.19 0.0490 0.0388 0.0318 0.1003 0.0128 0.0186 0.0234 0.0085</span></span>
+<span><span class="co">## X20.29 0.0258 0.0313 0.0326 0.0215 0.0061 0.0094 0.0272 0.0042</span></span>
+<span><span class="co">## X30.39 0.0287 0.0419 0.0324 0.0274 0.0085 0.0124 0.0134 0.0058</span></span>
+<span><span class="co">## X40.49 0.0186 0.0321 0.0348 0.0261 0.0076 0.0143 0.0111 0.0045</span></span>
+<span><span class="co">## X50.59 0.0226 0.0293 0.0353 0.0172 0.0037 0.0160 0.0102 0.0087</span></span>
+<span><span class="co">## X60.69 0.0164 0.0255 0.0280 0.0109 0.0035 0.0163 0.0078 0.0038</span></span>
+<span><span class="co">## X70.79 0.0197 0.0262 0.0299 0.0173 0.0079 0.0150 0.0107 0.0044</span></span>
+<span><span class="co">## X80.   0.0308 0.0322 0.0372 0.0307 0.0087 0.0148 0.0190 0.0126</span></span></code></pre>
 <p>It is possible to see the difference in a visual way by plotting the
 standard deviations of the estimated probabilities across groups.</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
@@ -223,14 +196,14 @@ standard deviations of the estimated probabilities across groups.</p>
 <span>    <span class="va">color</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">value</span> <span class="op">==</span> <span class="st">"prob"</span>, <span class="st">"plasma"</span>, <span class="st">"viridis"</span><span class="op">)</span></span>
 <span></span>
 <span>    <span class="co"># Add text to each cell of the matrix</span></span>
-<span>    <span class="va">combined_df</span><span class="op">$</span><span class="va">label</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.2f"</span>, <span class="va">combined_df</span><span class="op">$</span><span class="va">value</span><span class="op">)</span></span>
+<span>    <span class="va">combined_df</span><span class="op">$</span><span class="va">label</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f"</span>, <span class="va">combined_df</span><span class="op">$</span><span class="va">value</span><span class="op">)</span></span>
 <span>    <span class="va">combined_df</span><span class="op">$</span><span class="va">text_color</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">combined_df</span><span class="op">$</span><span class="va">value</span> <span class="op">&gt;</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">combined_df</span><span class="op">$</span><span class="va">value</span><span class="op">)</span> <span class="op">*</span> <span class="fl">0.75</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">combined_df</span><span class="op">$</span><span class="va">value</span><span class="op">)</span> <span class="op">*</span> <span class="fl">0.25</span>, <span class="fl">2</span><span class="op">)</span>, <span class="st">"black"</span>, <span class="st">"white"</span><span class="op">)</span></span>
 <span>    <span class="va">districts</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">district1</span>, <span class="va">district2</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span>    <span class="co"># Call the plot</span></span>
 <span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">combined_df</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">Var2</span>, y <span class="op">=</span> <span class="va">Var1</span>, fill <span class="op">=</span> <span class="va">value</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>        <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_tile.html" class="external-link">geom_tile</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
-<span>        <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_text.html" class="external-link">geom_text</a></span><span class="op">(</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>label <span class="op">=</span> <span class="va">label</span>, color <span class="op">=</span> <span class="va">text_color</span><span class="op">)</span>, size <span class="op">=</span> <span class="fl">3</span><span class="op">)</span> <span class="op">+</span></span>
+<span>        <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_text.html" class="external-link">geom_text</a></span><span class="op">(</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>label <span class="op">=</span> <span class="va">label</span>, color <span class="op">=</span> <span class="va">text_color</span><span class="op">)</span>, size <span class="op">=</span> <span class="fl">2.5</span><span class="op">)</span> <span class="op">+</span></span>
 <span>        <span class="fu"><a href="https://sjmgarnier.github.io/viridis/reference/scale_viridis.html" class="external-link">scale_fill_viridis</a></span><span class="op">(</span></span>
 <span>            name <span class="op">=</span> <span class="va">value</span>,</span>
 <span>            option <span class="op">=</span> <span class="va">color</span>,</span>
@@ -267,7 +240,7 @@ distribution of groups across ballot boxes is used, which ensures
 standard deviations are below a specific threshold. The package provides
 the following function for the latter:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">eim_nav_proxy</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_proxy.html">get_agg_proxy</a></span><span class="op">(</span><span class="va">eim_nav</span>, seed <span class="op">=</span> <span class="fl">42</span>, sd_threshold <span class="op">=</span> <span class="fl">0.1</span>, sd_statistic <span class="op">=</span> <span class="st">"average"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">eim_nav_proxy</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_proxy.html">get_agg_proxy</a></span><span class="op">(</span><span class="va">eim_nav</span>, seed <span class="op">=</span> <span class="fl">6</span>, sd_threshold <span class="op">=</span> <span class="fl">0.03</span>, sd_statistic <span class="op">=</span> <span class="st">"maximum"</span><span class="op">)</span></span>
 <span><span class="va">eim_nav_proxy</span><span class="op">$</span><span class="va">group_agg</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] 4 8</span></span></code></pre>
 <p>As shown in the output, the heuristic finds a group aggregation that
@@ -277,7 +250,7 @@ of this grouping by comparing the mean standard deviation to the
 original formulation:</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">eim_nav</span><span class="op">$</span><span class="va">sd</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">eim_nav_proxy</span><span class="op">$</span><span class="va">sd</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 0.05028999</span></span></code></pre>
+<pre><code><span><span class="co">## [1] 0.01143862</span></span></code></pre>
 <p>It is possible to see the aggregated standard deviations
 visually:</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
@@ -299,7 +272,7 @@ visually:</p>
 <span>        <span class="va">start</span> <span class="op">&lt;-</span> <span class="fl">0.5</span></span>
 <span>        <span class="va">limits</span> <span class="op">&lt;-</span> <span class="cn">NULL</span></span>
 <span>    <span class="op">}</span> <span class="kw">else</span> <span class="op">{</span></span>
-<span>        <span class="va">df</span><span class="op">$</span><span class="va">Label</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.2f"</span>, <span class="va">df</span><span class="op">$</span><span class="va">Value</span><span class="op">)</span></span>
+<span>        <span class="va">df</span><span class="op">$</span><span class="va">Label</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.3f"</span>, <span class="va">df</span><span class="op">$</span><span class="va">Value</span><span class="op">)</span></span>
 <span>        <span class="va">title_text</span> <span class="op">&lt;-</span> <span class="st">"Standard deviation of estimated probabilities on district: Navidad"</span></span>
 <span>        <span class="va">x_lab</span> <span class="op">&lt;-</span> <span class="st">"Candidates' votes"</span></span>
 <span>        <span class="va">y_lab</span> <span class="op">&lt;-</span> <span class="st">"Voters' age range"</span></span>
@@ -307,7 +280,7 @@ visually:</p>
 <span>        <span class="va">df</span><span class="op">$</span><span class="va">text_color</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">Value</span> <span class="op">&gt;</span> <span class="fl">0.13</span>, <span class="st">"black"</span>, <span class="st">"white"</span><span class="op">)</span></span>
 <span>        <span class="va">option</span> <span class="op">&lt;-</span> <span class="st">"viridis"</span></span>
 <span>        <span class="va">start</span> <span class="op">&lt;-</span> <span class="fl">0</span></span>
-<span>        <span class="va">limits</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0.2</span><span class="op">)</span></span>
+<span>        <span class="va">limits</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0.1</span><span class="op">)</span></span>
 <span>    <span class="op">}</span></span>
 <span></span>
 <span>    <span class="co"># Plot</span></span>
@@ -346,16 +319,16 @@ log-likelihood subject to having standard deviations below a given
 threshold. It might require substantial computation time; therefore it
 is recommended to use the default method, “mult”.</p>
 <div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">eim_nav_opt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_opt.html">get_agg_opt</a></span><span class="op">(</span><span class="va">eim_nav</span>, seed <span class="op">=</span> <span class="fl">42</span>, sd_threshold <span class="op">=</span> <span class="fl">0.1</span>, sd_statistic <span class="op">=</span> <span class="st">"average"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">eim_nav_opt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_opt.html">get_agg_opt</a></span><span class="op">(</span><span class="va">eim_nav</span>, seed <span class="op">=</span> <span class="fl">6</span>, sd_threshold <span class="op">=</span> <span class="fl">0.03</span>, sd_statistic <span class="op">=</span> <span class="st">"maximum"</span><span class="op">)</span></span>
 <span><span class="va">eim_nav_opt</span><span class="op">$</span><span class="va">group_agg</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 4 6 8</span></span></code></pre>
+<pre><code><span><span class="co">## [1] 2 4 8</span></span></code></pre>
 <p>The optimal group aggregation differs slightly from one obtained
 before. In this case, the group aggregation consists in the three age
-range: 18-49, 50-69, and older than 70.</p>
+range: 18-29, 30-49, and older than 70.</p>
 <p>We can visualize the standard deviations of the estimated
 probabilities.</p>
 <div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">plot_matrix</span><span class="op">(</span><span class="va">eim_nav_opt</span><span class="op">$</span><span class="va">sd</span>, sd <span class="op">=</span> <span class="cn">TRUE</span>, y_labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"X18.49"</span>, <span class="st">"X50.69"</span>, <span class="st">"X70."</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu">plot_matrix</span><span class="op">(</span><span class="va">eim_nav_opt</span><span class="op">$</span><span class="va">sd</span>, sd <span class="op">=</span> <span class="cn">TRUE</span>, y_labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"X18.29"</span>, <span class="st">"X30.49"</span>, <span class="st">"X50."</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
 <img src="demonstration_files/figure-html/standard_deviation_opt-1.png" alt="Navidad aggregated standard deviation with opt method" width="768"><p class="caption">
 Navidad aggregated standard deviation with opt method
@@ -368,56 +341,24 @@ Navidad aggregated standard deviation with opt method
 <p>A relevant question is how significantly different are the
 probability estimates of two sets of data, such as two different
 districts. For instance, we can compare the estimated probabilities of
-the district “APOQUINDO” and “PROVIDENCIA”, which belong to the same
-ward.</p>
+the district “LO BARNECHEA” and “LA GRANJA”, whose voting tendencies are
+expected to differ.</p>
 <div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">eim_prov</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_eim_chile.html">get_eim_chile</a></span><span class="op">(</span><span class="st">"PROVIDENCIA"</span><span class="op">)</span></span>
-<span><span class="va">eim_prov</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_prov</span><span class="op">)</span></span>
-<span><span class="va">eim_apo</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_apo</span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">plot_district</span><span class="op">(</span><span class="va">eim_apo</span><span class="op">$</span><span class="va">prob</span>, <span class="st">"Apoquindo"</span>, <span class="va">eim_prov</span><span class="op">$</span><span class="va">prob</span>, <span class="st">"Providencia"</span><span class="op">)</span></span></code></pre></div>
-<div class="figure" style="text-align: center">
-<img src="demonstration_files/figure-html/prov_apoc_comparison-1.png" alt="Providencia and Apoquindo comparison" width="768"><p class="caption">
-Providencia and Apoquindo comparison
-</p>
-</div>
-<p>A Welch’s test can be applied to each component of the two
-probability matrix estimates:</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">comparison</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/welchtest.html">welchtest</a></span><span class="op">(</span></span>
-<span>    object1 <span class="op">=</span> <span class="va">eim_prov</span>,</span>
-<span>    object2 <span class="op">=</span> <span class="va">eim_apo</span>,</span>
-<span>    method <span class="op">=</span> <span class="st">"mult"</span>,</span>
-<span>    nboot <span class="op">=</span> <span class="fl">30</span>,</span>
-<span>    seed <span class="op">=</span> <span class="fl">42</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">comparison</span><span class="op">$</span><span class="va">pvals</span>, <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">##           C1    C2    C3    C4    C5    C6    C7    C8</span></span>
-<span><span class="co">## X18.19 0.000 0.226 0.293 0.000 0.261 0.988 0.492 0.989</span></span>
-<span><span class="co">## X20.29 0.000 0.000 0.561 0.000 0.422 0.646 0.611 0.855</span></span>
-<span><span class="co">## X30.39 0.000 0.000 0.001 0.000 0.335 0.303 0.678 0.943</span></span>
-<span><span class="co">## X40.49 0.000 0.000 0.000 0.000 0.861 0.077 0.649 0.983</span></span>
-<span><span class="co">## X50.59 0.002 0.000 0.000 0.004 0.012 0.102 0.893 0.172</span></span>
-<span><span class="co">## X60.69 0.000 0.000 0.858 0.043 0.766 0.066 0.135 0.714</span></span>
-<span><span class="co">## X70.79 0.053 0.073 0.086 0.474 0.582 0.161 0.098 0.161</span></span>
-<span><span class="co">## X80.   0.340 0.184 0.252 0.323 0.395 0.497 0.958 0.852</span></span></code></pre>
-<p>In most cases, voting probabilities are not significantly different.
-On the other hand, it may be noteworthy to observe the difference
-between two electoral districts whose voting tendencies are expected to
-differ.</p>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_gra</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_eim_chile.html">get_eim_chile</a></span><span class="op">(</span><span class="st">"LA GRANJA"</span><span class="op">)</span></span>
 <span><span class="va">eim_gra</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_gra</span><span class="op">)</span></span>
 <span><span class="va">eim_bar</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_eim_chile.html">get_eim_chile</a></span><span class="op">(</span><span class="st">"LO BARNECHEA"</span><span class="op">)</span></span>
-<span><span class="va">eim_bar</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_bar</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">eim_bar</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_bar</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">plot_district</span><span class="op">(</span><span class="va">eim_gra</span><span class="op">$</span><span class="va">prob</span>, <span class="st">"La Granja"</span>, <span class="va">eim_bar</span><span class="op">$</span><span class="va">prob</span>, <span class="st">"Lo Barnechea"</span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
 <img src="demonstration_files/figure-html/granja_lobarnechea_comparison-1.png" alt="Lo Barnechea and La Granja comparison" width="768"><p class="caption">
 Lo Barnechea and La Granja comparison
 </p>
 </div>
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">comparison2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/welchtest.html">welchtest</a></span><span class="op">(</span></span>
+<p>A Wald test can be applied to each component of the two probability
+matrix estimates:</p>
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">comparison2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/waldtest.html">waldtest</a></span><span class="op">(</span></span>
 <span>    object1 <span class="op">=</span> <span class="va">eim_gra</span>,</span>
 <span>    object2 <span class="op">=</span> <span class="va">eim_bar</span>,</span>
 <span>    method <span class="op">=</span> <span class="st">"mult"</span>,</span>
@@ -427,14 +368,55 @@ Lo Barnechea and La Granja comparison
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">comparison2</span><span class="op">$</span><span class="va">pvals</span>, <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">##           C1 C2    C3    C4    C5    C6    C7    C8</span></span>
-<span><span class="co">## X18.19 0.000  0 0.000 0.000 0.269 0.000 0.282 0.842</span></span>
-<span><span class="co">## X20.29 0.000  0 0.385 0.000 0.014 0.000 0.000 0.959</span></span>
-<span><span class="co">## X30.39 0.000  0 0.009 0.000 0.016 0.000 0.000 0.409</span></span>
-<span><span class="co">## X40.49 0.000  0 0.000 0.000 0.021 0.000 0.000 0.153</span></span>
-<span><span class="co">## X50.59 0.000  0 0.000 0.000 0.260 0.000 0.000 0.334</span></span>
-<span><span class="co">## X60.69 0.000  0 0.000 0.000 0.157 0.000 0.588 0.608</span></span>
-<span><span class="co">## X70.79 0.571  0 0.000 0.562 0.491 0.889 0.013 0.518</span></span>
-<span><span class="co">## X80.   0.980  0 0.000 0.396 0.953 0.097 0.032 0.360</span></span></code></pre>
+<span><span class="co">## X18.19 0.000  0 0.000 0.000 0.000 0.000 0.002 0.399</span></span>
+<span><span class="co">## X20.29 0.000  0 0.008 0.000 0.000 0.000 0.000 0.798</span></span>
+<span><span class="co">## X30.39 0.000  0 0.000 0.000 0.000 0.000 0.000 0.000</span></span>
+<span><span class="co">## X40.49 0.000  0 0.000 0.000 0.000 0.000 0.000 0.000</span></span>
+<span><span class="co">## X50.59 0.000  0 0.000 0.000 0.000 0.000 0.000 0.000</span></span>
+<span><span class="co">## X60.69 0.000  0 0.000 0.000 0.000 0.000 0.106 0.003</span></span>
+<span><span class="co">## X70.79 0.388  0 0.000 0.380 0.009 0.802 0.000 0.006</span></span>
+<span><span class="co">## X80.   0.970  0 0.000 0.183 0.857 0.002 0.000 0.000</span></span></code></pre>
+<p>Conversely, one may examine the alternative scenario in which ballot
+boxes within a given region are partitioned into equally sized groups.
+In this configuration, both groups are expected to exhibit identical
+probability distributions.</p>
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">eimRM</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_eim_chile.html">get_eim_chile</a></span><span class="op">(</span>region <span class="op">=</span> <span class="st">"METROPOLITANA DE SANTIAGO"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">eimRM</span><span class="op">$</span><span class="va">X</span><span class="op">)</span></span>
+<span><span class="va">n_train</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">floor</a></span><span class="op">(</span><span class="va">n</span> <span class="op">*</span> <span class="fl">0.5</span><span class="op">)</span></span>
+<span><span class="va">train_indices</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span>, <span class="va">n_train</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">eimRMhalf1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/eim.html">eim</a></span><span class="op">(</span>X <span class="op">=</span> <span class="va">eimRM</span><span class="op">$</span><span class="va">X</span><span class="op">[</span><span class="va">train_indices</span>, <span class="op">]</span>, W <span class="op">=</span> <span class="va">eimRM</span><span class="op">$</span><span class="va">W</span><span class="op">[</span><span class="va">train_indices</span>, <span class="op">]</span><span class="op">)</span></span>
+<span><span class="va">eimRMhalf2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/eim.html">eim</a></span><span class="op">(</span>X <span class="op">=</span> <span class="va">eimRM</span><span class="op">$</span><span class="va">X</span><span class="op">[</span><span class="op">-</span><span class="va">train_indices</span>, <span class="op">]</span>, W <span class="op">=</span> <span class="va">eimRM</span><span class="op">$</span><span class="va">W</span><span class="op">[</span><span class="op">-</span><span class="va">train_indices</span>, <span class="op">]</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">eimRMhalf1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eimRMhalf1</span><span class="op">)</span></span>
+<span><span class="va">eimRMhalf2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eimRMhalf2</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu">plot_district</span><span class="op">(</span><span class="va">eimRMhalf1</span><span class="op">$</span><span class="va">prob</span>, <span class="st">"Half 1"</span>, <span class="va">eimRMhalf2</span><span class="op">$</span><span class="va">prob</span>, <span class="st">"Half 2"</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="demonstration_files/figure-html/half_comparison-1.png" alt="Equally sorted districts comparison" width="768"><p class="caption">
+Equally sorted districts comparison
+</p>
+</div>
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">comparison2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/waldtest.html">waldtest</a></span><span class="op">(</span></span>
+<span>    object1 <span class="op">=</span> <span class="va">eimRMhalf1</span>,</span>
+<span>    object2 <span class="op">=</span> <span class="va">eimRMhalf2</span>,</span>
+<span>    nboot <span class="op">=</span> <span class="fl">10</span>,</span>
+<span>    seed <span class="op">=</span> <span class="fl">42</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">comparison2</span><span class="op">$</span><span class="va">pvals</span>, <span class="fl">4</span><span class="op">)</span></span></code></pre></div>
+<pre><code><span><span class="co">##            C1     C2     C3     C4     C5     C6     C7     C8</span></span>
+<span><span class="co">## X18.19 0.0245 0.0590 0.9171 0.0060 0.0079 0.3806 0.1462 0.1139</span></span>
+<span><span class="co">## X20.29 0.0150 0.0303 0.3007 0.0957 0.3689 0.2684 0.8266 0.0189</span></span>
+<span><span class="co">## X30.39 0.0118 0.0469 0.8082 0.5632 0.9009 0.9855 0.9694 0.4589</span></span>
+<span><span class="co">## X40.49 0.9554 0.6773 0.6361 0.0209 0.0014 0.0013 0.2401 0.0631</span></span>
+<span><span class="co">## X50.59 0.4871 0.2690 0.0350 0.2708 0.3325 0.8107 0.0974 0.2376</span></span>
+<span><span class="co">## X60.69 0.0004 0.0000 0.3166 0.5108 0.6028 0.1525 0.0131 0.0000</span></span>
+<span><span class="co">## X70.79 0.8685 0.6081 0.6879 0.2588 0.0019 0.1061 0.6629 0.0000</span></span>
+<span><span class="co">## X80.   0.9997 0.5832 0.1340 0.2869 0.7102 0.9499 0.9495 0.0008</span></span></code></pre>
 </div>
 <div class="section level2">
 <h2 id="simulating-election-results">Simulating Election Results<a class="anchor" aria-label="anchor" href="#simulating-election-results"></a>
@@ -443,7 +425,7 @@ Lo Barnechea and La Granja comparison
 as an eim object with the simulated probability. This is useful for
 testing the package’s performance and comparing the different methods
 available.</p>
-<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_election.html">simulate_election</a></span><span class="op">(</span>num_ballots <span class="op">=</span> <span class="fl">15</span>, num_groups <span class="op">=</span> <span class="fl">2</span>, num_candidates <span class="op">=</span> <span class="fl">3</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
 <span><span class="va">eim_sim</span></span></code></pre></div>
 <pre><code><span><span class="co">## eim ecological inference model</span></span>
@@ -469,7 +451,7 @@ available.</p>
 <span><span class="co">## .</span></span></code></pre>
 <p>The real voting probabilities of each group for each candidate can be
 obtained as follows:</p>
-<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim</span><span class="op">$</span><span class="va">real_prob</span></span></code></pre></div>
 <pre><code><span><span class="co">##           [,1]      [,2]      [,3]</span></span>
 <span><span class="co">## [1,] 0.2588692 0.3615164 0.3796145</span></span>
@@ -477,7 +459,7 @@ obtained as follows:</p>
 <p>In this case, we can access these values since this is a simulation;
 however, this is not possible when working with real data.</p>
 <p>The estimated voting probabilities are:</p>
-<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_sim</span><span class="op">)</span></span>
 <span><span class="va">eim_sim</span><span class="op">$</span><span class="va">prob</span></span></code></pre></div>
 <pre><code><span><span class="co">##           [,1]      [,2]      [,3]</span></span>
@@ -485,13 +467,13 @@ however, this is not possible when working with real data.</p>
 <span><span class="co">## [2,] 0.3014838 0.1827996 0.5157166</span></span></code></pre>
 <p>It is possible to provide a specific voting probability for each
 candidate for each group.</p>
-<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">input_probability</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.9</span>, <span class="fl">0.05</span>, <span class="fl">0.05</span>, <span class="fl">0.2</span>, <span class="fl">0.3</span>, <span class="fl">0.5</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">2</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="va">input_probability</span></span></code></pre></div>
 <pre><code><span><span class="co">##      [,1] [,2] [,3]</span></span>
 <span><span class="co">## [1,]  0.9 0.05 0.05</span></span>
 <span><span class="co">## [2,]  0.2 0.30 0.50</span></span></code></pre>
-<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_election.html">simulate_election</a></span><span class="op">(</span></span>
 <span>    num_ballots <span class="op">=</span> <span class="fl">30</span>, num_groups <span class="op">=</span> <span class="fl">2</span>, num_candidates <span class="op">=</span> <span class="fl">3</span>, seed <span class="op">=</span> <span class="fl">42</span>,</span>
 <span>    prob <span class="op">=</span> <span class="va">input_probability</span></span>
@@ -518,7 +500,7 @@ candidate for each group.</p>
 <span><span class="co">## .</span></span>
 <span><span class="co">## .</span></span>
 <span><span class="co">## .</span></span></code></pre>
-<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim2</span><span class="op">$</span><span class="va">real_prob</span></span></code></pre></div>
 <pre><code><span><span class="co">##      [,1] [,2] [,3]</span></span>
 <span><span class="co">## [1,]  0.9 0.05 0.05</span></span>
@@ -529,12 +511,12 @@ voters are all randomly assigned in ballot boxes; in contrast to lambda
 = 1, in which case voters are assigned in ballot boxes according to
 their demographic group. This is explained in detail in the
 documentation in <code><a href="../reference/simulate_election.html">simulate_election()</a></code>.</p>
-<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim3</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_election.html">simulate_election</a></span><span class="op">(</span></span>
 <span>    num_ballots <span class="op">=</span> <span class="fl">20</span>, num_groups <span class="op">=</span> <span class="fl">4</span>, num_candidates <span class="op">=</span> <span class="fl">2</span>, seed <span class="op">=</span> <span class="fl">42</span>,</span>
 <span>    lambda <span class="op">=</span> <span class="fl">0.1</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb40"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">plot_matrix</span><span class="op">(</span><span class="va">eim_sim3</span><span class="op">$</span><span class="va">W</span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
 <img src="demonstration_files/figure-html/eim_sim3_heatmap-1.png" alt="Voters' heatmap for a low lambda value" width="768"><p class="caption">
@@ -542,7 +524,7 @@ Voters’ heatmap for a low lambda value
 </p>
 </div>
 <p>Having the following estimated probabilities:</p>
-<div class="sourceCode" id="cb41"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb40"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_sim3</span><span class="op">)</span><span class="op">$</span><span class="va">prob</span></span></code></pre></div>
 <pre><code><span><span class="co">##           [,1]      [,2]</span></span>
 <span><span class="co">## [1,] 0.3686854 0.6313146</span></span>
@@ -551,12 +533,12 @@ Voters’ heatmap for a low lambda value
 <span><span class="co">## [4,] 0.1805033 0.8194967</span></span></code></pre>
 <p>On the other side, it is possible to simulate an heterogeneous
 sample</p>
-<div class="sourceCode" id="cb43"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb42"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim4</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_election.html">simulate_election</a></span><span class="op">(</span></span>
 <span>    num_ballots <span class="op">=</span> <span class="fl">20</span>, num_groups <span class="op">=</span> <span class="fl">4</span>, num_candidates <span class="op">=</span> <span class="fl">2</span>, seed <span class="op">=</span> <span class="fl">42</span>,</span>
 <span>    lambda <span class="op">=</span> <span class="fl">0.9</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb44"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb43"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">plot_matrix</span><span class="op">(</span><span class="va">eim_sim4</span><span class="op">$</span><span class="va">W</span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
 <img src="demonstration_files/figure-html/eim_sim4_heatmap-1.png" alt="Voters' heatmap for a high lambda value" width="768"><p class="caption">
@@ -564,7 +546,7 @@ Voters’ heatmap for a high lambda value
 </p>
 </div>
 <p>With the underlying probabilities</p>
-<div class="sourceCode" id="cb45"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb44"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_sim4</span><span class="op">)</span><span class="op">$</span><span class="va">prob</span></span></code></pre></div>
 <pre><code><span><span class="co">##           [,1]      [,2]</span></span>
 <span><span class="co">## [1,] 0.3731878 0.6268122</span></span>
@@ -583,7 +565,7 @@ Voters’ heatmap for a high lambda value
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Developed by Daniel Hermosilla.</p>
+  <p>Developed by Charles Thraves, Pablo Ubilla, Daniel Hermosilla.</p>
 </div>
 
     </footer>

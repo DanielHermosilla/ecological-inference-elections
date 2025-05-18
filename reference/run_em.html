@@ -9,7 +9,7 @@ Certain methods may require additional arguments, which can be passed through ..
 
     <a class="navbar-brand me-2" href="../index.html">fastei</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -69,9 +69,9 @@ Certain methods may require additional arguments, which can be passed through <c
 <span>  verbose <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  mcmc_samples <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span>  mcmc_stepsize <span class="op">=</span> <span class="fl">3000</span>,</span>
-<span>  mvnc_method <span class="op">=</span> <span class="st">"genz"</span>,</span>
-<span>  mvnc_error <span class="op">=</span> <span class="fl">0.00001</span>,</span>
-<span>  mvnc_samples <span class="op">=</span> <span class="fl">5000</span>,</span>
+<span>  mvncdf_method <span class="op">=</span> <span class="st">"genz"</span>,</span>
+<span>  mvncdf_error <span class="op">=</span> <span class="fl">0.00001</span>,</span>
+<span>  mvncdf_samples <span class="op">=</span> <span class="fl">5000</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -160,19 +160,19 @@ algorithm. This parameter is only applicable when <code>method = "mcmc"</code> a
 be ignored otherwise. The default value is <code>3000</code>.</p></dd>
 
 
-<dt id="arg-mvnc-method">mvnc_method<a class="anchor" aria-label="anchor" href="#arg-mvnc-method"></a></dt>
+<dt id="arg-mvncdf-method">mvncdf_method<a class="anchor" aria-label="anchor" href="#arg-mvncdf-method"></a></dt>
 <dd><p>An optional string specifying the method used to estimate the <code>mvn_cdf</code> method
 via a Monte Carlo simulation. Accepted values are <code>genz</code> and <code>genz2</code>, with <code>genz</code>
 set as the default. This parameter is only applicable when <code>method = "mvn_cdf"</code>. See <strong>References</strong> for more details.</p></dd>
 
 
-<dt id="arg-mvnc-error">mvnc_error<a class="anchor" aria-label="anchor" href="#arg-mvnc-error"></a></dt>
+<dt id="arg-mvncdf-error">mvncdf_error<a class="anchor" aria-label="anchor" href="#arg-mvncdf-error"></a></dt>
 <dd><p>An optional numeric value defining the error threshold for the Monte Carlo
 simulation when estimating the <code>mvn_cdf</code> method. The default value is <code>1e-6</code>. This parameter is only relevant
 when <code>method = "mvn_cdf"</code>.</p></dd>
 
 
-<dt id="arg-mvnc-samples">mvnc_samples<a class="anchor" aria-label="anchor" href="#arg-mvnc-samples"></a></dt>
+<dt id="arg-mvncdf-samples">mvncdf_samples<a class="anchor" aria-label="anchor" href="#arg-mvncdf-samples"></a></dt>
 <dd><p>An optional integer specifying the number of Monte Carlo
 samples for the <code>mvn_cdf</code> method. The default value is <code>5000</code>. This argument is only applicable when <code>method = "mvn_cdf"</code>.</p></dd>
 
@@ -211,7 +211,7 @@ samples for the <code>mvn_cdf</code> method. The default value is <code>5000</co
 <dd><p>The method for estimating the conditional probability in the E-step.</p></dd>
 
 
-</dl><p>Aditionally, it will create <code>mcmc_samples</code> and <code>mcmc_stepsize</code> parameters if the specified <code>method = "mcmc"</code>, or <code>mvnc_method</code>, <code>mvnc_error</code> and <code>mvnc_samples</code> if <code>method = "mvn_cdf"</code>.</p>
+</dl><p>Aditionally, it will create <code>mcmc_samples</code> and <code>mcmc_stepsize</code> parameters if the specified <code>method = "mcmc"</code>, or <code>mvncdf_method</code>, <code>mvncdf_error</code> and <code>mvncdf_samples</code> if <code>method = "mvn_cdf"</code>.</p>
 <p>Also, if the eim object supplied is created with the function <a href="simulate_election.html">simulate_election</a>, it also returns the real probability with the name <code>real_prob</code>. See <a href="simulate_election.html">simulate_election</a>.</p>
     </div>
     <div class="section level2">
@@ -227,7 +227,7 @@ supplied matrices or the data from the JSON file before executing the algorithm.
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
-    <p><a href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834" class="external-link">Thraves, C. and Ubilla, P.: <em>"Fast Ecological Inference Algorithm for the RxC Case"</em></a>. Aditionally, the MVN CDF is computed by the methods introduced in <a href="https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities" class="external-link">Genz, A. (2000). Numerical computation of multivariate normal probabilities. <em>Journal of Computational and Graphical Statistics</em></a></p>
+    <p><a href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834" class="external-link">Thraves, C., Ubilla, P. and Hermosilla, D.: <em>"Fast Ecological Inference Algorithm for the RxC Case"</em></a>. Aditionally, the MVN CDF is computed by the methods introduced in <a href="https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities" class="external-link">Genz, A. (2000). Numerical computation of multivariate normal probabilities. <em>Journal of Computational and Graphical Statistics</em></a></p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
@@ -236,7 +236,8 @@ supplied matrices or the data from the JSON file before executing the algorithm.
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># Example 1: Compute the Expected-Maximization with default settings</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
+<span class="r-in"><span><span class="co"># Example 1: Compute the Expected-Maximization with default settings</span></span></span>
 <span class="r-in"><span><span class="va">simulations</span> <span class="op">&lt;-</span> <span class="fu"><a href="simulate_election.html">simulate_election</a></span><span class="op">(</span></span></span>
 <span class="r-in"><span>    num_ballots <span class="op">=</span> <span class="fl">300</span>,</span></span>
 <span class="r-in"><span>    num_candidates <span class="op">=</span> <span class="fl">5</span>,</span></span>
@@ -245,19 +246,18 @@ supplied matrices or the data from the JSON file before executing the algorithm.
 <span class="r-in"><span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu"><a href="eim.html">eim</a></span><span class="op">(</span><span class="va">simulations</span><span class="op">$</span><span class="va">X</span>, <span class="va">simulations</span><span class="op">$</span><span class="va">W</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu">run_em</span><span class="op">(</span><span class="va">model</span><span class="op">)</span> <span class="co"># Returns the object with updated attributes</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Example 2: Compute the Expected-Maximization using the MCMC method</span></span></span>
+<span class="r-in"><span><span class="co"># Example 2: Compute the Expected-Maximization using the mvn_pdf method</span></span></span>
 <span class="r-in"><span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu">run_em</span><span class="op">(</span></span></span>
 <span class="r-in"><span>    object <span class="op">=</span> <span class="va">model</span>,</span></span>
-<span class="r-in"><span>    method <span class="op">=</span> <span class="st">"mcmc"</span>,</span></span>
-<span class="r-in"><span>    mcmc_stepsize <span class="op">=</span> <span class="fl">1500</span>,</span></span>
-<span class="r-in"><span>    mcmc_samples <span class="op">=</span> <span class="fl">800</span></span></span>
+<span class="r-in"><span>    method <span class="op">=</span> <span class="st">"mvn_pdf"</span>,</span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Example 3: Run the MVN CDF method with default settings</span></span></span>
+<span class="r-in"><span><span class="co"># Example 3: Run the mvn_cdf method with default settings</span></span></span>
 <span class="r-in"><span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu">run_em</span><span class="op">(</span>object <span class="op">=</span> <span class="va">model</span>, method <span class="op">=</span> <span class="st">"mvn_cdf"</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Example 4: Perform an Exact estimation using user-defined parameters</span></span></span>
+<span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
+<span class="r-in"><span><span class="co"># Example 4: Perform an Exact estimation using user-defined parameters</span></span></span>
+<span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu">run_em</span><span class="op">(</span></span></span>
 <span class="r-in"><span>    json_path <span class="op">=</span> <span class="st">"a/json/file.json"</span>,</span></span>
 <span class="r-in"><span>    method <span class="op">=</span> <span class="st">"exact"</span>,</span></span>
@@ -281,7 +281,7 @@ supplied matrices or the data from the JSON file before executing the algorithm.
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Developed by Daniel Hermosilla.</p>
+  <p>Developed by Charles Thraves, Pablo Ubilla, Daniel Hermosilla.</p>
 </div>
 
     </footer></div>
