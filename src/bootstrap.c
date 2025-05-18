@@ -145,14 +145,14 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
 sampling:
     for (int i = 0; i < bdim * bootiter; i++)
     {
-        indices[i] = (int)(unif_rand() * bdim + 1);
+        indices[i] = (int)(unif_rand() * bdim);
     }
     // Check that every index is not the same
     for (int i = 1; i < bdim * bootiter; i++)
     {
         if (indices[i] != indices[i - 1])
             break;
-        if (i == bootiter - 1)
+        if (i == bdim * bootiter - 1)
         {
             goto sampling;
         }
@@ -168,7 +168,7 @@ sampling:
     Matrix *results = Calloc(bootiter, Matrix);
     for (int i = 0; i < bootiter; i++)
     {
-        if (verbose && (i % (bootiter / 20) == 0)) // Print every 5% (20 intervals)
+        if (verbose && bootiter > 20 && (i % (bootiter / 20) == 0)) // Print every 5% (20 intervals)
         {
             double progress = (double)i / bootiter * 100;
             Rprintf("%.0f%% of iterations completed.\n", progress);
@@ -198,7 +198,6 @@ sampling:
         }
 
         results[i] = resultP;
-        // printMatrix(&resultP);
         // memcpy(&results[i * matsize], resultP.data, matsize * sizeof(double));
 
         // ---- Release loop allocated variables ---- //
