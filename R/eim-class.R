@@ -496,7 +496,7 @@ bootstrap <- function(object = NULL,
                       X = NULL,
                       W = NULL,
                       json_path = NULL,
-                      nboot = 50,
+                      nboot = 100,
                       allow_mismatch = TRUE,
                       seed = NULL,
                       ...) {
@@ -907,6 +907,7 @@ get_agg_opt <- function(object = NULL,
     run_em_args <- modifyList(as.list(run_em_defaults), all_params)
     run_em_args <- run_em_args[names(run_em_args) != "..."] # Remove ellipsis
 
+    if (!is.null(seed)) set.seed(seed) # Set seed for reproducibility
     # Initialize eim object if needed
     if (is.null(object)) {
         object <- eim(X, W, json_path)

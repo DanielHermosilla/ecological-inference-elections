@@ -25,6 +25,7 @@ SOFTWARE.
 #include "dynamic_program.h"
 #include "main.h"
 #include <R.h>
+#include <R_ext/Random.h>
 #include <Rcpp.h>
 #include <Rinternals.h>
 #include <vector>

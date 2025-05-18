@@ -353,11 +353,12 @@ Matrix testBootstrap(double *quality, const char *set_method, const Matrix *xmat
     if (A != -1)
     {
         mergedMat = A == wmat->cols ? *wmat : mergeColumns(wmat, boundaries, A); // Boundaries is of length A
-        // ---...--- //
-
+                                                                                 // ---...--- //
         // ---- Obtain the bootstrapped results ---- //
+        GetRNGstate();
         standardMat = bootstrapA(xmat, &mergedMat, bootiter, q_method, p_method, convergence, log_convergence, maxIter,
                                  maxSeconds, false, inputParams);
+        PutRNGstate();
         // ---...--- //
     }
     else
@@ -368,10 +369,11 @@ Matrix testBootstrap(double *quality, const char *set_method, const Matrix *xmat
             MATRIX_AT(mergedMat, i, 0) = BALLOTS_VOTES[i];
         }
         // printMatrix(&mergedMat);
-
+        GetRNGstate();
         standardMat = bootSingleMat(xmat, &mergedMat, bootiter, false);
+        PutRNGstate();
     }
-
+    printMatrix(&standardMat);
     // ---- Maximum method ---- //
     if (strcmp(set_method, "maximum") == 0)
     {

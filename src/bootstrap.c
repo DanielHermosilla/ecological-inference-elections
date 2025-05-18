@@ -1,6 +1,5 @@
 /*
 Copyright (c) 2025 fastei team
-
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -140,7 +139,6 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
     }
     // ---- Generate the indices for bootstrap ---- //
     int *indices = Calloc(bdim * bootiter, int);
-    GetRNGstate();
     // For each bootstrap replicate i
 sampling:
     for (int i = 0; i < bdim * bootiter; i++)
@@ -157,7 +155,6 @@ sampling:
             goto sampling;
         }
     }
-    PutRNGstate();
     // We want to avoid the case where the same ballot box is drawn FOR EACH placement
     // This has a probability of 1/b^b. Maybe this calculation could be avoided at 6 > ballot boxes,
     // since then it becomes practically 0
@@ -249,12 +246,10 @@ Matrix bootSingleMat(const Matrix *xmat, const Matrix *wmat, int bootiter, const
     int matsize = xmat->rows;
     // ---- Generate the indices for bootstrap ---- //
     int *indices = Calloc(bdim * bootiter, int);
-    GetRNGstate();
     for (int j = 0; j < samples; j++)
     {
         indices[j] = (int)(unif_rand() * bdim);
     }
-    PutRNGstate();
     // ---...--- //
 
     // ---- Execute the bootstrap algorithm ---- //
