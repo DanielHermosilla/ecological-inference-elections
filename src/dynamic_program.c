@@ -373,7 +373,6 @@ Matrix testBootstrap(double *quality, const char *set_method, const Matrix *xmat
         standardMat = bootSingleMat(xmat, &mergedMat, bootiter, false);
         PutRNGstate();
     }
-    printMatrix(&standardMat);
     // ---- Maximum method ---- //
     if (strcmp(set_method, "maximum") == 0)
     {

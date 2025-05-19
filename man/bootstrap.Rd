@@ -10,7 +10,7 @@ bootstrap(
   X = NULL,
   W = NULL,
   json_path = NULL,
-  nboot = 50,
+  nboot = 100,
   allow_mismatch = TRUE,
   seed = NULL,
   ...
