@@ -93,7 +93,7 @@ result$group_agg # c(3,8)
 # This means that the resulting group aggregation consists of
 # two macro-groups: one that includes the original groups 1, 2, and 3;
 # the remaining one with groups 4, 5, 6, 7 and 8.
-# {[1, 2, 3], [4, 5, 6, 7, 8]}
+
 \donttest{
 # Example 2: Getting an unfeasible result
 result2 <- get_agg_opt(

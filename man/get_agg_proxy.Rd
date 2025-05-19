@@ -97,8 +97,7 @@ result <- get_agg_proxy(
 result$group_agg # c(2 6)
 # This means that the resulting group aggregation is conformed by
 # two macro-groups: one that has the original groups 1 and 2; and
-# a second that has the original groups 3, 4, 5, and 6:
-# {[1, 2], [3, 6]}
+# a second that has the original groups 3, 4, 5, and 6.
 
 # Example 2: Using the chilean election results
 data(chile_election_2021)
@@ -119,14 +118,13 @@ W <- as.matrix(niebla_df[, c(
 solution <- get_agg_proxy(
     X = X, W = W,
     allow_mismatch = TRUE, sd_threshold = 0.03,
-    sd_statistic = "average", nboot = 100, seed = 42
+    sd_statistic = "average", seed = 42
 )
 
 solution$group_agg # c(3, 4, 5, 6, 8)
 # This means that the resulting group aggregation consists of
 # five macro-groups: one that includes the original groups 1, 2, and 3;
 # three singleton groups (4, 5, and 6); and one macro-group that includes groups 7 and 8.
-# {[1, 2, 3], [4], [5], [6], [7, 8]}
 
 }
 \seealso{
