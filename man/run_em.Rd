@@ -19,6 +19,7 @@ run_em(
   ll_threshold = as.double(-Inf),
   seed = NULL,
   verbose = FALSE,
+  group_agg = NULL,
   mcmc_samples = 1000,
   mcmc_stepsize = 3000,
   mvncdf_method = "genz",
@@ -75,6 +76,8 @@ the threshold. Note that the algorithm will stop if either \code{ll_threshold} \
 
 \item{verbose}{An optional boolean indicating whether to print informational messages during the EM
 iterations. The default value is \code{FALSE}.}
+
+\item{group_agg}{An optional vector that refers to the group aggregation. It should contain the group indices to be aggregated. For example, \code{c(2, 4)} indicates that groups 1 and 2 should be aggregated to a single group and the columns 3 and 4 to another. Defaults to \code{NULL}.}
 
 \item{mcmc_samples}{An optional integer indicating the number of samples to generate for the
 \strong{MCMC} method. This parameter is only relevant when \code{method = "mcmc"}.

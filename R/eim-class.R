@@ -211,6 +211,8 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'
 #' @param seed An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if `initial_prob = "random"` or `method` is either `"mcmc"` or `"mvn_cdf"`.
 #'
+#' @param group_agg An optional vector that refers to the group aggregation. It should contain the group indices to be aggregated. For example, `c(2, 4)` indicates that groups 1 and 2 should be aggregated to a single group and the columns 3 and 4 to another. Defaults to `NULL`.
+#'
 #' @param mcmc_stepsize An optional integer specifying the step size for the `mcmc`
 #'   algorithm. This parameter is only applicable when `method = "mcmc"` and will
 #'   be ignored otherwise. The default value is `3000`.
@@ -325,6 +327,7 @@ run_em <- function(object = NULL,
                    ll_threshold = as.double(-Inf),
                    seed = NULL,
                    verbose = FALSE,
+                   group_agg = NULL,
                    mcmc_samples = 1000,
                    mcmc_stepsize = 3000,
                    mvncdf_method = "genz",
@@ -354,6 +357,21 @@ run_em <- function(object = NULL,
         )
     } else if (method == "exact" && length(mismatch_rows) > 0) {
         stop("run_em: Exact method isn't supported with mismatch")
+    }
+
+    # Handle the group aggregation, if provided
+    if (!is.null(group_agg)) {
+        sizes <- diff(c(0, group_agg))
+        rep_labels <- rep(seq_along(sizes), sizes)
+        groups <- split(seq_len(ncol(object$W)), rep_labels)
+        Wagg <- do.call(
+            cbind,
+            lapply(groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
+        )
+        rownames(Wagg) <- rownames(object$W)
+        object$W_agg <- Wagg
+        object$W <- Wagg
+        object$group_agg <- group_agg
     }
 
     object$method <- method
@@ -391,13 +409,6 @@ run_em <- function(object = NULL,
     )
     # ---------- ... ---------- #
 
-    object$prob <- as.matrix(resulting_values$result)
-    dimnames(object$prob) <- list(colnames(object$W), colnames(object$X))
-    object$iterations <- as.numeric(resulting_values$total_iterations)
-    object$logLik <- as.numeric(resulting_values$log_likelihood[length(resulting_values$log_likelihood)])
-    object$time <- resulting_values$total_time
-    object$message <- resulting_values$stopping_reason
-    object$status <- as.integer(resulting_values$finish_id)
     object$cond_prob <- resulting_values$q
     object$cond_prob <- aperm(resulting_values$q, perm = c(2, 3, 1)) # Correct dimensions
     dimnames(object$cond_prob) <- list(
@@ -405,12 +416,20 @@ run_em <- function(object = NULL,
         colnames(object$X),
         rownames(object$X)
     )
+    object$prob <- as.matrix(resulting_values$result)
+    dimnames(object$prob) <- list(colnames(object$W), colnames(object$X))
+    object$iterations <- as.numeric(resulting_values$total_iterations)
+    object$logLik <- as.numeric(resulting_values$log_likelihood[length(resulting_values$log_likelihood)])
+    object$time <- resulting_values$total_time
+    object$message <- resulting_values$stopping_reason
+    object$status <- as.integer(resulting_values$finish_id)
     # Add function arguments
     object$maxiter <- maxiter
     object$maxiter <- maxtime
     object$param_threshold <- param_threshold
     object$ll_threshold <- ll_threshold
     object$initial_prob <- initial_prob
+    object$W <- W # For the case where group_agg is used
 
     invisible(object) # Updates the object.
 }
@@ -509,6 +528,21 @@ bootstrap <- function(object = NULL,
         object <- eim(X, W, json_path)
     } else if (!inherits(object, "eim")) {
         stop("Bootstrap: The object must be initialized with the `eim()` function.")
+    }
+
+    # Handle the group aggregation, if provided
+    if (!is.null(all_params$group_agg)) {
+        sizes <- diff(c(0, all_params$group_agg))
+        rep_labels <- rep(seq_along(sizes), sizes)
+        groups <- split(seq_len(ncol(W)), rep_labels)
+        Wagg <- do.call(
+            cbind,
+            lapply(groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
+        )
+        rownames(Wagg) <- rownames(object$W)
+        object$W_agg <- Wagg
+        object$W <- Wagg
+        object$group_agg <- all_params$group_agg
     }
 
     # I need to define the method before on this case
@@ -995,6 +1029,13 @@ get_agg_opt <- function(object = NULL,
     col_groups <- split(seq_len(ncol(object$W)), findInterval(seq_len(ncol(object$W)), c(1, result$indices + 2)))
     # Lambda function to add the columns
     # object$W_agg <- as.matrix(sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE])))
+    object$cond_prob <- result$q
+    object$cond_prob <- aperm(result$q, perm = c(2, 3, 1)) # Correct dimensions
+    dimnames(object$cond_prob) <- list(
+        NULL,
+        colnames(object$X),
+        rownames(object$X)
+    )
     object$W_agg <- do.call(cbind, lapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE])))
     rownames(object$W_agg) <- rownames(object$W)
     object$group_agg <- result$indices + 1 # Use R's index system
@@ -1005,16 +1046,9 @@ get_agg_opt <- function(object = NULL,
     object$time <- result$total_time
     object$message <- result$stopping_reason
     object$status <- as.integer(result$finish_id)
-    object$cond_prob <- result$q
     object$sd <- result$bootstrap_sol
     dimnames(object$sd) <- dimnames(object$prob)
     object$sd[object$sd == 9999] <- Inf
-    object$cond_prob <- aperm(result$q, perm = c(2, 3, 1)) # Correct dimensions
-    dimnames(object$cond_prob) <- list(
-        NULL,
-        colnames(object$X),
-        rownames(object$X)
-    )
     object$method <- method
     object$ll_threshold <- ll_threshold
     object$param_threshold <- param_threshold

@@ -11,7 +11,7 @@ waldtest(
   W1 = NULL,
   X2 = NULL,
   W2 = NULL,
-  nboot = 50,
+  nboot = 100,
   seed = NULL,
   alternative = "two.sided",
   ...

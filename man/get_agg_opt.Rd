@@ -12,7 +12,7 @@ get_agg_opt(
   sd_statistic = "maximum",
   sd_threshold = 0.05,
   method = "mult",
-  nboot = 50,
+  nboot = 100,
   allow_mismatch = TRUE,
   seed = NULL,
   ...

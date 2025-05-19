@@ -13,7 +13,7 @@ get_agg_proxy(
   sd_threshold = 0.05,
   method = "mult",
   feasible = TRUE,
-  nboot = 50,
+  nboot = 100,
   allow_mismatch = TRUE,
   seed = NULL,
   ...
