@@ -343,6 +343,7 @@ run_em <- function(object = NULL,
 
     if (is.null(object)) {
         object <- eim(X, W, json_path)
+        W <- object$W
     } else if (!inherits(object, "eim")) {
         stop("run_em: The object must be initialized with the eim() function.")
     }
@@ -526,6 +527,7 @@ bootstrap <- function(object = NULL,
     # Initialize eim object if needed
     if (is.null(object)) {
         object <- eim(X, W, json_path)
+        W <- object$W
     } else if (!inherits(object, "eim")) {
         stop("Bootstrap: The object must be initialized with the `eim()` function.")
     }
@@ -622,6 +624,7 @@ bootstrap <- function(object = NULL,
     dimnames(object$sd) <- list(colnames(object$W), colnames(object$X))
     object$nboot <- nboot
     object$sd[object$sd == 9999] <- Inf
+    object$W <- W
 
     class(object) <- "eim"
     return(object)
