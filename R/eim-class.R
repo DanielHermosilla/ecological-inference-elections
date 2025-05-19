@@ -343,7 +343,6 @@ run_em <- function(object = NULL,
 
     if (is.null(object)) {
         object <- eim(X, W, json_path)
-        W <- object$W
     } else if (!inherits(object, "eim")) {
         stop("run_em: The object must be initialized with the eim() function.")
     }
@@ -371,7 +370,6 @@ run_em <- function(object = NULL,
         )
         rownames(Wagg) <- rownames(object$W)
         object$W_agg <- Wagg
-        object$W <- Wagg
         object$group_agg <- group_agg
     }
 
@@ -392,7 +390,8 @@ run_em <- function(object = NULL,
         object$mvncdf_error <- if ("mvncdf_error" %in% names(all_params)) all_params$mvncdf_error else 1e-6
     }
 
-    RsetParameters(t(object$X), object$W)
+    W <- if (is.null(object$W_agg)) object$W else object$W_agg
+    RsetParameters(t(object$X), W)
 
     resulting_values <- EMAlgorithmFull(
         method,
@@ -413,12 +412,12 @@ run_em <- function(object = NULL,
     object$cond_prob <- resulting_values$q
     object$cond_prob <- aperm(resulting_values$q, perm = c(2, 3, 1)) # Correct dimensions
     dimnames(object$cond_prob) <- list(
-        colnames(object$W),
+        colnames(W),
         colnames(object$X),
         rownames(object$X)
     )
     object$prob <- as.matrix(resulting_values$result)
-    dimnames(object$prob) <- list(colnames(object$W), colnames(object$X))
+    dimnames(object$prob) <- list(colnames(W), colnames(object$X))
     object$iterations <- as.numeric(resulting_values$total_iterations)
     object$logLik <- as.numeric(resulting_values$log_likelihood[length(resulting_values$log_likelihood)])
     object$time <- resulting_values$total_time
@@ -430,7 +429,6 @@ run_em <- function(object = NULL,
     object$param_threshold <- param_threshold
     object$ll_threshold <- ll_threshold
     object$initial_prob <- initial_prob
-    object$W <- W # For the case where group_agg is used
 
     invisible(object) # Updates the object.
 }
@@ -527,7 +525,6 @@ bootstrap <- function(object = NULL,
     # Initialize eim object if needed
     if (is.null(object)) {
         object <- eim(X, W, json_path)
-        W <- object$W
     } else if (!inherits(object, "eim")) {
         stop("Bootstrap: The object must be initialized with the `eim()` function.")
     }
@@ -536,14 +533,13 @@ bootstrap <- function(object = NULL,
     if (!is.null(all_params$group_agg)) {
         sizes <- diff(c(0, all_params$group_agg))
         rep_labels <- rep(seq_along(sizes), sizes)
-        groups <- split(seq_len(ncol(W)), rep_labels)
+        groups <- split(seq_len(ncol(object$W)), rep_labels)
         Wagg <- do.call(
             cbind,
             lapply(groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
         )
         rownames(Wagg) <- rownames(object$W)
         object$W_agg <- Wagg
-        object$W <- Wagg
         object$group_agg <- all_params$group_agg
     }
 
@@ -567,6 +563,7 @@ bootstrap <- function(object = NULL,
     if (!is.null(seed)) set.seed(seed)
 
     # Extract parameters with defaults if missing
+    W <- if (is.null(object$W_agg)) object$W else object$W_agg
     initial_prob <- if (!is.null(all_params$initial_prob)) all_params$initial_prob else "group_proportional"
     maxiter <- if (!is.null(all_params$maxiter)) all_params$maxiter else 1000
     maxtime <- if (!is.null(all_params$maxtime)) all_params$maxtime else 3600
@@ -604,7 +601,7 @@ bootstrap <- function(object = NULL,
     # Call C bootstrap function
     result <- bootstrapAlg(
         t(object$X),
-        object$W,
+        W,
         as.integer(nboot),
         as.character(method),
         as.character(initial_prob),
@@ -621,10 +618,9 @@ bootstrap <- function(object = NULL,
     )
 
     object$sd <- result
-    dimnames(object$sd) <- list(colnames(object$W), colnames(object$X))
+    dimnames(object$sd) <- list(colnames(W), colnames(object$X))
     object$nboot <- nboot
     object$sd[object$sd == 9999] <- Inf
-    object$W <- W
 
     class(object) <- "eim"
     return(object)
