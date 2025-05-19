@@ -502,6 +502,24 @@ extern "C"
     void swapMatrixColumns(Matrix *matrix, int colA, int colB);
 
     void choleskyMat(Matrix *matrix);
+
+    /**
+     * @brief Returns true if there's a NaN in the matrix
+     *
+     * @param[in] matrix Pointer to the matrix to check.
+     */
+    bool findNaN(Matrix *matrix);
+
+    /**
+     * @brief Adds a row of the given value at a specific index in a matrix in place.
+     *
+     * This function modifies the input matrix to add a row of the given value at the specified index.
+     *
+     * @param[in,out] matrix Pointer to the matrix to modify.
+     * @param[in] rowIndex The index where the new row should be added (0-based).
+     */
+    void addRowOfNaN(Matrix *matrix, int rowIndex);
+
 #ifdef __cplusplus
 }
 #endif

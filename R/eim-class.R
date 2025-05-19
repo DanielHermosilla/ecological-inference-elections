@@ -534,7 +534,7 @@ bootstrap <- function(object = NULL,
     initial_prob <- if (!is.null(all_params$initial_prob)) all_params$initial_prob else "group_proportional"
     maxiter <- if (!is.null(all_params$maxiter)) all_params$maxiter else 1000
     maxtime <- if (!is.null(all_params$maxtime)) all_params$maxtime else 3600
-    param_threshold <- if (!is.null(all_params$param_threshold)) all_params$param_threshold else 0.01
+    param_threshold <- if (!is.null(all_params$param_threshold)) all_params$param_threshold else 0.001
     verbose <- if (!is.null(all_params$verbose)) all_params$verbose else FALSE
 
     # R does a subtle type conversion when handing -Inf. Hence, we'll use a direct assignment
@@ -1038,7 +1038,7 @@ get_agg_opt <- function(object = NULL,
 #' Performs a matrix-wise Wald test for two eim objects
 #'
 #' This function compares two `eim` objects (or sets of matrices that can be converted to such objects) by computing a Wald test on each component
-#' of their estimated probability matrices (`p`). The Wald test is applied using bootstrap-derived standard deviations, and the result is a matrix
+#' of their estimated probability matrices. The Wald test is applied using bootstrap-derived standard deviations, and the result is a matrix
 #' of p-values corresponding to each group-candidate combination.
 #'
 #' It uses Wald test to analyze if there is a significant difference between the estimated probabilities between a treatment and a control set. The test is performed independently for each component of the probability matrix.
@@ -1410,7 +1410,16 @@ save_eim <- function(object, filename, ...) {
 
         # Dynamically extract all attributes and store them
         for (name in names(object)) {
-            json_data[[name]] <- object[[name]]
+            val <- object[[name]]
+
+            # if it's our 3-D array cond_prob, swap dim 1 ↔ dim 3
+            if (identical(name, "cond_prob") &&
+                is.array(val) &&
+                length(dim(val)) == 3) {
+                val <- aperm(val, perm = c(3, 1, 2))
+            }
+
+            json_data[[name]] <- val
         }
 
         jsonlite::write_json(json_data, filename, pretty = TRUE, auto_unbox = TRUE, digits = 10)

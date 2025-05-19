@@ -51,7 +51,7 @@ entries of the two estimated probability matrices.
 }
 \description{
 This function compares two \code{eim} objects (or sets of matrices that can be converted to such objects) by computing a Wald test on each component
-of their estimated probability matrices (\code{p}). The Wald test is applied using bootstrap-derived standard deviations, and the result is a matrix
+of their estimated probability matrices. The Wald test is applied using bootstrap-derived standard deviations, and the result is a matrix
 of p-values corresponding to each group-candidate combination.
 }
 \details{

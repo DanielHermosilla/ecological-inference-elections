@@ -124,5 +124,5 @@ result4$real_prob == custom_prob
 # The attribute of the output real_prob matches the input custom_prob.
 }
 \references{
-The algorithm is fully explained in \href{https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834}{'Thraves, C. and Ubilla, P.: \emph{"A Fast Ecological Inference Algorithm for the R×C Case"}}.
+The algorithm is fully explained in \href{https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834}{'Thraves, C. Ubilla, P. and Hermosilla, D.: \emph{"A Fast Ecological Inference Algorithm for the R×C Case"}}.
 }

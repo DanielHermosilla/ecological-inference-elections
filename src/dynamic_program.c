@@ -373,6 +373,7 @@ Matrix testBootstrap(double *quality, const char *set_method, const Matrix *xmat
         standardMat = bootSingleMat(xmat, &mergedMat, bootiter, false);
         PutRNGstate();
     }
+
     // ---- Maximum method ---- //
     if (strcmp(set_method, "maximum") == 0)
     {
@@ -394,6 +395,10 @@ Matrix testBootstrap(double *quality, const char *set_method, const Matrix *xmat
         mean /= (double)(standardMat.rows * standardMat.cols);
         *quality = mean;
     }
+
+    if (findNaN(&standardMat))
+        *quality = INFINITY;
+
     return standardMat;
     // ---...--- //
 }
@@ -478,14 +483,14 @@ Matrix aggregateGroups(
             bootstrapMatrix = testBootstrap(&quality, set_method, xmat, wmat, boundaries, -1, bootiter, q_method,
                                             p_method, convergence, log_convergence, maxIter, maxSeconds, inputParams);
         }
-        if (verbose)
+        if (verbose && quality)
         {
             Rprintf("Standard deviation matrix:\n");
             printMatrix(&bootstrapMatrix);
             Rprintf("Statistic value:\t%.4f\n----------\n", quality);
         }
         // --- Case it converges
-        if (quality <= set_threshold)
+        if (quality <= set_threshold && quality != INFINITY)
         {
             for (int b = 0; (b < i) & (i != 1); b++)
             {
@@ -501,7 +506,7 @@ Matrix aggregateGroups(
             return bootstrapMatrix;
         }
         // --- Case it is a better candidate than before
-        if (quality < bestValue)
+        if (quality < bestValue && quality != INFINITY)
         {
             for (int b = 0; (b < i) & (i != 1); b++)
             {
@@ -655,10 +660,10 @@ static void enumerateAllPartitions(int start, int G, int *currentBoundaries, int
                               opts->bootiter, opts->q_method, opts->p_method, opts->convergence, opts->log_convergence,
                               opts->maxIter, opts->maxSeconds, opts->inputParams);
             // freeMatrix(&bootstrapedMat);
-            if (opts->verbose)
+            if (opts->verbose && qual != INFINITY)
                 Rprintf("Standard deviation statistic:\t%f\n", qual);
             // compute bootstrap & qual …
-            if (qual <= opts->max_qual)
+            if (qual <= opts->max_qual && qual != INFINITY)
             {
                 // free old best
                 if (res->bestBootstrap)

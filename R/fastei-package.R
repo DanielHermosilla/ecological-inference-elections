@@ -30,7 +30,7 @@
 #' }
 #'
 #' @references
-#' [Thraves, C. and Ubilla, P. (2024): *"A Fast Ecological Inference Algorithm for the R×C Case"*.](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834)
+#' [Thraves, C., Ubilla, P and Hermosilla D. (2024): *"A Fast Ecological Inference Algorithm for the R×C Case"*.](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834)
 #' @aliases NULL
 #' @concept package
 "_PACKAGE"

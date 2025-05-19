@@ -472,7 +472,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
                                    iterTotal, logLLarr, qVal, finishing_reason, inputParams);
         addColumnOfZeros(W, invalidGroup);
         setParameters(X, W);
-        addRowOfZeros(&result, invalidGroup);
+        addRowOfNaN(&result, invalidGroup);
         freeMatrix(&P);
         return result;
     }

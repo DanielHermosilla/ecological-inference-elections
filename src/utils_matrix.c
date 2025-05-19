@@ -1340,3 +1340,61 @@ void swapMatrixColumns(Matrix *matrix, int colA, int colB)
         MATRIX_AT_PTR(matrix, row, colB) = temp;
     }
 }
+
+bool findNaN(Matrix *matrix)
+{
+    checkMatrix(matrix); // Validate the input matrix
+
+    for (int i = 0; i < matrix->rows; i++)
+    {
+        for (int j = 0; j < matrix->cols; j++)
+        {
+            if (isnan(MATRIX_AT_PTR(matrix, i, j)))
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/**
+ * @brief Adds a row of the given value at a specific index in a matrix in place.
+ *
+ * This function modifies the input matrix to add a row of the given value at the specified index.
+ *
+ * @param[in,out] matrix Pointer to the matrix to modify.
+ * @param[in] rowIndex The index where the new row should be added (0-based).
+ */
+void addRowOfNaN(Matrix *matrix, int rowIndex)
+{
+    checkMatrix(matrix); // Validate the input matrix
+
+    if (rowIndex < 0 || rowIndex > matrix->rows)
+    {
+        error("Matrix handling: Row index out of bounds: %d\n", rowIndex);
+    }
+
+    // Resize the matrix to have one additional row
+    Matrix temp = copMatrix(matrix);
+    matrix->rows += 1;
+    matrix->data = Realloc(matrix->data, matrix->rows * matrix->cols, double);
+    if (!matrix->data)
+    {
+        error("Matrix handling: Memory reallocation failed while resizing the matrix.\n");
+    }
+
+    for (int i = 0; i < matrix->rows; i++)
+    {
+        for (int j = 0; j < matrix->cols; j++)
+        {
+            if (i < rowIndex)
+                MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT(temp, i, j);
+            else if (i > rowIndex)
+                MATRIX_AT_PTR(matrix, i, j) = MATRIX_AT(temp, i - 1, j);
+            else
+                MATRIX_AT_PTR(matrix, i, j) = NAN;
+        }
+    }
+    freeMatrix(&temp);
+}

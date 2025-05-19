@@ -24,6 +24,7 @@ SOFTWARE.
 #include <R_ext/Utils.h> // for R_CheckUserInterrupt()
 #include <Rinternals.h>
 #include <Rmath.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -92,7 +93,8 @@ Matrix standardDeviations(Matrix *bootstrapResults, Matrix *sumMatrix, int total
     {
         for (int j = 0; j < sdMatrix.cols; j++)
         {
-            MATRIX_AT(sdMatrix, i, j) = sqrt(MATRIX_AT(sdMatrix, i, j) / (totalIter - 1));
+            double val = sqrt(MATRIX_AT(sdMatrix, i, j) / (totalIter - 1));
+            MATRIX_AT(sdMatrix, i, j) = val == 0 ? NAN : val;
         }
     }
     return sdMatrix;

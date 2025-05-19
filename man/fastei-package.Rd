@@ -41,7 +41,7 @@ browseVignettes("fastei")
 }
 }
 \references{
-\href{https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834}{Thraves, C. and Ubilla, P. (2024): \emph{"A Fast Ecological Inference Algorithm for the R×C Case"}.}
+\href{https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834}{Thraves, C., Ubilla, P and Hermosilla D. (2024): \emph{"A Fast Ecological Inference Algorithm for the R×C Case"}.}
 }
 \seealso{
 Useful links:

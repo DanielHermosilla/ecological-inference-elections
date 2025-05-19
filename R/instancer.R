@@ -66,7 +66,7 @@
 #' }
 #'
 #' @references
-#' The algorithm is fully explained in ['Thraves, C. and Ubilla, P.: *"A Fast Ecological Inference Algorithm for the R×C Case"*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834).
+#' The algorithm is fully explained in ['Thraves, C. Ubilla, P. and Hermosilla, D.: *"A Fast Ecological Inference Algorithm for the R×C Case"*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834).
 #'
 #' @examples
 #' # Example 1: Default usage with 200 ballot boxes, each having 100 voters
