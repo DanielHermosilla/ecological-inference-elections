@@ -399,10 +399,10 @@ run_em <- function(object = NULL,
     object$message <- resulting_values$stopping_reason
     object$status <- as.integer(resulting_values$finish_id)
     object$cond_prob <- resulting_values$q
-    object$cond_prob <- aperm(resulting_values$q, perm = c(3, 2, 1)) # Correct dimensions
+    object$cond_prob <- aperm(resulting_values$q, perm = c(2, 3, 1)) # Correct dimensions
     dimnames(object$cond_prob) <- list(
-        colnames(object$X),
         colnames(object$W),
+        colnames(object$X),
         rownames(object$X)
     )
     # Add function arguments
@@ -698,7 +698,7 @@ get_agg_proxy <- function(object = NULL,
                           sd_threshold = 0.05,
                           method = "mult",
                           feasible = TRUE,
-                          nboot = 50,
+                          nboot = 100,
                           allow_mismatch = TRUE,
                           seed = NULL, ...) {
     # Retrieve the default values from run_em() as a list
@@ -894,7 +894,7 @@ get_agg_opt <- function(object = NULL,
                         sd_statistic = "maximum",
                         sd_threshold = 0.05,
                         method = "mult",
-                        nboot = 50,
+                        nboot = 100,
                         allow_mismatch = TRUE,
                         seed = NULL,
                         ...) {
@@ -1091,7 +1091,7 @@ waldtest <- function(object1 = NULL,
                      W1 = NULL,
                      X2 = NULL,
                      W2 = NULL,
-                     nboot = 50,
+                     nboot = 100,
                      seed = NULL,
                      alternative = "two.sided",
                      ...) {
