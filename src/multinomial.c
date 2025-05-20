@@ -42,8 +42,6 @@ SOFTWARE.
 #define BLAS_INT int
 #endif
 
-double *logGammaArr2 = NULL;
-
 /**
  * @brief Computes the value of `r` without the denominator.
  *
@@ -70,7 +68,6 @@ double computeR(Matrix const *probabilities, Matrix const *mult, int const b, in
  * to compute the lgamma function
  *
  * This would be called outside the computing function, so it is not designed to "save" some calculations.
- */
 static void precomputeLogGammas()
 {
     // We must get the biggest W_{bg}
@@ -86,7 +83,7 @@ static void precomputeLogGammas()
         logGammaArr2[i] = lgamma1p(i);
     }
 }
-
+*/
 /**
  * @brief Computes an approximate of the conditional probability by using a Multinomial approach.
  *
@@ -104,10 +101,10 @@ static void precomputeLogGammas()
 double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, double *ll)
 {
 
-    if (logGammaArr2 == NULL)
-    {
-        precomputeLogGammas();
-    }
+    // if (logGammaArr2 == NULL)
+    //{
+    // precomputeLogGammas();
+    //}
     double *array2 = (double *)Calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, double); // Array to return
     *ll = 0;
     // -- Summatory calculation for g --
@@ -171,7 +168,7 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, do
                     //        : 0;
                     *ll += MATRIX_AT(WP, b, c) != 0 && totalWP[b] != 0
                                ? MATRIX_AT_PTR(X, c, b) * log(MATRIX_AT(WP, b, c) / totalWP[b]) -
-                                     logGammaArr2[(int)MATRIX_AT_PTR(X, c, b)]
+                                     lgamma1p((int)MATRIX_AT_PTR(X, c, b))
                                : 0;
                 }
             }
@@ -184,13 +181,14 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, do
                     !isnan(result) && !isinf(result) ? finalNumerator[c] / tempSum : 0;
             }
         }
-        *ll += logGammaArr2[BALLOTS_VOTES[b]];
+        *ll += lgamma1p(BALLOTS_VOTES[b]);
     }
     // *ll -= TOTAL_BALLOTS * TOTAL_CANDIDATES * log(totalWP);
     freeMatrix(&WP);
     return array2;
 }
 
+/*
 void cleanMultinomial(void)
 {
     if (logGammaArr2 != NULL)
@@ -199,3 +197,4 @@ void cleanMultinomial(void)
         logGammaArr2 = NULL;
     }
 }
+*/

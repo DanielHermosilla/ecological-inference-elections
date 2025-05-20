@@ -210,10 +210,10 @@ sampling:
         {
             cleanHitAndRun();
         }
-        else if (strcmp(q_method, "mult"))
-        {
-            cleanMultinomial();
-        }
+        // else if (strcmp(q_method, "mult"))
+        //{
+        //    cleanMultinomial();
+        //}
         Free(qval);         // Check, for a possible segmentation fault
         freeMatrix(&iterP); // Check, for a possible segmentation fault
         freeMatrix(&iterX);

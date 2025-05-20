@@ -76,10 +76,10 @@ void cleanGlobals(const std::string &EMAlg, bool everything)
         cleanHitAndRun();
     else if (EMAlg == "exact")
         cleanExact();
-    else if (EMAlg == "mult")
-    {
-        cleanMultinomial();
-    }
+    // else if (EMAlg == "mult")
+    //{
+    //    cleanMultinomial();
+    //}
 }
 
 // ---- Set Parameters ---- //

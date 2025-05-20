@@ -649,10 +649,10 @@ static void enumerateAllPartitions(int start, int G, int *currentBoundaries, int
         {
             cleanHitAndRun();
         }
-        else if (strcmp(opts->q_method, "mult") == 0)
-        {
-            cleanMultinomial();
-        }
+        // else if (strcmp(opts->q_method, "mult") == 0)
+        //{
+        //    cleanMultinomial();
+        //}
         freeMatrix(&initP);
         // free the merged aggregator:
         freeMatrix(&merged);
