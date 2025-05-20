@@ -67,7 +67,7 @@
                         <h4 data-toc-skip class="author">Charles
 Thraves, Pablo Ubilla, Daniel Hermosilla</h4>
             
-            <h4 data-toc-skip class="date">2025-05-17</h4>
+            <h4 data-toc-skip class="date">2025-05-19</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/DanielHermosilla/ecological-inference-elections/blob/HEAD/vignettes/demonstration.Rmd" class="external-link"><code>vignettes/demonstration.Rmd</code></a></small>
       <div class="d-none name"><code>demonstration.Rmd</code></div>
@@ -152,15 +152,15 @@ using bootstrapping. This can be done with the function
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_apo</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bootstrap.html">bootstrap</a></span><span class="op">(</span><span class="va">eim_apo</span>, seed <span class="op">=</span> <span class="fl">42</span>, nboot <span class="op">=</span> <span class="fl">30</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">eim_apo</span><span class="op">$</span><span class="va">sd</span>, <span class="fl">4</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">##            C1     C2     C3     C4     C5     C6     C7    C8</span></span>
-<span><span class="co">## X18.19 0.0071 0.0122 0.0022 0.0043 0.0012 0.0011 0.0015 9e-04</span></span>
-<span><span class="co">## X20.29 0.0041 0.0070 0.0020 0.0036 0.0007 0.0014 0.0011 8e-04</span></span>
-<span><span class="co">## X30.39 0.0035 0.0042 0.0025 0.0055 0.0004 0.0009 0.0013 5e-04</span></span>
-<span><span class="co">## X40.49 0.0025 0.0041 0.0025 0.0032 0.0005 0.0011 0.0007 6e-04</span></span>
-<span><span class="co">## X50.59 0.0022 0.0036 0.0015 0.0033 0.0003 0.0011 0.0010 4e-04</span></span>
-<span><span class="co">## X60.69 0.0023 0.0032 0.0016 0.0028 0.0003 0.0009 0.0009 4e-04</span></span>
-<span><span class="co">## X70.79 0.0033 0.0047 0.0019 0.0037 0.0004 0.0009 0.0009 5e-04</span></span>
-<span><span class="co">## X80.   0.0044 0.0069 0.0029 0.0061 0.0006 0.0009 0.0010 6e-04</span></span></code></pre>
+<pre><code><span><span class="co">##            C1     C2     C3     C4     C5     C6     C7     C8</span></span>
+<span><span class="co">## X18.19 0.0292 0.0688 0.0087 0.0404 0.0043 0.0062 0.0059 0.0018</span></span>
+<span><span class="co">## X20.29 0.0091 0.0113 0.0042 0.0073 0.0013 0.0037 0.0029 0.0013</span></span>
+<span><span class="co">## X30.39 0.0097 0.0113 0.0051 0.0126 0.0010 0.0020 0.0033 0.0014</span></span>
+<span><span class="co">## X40.49 0.0077 0.0134 0.0078 0.0094 0.0013 0.0018 0.0017 0.0017</span></span>
+<span><span class="co">## X50.59 0.0115 0.0215 0.0091 0.0173 0.0008 0.0066 0.0049 0.0012</span></span>
+<span><span class="co">## X60.69 0.0105 0.0199 0.0103 0.0146 0.0010 0.0046 0.0031 0.0020</span></span>
+<span><span class="co">## X70.79 0.0125 0.0220 0.0099 0.0171 0.0029 0.0058 0.0060 0.0037</span></span>
+<span><span class="co">## X80.   0.0178 0.0310 0.0187 0.0248 0.0041 0.0070 0.0047 0.0036</span></span></code></pre>
 <p>The standard deviations obtained in the district “Apoquindo” are low
 in general. One reason for this is the high number of ballot boxes in
 this district. In contrast, standard deviations of estimated
@@ -171,14 +171,14 @@ are larger.</p>
 <span><span class="va">eim_nav</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bootstrap.html">bootstrap</a></span><span class="op">(</span><span class="va">eim_nav</span>, seed <span class="op">=</span> <span class="fl">42</span>, nboot <span class="op">=</span> <span class="fl">30</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">eim_nav</span><span class="op">$</span><span class="va">sd</span>, <span class="fl">4</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">##            C1     C2     C3     C4     C5     C6     C7     C8</span></span>
-<span><span class="co">## X18.19 0.0490 0.0388 0.0318 0.1003 0.0128 0.0186 0.0234 0.0085</span></span>
-<span><span class="co">## X20.29 0.0258 0.0313 0.0326 0.0215 0.0061 0.0094 0.0272 0.0042</span></span>
-<span><span class="co">## X30.39 0.0287 0.0419 0.0324 0.0274 0.0085 0.0124 0.0134 0.0058</span></span>
-<span><span class="co">## X40.49 0.0186 0.0321 0.0348 0.0261 0.0076 0.0143 0.0111 0.0045</span></span>
-<span><span class="co">## X50.59 0.0226 0.0293 0.0353 0.0172 0.0037 0.0160 0.0102 0.0087</span></span>
-<span><span class="co">## X60.69 0.0164 0.0255 0.0280 0.0109 0.0035 0.0163 0.0078 0.0038</span></span>
-<span><span class="co">## X70.79 0.0197 0.0262 0.0299 0.0173 0.0079 0.0150 0.0107 0.0044</span></span>
-<span><span class="co">## X80.   0.0308 0.0322 0.0372 0.0307 0.0087 0.0148 0.0190 0.0126</span></span></code></pre>
+<span><span class="co">## X18.19 0.1094 0.2339 0.0002 0.3226 0.1278 0.0955 0.2173 0.0859</span></span>
+<span><span class="co">## X20.29 0.1558 0.0753 0.0612 0.1184 0.0345 0.0009 0.1016 0.0056</span></span>
+<span><span class="co">## X30.39 0.0896 0.0706 0.0597 0.0816 0.0209 0.0333 0.0409 0.0040</span></span>
+<span><span class="co">## X40.49 0.0904 0.1111 0.0462 0.0629 0.0098 0.0521 0.0272 0.0072</span></span>
+<span><span class="co">## X50.59 0.0814 0.0816 0.0812 0.0795 0.0013 0.0328 0.0159 0.0255</span></span>
+<span><span class="co">## X60.69 0.1046 0.1016 0.1197 0.0768 0.0152 0.0794 0.0199 0.0010</span></span>
+<span><span class="co">## X70.79 0.1534 0.1398 0.1374 0.0815 0.0242 0.0447 0.0364 0.0001</span></span>
+<span><span class="co">## X80.   0.1527 0.0834 0.2059 0.0635 0.1175 0.2250 0.2422 0.1073</span></span></code></pre>
 <p>It is possible to see the difference in a visual way by plotting the
 standard deviations of the estimated probabilities across groups.</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
@@ -250,7 +250,7 @@ of this grouping by comparing the mean standard deviation to the
 original formulation:</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">eim_nav</span><span class="op">$</span><span class="va">sd</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">eim_nav_proxy</span><span class="op">$</span><span class="va">sd</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 0.01143862</span></span></code></pre>
+<pre><code><span><span class="co">## [1] 0.0743029</span></span></code></pre>
 <p>It is possible to see the aggregated standard deviations
 visually:</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
@@ -321,7 +321,7 @@ is recommended to use the default method, “mult”.</p>
 <div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_nav_opt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_opt.html">get_agg_opt</a></span><span class="op">(</span><span class="va">eim_nav</span>, seed <span class="op">=</span> <span class="fl">6</span>, sd_threshold <span class="op">=</span> <span class="fl">0.03</span>, sd_statistic <span class="op">=</span> <span class="st">"maximum"</span><span class="op">)</span></span>
 <span><span class="va">eim_nav_opt</span><span class="op">$</span><span class="va">group_agg</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 2 4 8</span></span></code></pre>
+<pre><code><span><span class="co">## [1] 4 8</span></span></code></pre>
 <p>The optimal group aggregation differs slightly from one obtained
 before. In this case, the group aggregation consists in the three age
 range: 18-29, 30-49, and older than 70.</p>
@@ -367,15 +367,15 @@ matrix estimates:</p>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">comparison2</span><span class="op">$</span><span class="va">pvals</span>, <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">##           C1 C2    C3    C4    C5    C6    C7    C8</span></span>
-<span><span class="co">## X18.19 0.000  0 0.000 0.000 0.000 0.000 0.002 0.399</span></span>
-<span><span class="co">## X20.29 0.000  0 0.008 0.000 0.000 0.000 0.000 0.798</span></span>
-<span><span class="co">## X30.39 0.000  0 0.000 0.000 0.000 0.000 0.000 0.000</span></span>
-<span><span class="co">## X40.49 0.000  0 0.000 0.000 0.000 0.000 0.000 0.000</span></span>
-<span><span class="co">## X50.59 0.000  0 0.000 0.000 0.000 0.000 0.000 0.000</span></span>
-<span><span class="co">## X60.69 0.000  0 0.000 0.000 0.000 0.000 0.106 0.003</span></span>
-<span><span class="co">## X70.79 0.388  0 0.000 0.380 0.009 0.802 0.000 0.006</span></span>
-<span><span class="co">## X80.   0.970  0 0.000 0.183 0.857 0.002 0.000 0.000</span></span></code></pre>
+<pre><code><span><span class="co">##           C1    C2    C3    C4    C5    C6    C7    C8</span></span>
+<span><span class="co">## X18.19 0.000 0.000 0.208 0.000 0.533 0.033 0.443 0.878</span></span>
+<span><span class="co">## X20.29 0.000 0.000 0.005 0.000 0.000 0.000 0.000 0.823</span></span>
+<span><span class="co">## X30.39 0.000 0.000 0.000 0.000 0.000 0.000 0.000 0.009</span></span>
+<span><span class="co">## X40.49 0.000 0.000 0.000 0.000 0.000 0.000 0.000 0.000</span></span>
+<span><span class="co">## X50.59 0.000 0.000 0.000 0.000 0.182 0.000 0.000 0.180</span></span>
+<span><span class="co">## X60.69 0.000 0.000 0.001 0.000 0.069 0.000 0.633 0.426</span></span>
+<span><span class="co">## X70.79 0.748 0.003 0.000 0.714 0.456 0.923 0.015 0.542</span></span>
+<span><span class="co">## X80.   0.992 0.154 0.071 0.747 0.978 0.336 0.326 0.370</span></span></code></pre>
 <p>Conversely, one may examine the alternative scenario in which ballot
 boxes within a given region are partitioned into equally sized groups.
 In this configuration, both groups are expected to exhibit identical
@@ -409,14 +409,14 @@ Equally sorted districts comparison
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">comparison2</span><span class="op">$</span><span class="va">pvals</span>, <span class="fl">4</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">##            C1     C2     C3     C4     C5     C6     C7     C8</span></span>
-<span><span class="co">## X18.19 0.0245 0.0590 0.9171 0.0060 0.0079 0.3806 0.1462 0.1139</span></span>
-<span><span class="co">## X20.29 0.0150 0.0303 0.3007 0.0957 0.3689 0.2684 0.8266 0.0189</span></span>
-<span><span class="co">## X30.39 0.0118 0.0469 0.8082 0.5632 0.9009 0.9855 0.9694 0.4589</span></span>
-<span><span class="co">## X40.49 0.9554 0.6773 0.6361 0.0209 0.0014 0.0013 0.2401 0.0631</span></span>
-<span><span class="co">## X50.59 0.4871 0.2690 0.0350 0.2708 0.3325 0.8107 0.0974 0.2376</span></span>
-<span><span class="co">## X60.69 0.0004 0.0000 0.3166 0.5108 0.6028 0.1525 0.0131 0.0000</span></span>
-<span><span class="co">## X70.79 0.8685 0.6081 0.6879 0.2588 0.0019 0.1061 0.6629 0.0000</span></span>
-<span><span class="co">## X80.   0.9997 0.5832 0.1340 0.2869 0.7102 0.9499 0.9495 0.0008</span></span></code></pre>
+<span><span class="co">## X18.19 0.1052 0.1768 0.9525 0.0459 0.0615 0.5609 0.3218 0.3814</span></span>
+<span><span class="co">## X20.29 0.0240 0.0584 0.1939 0.1279 0.3934 0.2638 0.8407 0.0418</span></span>
+<span><span class="co">## X30.39 0.0173 0.0695 0.8241 0.6153 0.9132 0.9874 0.9704 0.5675</span></span>
+<span><span class="co">## X40.49 0.9661 0.7262 0.7254 0.0750 0.0199 0.0098 0.3868 0.2005</span></span>
+<span><span class="co">## X50.59 0.7181 0.4912 0.4623 0.5796 0.6915 0.9020 0.4608 0.6597</span></span>
+<span><span class="co">## X60.69 0.0684 0.0034 0.6953 0.7221 0.8145 0.5284 0.2461 0.0607</span></span>
+<span><span class="co">## X70.79 0.9179 0.7549 0.8788 0.4923 0.2300 0.3565 0.7537 0.0595</span></span>
+<span><span class="co">## X80.   0.9998 0.6619 0.4891 0.6027 0.8372 0.9438 0.8549 0.1317</span></span></code></pre>
 </div>
 <div class="section level2">
 <h2 id="simulating-election-results">Simulating Election Results<a class="anchor" aria-label="anchor" href="#simulating-election-results"></a>

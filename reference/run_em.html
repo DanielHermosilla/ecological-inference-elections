@@ -67,6 +67,7 @@ Certain methods may require additional arguments, which can be passed through <c
 <span>  ll_threshold <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/double.html" class="external-link">as.double</a></span><span class="op">(</span><span class="op">-</span><span class="cn">Inf</span><span class="op">)</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  group_agg <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  mcmc_samples <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span>  mcmc_stepsize <span class="op">=</span> <span class="fl">3000</span>,</span>
 <span>  mvncdf_method <span class="op">=</span> <span class="st">"genz"</span>,</span>
@@ -146,6 +147,10 @@ the threshold. Note that the algorithm will stop if either <code>ll_threshold</c
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
 <dd><p>An optional boolean indicating whether to print informational messages during the EM
 iterations. The default value is <code>FALSE</code>.</p></dd>
+
+
+<dt id="arg-group-agg">group_agg<a class="anchor" aria-label="anchor" href="#arg-group-agg"></a></dt>
+<dd><p>An optional vector that refers to the group aggregation. It should contain the group indices to be aggregated. For example, <code>c(2, 4)</code> indicates that groups 1 and 2 should be aggregated to a single group and the columns 3 and 4 to another. Defaults to <code>NULL</code>.</p></dd>
 
 
 <dt id="arg-mcmc-samples">mcmc_samples<a class="anchor" aria-label="anchor" href="#arg-mcmc-samples"></a></dt>
