@@ -443,7 +443,7 @@ int checkGroups()
  */
 Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const double LLconvergence,
                   const int maxIter, const double maxSeconds, const bool verbose, double *time, int *iterTotal,
-                  double *logLLarr, double **qVal, int *finishing_reason, QMethodInput inputParams)
+                  double *logLLarr, double **qVal, int *finishing_reason, QMethodInput *inputParams)
 {
     // ---- Error handling is done on getQMethodConfig!
     if (verbose)
@@ -456,7 +456,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     }
 
     // ---- Define the parameters for the main loop ---- //
-    QMethodConfig config = getQMethodConfig(q_method, inputParams);
+    QMethodConfig config = getQMethodConfig(q_method, *inputParams);
     double newLL;
     double oldLL = -DBL_MAX;
     // ---...--- //

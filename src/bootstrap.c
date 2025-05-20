@@ -124,7 +124,7 @@ Matrix standardDeviations(Matrix *bootstrapResults, Matrix *sumMatrix, int total
  */
 Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const char *q_method, const char *p_method,
                   const double convergence, const double log_convergence, const int maxIter, const double maxSeconds,
-                  const bool verbose, QMethodInput inputParams)
+                  const bool verbose, QMethodInput *inputParams)
 {
 
     // ---- Initial variables

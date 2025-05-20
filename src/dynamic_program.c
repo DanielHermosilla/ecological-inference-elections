@@ -357,7 +357,7 @@ Matrix testBootstrap(double *quality, const char *set_method, const Matrix *xmat
         // ---- Obtain the bootstrapped results ---- //
         GetRNGstate();
         standardMat = bootstrapA(xmat, &mergedMat, bootiter, q_method, p_method, convergence, log_convergence, maxIter,
-                                 maxSeconds, false, inputParams);
+                                 maxSeconds, false, &inputParams);
         PutRNGstate();
         // ---...--- //
     }
@@ -436,7 +436,7 @@ Matrix aggregateGroups(
     // ---- EM and Bootstrap parameters
     double set_threshold, const char *set_method, bool feasible, int bootiter, const char *p_method,
     const char *q_method, const double convergence, const double log_convergence, const int maxIter, double maxSeconds,
-    const bool verbose, QMethodInput inputParams)
+    const bool verbose, QMethodInput *inputParams)
 {
 
     // ---- Define initial parameters ---- //
@@ -474,14 +474,14 @@ Matrix aggregateGroups(
             }
             // ---- Calculate the bootstrap matrix according the cutting boundaries
             bootstrapMatrix = testBootstrap(&quality, set_method, xmat, wmat, boundaries, i, bootiter, q_method,
-                                            p_method, convergence, log_convergence, maxIter, maxSeconds, inputParams);
+                                            p_method, convergence, log_convergence, maxIter, maxSeconds, *inputParams);
         }
         // ---- Case where there's no cuts ---- //
         else
         {
             // int *boundaries = Calloc(2, int);
             bootstrapMatrix = testBootstrap(&quality, set_method, xmat, wmat, boundaries, -1, bootiter, q_method,
-                                            p_method, convergence, log_convergence, maxIter, maxSeconds, inputParams);
+                                            p_method, convergence, log_convergence, maxIter, maxSeconds, *inputParams);
         }
         if (verbose && quality)
         {
@@ -633,7 +633,7 @@ static void enumerateAllPartitions(int start, int G, int *currentBoundaries, int
 
         Matrix finalP = EMAlgoritm(&initP, opts->q_method, opts->convergence, opts->log_convergence, opts->maxIter,
                                    opts->maxSeconds, false, &timeUsed, &totalIter, &logLLs, &qvals, &finishingReason,
-                                   opts->inputParams);
+                                   &opts->inputParams);
 
         double currentLL = (totalIter > 0) ? logLLs : -DBL_MAX;
         if (opts->verbose)
@@ -728,7 +728,7 @@ static void enumerateAllPartitions(int start, int G, int *currentBoundaries, int
 Matrix aggregateGroupsExhaustive(Matrix *xmat, Matrix *wmat, int *results, int *cuts, const char *set_method,
                                  int bootiter, double max_qual, const char *p_method, const char *q_method,
                                  double convergence, double log_convergence, bool verbose, int maxIter,
-                                 double maxSeconds, QMethodInput inputParams, double *outBestLL, double **outBestQ,
+                                 double maxSeconds, QMethodInput *inputParams, double *outBestLL, double **outBestQ,
                                  Matrix **bestBootstrap, double *outBestTime, int *outFinishReason, int *outIterTotal)
 {
     int G = wmat->cols;
@@ -746,7 +746,7 @@ Matrix aggregateGroupsExhaustive(Matrix *xmat, Matrix *wmat, int *results, int *
                               .verbose = verbose,
                               .maxIter = maxIter,
                               .maxSeconds = maxSeconds,
-                              .inputParams = inputParams};
+                              .inputParams = *inputParams};
 
     ExhaustiveResult res = {.bestLogLikelihood = -DBL_MAX,
                             .bestq = NULL,

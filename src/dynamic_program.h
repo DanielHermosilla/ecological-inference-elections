@@ -36,7 +36,7 @@ extern "C"
                            double set_threshold, const char *set_method, bool feasible, int bootiter,
                            const char *p_method, const char *q_method, const double convergence,
                            const double log_convergence, const int maxIter, double maxSeconds, const bool verbose,
-                           QMethodInput inputParams);
+                           QMethodInput *inputParams);
 
     /*
      * Function for testing all of the 2^{G-1} combinations, returning the best aggregation according the
@@ -64,7 +64,7 @@ extern "C"
     Matrix aggregateGroupsExhaustive(Matrix *xmat, Matrix *wmat, int *results, int *cuts, const char *set_method,
                                      int bootiter, double max_qual, const char *p_method, const char *q_method,
                                      double convergence, double log_convergence, bool verbose, int maxIter,
-                                     double maxSeconds, QMethodInput inputParams, double *outBestLL, double **outBestQ,
+                                     double maxSeconds, QMethodInput *inputParams, double *outBestLL, double **outBestQ,
                                      Matrix **bestBootstrap, double *outBestTime, int *outFinishReason,
                                      int *outIterTotal);
 #ifdef __cplusplus

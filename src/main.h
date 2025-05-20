@@ -116,7 +116,7 @@ extern "C"
      */
     Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const double LLconvergence,
                       const int maxIter, const double maxSeconds, const bool verbose, double *time, int *iterTotal,
-                      double *logLLarr, double **qVal, int *finishing_reason, QMethodInput params);
+                      double *logLLarr, double **qVal, int *finishing_reason, QMethodInput *params);
 
     /**
      * @brief Checks if a candidate didn't receive any votes.

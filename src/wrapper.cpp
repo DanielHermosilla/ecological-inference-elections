@@ -122,7 +122,7 @@ Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_meth
 
     Matrix Pnew =
         EMAlgoritm(&pIn, EMAlg.c_str(), stopping_threshold[0], log_stopping_threshold[0], maximum_iterations[0],
-                   maximum_seconds[0], verbose[0], &timeIter, &totalIter, &logLLarr, &qvalue, &finish, inputParams);
+                   maximum_seconds[0], verbose[0], &timeIter, &totalIter, &logLLarr, &qvalue, &finish, &inputParams);
     if (inputParams.simulationMethod != nullptr)
     {
         free((void *)inputParams.simulationMethod);
@@ -175,7 +175,7 @@ Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
 
     Matrix sdResult =
         bootstrapA(&XR, &WR, nboot[0], EMAlg.c_str(), probabilityM.c_str(), stopping_threshold[0],
-                   log_stopping_threshold[0], maximum_iterations[0], maximum_seconds[0], verbose[0], inputParams);
+                   log_stopping_threshold[0], maximum_iterations[0], maximum_seconds[0], verbose[0], &inputParams);
     if (inputParams.simulationMethod != nullptr)
     {
         free((void *)inputParams.simulationMethod);
@@ -228,7 +228,7 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
     Matrix sdResult =
         aggregateGroups(&XR, &WR, cuttingBuffer, &usedCuts, &bestResult, sd_threshold[0], aggMet.c_str(), feasible[0],
                         nboot[0], probabilityM.c_str(), EMAlg.c_str(), stopping_threshold[0], log_stopping_threshold[0],
-                        maximum_iterations[0], maximum_seconds[0], verbose[0], inputParams);
+                        maximum_iterations[0], maximum_seconds[0], verbose[0], &inputParams);
     if (inputParams.simulationMethod != nullptr)
     {
         free((void *)inputParams.simulationMethod);
@@ -310,7 +310,7 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
     Matrix greedyP = aggregateGroupsExhaustive(
         &XR, &WR, boundaries, &numCuts, set_method.c_str(), nboot[0], sd_threshold[0], probabilityM.c_str(),
         EMAlg.c_str(), stopping_threshold[0], log_stopping_threshold[0], verbose[0], maximum_iterations[0],
-        maximum_seconds[0], inputParams, &bestLogLL, &bestQ, &bestBootstrap, &bestTime, &finishReason, &totalIter);
+        maximum_seconds[0], &inputParams, &bestLogLL, &bestQ, &bestBootstrap, &bestTime, &finishReason, &totalIter);
 
     if (inputParams.simulationMethod != nullptr)
     {
