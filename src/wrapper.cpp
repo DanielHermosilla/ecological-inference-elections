@@ -61,7 +61,7 @@ QMethodInput initializeQMethodInput(const std::string &EMAlg, int samples, int s
     {
         inputParams.monteCarloIter = monte_iter;
         inputParams.errorThreshold = monte_error;
-        inputParams.simulationMethod = monte_method.c_str();
+        inputParams.simulationMethod = strdup(monte_method.c_str());
     }
 
     return inputParams;
@@ -123,6 +123,10 @@ Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_meth
     Matrix Pnew =
         EMAlgoritm(&pIn, EMAlg.c_str(), stopping_threshold[0], log_stopping_threshold[0], maximum_iterations[0],
                    maximum_seconds[0], verbose[0], &timeIter, &totalIter, &logLLarr, &qvalue, &finish, inputParams);
+    if (inputParams.simulationMethod != nullptr)
+    {
+        free((void *)inputParams.simulationMethod);
+    }
 
     // ---- Create human-readable stopping reason ---- //
     std::vector<std::string> stop_reasons = {"Converged", "Maximum time reached", "Maximum iterations reached"};
@@ -172,6 +176,10 @@ Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
     Matrix sdResult =
         bootstrapA(&XR, &WR, nboot[0], EMAlg.c_str(), probabilityM.c_str(), stopping_threshold[0],
                    log_stopping_threshold[0], maximum_iterations[0], maximum_seconds[0], verbose[0], inputParams);
+    if (inputParams.simulationMethod != nullptr)
+    {
+        free((void *)inputParams.simulationMethod);
+    }
 
     // Convert to R's matrix
     Rcpp::NumericMatrix output(sdResult.rows, sdResult.cols);
@@ -221,7 +229,10 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
         aggregateGroups(&XR, &WR, cuttingBuffer, &usedCuts, &bestResult, sd_threshold[0], aggMet.c_str(), feasible[0],
                         nboot[0], probabilityM.c_str(), EMAlg.c_str(), stopping_threshold[0], log_stopping_threshold[0],
                         maximum_iterations[0], maximum_seconds[0], verbose[0], inputParams);
-
+    if (inputParams.simulationMethod != nullptr)
+    {
+        free((void *)inputParams.simulationMethod);
+    }
     // Convert to R's matrix
     Rcpp::NumericMatrix output(sdResult.rows, sdResult.cols);
 
@@ -300,6 +311,11 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
         &XR, &WR, boundaries, &numCuts, set_method.c_str(), nboot[0], sd_threshold[0], probabilityM.c_str(),
         EMAlg.c_str(), stopping_threshold[0], log_stopping_threshold[0], verbose[0], maximum_iterations[0],
         maximum_seconds[0], inputParams, &bestLogLL, &bestQ, &bestBootstrap, &bestTime, &finishReason, &totalIter);
+
+    if (inputParams.simulationMethod != nullptr)
+    {
+        free((void *)inputParams.simulationMethod);
+    }
 
     if (numCuts == 0) // Case where there's not any match
     {
