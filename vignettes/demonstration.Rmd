@@ -183,7 +183,7 @@ plot_matrix(eim_nav_proxy$sd, sd = TRUE, y_labels = c("X18.49", "X50."))
 An exhaustive algorithm is also included in the package. It explores all combinations of adjacent groups in order to maximize the log-likelihood subject to having standard deviations below a given threshold. It might require substantial computation time; therefore it is recommended to use the default method, "mult".
 
 ```{r}
-eim_nav_opt <- get_agg_opt(eim_nav, seed = 6, sd_threshold = 0.03, sd_statistic = "maximum")
+eim_nav_opt <- get_agg_opt(eim_nav, seed = 0, sd_threshold = 0.03, sd_statistic = "maximum")
 eim_nav_opt$group_agg
 ```
 
