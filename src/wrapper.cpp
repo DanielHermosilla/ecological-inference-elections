@@ -349,6 +349,7 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
     free(bestQ);
     freeMatrix(&greedyP);
     freeMatrix(bestBootstrap);
+    Free(bestBootstrap);
     freeMatrix(&XR);
     freeMatrix(&WR);
 
