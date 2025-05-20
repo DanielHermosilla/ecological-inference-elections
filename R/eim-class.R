@@ -211,7 +211,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'
 #' @param seed An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if `initial_prob = "random"` or `method` is either `"mcmc"` or `"mvn_cdf"`.
 #'
-#' @param group_agg An optional vector that refers to the group aggregation. It should contain the group indices to be aggregated. For example, `c(2, 4)` indicates that groups 1 and 2 should be aggregated to a single group and the columns 3 and 4 to another. Defaults to `NULL`.
+#' @param group_agg An optional vector of increasing integers from 1 to the number of columns in `W`, specifying how to aggregate groups in `W` before running the EM algorithm. Each value represents the highest column index included in each aggregated group. For example, if `W` has four columns, `group_agg = c(2, 4)` indicates that columns 1 and 2 should be combined into one group, and columns 3 and 4 into another. Defaults to `NULL`, in which case no group aggregation is performed.
 #'
 #' @param mcmc_stepsize An optional integer specifying the step size for the `mcmc`
 #'   algorithm. This parameter is only applicable when `method = "mcmc"` and will
@@ -275,6 +275,8 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' Aditionally, it will create `mcmc_samples` and `mcmc_stepsize` parameters if the specified `method = "mcmc"`, or `mvncdf_method`, `mvncdf_error` and `mvncdf_samples` if `method = "mvn_cdf"`.
 #'
 #' Also, if the eim object supplied is created with the function [simulate_election], it also returns the real probability with the name `real_prob`. See [simulate_election].
+#'
+#' If `group_agg` is different than `NULL`, two values are returned: `W_agg` a `(b x a)` matrix with the number of voters of each aggregated group o each ballot-box, and `group_agg` the same input vector.
 #'
 #' @examples
 #' \donttest{
@@ -1130,21 +1132,15 @@ waldtest <- function(object1 = NULL,
     X <- X1
     W <- W1
     provided <- c(!is.null(X1), !is.null(W1), !is.null(X2), !is.null(W2))
-    if (any(provided) && !all(provided)) {
-        stop(
-            "Invalid input: you must provide all four matrices (X1, W1, X2, W2) ",
-            "if you choose the matrix interface."
-        )
-    }
-    # now your existing logic
+    invalidMat <- any(provided) && !all(provided)
     using_objects <- !is.null(object1) && !is.null(object2)
     using_matrices <- all(provided)
     input_modes <- sum(using_objects, using_matrices)
 
     if (input_modes == 0) {
         stop("Invalid input: must supply two objects or four matrices.")
-    } else if (input_modes > 1) {
-        stop("Invalid input: supply only one interface: objects OR matrices, not both.")
+    } else if (input_modes > 1 || invalidMat) {
+        stop("Invalid input: you must provide either: two eim objects (object1, object2), or four matrices (X1, X2, W1, W2), but not both.")
     }
 
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())

@@ -77,7 +77,7 @@ the threshold. Note that the algorithm will stop if either \code{ll_threshold} \
 \item{verbose}{An optional boolean indicating whether to print informational messages during the EM
 iterations. The default value is \code{FALSE}.}
 
-\item{group_agg}{An optional vector that refers to the group aggregation. It should contain the group indices to be aggregated. For example, \code{c(2, 4)} indicates that groups 1 and 2 should be aggregated to a single group and the columns 3 and 4 to another. Defaults to \code{NULL}.}
+\item{group_agg}{An optional vector of increasing integers from 1 to the number of columns in \code{W}, specifying how to aggregate groups in \code{W} before running the EM algorithm. Each value represents the highest column index included in each aggregated group. For example, if \code{W} has four columns, \code{group_agg = c(2, 4)} indicates that columns 1 and 2 should be combined into one group, and columns 3 and 4 into another. Defaults to \code{NULL}, in which case no group aggregation is performed.}
 
 \item{mcmc_samples}{An optional integer indicating the number of samples to generate for the
 \strong{MCMC} method. This parameter is only relevant when \code{method = "mcmc"}.
@@ -122,6 +122,8 @@ The final status ID of the algorithm upon completion:
 Aditionally, it will create \code{mcmc_samples} and \code{mcmc_stepsize} parameters if the specified \code{method = "mcmc"}, or \code{mvncdf_method}, \code{mvncdf_error} and \code{mvncdf_samples} if \code{method = "mvn_cdf"}.
 
 Also, if the eim object supplied is created with the function \link{simulate_election}, it also returns the real probability with the name \code{real_prob}. See \link{simulate_election}.
+
+If \code{group_agg} is different than \code{NULL}, two values are returned: \code{W_agg} a \verb{(b x a)} matrix with the number of voters of each aggregated group o each ballot-box, and \code{group_agg} the same input vector.
 }
 \description{
 Executes the Expectation-Maximization (EM) algorithm indicating the approximation method to use in the E-step.
