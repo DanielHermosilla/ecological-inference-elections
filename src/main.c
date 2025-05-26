@@ -566,7 +566,9 @@ results:
     Matrix finalProbability = copMatrix(currentP);
     freeMatrix(currentP);
     freeMatrix(&newProbability);
-
+    cleanMultinomial();
+    // ---- Free the memory used for the logGammaArr ---- //
+    double *logGammaArr = NULL;
     return finalProbability;
 }
 
