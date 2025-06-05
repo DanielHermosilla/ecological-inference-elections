@@ -36,6 +36,5 @@ browseVignettes("fastei")
 Aditionally, it is possible to browse the full documentation on the [library website](https://danielhermosilla.github.io/ecological-inference-elections/).
 ### Installation
 
-As of now, it can only be installed from source. Support for Fortran is needed, however, R usually ships with it already. OpenMP is optional but highly suggested. The Makevars can be usually found on `~.R/Makevars`, where it is possible to add the corresponding/missing flags.
-
+It can either be installed from source by running `devtools::install_github("DanielHermosilla/ecological-inference-elections)` or by the CRAN repository `install.packages("fastei")`. Fortran support is required, usually, shipped by R itself. 
 
