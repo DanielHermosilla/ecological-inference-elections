@@ -1448,6 +1448,10 @@ save_eim <- function(object, filename, ...) {
 
             json_data[[name]] <- val
         }
+        # Add the names of ballot boxes
+        if (!is.null(object$X) && !is.null(rownames(object$X))) {
+            json_data$table_id <- rownames(object$X)
+        }
 
         jsonlite::write_json(json_data, filename, pretty = TRUE, auto_unbox = TRUE, digits = 10)
         message("Results saved as JSON: ", filename)

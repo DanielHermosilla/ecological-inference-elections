@@ -71,7 +71,7 @@ double computeR(Matrix const *probabilities, Matrix const *mult, int const b, in
  *
  * This would be called outside the computing function, so it is not designed to "save" some calculations.
  */
-static void precomputeLogGammas()
+static void precomputeLogGammasMult()
 {
     // We must get the biggest W_{bg}
     int biggestB = 0;
@@ -105,7 +105,7 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, do
 
     if (logGammaArr2 == NULL)
     {
-        precomputeLogGammas();
+        precomputeLogGammasMult();
     }
     double *array2 = (double *)Calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, double); // Array to return
     *ll = 0;
