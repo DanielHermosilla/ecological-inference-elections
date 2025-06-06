@@ -1450,7 +1450,15 @@ save_eim <- function(object, filename, ...) {
         }
         # Add the names of ballot boxes
         if (!is.null(object$X) && !is.null(rownames(object$X))) {
-            json_data$table_id <- rownames(object$X)
+            json_data$ballotbox_id <- rownames(object$X)
+        }
+        # Add the names of candidates
+        if (!is.null(object$X) && !is.null(colnames(object$X))) {
+            json_data$candidates_id <- colnames(object$X)
+        }
+        # Add the names of ballot boxes
+        if (!is.null(object$W) && !is.null(colnames(object$W))) {
+            json_data$group_id <- colnames(object$W)
         }
 
         jsonlite::write_json(json_data, filename, pretty = TRUE, auto_unbox = TRUE, digits = 10)
