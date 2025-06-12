@@ -9,7 +9,8 @@ get_eim_chile(
   elect_district = NULL,
   region = NULL,
   merge_blank_null = TRUE,
-  remove_mismatch = FALSE
+  remove_mismatch = FALSE,
+  use_sex = FALSE
 )
 }
 \arguments{
@@ -20,6 +21,8 @@ get_eim_chile(
 \item{merge_blank_null}{Logical indicating whether blank and null votes should be merged into a single column. Defaults to \code{TRUE}.}
 
 \item{remove_mismatch}{Logical indicating whether to remove ballot boxes with mismatched vote totals (where \code{MISMATCH == TRUE}). Defaults to \code{FALSE}.}
+
+\item{use_sex}{Logical indicating whether to use the sex from the voters instead of the age ranges. Defaults to \code{FALSE}.}
 }
 \value{
 An \code{\link{eim}} object with the following attributes:
