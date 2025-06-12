@@ -14,6 +14,8 @@
 #'
 #' @param remove_mismatch Logical indicating whether to remove ballot boxes with mismatched vote totals (where `MISMATCH == TRUE`). Defaults to `FALSE`.
 #'
+#' @param use_sex Logical indicating whether to use the sex from the voters instead of the age ranges. Defaults to `FALSE`.
+#'
 #' @return
 #' An [`eim`] object with the following attributes:
 #' - **X**: A matrix `(b x c)` with the number of votes per candidate (including a column for blank + null votes if `merge_blank_null = TRUE`).
@@ -47,7 +49,8 @@
 get_eim_chile <- function(elect_district = NULL,
                           region = NULL,
                           merge_blank_null = TRUE,
-                          remove_mismatch = FALSE) {
+                          remove_mismatch = FALSE,
+                          use_sex = FALSE) {
     df <- get("chile_election_2021")
 
     # Apply filtering only if exactly one of region or elect_district is provided
@@ -93,7 +96,11 @@ get_eim_chile <- function(elect_district = NULL,
     X <- as.matrix(X)
 
     # Extract demographic groups
-    W <- as.matrix(df_ed[, c("X18.19", "X20.29", "X30.39", "X40.49", "X50.59", "X60.69", "X70.79", "X80.")])
+    if (!use_sex) {
+        W <- as.matrix(df_ed[, c("X18.19", "X20.29", "X30.39", "X40.49", "X50.59", "X60.69", "X70.79", "X80.")])
+    } else {
+        W <- as.matrix(df_ed[, c("M", "F")])
+    }
 
     return(eim(X = X, W = W))
 }
