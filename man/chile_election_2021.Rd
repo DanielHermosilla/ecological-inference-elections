@@ -29,6 +29,7 @@ A data frame with 46,639 rows and 14 variables:
 \item{\code{X80.}}{Number of voters aged 80 and older.}
 \item{\code{MISMATCH}}{Boolean that takes value \code{TRUE} if the ballot-box has a mismatch between the total number of votes and the total number of voters. If this is not the case, its value is \code{FALSE}.}
 \item{\code{F}}{Number of female voters in the ballot box.}
+\item{\code{M}}{Number of male voters in the ballot box.}
 }
 }
 \source{
