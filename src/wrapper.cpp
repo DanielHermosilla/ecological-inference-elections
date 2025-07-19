@@ -135,10 +135,16 @@ Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_meth
     Rcpp::NumericMatrix RfinalProbability(Pnew.rows, Pnew.cols, Pnew.data);
     freeMatrix(&Pnew);
 
-    Rcpp::NumericVector condProb(qvalue, qvalue + TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS);
-    condProb.attr("dim") = Rcpp::IntegerVector::create(TOTAL_BALLOTS, TOTAL_GROUPS, TOTAL_CANDIDATES);
-    // Rcpp::NumericVector logArray(logLLarr, logLLarr + totalIter);
-    free(qvalue);
+    std::size_t N = std::size_t(TOTAL_BALLOTS) * TOTAL_GROUPS * TOTAL_CANDIDATES;
+    Rcpp::NumericVector condProb(N);
+    for (std::size_t i = 0; i < N; ++i)
+    {
+        condProb[i] = qvalue[i];
+    }
+
+    condProb.attr("dim") = Rcpp::IntegerVector::create(TOTAL_GROUPS, TOTAL_CANDIDATES, TOTAL_BALLOTS);
+
+    Free(qvalue);
     cleanGlobals(EMAlg, true);
 
     return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = logLLarr,
@@ -342,10 +348,15 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
                 bestBootstrap->data,  // source
                 bestBootstrap->rows * bestBootstrap->cols * sizeof(double));
 
-    Rcpp::NumericVector condProb(WR.rows * greedyP.rows * XR.rows); // b x g x c
-    std::memcpy(condProb.begin(), bestQ, WR.rows * greedyP.rows * XR.rows * sizeof(double));
+    std::size_t N = std::size_t(WR.rows) * greedyP.rows * greedyP.cols;
+    Rcpp::NumericVector condProb(N);
+    for (std::size_t i = 0; i < N; ++i)
+    {
+        condProb[i] = bestQ[i];
+    }
+    condProb.attr("dim") = Rcpp::IntegerVector::create(greedyP.rows, greedyP.cols, WR.rows);
 
-    condProb.attr("dim") = Rcpp::IntegerVector::create(WR.rows, greedyP.rows, XR.rows); // (b, A, c)
+    // condProb.attr("dim") = Rcpp::IntegerVector::create(WR.rows, greedyP.rows, XR.rows); // (b, A, c)
     free(bestQ);
     freeMatrix(&greedyP);
     freeMatrix(bestBootstrap);

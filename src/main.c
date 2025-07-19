@@ -569,6 +569,7 @@ results:
     cleanMultinomial();
     // ---- Free the memory used for the logGammaArr ---- //
     double *logGammaArr = NULL;
+
     return finalProbability;
 }
 

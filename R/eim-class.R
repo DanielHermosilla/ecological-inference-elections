@@ -110,7 +110,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
     if (sum(xw_provided, json_provided) != 1) {
         stop(paste(
             "eim: You must provide exactly one of the following:\n",
-            "(1)\tAn `eim` object (initialized with `eim`)\n",
+            "(1)\tA json path\n",
             "(2)\t`X` and `W`"
         ))
     }
@@ -412,7 +412,7 @@ run_em <- function(object = NULL,
     # ---------- ... ---------- #
 
     object$cond_prob <- resulting_values$q
-    object$cond_prob <- aperm(resulting_values$q, perm = c(2, 3, 1)) # Correct dimensions
+    # object$cond_prob <- aperm(resulting_values$q, perm = c(2, 3, 1)) # Correct dimensions
     dimnames(object$cond_prob) <- list(
         colnames(W),
         colnames(object$X),
@@ -1029,7 +1029,7 @@ get_agg_opt <- function(object = NULL,
     # Lambda function to add the columns
     # object$W_agg <- as.matrix(sapply(col_groups, function(cols) rowSums(object$W[, cols, drop = FALSE])))
     object$cond_prob <- result$q
-    object$cond_prob <- aperm(result$q, perm = c(2, 3, 1)) # Correct dimensions
+    # object$cond_prob <- aperm(result$q, perm = c(2, 3, 1)) # Correct dimensions
     dimnames(object$cond_prob) <- list(
         NULL,
         colnames(object$X),
