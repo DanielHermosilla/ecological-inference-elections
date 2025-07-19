@@ -6,11 +6,17 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Demonstration of the package usage • fastei</title>
-<script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<!-- mathjax math --><script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js" integrity="sha256-MASABpB4tYktI2Oitl4t+78w/lyA+D7b/s9GEP0JOGI=" crossorigin="anonymous"></script><script>
+  window.MathJax = {
+    chtml: {
+      fontURL: "https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/output/chtml/fonts/woff-v2"
+    }
+  };
+</script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><script src="../deps/MathJax-3.2.2/tex-chtml.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Demonstration of the package usage">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Demonstration of the package usage">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -20,7 +26,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">fastei</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.8</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,7 +44,7 @@
     <li><a class="dropdown-item" href="../reference/simulate_election.html">simulate_election()</a></li>
     <li><a class="dropdown-item" href="../reference/get_agg_opt.html">get_agg_opt()</a></li>
     <li><a class="dropdown-item" href="../reference/get_agg_proxy.html">get_agg_proxy()</a></li>
-    <li><a class="dropdown-item" href="../reference/welchtest.html">welchtest()</a></li>
+    <li><a class="dropdown-item" href="../reference/waldtest.html">waldtest()</a></li>
     <li><a class="dropdown-item" href="../reference/get_XW_chile.html">get_XW_chile()</a></li>
   </ul>
 </li>
@@ -67,7 +73,7 @@
                         <h4 data-toc-skip class="author">Charles
 Thraves, Pablo Ubilla, Daniel Hermosilla</h4>
             
-            <h4 data-toc-skip class="date">2025-05-19</h4>
+            <h4 data-toc-skip class="date">2025-07-19</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/DanielHermosilla/ecological-inference-elections/blob/HEAD/vignettes/demonstration.Rmd" class="external-link"><code>vignettes/demonstration.Rmd</code></a></small>
       <div class="d-none name"><code>demonstration.Rmd</code></div>
@@ -171,14 +177,14 @@ are larger.</p>
 <span><span class="va">eim_nav</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bootstrap.html">bootstrap</a></span><span class="op">(</span><span class="va">eim_nav</span>, seed <span class="op">=</span> <span class="fl">42</span>, nboot <span class="op">=</span> <span class="fl">30</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">eim_nav</span><span class="op">$</span><span class="va">sd</span>, <span class="fl">4</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">##            C1     C2     C3     C4     C5     C6     C7     C8</span></span>
-<span><span class="co">## X18.19 0.1094 0.2339 0.0002 0.3226 0.1278 0.0955 0.2173 0.0859</span></span>
-<span><span class="co">## X20.29 0.1558 0.0753 0.0612 0.1184 0.0345 0.0009 0.1016 0.0056</span></span>
-<span><span class="co">## X30.39 0.0896 0.0706 0.0597 0.0816 0.0209 0.0333 0.0409 0.0040</span></span>
+<span><span class="co">## X18.19 0.1092 0.2340 0.0002 0.3233 0.1278 0.0955 0.2173 0.0859</span></span>
+<span><span class="co">## X20.29 0.1556 0.0754 0.0612 0.1184 0.0344 0.0009 0.1017 0.0056</span></span>
+<span><span class="co">## X30.39 0.0896 0.0708 0.0597 0.0816 0.0209 0.0333 0.0409 0.0040</span></span>
 <span><span class="co">## X40.49 0.0904 0.1111 0.0462 0.0629 0.0098 0.0521 0.0272 0.0072</span></span>
-<span><span class="co">## X50.59 0.0814 0.0816 0.0812 0.0795 0.0013 0.0328 0.0159 0.0255</span></span>
-<span><span class="co">## X60.69 0.1046 0.1016 0.1197 0.0768 0.0152 0.0794 0.0199 0.0010</span></span>
+<span><span class="co">## X50.59 0.0815 0.0816 0.0812 0.0795 0.0013 0.0328 0.0158 0.0255</span></span>
+<span><span class="co">## X60.69 0.1047 0.1017 0.1196 0.0768 0.0152 0.0794 0.0199 0.0010</span></span>
 <span><span class="co">## X70.79 0.1534 0.1398 0.1374 0.0815 0.0242 0.0447 0.0364 0.0001</span></span>
-<span><span class="co">## X80.   0.1527 0.0834 0.2059 0.0635 0.1175 0.2250 0.2422 0.1073</span></span></code></pre>
+<span><span class="co">## X80.   0.1526 0.0842 0.2060 0.0635 0.1175 0.2250 0.2422 0.1073</span></span></code></pre>
 <p>It is possible to see the difference in a visual way by plotting the
 standard deviations of the estimated probabilities across groups.</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
@@ -250,7 +256,7 @@ of this grouping by comparing the mean standard deviation to the
 original formulation:</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">eim_nav</span><span class="op">$</span><span class="va">sd</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">eim_nav_proxy</span><span class="op">$</span><span class="va">sd</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 0.0743029</span></span></code></pre>
+<pre><code><span><span class="co">## [1] 0.07432595</span></span></code></pre>
 <p>It is possible to see the aggregated standard deviations
 visually:</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
@@ -319,9 +325,9 @@ log-likelihood subject to having standard deviations below a given
 threshold. It might require substantial computation time; therefore it
 is recommended to use the default method, “mult”.</p>
 <div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">eim_nav_opt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_opt.html">get_agg_opt</a></span><span class="op">(</span><span class="va">eim_nav</span>, seed <span class="op">=</span> <span class="fl">6</span>, sd_threshold <span class="op">=</span> <span class="fl">0.03</span>, sd_statistic <span class="op">=</span> <span class="st">"maximum"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">eim_nav_opt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_opt.html">get_agg_opt</a></span><span class="op">(</span><span class="va">eim_nav</span>, seed <span class="op">=</span> <span class="fl">0</span>, sd_threshold <span class="op">=</span> <span class="fl">0.03</span>, sd_statistic <span class="op">=</span> <span class="st">"maximum"</span><span class="op">)</span></span>
 <span><span class="va">eim_nav_opt</span><span class="op">$</span><span class="va">group_agg</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 4 8</span></span></code></pre>
+<pre><code><span><span class="co">## [1] 2 4 8</span></span></code></pre>
 <p>The optimal group aggregation differs slightly from one obtained
 before. In this case, the group aggregation consists in the three age
 range: 18-29, 30-49, and older than 70.</p>
