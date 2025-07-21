@@ -63,6 +63,7 @@
 #'   \item{\code{X}}{A \code{(b x c)} matrix with candidates' votes for each ballot box.}
 #'   \item{\code{W}}{A \code{(b x g)} matrix with voters' groups for each ballot-box.}
 #'   \item{\code{real_prob}}{A \code{(g x c)} matrix with the probability that a voter from each group votes for each candidate. If prob is provided, it would equal such probability.}
+#' 	 \item{\code{outcome}}{A \code{(b x g x c)} array with the number of votes for each candidate in each ballot box, broken down by group.}
 #' }
 #'
 #' @references
@@ -211,14 +212,25 @@ simulate_election <- function(num_ballots,
     }
 
     # Build X (b x c) by aggregating multinomial draws per group
+    z_bgc <- array(
+        0L,
+        dim = c(num_groups, num_candidates, num_ballots),
+        dimnames = list(
+            group = seq_len(num_groups),
+            candidate = seq_len(num_candidates),
+            `ballot box` = seq_len(num_ballots)
+        )
+    )
     X <- matrix(0, nrow = num_ballots, ncol = num_candidates)
     for (b_idx in seq_len(num_ballots)) {
         for (g_idx in seq_len(num_groups)) {
             w_bg <- W[b_idx, g_idx]
             if (w_bg > 0) {
                 # Draw from Multinomial(w_bg, p[g_idx, ])
-                z_bgc <- rmultinom(1, size = w_bg, prob = p[g_idx, ])
-                X[b_idx, ] <- X[b_idx, ] + z_bgc
+                z_draw <- rmultinom(1, size = w_bg, prob = p[g_idx, ])
+                z_bgc[g_idx, , b_idx] <- as.integer(z_draw)
+                # Acumulate in X
+                X[b_idx, ] <- X[b_idx, ] + z_draw
             }
         }
     }
@@ -226,7 +238,8 @@ simulate_election <- function(num_ballots,
     toReturn <- list(
         W = W,
         X = X,
-        real_prob = p
+        real_prob = p,
+        outcome = z_bgc
     )
 
     # Return it as an eim object

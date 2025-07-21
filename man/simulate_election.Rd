@@ -46,6 +46,7 @@ An eim object with three attributes:
 \item{\code{X}}{A \code{(b x c)} matrix with candidates' votes for each ballot box.}
 \item{\code{W}}{A \code{(b x g)} matrix with voters' groups for each ballot-box.}
 \item{\code{real_prob}}{A \code{(g x c)} matrix with the probability that a voter from each group votes for each candidate. If prob is provided, it would equal such probability.}
+\item{\code{outcome}}{A \code{(b x g x c)} array with the number of votes for each candidate in each ballot box, broken down by group.}
 }
 }
 \description{

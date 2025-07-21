@@ -23,3 +23,5 @@ doc/
 doc/*
 /Meta/
 /doc/
+# Remove binaries
+src/**/*.o
