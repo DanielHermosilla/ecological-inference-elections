@@ -560,6 +560,7 @@ Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergen
     *finishing_reason = 2;
     // ---...--- //
 results:
+    *qVal = config.computeQ(currentP, config.params, &newLL);
     *logLLarr = newLL;
     *time = elapsed_total;
     // ---- Matrix must be returned without a pointer
