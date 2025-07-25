@@ -12,15 +12,6 @@ extern "C"
 #include "utils_matrix.h"
 #include <stdint.h>
 #include <stdio.h>
-    // ---- Define a structure to store the sets ---- //
-    typedef struct
-    {
-        uint32_t b;
-        uint16_t g;
-        size_t **data;
-        size_t size;
-    } Set;
-    // ---...--- //
 
     /**
      * @brief Calculate the value of `q_{bgc}`.
@@ -36,24 +27,25 @@ extern "C"
      * @note: A single pointer is used to store the array continously. This is for using cBLAS operations later.
      *
      */
-    double *computeQExact(const Matrix *probabilities, QMethodInput params, double *ll);
+    void computeQExact(EMContext *ctx, QMethodInput params, double *ll);
 
     /**
      * @brief Cleans all of the allocated memory associated with the exact method
      *
      * Given the precomputed sets of possibilities, it frees everything.
      */
-    void cleanExact(void);
+    // void cleanExact(void);
+
     /**
      * @brief Precalculates the `H` set for every index.
      *
-     * Given that the set wasn't calculated before, it calculates the H set defined as every possible combination for a
-     * given `g` group
+     * Given that the set wasn't calculated before, it calculates the H set defined as every possible combination
+     * for a given `g` group
      *
      * @return void: Results written at the global variable HSETS.
      *
      */
-    void generateHSets(void);
+    void generateHSets(EMContext *ctx);
 
     /**
      * @brief Precalculates the `K` set for every index.
@@ -64,8 +56,7 @@ extern "C"
      * @return void: Results written at the global variable KSETS.
      *
      */
-
-    void generateKSets(void);
+    void generateKSets(EMContext *ctx);
 
 #ifdef __cplusplus
 }

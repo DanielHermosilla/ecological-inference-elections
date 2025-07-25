@@ -52,7 +52,7 @@ QMethodInput initializeQMethodInput(const std::string &EMAlg, int samples, int s
 {
     QMethodInput inputParams = {0}; // Default initialization
 
-    if (EMAlg == "mcmc")
+    if (EMAlg == "mcmc" || EMAlg == "metropolis")
     {
         inputParams.S = samples;
         inputParams.M = step_size;
@@ -64,9 +64,12 @@ QMethodInput initializeQMethodInput(const std::string &EMAlg, int samples, int s
         inputParams.simulationMethod = strdup(monte_method.c_str());
     }
 
+    inputParams.iters = 0;
+
     return inputParams;
 }
 
+/*
 void cleanGlobals(const std::string &EMAlg, bool everything)
 {
     // Everything alludes to clean RsetParameters, if it's false, cleans leftovers
@@ -76,15 +79,16 @@ void cleanGlobals(const std::string &EMAlg, bool everything)
         cleanHitAndRun();
     else if (EMAlg == "exact")
         cleanExact();
+    else if (EMAlg == "mcmc_is")
+        cleanImportanceSampling();
     // else if (EMAlg == "mult")
     //{
     //    cleanMultinomial();
     //}
 }
-
+*/
 // ---- Set Parameters ---- //
-// [[Rcpp::export]]
-void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix)
+void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix, Matrix *X, Matrix *W)
 {
     if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
         Rcpp::stop("Error: X matrix has zero dimensions!");
@@ -92,15 +96,14 @@ void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix gr
     if (group_matrix.nrow() == 0 || group_matrix.ncol() == 0)
         Rcpp::stop("Error: W matrix has zero dimensions!");
 
-    Matrix XR = convertToMatrix(candidate_matrix);
-    Matrix WR = convertToMatrix(group_matrix);
-
-    setParameters(&XR, &WR);
+    *X = convertToMatrix(candidate_matrix);
+    *W = convertToMatrix(group_matrix);
 }
 
 // ---- Run EM Algorithm ---- //
 // [[Rcpp::export]]
-Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_method,
+Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                           Rcpp::String em_method, Rcpp::String probability_method,
                            Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
                            Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold,
                            Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples,
@@ -108,21 +111,23 @@ Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_meth
 {
     std::string probabilityM = probability_method;
     std::string EMAlg = em_method;
-    cleanGlobals(EMAlg, false); // Cleans leftovers from previous iterations, in case there was an abort.
 
-    Matrix pIn = getInitialP(probabilityM.c_str());
-
-    double timeIter = 0;
+    double timeIter = 0, logLLarr = 0;
     int totalIter = 0, finish = 0;
-    double *qvalue = NULL;
-    double logLLarr = 0;
+    Matrix X;
+    Matrix W;
+    RsetParameters(candidate_matrix, group_matrix, &X, &W);
 
     QMethodInput inputParams =
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], monte_method);
 
-    Matrix Pnew =
-        EMAlgoritm(&pIn, EMAlg.c_str(), stopping_threshold[0], log_stopping_threshold[0], maximum_iterations[0],
-                   maximum_seconds[0], verbose[0], &timeIter, &totalIter, &logLLarr, &qvalue, &finish, &inputParams);
+    EMContext *ctx = EMAlgoritm(&X, &W, probabilityM.c_str(), EMAlg.c_str(), stopping_threshold[0],
+                                log_stopping_threshold[0], maximum_iterations[0], maximum_seconds[0], verbose[0],
+                                &timeIter, &totalIter, &logLLarr, &finish, &inputParams);
+
+    Matrix *Pnew = &ctx->probabilities;
+    double *qvalue = ctx->q;
+
     if (inputParams.simulationMethod != nullptr)
     {
         free((void *)inputParams.simulationMethod);
@@ -132,8 +137,7 @@ Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_meth
     std::vector<std::string> stop_reasons = {"Converged", "Maximum time reached", "Maximum iterations reached"};
     std::string stopping_reason = (finish >= 0 && finish < 3) ? stop_reasons[finish] : "Unknown";
 
-    Rcpp::NumericMatrix RfinalProbability(Pnew.rows, Pnew.cols, Pnew.data);
-    freeMatrix(&Pnew);
+    Rcpp::NumericMatrix RfinalProbability(Pnew->rows, Pnew->cols, Pnew->data);
 
     std::size_t N = std::size_t(TOTAL_BALLOTS) * TOTAL_GROUPS * TOTAL_CANDIDATES;
     Rcpp::NumericVector condProb(N);
@@ -144,8 +148,7 @@ Rcpp::List EMAlgorithmFull(Rcpp::String em_method, Rcpp::String probability_meth
 
     condProb.attr("dim") = Rcpp::IntegerVector::create(TOTAL_GROUPS, TOTAL_CANDIDATES, TOTAL_BALLOTS);
 
-    Free(qvalue);
-    cleanGlobals(EMAlg, true);
+    cleanup(ctx);
 
     return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = logLLarr,
                               Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter,
@@ -174,7 +177,7 @@ Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
 
     std::string probabilityM = probability_method;
     std::string EMAlg = em_method;
-    cleanGlobals(EMAlg, false); // Cleans leftovers
+    // cleanGlobals(EMAlg, false); // Cleans leftovers
 
     QMethodInput inputParams =
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], monte_method);
@@ -221,7 +224,7 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
     std::string probabilityM = probability_method;
     std::string EMAlg = em_method;
     std::string aggMet = sd_statistic;
-    cleanGlobals(EMAlg, false); // Cleans leftovers
+    // cleanGlobals(EMAlg, false); // Cleans leftovers
 
     QMethodInput inputParams =
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], monte_method);
@@ -231,8 +234,10 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
     int *cuttingBuffer = new int[G];
     int usedCuts = 0; // how many boundaries we actually use
     bool bestResult = false;
+
+    EMContext *ctx = createEMContext(&XR, &WR, EMAlg.c_str(), inputParams);
     Matrix sdResult =
-        aggregateGroups(&XR, &WR, cuttingBuffer, &usedCuts, &bestResult, sd_threshold[0], aggMet.c_str(), feasible[0],
+        aggregateGroups(ctx, cuttingBuffer, &usedCuts, &bestResult, sd_threshold[0], aggMet.c_str(), feasible[0],
                         nboot[0], probabilityM.c_str(), EMAlg.c_str(), stopping_threshold[0], log_stopping_threshold[0],
                         maximum_iterations[0], maximum_seconds[0], verbose[0], &inputParams);
     if (inputParams.simulationMethod != nullptr)
@@ -294,7 +299,7 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
     std::string probabilityM = probability_method;
     std::string EMAlg = em_method;
     std::string set_method = sd_statistic;
-    cleanGlobals(EMAlg, false); // Cleans leftovers
+    // cleanGlobals(EMAlg, false); // Cleans leftovers
 
     // Prepare the out-parameters as C++ local variables
     double bestLogLL = 0.0;

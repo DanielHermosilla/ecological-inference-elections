@@ -71,19 +71,19 @@ double computeR(Matrix const *probabilities, Matrix const *mult, int const b, in
  *
  * This would be called outside the computing function, so it is not designed to "save" some calculations.
  */
-static void precomputeLogGammasMult()
+void precomputeLogGammas(EMContext *ctx)
 {
     // We must get the biggest W_{bg}
     int biggestB = 0;
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
-        if (BALLOTS_VOTES[b] > biggestB)
-            biggestB = BALLOTS_VOTES[b];
+        if (ctx->ballots_votes[b] > biggestB)
+            biggestB = ctx->ballots_votes[b];
     }
-    logGammaArr2 = (double *)Calloc(biggestB + 1, double); // R_alloc frees memory automatically
+    ctx->logGamma = (double *)Calloc(biggestB + 1, double); // R_alloc frees memory automatically
     for (int i = 0; i <= biggestB; i++)
     {
-        logGammaArr2[i] = lgamma1p(i);
+        ctx->logGamma[i] = lgamma1p(i);
     }
 }
 /**
@@ -100,15 +100,16 @@ static void precomputeLogGammasMult()
  * it's fundamental to be a continuos array in memory for simplificating the posteriors calculations.
  *
  */
-double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, double *ll)
+void computeQMultinomial(EMContext *ctx, QMethodInput params, double *ll)
 {
 
-    if (logGammaArr2 == NULL)
-    {
-        precomputeLogGammasMult();
-    }
-    double *array2 = (double *)Calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, double); // Array to return
     *ll = 0;
+    Matrix *X = &ctx->X;
+    Matrix *W = &ctx->W;
+    IntMatrix *intX = &ctx->intX;
+    IntMatrix *intW = &ctx->intW;
+    Matrix *probabilities = &ctx->probabilities;
+    double *q = ctx->q;
     // -- Summatory calculation for g --
     // This is a simple matrix calculation, to be computed once.
     Matrix WP = createMatrix((int)TOTAL_BALLOTS, (int)TOTAL_CANDIDATES);
@@ -124,8 +125,8 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, do
     F77_CALL(dgemm)
     (&noTranspose, &noTranspose,    // transA = 'N', transB = 'N'
      &m, &n, &k,                    // M, N, K
-     &alpha, W->data, &m,           // A, LDA = m
-     probabilities->data, &k,       // B, LDB = k
+     &alpha, ctx->W.data, &m,       // A, LDA = m
+     ctx->probabilities.data, &k,   // B, LDB = k
      &beta, WP.data, &m FCONE FCONE // C, LDC = m
                                     // string lengths for 'N', 'N'
     );
@@ -153,7 +154,7 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, do
             { // --- For each candidate given a group and a ballot box
 
                 // ---- Compute x*p*r^{-1} ---- //
-                double numerator = MATRIX_AT_PTR(probabilities, g, c) * (int)MATRIX_AT_PTR(X, c, b);
+                double numerator = MATRIX_AT_PTR(probabilities, g, c) * MATRIX_AT_PTR(intX, c, b);
                 double denominator = computeR(probabilities, &WP, b, c, g);
 
                 finalNumerator[c] = denominator != 0 ? numerator / denominator : 0;
@@ -169,8 +170,8 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, do
                     //               lgamma1p((int)MATRIX_AT_PTR(X, c, b))
                     //        : 0;
                     *ll += MATRIX_AT(WP, b, c) != 0 && totalWP[b] != 0
-                               ? MATRIX_AT_PTR(X, c, b) * log(MATRIX_AT(WP, b, c) / totalWP[b]) -
-                                     lgamma1p((int)MATRIX_AT_PTR(X, c, b))
+                               ? MATRIX_AT_PTR(intX, c, b) * log(MATRIX_AT(WP, b, c) / totalWP[b]) -
+                                     ctx->logGamma[MATRIX_AT_PTR(intX, c, b)]
                                : 0;
                 }
             }
@@ -179,15 +180,15 @@ double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, do
             { // ---- For each candidate given a group and a ballot box
               // ---- Store the value ----
                 double result = finalNumerator[c] / tempSum;
-                Q_3D(array2, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) =
+                Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) =
                     !isnan(result) && !isinf(result) ? finalNumerator[c] / tempSum : 0;
             }
         }
-        *ll += lgamma1p(BALLOTS_VOTES[b]);
+        // *ll += lgamma1p(ctx->ballots_votes[b]);
+        *ll += ctx->logGamma[ctx->ballots_votes[b]];
     }
     // *ll -= TOTAL_BALLOTS * TOTAL_CANDIDATES * log(totalWP);
     freeMatrix(&WP);
-    return array2;
 }
 
 void cleanMultinomial(void)

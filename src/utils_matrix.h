@@ -520,6 +520,25 @@ extern "C"
      */
     void addRowOfNaN(Matrix *matrix, int rowIndex);
 
+    /*
+     * @brief creates a matrix of integers
+     */
+    IntMatrix createMatrixInt(int rows, int cols);
+
+    /*
+     * @brief Receives a double matrix and returns a matrix of integers
+     */
+    IntMatrix copMatrixDI(const Matrix *orig);
+
+    IntMatrix copMatrixI(IntMatrix *original);
+
+    /*
+     * @brief Frees the memory allocated for an IntMatrix.
+     */
+    void freeMatrixInt(IntMatrix *m);
+
+    bool matricesAreEqualI(IntMatrix *a, IntMatrix *b);
+
 #ifdef __cplusplus
 }
 #endif

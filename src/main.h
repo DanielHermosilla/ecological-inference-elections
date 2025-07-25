@@ -1,4 +1,3 @@
-// El header del paquete, acá llamamos las funciones que pasarán a R
 #ifndef MAIN_H_EIM
 #define MAIN_H_EIM
 
@@ -8,79 +7,18 @@ extern "C"
 {
 #endif
 
+#include "MCMC.h"
 #include "exact.h"
 #include "globals.h"
-#include "hitAndRun.h"
+#include "metropolis.h"
 #include "multinomial.h"
 #include "multivariate-cdf.h"
 #include "multivariate-pdf.h"
 #include "utils_matrix.h"
 
-    // ---- Define the structure to store the function pointer ---- //
-    // ----  It is defined here since it's not used globally ----
-    typedef struct
-    {
-        double *(*computeQ)(const Matrix *, QMethodInput, double *); // Function pointer for computing q
-        QMethodInput params;                                         // Holds method-specific parameters
-    } QMethodConfig;
     // ---...--- //
-
-    /**
-     * @brief Yields the global parameters of the process. Usually this should be done once for avoiding
-     * computing a loop over ballots. It also changes the parameters in case it's called with other `x` and `w` matrix.
-     *
-     * Gets the total amount of votes in the process. This should only be donce once for avoiding computing loops
-     * over ballots.
-     *
-     * @param[in] x Matrix of dimension (cxb) that stores the results of candidate "c" on ballot box "b".
-     * @param[in] w Matrix of dimension (bxg) that stores the amount of votes from the demographic group "g".
-     *
-     * @return void. Will edit the static values in the file
-     *
-     * @note This should only be used once, later to be declared as a static value in the program.
-     *
-     * @warning
-     * - Pointers shouldn't be NULL.
-     * - `x` and `w` dimensions must be coherent.
-     *
-     */
-    void setParameters(Matrix *x, Matrix *w);
-
-    /**
-     * @brief Computes the initial probability of the EM algoritm.
-     *
-     * Given the observables results, it computes a convenient initial "p" value for initiating the
-     * algorithm. Currently it supports the "uniform", "group_proportional" and "proportional" methods.
-     *
-     * @param[in] p_method The method for calculating the initial parameter. Currently it supports "uniform",
-     * "group_proportional" and "proportional" methods.
-     *
-     * @return Matrix of dimension (gxc) with the initial probability for each demographic group "g" voting for a given
-     * candidate "c".
-     * @note This should be used only that the first iteration of the EM-algorithm.
-     * @warning
-     * - Pointers shouldn't be NULL.
-     * - `x` and `w` dimensions must be coherent.
-     *
-     */
-    Matrix getInitialP(const char *p_method);
-
-    /*
-     * @brief Computes the optimal solution for the `M` step
-     *
-     * Given the conditional probability and the votations per demographic group, it calculates the new probability for
-     * the next iteration.
-     *
-     * @param[in] q Array of matrices of dimension (bxgxc) that represents the probability that a voter of group "g" in
-     * ballot box "b" voted for candidate "c" conditional on the observed result.
-     *
-     * @return A matrix with the optimal probabilities according maximizing the Log-likelihood.
-     *
-     * @see getInitialP() for getting initial probabilities. This method is recommended to be used exclusively for the
-     * EM Algorithm, unless there's a starting "q" to start with.
-     *
-     */
-
+    //
+    EMContext *createEMContext(Matrix *X, Matrix *W, const char *method, QMethodInput params);
     /**
      * @brief Implements the whole EM algorithm.
      *
@@ -114,23 +52,24 @@ extern "C"
      * - `x` and `w` dimensions must be coherent.
      *
      */
-    Matrix EMAlgoritm(Matrix *currentP, const char *q_method, const double convergence, const double LLconvergence,
-                      const int maxIter, const double maxSeconds, const bool verbose, double *time, int *iterTotal,
-                      double *logLLarr, double **qVal, int *finishing_reason, QMethodInput *params);
+    EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_method, const double convergence,
+                          const double LLconvergence, const int maxIter, const double maxSeconds, const bool verbose,
+                          double *time, int *iterTotal, double *logLLarr, int *finishing_reason,
+                          QMethodInput *inputParams);
 
     /**
      * @brief Checks if a candidate didn't receive any votes.
      *
-     * Given an array of size TOTAL_CANDIDATES, it sets to "1" the index where a possible candidate haven't received any
-     * vote. It also returns a boolean indicating whether a candidate hasn't receive any vote
+     * Given an array of size TOTAL_CANDIDATES, it sets to "1" the index where a possible candidate haven't received
+     * any vote. It also returns a boolean indicating whether a candidate hasn't receive any vote
      *
-     * @param[in,out] *canArray Array of size TOTAL_CANDIDATES full of zeroes, indicating with a "1" on the index where
-     * a given candidate haven't received a vote
+     * @param[in,out] *canArray Array of size TOTAL_CANDIDATES full of zeroes, indicating with a "1" on the index
+     * where a given candidate haven't received a vote
      *
      * @return bool: A boolean that shows if it exists a candidate with no votes
      *
      */
-    void cleanup(void);
+    void cleanup(EMContext *ctx);
 #ifdef __cplusplus
 }
 #endif

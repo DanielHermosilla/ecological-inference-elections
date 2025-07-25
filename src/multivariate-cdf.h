@@ -24,7 +24,7 @@ extern "C"
 
      * @return A pointer to a flattened 3D array (b x g x c) representing the probabilities.
      */
-    double *computeQMultivariateCDF(Matrix const *probabilities, QMethodInput params, double *ll);
+    void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll);
 
 #ifdef __cplusplus
 }

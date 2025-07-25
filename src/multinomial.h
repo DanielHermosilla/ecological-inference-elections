@@ -24,7 +24,9 @@ extern "C"
      * but it's fundamental to be a continuos array in memory for simplificating the posteriors calculations.
      *
      */
-    double *computeQMultinomial(Matrix const *probabilities, QMethodInput params, double *ll);
+    void computeQMultinomial(EMContext *ctx, QMethodInput params, double *ll);
+
+    void precomputeLogGammas(EMContext *ctx);
 
     void cleanMultinomial(void);
 

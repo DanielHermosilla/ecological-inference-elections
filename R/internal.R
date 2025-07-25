@@ -34,7 +34,7 @@
     }
 
     # Method argument
-    valid_methods <- c("mcmc", "exact", "mvn_cdf", "mvn_pdf", "mult")
+    valid_methods <- c("mcmc", "exact", "mvn_cdf", "mvn_pdf", "mult", "metropolis")
     if ("method" %in% names(args) &&
         (!is.character(args$method) || length(args$method) != 1 || !(args$method %in% valid_methods))) {
         stop("Invalid 'method'. Must be one of: ", paste(valid_methods, collapse = ", "))

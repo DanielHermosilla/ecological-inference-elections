@@ -28,7 +28,7 @@ extern "C"
      *
      */
 
-    void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *sigma);
+    void getParams(EMContext *ctx, int b, const Matrix *probabilitiesReduced, double *mu, Matrix *sigma);
 
     /**
      * @brief Computes the parameters of the conditional probability
@@ -49,7 +49,7 @@ extern "C"
      * @return void. Results to be written on mu and sigma.
      *
      */
-    void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *conditionalMu,
+    void getAverageConditional(EMContext *ctx, int b, const Matrix *probabilitiesReduced, Matrix *conditionalMu,
                                Matrix **conditionalSigma);
 
     Matrix getBallotPDF(int b, const Matrix *probabilitiesReduced);

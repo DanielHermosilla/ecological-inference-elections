@@ -205,7 +205,7 @@ void freeMemo(MemoizationTable *table)
  * @brief Creates a hash key for a matrix
  *
  */
-unsigned int computeMatrixKey(const Matrix *m)
+unsigned int computeMatrixKey(const IntMatrix *m)
 {
     unsigned int hash = 5381;
     hash = ((hash << 5) + hash) ^ (unsigned int)m->rows;

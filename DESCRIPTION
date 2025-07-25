@@ -1,4 +1,4 @@
-Package: fastei 
+Package: fastei
 Title: Methods for ''A Fast Alternative for the R x C Ecological Inference Case''
 Version: 0.0.0.9
 Authors@R: c(person(given = "Charles", family = "Thraves", role = "aut"),

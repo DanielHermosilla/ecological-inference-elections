@@ -52,8 +52,10 @@ SOFTWARE.
  *
  */
 
-Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *probabilitiesReduced, double *ll)
+Matrix computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, const Matrix *probabilitiesReduced,
+                          double *ll)
 {
+    Matrix *X = &ctx->X;
 
     // --- Get the mu and sigma --- //
     Matrix muR = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES - 1);
@@ -65,7 +67,7 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
         *sigma[g] = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1); // Initialize
     }
 
-    getAverageConditional(b, probabilitiesReduced, &muR, sigma);
+    getAverageConditional(ctx, b, probabilitiesReduced, &muR, sigma);
 
     // ---- ... ----
 
@@ -153,24 +155,28 @@ Matrix computeQforABallot(int b, const Matrix *probabilities, const Matrix *prob
  * @return A pointer towards the flattened tensor.
  *
  */
-double *computeQMultivariatePDF(Matrix const *probabilities, QMethodInput params, double *ll)
+void computeQMultivariatePDF(EMContext *ctx, QMethodInput params, double *ll)
 {
     // ---- Initialize values ---- //
+    *ll = 0;
+    Matrix *X = &ctx->X;
+    Matrix *W = &ctx->W;
+    IntMatrix *intX = &ctx->intX;
+    IntMatrix *intW = &ctx->intW;
+    double *q = ctx->q;
+    Matrix *probabilities = &ctx->probabilities;
     // ---- The probabilities without the last column will be used for each iteration ----
 
     // ---- The idea is to remove the column with the most votes, so it'll swap it to the last column and later reswap
     // it. ----
     Matrix probabilitiesReduced = removeLastColumn(probabilities);
-    double *array2 = (double *)Calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, double); // Array to return
-                                                                                                // --- ... --- //
-
-    *ll = 0;
     // ---- Fill the array with the results ---- //
     // #pragma omp parallel for
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For each ballot
         // ---- Call the function for calculating the `q` results for a given ballot
-        Matrix resultsForB = computeQforABallot((int)b, probabilities, &probabilitiesReduced, ll);
+        Matrix resultsForB = computeQforABallot(ctx, (int)b, probabilities, &probabilitiesReduced, ll);
+        // TODO: Optimize the return
         // #pragma omp parallel for collapse(2)
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         { // ---- For each group given a ballot box
@@ -178,7 +184,7 @@ double *computeQMultivariatePDF(Matrix const *probabilities, QMethodInput params
             { // ---- For each candidate given a ballot box and a group
                 double results = MATRIX_AT(resultsForB, g, c);
 
-                Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) =
+                Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) =
                     !isnan(results) && !isinf(results) ? results : 0;
             }
         }
@@ -189,6 +195,5 @@ double *computeQMultivariatePDF(Matrix const *probabilities, QMethodInput params
     freeMatrix(&probabilitiesReduced);
     if (isnan(*ll) || isinf(*ll))
         *ll = 0;
-    return array2;
     // --- ... --- //
 }

@@ -13,9 +13,10 @@
 extern "C"
 {
 #endif
+#include "MCMC.h"
 #include "bootstrap.h"
 #include "exact.h"
-#include "hitAndRun.h"
+// #include "importanceSampling.h"
 #include "main.h"
 #include "utils_matrix.h"
 #ifdef __cplusplus
@@ -62,31 +63,12 @@ extern "C"
  * iterations that were made ("total_iterations"), time taken ("total_time"), stopping reason ("stopping_reason"),
  * finish id ("finish_id") and q value ("q").
  */
-Rcpp::List EMAlgorithmFull(Rcpp::String em_method = "mult", Rcpp::String probability_method = "group_proportional",
-                           Rcpp::IntegerVector maximum_iterations = Rcpp::IntegerVector::create(1000),
-                           Rcpp::NumericVector maximum_seconds = Rcpp::NumericVector::create(3600),
-                           Rcpp::NumericVector stopping_threshold = Rcpp::NumericVector::create(0.001),
-                           Rcpp::NumericVector log_threshold = Rcpp::NumericVector::create(-1000),
-                           Rcpp::LogicalVector verbose = Rcpp::LogicalVector::create(false),
-                           Rcpp::IntegerVector step_size = Rcpp::IntegerVector::create(3000),
-                           Rcpp::IntegerVector samples = Rcpp::IntegerVector::create(1000),
-                           Rcpp::String monte_method = "genz2",
-                           Rcpp::NumericVector monte_error = Rcpp::NumericVector(1e-6),
-                           Rcpp::IntegerVector monte_iter = Rcpp::IntegerVector(5000));
-
-/**
- * @brief Sets the `X` and `W` parameters on C
- *
- * Given an R's matrix, it sets the global parameters of `X` and `W` and computes all of its
- * important values (total candidates, votes per ballot, etc)
- *
- * @param Rcpp::NumericMatrix candidate_matrix A (c x b) matrix object of R that contains the votes that each
- * candidate `c` got on a ballot `b`.
- * @param Rcpp::NumericMatrix group_matrix A (b x g) matrix object of R that contains the votes that each
- * demographic group `g` did on a ballot `b`.
- *
- */
-void RsetParameters(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix);
+Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                           Rcpp::String em_method, Rcpp::String probability_method,
+                           Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
+                           Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold,
+                           Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples,
+                           Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter);
 
 /**
  *  Returns an array of col-major matrices with bootstrapped matrices.

@@ -30,8 +30,8 @@ extern "C"
     // Define your MatrixHash struct to store a key computed from the matrix content.
     typedef struct
     {
-        unsigned int key; // computed over the matrix data
-        Matrix *matrix;   // canonical copy of the matrix
+        unsigned int key;  // computed over the matrix data
+        IntMatrix *matrix; // canonical copy of the matrix
         int count;
         UT_hash_handle hh;
     } MatrixHash;
@@ -108,7 +108,7 @@ extern "C"
      * @brief Creates a hash key for a matrix
      *
      */
-    unsigned int computeMatrixKey(const Matrix *m);
+    unsigned int computeMatrixKey(const IntMatrix *m);
 
 #ifdef __cplusplus
 }

@@ -38,7 +38,7 @@ extern "C"
                       const double convergence, const double log_convergence, const int maxIter,
                       const double maxSeconds, const bool verbose, QMethodInput *inputParams);
 
-    Matrix bootSingleMat(const Matrix *xmat, const Matrix *wmat, int bootiter, const bool verbose);
+    Matrix bootSingleMat(Matrix *xmat, Matrix *wmat, int bootiter, const bool verbose);
 
 #ifdef __cplusplus
 }

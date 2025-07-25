@@ -44,8 +44,8 @@ SOFTWARE.
 #define Realloc(p, n, t) ((t *)R_chk_realloc((void *)(p), (size_t)((n) * sizeof(t))))
 #endif
 
-Set **HSETS = NULL;       // Global pointer to store all H sets
-Set **KSETS = NULL;       // Global pointer to store all K sets
+// Set **HSETS = NULL;       // Global pointer to store all H sets
+// Set **KSETS = NULL;       // Global pointer to store all K sets
 size_t **CANDIDATEARRAYS; // 2D array indexed by [c][b]
 
 /**
@@ -133,9 +133,10 @@ bool ifAllElements(const size_t *hElement, const size_t *kElement)
  *
  */
 
-void generateConfigurations(int b, size_t *votes, int position, int remainingVotes, int numCandidates,
+void generateConfigurations(EMContext *ctx, int b, size_t *votes, int position, int remainingVotes, int numCandidates,
                             size_t ***results, size_t *count)
 {
+    Matrix *X = &ctx->X; // Get the X matrix
     // ---- Base case: we're on the last candidate ---- //
     if (position == numCandidates - 1)
     {
@@ -173,7 +174,7 @@ void generateConfigurations(int b, size_t *votes, int position, int remainingVot
             return;
         }
         // ---- Call the recursion ----
-        generateConfigurations(b, votes, position + 1, remainingVotes - i, numCandidates, results, count);
+        generateConfigurations(ctx, b, votes, position + 1, remainingVotes - i, numCandidates, results, count);
     }
     // ---...--- //
 }
@@ -194,7 +195,7 @@ void generateConfigurations(int b, size_t *votes, int position, int remainingVot
  * @return size_t **: A pointer that will store arrays of arrays, having all of the possible combinations.
  *
  */
-size_t **generateAllConfigurations(int b, int totalVotes, int numCandidates, size_t *count)
+size_t **generateAllConfigurations(EMContext *ctx, int b, int totalVotes, int numCandidates, size_t *count)
 {
     // ---- Initialize parameters ---- //
     size_t **results = NULL;
@@ -203,7 +204,7 @@ size_t **generateAllConfigurations(int b, int totalVotes, int numCandidates, siz
     // --- ... --- //
 
     // ---- Call the recursion ---- //
-    generateConfigurations(b, votes, 0, totalVotes, numCandidates, &results, count);
+    generateConfigurations(ctx, b, votes, 0, totalVotes, numCandidates, &results, count);
     // --- ... --- //
     Free(votes);
     return results;
@@ -218,34 +219,40 @@ size_t **generateAllConfigurations(int b, int totalVotes, int numCandidates, siz
  * @return void: Results written at the global variable HSETS.
  *
  */
-void generateHSets()
+void generateHSets(EMContext *ctx)
 {
-    // ---- Allocate memory for the `b` index ----
-    HSETS = Calloc(TOTAL_BALLOTS, Set *);
+    Matrix *W = &ctx->W; // Get the W matrix
+                         // ---- Allocate memory for the `b` index ----
+    ctx->hset = Calloc(TOTAL_BALLOTS * TOTAL_GROUPS, Set);
+    Set *HSETS = ctx->hset;
 
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For every ballot box
 
         // ---- Allocate memory for the `g` index ----
-        HSETS[b] = Calloc(TOTAL_GROUPS, Set);
+        // HSETS[b] = Calloc(TOTAL_GROUPS, Set);
 
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         { // ---- For each group given a ballot box
 
             // ---- Initialize H set and set initial parameters ---- //
-            HSETS[b][g].b = b;
-            HSETS[b][g].g = g;
+            // HSETS[b][g].b = b;
+            HSET(ctx, b, g)->b = b;
+            HSET(ctx, b, g)->g = g;
+            // HSETS[b][g].g = g;
             // ---- Parameters for the function ----
             size_t total = (size_t)MATRIX_AT_PTR(W, b, g);
             // --- ... --- //
 
             // ---- Compute the set combinations ---- //
             size_t count = 0;
-            size_t **configurations = generateAllConfigurations(b, total, TOTAL_CANDIDATES, &count);
+            size_t **configurations = generateAllConfigurations(ctx, b, total, TOTAL_CANDIDATES, &count);
 
             // ---- Store configurations and size ----
-            HSETS[b][g].data = configurations;
-            HSETS[b][g].size = count;
+            // HSETS[b][g].data = configurations;
+            HSET(ctx, b, g)->data = configurations;
+            HSET(ctx, b, g)->size = count;
+            // HSETS[b][g].size = count;
             // --- ... --- //
         }
     }
@@ -261,23 +268,25 @@ void generateHSets()
  *
  */
 
-void generateKSets()
+void generateKSets(EMContext *ctx)
 {
+    Matrix *W = &ctx->W; // Get the W matrix
     // ---- Allocate memory for the `b` index ----
-    KSETS = Calloc(TOTAL_BALLOTS, Set *);
+    ctx->kset = Calloc(TOTAL_BALLOTS * TOTAL_GROUPS, Set);
+    Set *KSETS = ctx->kset;
 
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For every ballot box
 
         // ---- Allocate memory for the `f` index ----
-        KSETS[b] = Calloc(TOTAL_GROUPS, Set);
+        // KSETS[b] = Calloc(TOTAL_GROUPS, Set);
 
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         { // ---- For each group given a ballot box
 
             // ---- Initialize K set and set initial parameters ---- //
-            KSETS[b][g].b = b;
-            KSETS[b][g].g = g;
+            KSET(ctx, b, g)->b = b;
+            KSET(ctx, b, g)->g = g;
             // ---- Parameters for the function ----
             size_t total = 0;
             for (uint16_t f = 0; f <= g; f++)
@@ -289,11 +298,11 @@ void generateKSets()
 
             // ---- Compute the set combinations ---- //
             size_t count = 0;
-            size_t **configurations = generateAllConfigurations(b, total, TOTAL_CANDIDATES, &count);
+            size_t **configurations = generateAllConfigurations(ctx, b, total, TOTAL_CANDIDATES, &count);
 
             // ---- Store configurations and size ----
-            KSETS[b][g].data = configurations;
-            KSETS[b][g].size = count;
+            KSET(ctx, b, g)->data = configurations;
+            KSET(ctx, b, g)->size = count;
             // --- ... --- //
         }
     }
@@ -359,8 +368,9 @@ double prod(const size_t *hElement, const Matrix *probabilities, const int f)
  * @return double: The result of the multinomial coefficient
  *
  */
-double multinomialCoeff(const int b, const int f, const size_t *hElement)
+double multinomialCoeff(EMContext *ctx, const int b, const int f, const size_t *hElement)
 {
+    Matrix *W = &ctx->W; // Get the W matrix
     // --- Compute ln(w_bf!). When adding by one, it considers the last element too ---
     double result = lgamma1p((int)MATRIX_AT_PTR(W, b, f));
 
@@ -387,9 +397,10 @@ double multinomialCoeff(const int b, const int f, const size_t *hElement)
  * @return The value of `A`
  *
  */
-double computeA(const int b, const int f, const size_t *hElement, const Matrix *probabilities)
+double computeA(EMContext *ctx, const int b, const int f, const size_t *hElement)
 {
-    return multinomialCoeff(b, f, hElement) * prod(hElement, probabilities, f);
+    Matrix *probabilities = &ctx->probabilities; // Get the probabilities matrix
+    return multinomialCoeff(ctx, b, f, hElement) * prod(hElement, probabilities, f);
 }
 
 /**
@@ -404,8 +415,12 @@ double computeA(const int b, const int f, const size_t *hElement, const Matrix *
  * @return void. Results to be written on the hash table
  *
  */
-void recursion(MemoizationTable *memo, const Matrix *probabilities)
+void recursion(EMContext *ctx, MemoizationTable *memo)
 {
+    Matrix *probabilities = &ctx->probabilities; // Get the probabilities matrix
+    Matrix *W = &ctx->W;                         // Get the W matrix
+    Set *KSETS = ctx->kset;
+    Set *HSETS = ctx->hset;
     // #pragma omp parallel for num_threads(3) schedule(static)
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {                   // ---- For each ballot box
@@ -414,22 +429,23 @@ void recursion(MemoizationTable *memo, const Matrix *probabilities)
         for (uint16_t f = 0; f < TOTAL_GROUPS; f++)
         { // ---- For each group, given a ballot box
             // #pragma omp parallel for collapse(2) It actually worsened the performance
-            for (size_t k = 0; k < KSETS[b][f].size; k++)
+            for (size_t k = 0; k < KSET(ctx, b, f)->size; k++)
             { // ---- For each element from the K_bf set
                 // ---- If there's no existing combination, skip the loop ----
-                if (!KSETS[b][f].data || !KSETS[b][f].data[k] || KSETS[b][f].data[k] == NULL)
+                if (!KSET(ctx, b, f)->data || !(KSET(ctx, b, f)->data[k]) || (KSET(ctx, b, f)->data[k]) == NULL)
                 {
                     continue;
                 }
 
                 // ---- Define the current element from the K set ----
-                size_t *currentK = KSETS[b][f].data[k];
+                // size_t *currentK = KSETS[b][f].data[k];
+                size_t *currentK = KSET(ctx, b, f)->data[k];
 
-                for (size_t h = 0; h < HSETS[b][f].size; h++)
+                for (size_t h = 0; h < HSET(ctx, b, f)->size; h++)
                 { // ---- For each element from the H_bf set
-                    if (HSETS[b][f].size > 5000 && h % 250 == 0)
+                    if (HSET(ctx, b, f)->size > 5000 && h % 250 == 0)
                         R_CheckUserInterrupt();
-                    size_t *currentH = HSETS[b][f].data[h];
+                    size_t *currentH = HSET(ctx, b, f)->data[h];
                     // ---- If the element from h isn't smaller than the one from k ----
                     // ---- Note that, when generating the H set, the restriction from candidate votes was also imposed,
                     // so it excluded "trivial" cases ----
@@ -440,7 +456,7 @@ void recursion(MemoizationTable *memo, const Matrix *probabilities)
 
                     // ---- Compute the values that are independent from c and g ---- //
                     // ---- The value `a` from the pseudocode. Check `computeA` for more information ----
-                    double a = computeA(b, f, currentH, probabilities);
+                    double a = computeA(ctx, b, f, currentH);
                     // ---- Initialize the variable that will store the past iteration ----
                     double valueBefore;
                     // ---- Substract the Kth element with the Hth element (k-h) ----
@@ -569,8 +585,12 @@ double exactLL(MemoizationTable *memo)
  * @note: A single pointer is used to store the array continously. This is for using cBLAS operations later.
  *
  */
-double *computeQExact(const Matrix *probabilities, QMethodInput params, double *ll)
+void computeQExact(EMContext *ctx, QMethodInput params, double *ll)
 {
+    Matrix *probabilities = &ctx->probabilities;
+    Matrix *X = &ctx->X;
+    Matrix *W = &ctx->W;
+    double *q = ctx->q;
 
     // ---- Initialize CANDIDATEARRAYS, which corresponds as a copy of `X` but in size_t. ---- //
     if (CANDIDATEARRAYS == NULL)
@@ -592,27 +612,15 @@ double *computeQExact(const Matrix *probabilities, QMethodInput params, double *
     }
     // --- ... --- //
 
-    // ---- Initialize the sets, to avoid unnecesary computations ---- //
-    if (HSETS == NULL && KSETS == NULL)
-    {
-        // ---- Note: both sets could had been created on the same loop at cost of code legibility. The reward is really
-        // small, arguably, doesn't make any difference. It was preffered to not sacrifice legibility ----
-        // ---- Create the H sets ----
-        generateHSets();
-        // ---- Create the K sets ----
-        generateKSets();
-    }
-    // --- ... --- //
-
     // ---- Initialize the dictionary variables ---- //
     // ---- Initialize the hash table ----
     MemoizationTable *table = initMemo();
     // ---- Initialize the array to return
-    double *array2 = (double *)Calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, double);
+    // double *array2 = (double *)Calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, double);
     // --- ... --- //
 
     // ---- Start the main computation ---- //
-    recursion(table, probabilities);
+    recursion(ctx, table);
     // --- ... --- //
 
     // ---- Store the results ---- //
@@ -643,11 +651,11 @@ double *computeQExact(const Matrix *probabilities, QMethodInput params, double *
                 double result = num[c] / den;
                 if (!isnan(result) && !isinf(result))
                 {
-                    Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = result;
+                    Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = result;
                 }
                 else
                 {
-                    Q_3D(array2, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = 0;
+                    Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = 0;
                 }
 
             } // ---- End loop on candidates
@@ -656,7 +664,6 @@ double *computeQExact(const Matrix *probabilities, QMethodInput params, double *
 
     *ll = exactLL(table);
     freeMemo(table);
-    return array2;
     // ---...--- //
 }
 
@@ -664,6 +671,7 @@ double *computeQExact(const Matrix *probabilities, QMethodInput params, double *
  * @brief Frees al the memory allocated on the H set.
  *
  */
+/*
 void freeHSet(void)
 {
     // ---- If the set was created ----
@@ -692,11 +700,12 @@ void freeHSet(void)
         HSETS = NULL;
     }
 }
-
+*/
 /**
  * @brief Frees al the memory allocated on the K set.
  *
  */
+/*
 void freeKSet(void)
 {
     // ---- If the set was created ----
@@ -725,7 +734,8 @@ void freeKSet(void)
         KSETS = NULL;
     }
 }
-
+*/
+/*
 // __attribute__((destructor))
 void cleanExact(void)
 {
@@ -749,3 +759,4 @@ void cleanExact(void)
     freeKSet();
     // ---...--- //
 }
+*/

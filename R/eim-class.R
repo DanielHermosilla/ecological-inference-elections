@@ -393,9 +393,11 @@ run_em <- function(object = NULL,
     }
 
     W <- if (is.null(object$W_agg)) object$W else object$W_agg
-    RsetParameters(t(object$X), W)
+    # RsetParameters(t(object$X), W)
 
     resulting_values <- EMAlgorithmFull(
+        t(object$X),
+        W,
         method,
         initial_prob,
         maxiter,

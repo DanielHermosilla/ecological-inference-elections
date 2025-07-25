@@ -61,8 +61,10 @@ SOFTWARE.
  *
  */
 
-void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *sigma)
+void getParams(EMContext *ctx, int b, const Matrix *probabilitiesReduced, double *mu, Matrix *sigma)
 {
+    Matrix *W = &ctx->W;
+    Matrix *X = &ctx->X;
 
     // ---- Check parameters ---- //
     // ---- Note: Mu must be of size TOTAL_CANDIDATES-1 and sigma of size (TOTAL_CANDIDATES-1xTOTAL_CANDIDATES-1) ----
@@ -184,12 +186,13 @@ void getParams(int b, const Matrix *probabilitiesReduced, double *mu, Matrix *si
  *
  */
 
-void getAverageConditional(int b, const Matrix *probabilitiesReduced, Matrix *conditionalMu, Matrix **conditionalSigma)
+void getAverageConditional(EMContext *ctx, int b, const Matrix *probabilitiesReduced, Matrix *conditionalMu,
+                           Matrix **conditionalSigma)
 {
     // ---- Get the parameters of the unconditional probability ---- //
     double *newMu = (double *)Calloc((TOTAL_CANDIDATES - 1), double);
     Matrix newSigma = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1);
-    getParams(b, probabilitiesReduced, newMu, &newSigma);
+    getParams(ctx, b, probabilitiesReduced, newMu, &newSigma);
     // ---- ... ----
 
     // ---- Computation for mu ---- //

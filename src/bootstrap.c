@@ -85,7 +85,7 @@ Matrix standardDeviations(Matrix *bootstrapResults, Matrix *sumMatrix, int total
                 MATRIX_AT(sdMatrix, i, j) += diff * diff;
             }
         }
-        freeMatrix(&bootstrapResults[h]);
+        // freeMatrix(&bootstrapResults[h]);
     }
 
     // Make the division and get the square root
@@ -176,31 +176,35 @@ sampling:
         Matrix iterX = createMatrix(xmat->rows, xmat->cols);
         Matrix iterW = createMatrix(wmat->rows, wmat->cols);
         iterMat(xmat, wmat, &iterX, &iterW, indices, i * bdim);
-        setParameters(&iterX, &iterW);
-        Matrix iterP = getInitialP(p_method);
+        // setParameters(&iterX, &iterW);
+        // Matrix iterP = getInitialP(p_method);
 
         // Declare EM variables, they're not used in this case...
         // It could be useful to yield a mean if the user wants to (logLL mean?)
         double time;
         double logLLarr = 0;
-        double *qval = NULL;
         int finishing_reason, iterTotal;
-        Matrix resultP = EMAlgoritm(&iterP, q_method, convergence, log_convergence, maxIter, maxSeconds, false, &time,
-                                    &iterTotal, &logLLarr, &qval, &finishing_reason, inputParams);
+        EMContext *ctx = EMAlgoritm(&iterX, &iterW, p_method, q_method, convergence, log_convergence, maxIter,
+                                    maxSeconds, false, &time, &iterTotal, &logLLarr, &finishing_reason, inputParams);
+        Matrix *resultP = &ctx->probabilities;
+        Matrix copyP = createMatrix(resultP->rows, resultP->cols);
+        memcpy(copyP.data, resultP->data, sizeof(double) * resultP->rows * resultP->cols);
         // Sum each value so later we can get the mean
         for (int j = 0; j < wmat->cols; j++)
         {
             for (int k = 0; k < xmat->rows; k++)
             {
-                MATRIX_AT(sumMat, j, k) += MATRIX_AT(resultP, j, k);
+                MATRIX_AT(sumMat, j, k) += MATRIX_AT_PTR(resultP, j, k);
             }
         }
 
-        results[i] = resultP;
+        results[i] = copyP;
         // memcpy(&results[i * matsize], resultP.data, matsize * sizeof(double));
 
+        cleanup(ctx); // Cleanup the context, it frees the memory allocated for the matrices
         // ---- Release loop allocated variables ---- //
         // freeMatrix(&iterP);
+        /*
         cleanup();
         if (strcmp(q_method, "exact") == 0)
         {
@@ -210,12 +214,11 @@ sampling:
         {
             cleanHitAndRun();
         }
+         */
         // else if (strcmp(q_method, "mult"))
         //{
         //    cleanMultinomial();
         //}
-        Free(qval);         // Check, for a possible segmentation fault
-        freeMatrix(&iterP); // Check, for a possible segmentation fault
         freeMatrix(&iterX);
         freeMatrix(&iterW);
         // ---...--- //
@@ -239,7 +242,7 @@ sampling:
     return sdReturn;
 }
 
-Matrix bootSingleMat(const Matrix *xmat, const Matrix *wmat, int bootiter, const bool verbose)
+Matrix bootSingleMat(Matrix *xmat, Matrix *wmat, int bootiter, const bool verbose)
 {
 
     // ---- Initial variables
@@ -267,22 +270,26 @@ Matrix bootSingleMat(const Matrix *xmat, const Matrix *wmat, int bootiter, const
         // ---- Declare variables for the current iteration
         Matrix iterX = createMatrix(xmat->rows, xmat->cols);
         Matrix iterW = createMatrix(wmat->rows, 1);
-        iterMat(xmat, wmat, &iterX, &iterW, indices, i * bdim);
-        setParameters(&iterX, &iterW);
+        // iterMat(xmat, wmat, &iterX, &iterW, indices, i * bdim);
+        // setParameters(&iterX, &iterW);
+        EMContext *ctxTemp = createEMContext(xmat, wmat, "group_proportional", (QMethodInput){0});
 
-        Matrix resultP = createMatrix(1, xmat->rows);
+        Matrix *resultP = &ctxTemp->probabilities;
+        Matrix copyP = createMatrix(resultP->rows, resultP->cols);
+        memcpy(copyP.data, resultP->data, sizeof(double) * resultP->rows * resultP->cols);
         // Sum each value so later we can get the mean
         for (int k = 0; k < xmat->rows; k++)
         {
-            MATRIX_AT(resultP, 0, k) = (double)CANDIDATES_VOTES[k] / (double)TOTAL_VOTES;
-            MATRIX_AT(sumMat, 0, k) += MATRIX_AT(resultP, 0, k);
+            MATRIX_AT_PTR(resultP, 0, k) = (double)ctxTemp->candidates_votes[k] / (double)TOTAL_VOTES;
+            MATRIX_AT(sumMat, 0, k) += MATRIX_AT_PTR(resultP, 0, k);
         }
 
-        results[i] = resultP;
+        results[i] = copyP;
+
         // memcpy(&results[i * matsize], resultP.data, matsize * sizeof(double));
 
         // ---- Release loop allocated variables ---- //
-        cleanup();
+        cleanup(ctxTemp);
         freeMatrix(&iterX);
         freeMatrix(&iterW);
         // ---...--- //
