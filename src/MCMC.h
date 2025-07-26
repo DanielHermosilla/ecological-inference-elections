@@ -46,6 +46,8 @@ extern "C"
      */
     void generateOmegaSet(EMContext *ctx, int M, int S);
 
+    double preMultinomialCoeff(EMContext *ctx, const int b, IntMatrix *currentMatrix);
+
     void preComputeMultinomial(EMContext *ctx);
 
     void encode(EMContext *ctx);

@@ -96,6 +96,12 @@
         stop("run_em: Invalid 'mcmc_samples'. Must be a positive integer.")
     }
 
+    # metropolis: Samples argument
+    if ("metropolis_iter" %in% names(args) &&
+        (!is.numeric(args$metropolis_iter) || as.integer(args$metropolis_iter) != args$metropolis_iter || args$metropolis_iter < 0)) {
+        stop("run_em: Invalid 'metropolis_iter'. Must be a positive integer.")
+    }
+
     # CDF: Mc_method argument
     valid_cdf_methods <- c("genz", "genz2")
     if ("mvncdf_method
