@@ -44,8 +44,6 @@ SOFTWARE.
 #define Realloc(p, n, t) ((t *)R_chk_realloc((void *)(p), (size_t)((n) * sizeof(t))))
 #endif
 
-// Set **HSETS = NULL;       // Global pointer to store all H sets
-// Set **KSETS = NULL;       // Global pointer to store all K sets
 size_t **CANDIDATEARRAYS; // 2D array indexed by [c][b]
 
 /**
@@ -60,7 +58,6 @@ size_t **CANDIDATEARRAYS; // 2D array indexed by [c][b]
  * @return void
  *
  */
-
 void vectorDiff(const size_t *K, const size_t *H, size_t *arr)
 {
     for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
@@ -230,16 +227,13 @@ void generateHSets(EMContext *ctx)
     { // ---- For every ballot box
 
         // ---- Allocate memory for the `g` index ----
-        // HSETS[b] = Calloc(TOTAL_GROUPS, Set);
 
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         { // ---- For each group given a ballot box
 
             // ---- Initialize H set and set initial parameters ---- //
-            // HSETS[b][g].b = b;
             HSET(ctx, b, g)->b = b;
             HSET(ctx, b, g)->g = g;
-            // HSETS[b][g].g = g;
             // ---- Parameters for the function ----
             size_t total = (size_t)MATRIX_AT_PTR(W, b, g);
             // --- ... --- //
@@ -249,10 +243,8 @@ void generateHSets(EMContext *ctx)
             size_t **configurations = generateAllConfigurations(ctx, b, total, TOTAL_CANDIDATES, &count);
 
             // ---- Store configurations and size ----
-            // HSETS[b][g].data = configurations;
             HSET(ctx, b, g)->data = configurations;
             HSET(ctx, b, g)->size = count;
-            // HSETS[b][g].size = count;
             // --- ... --- //
         }
     }
@@ -421,11 +413,11 @@ void recursion(EMContext *ctx, MemoizationTable *memo)
     Matrix *W = &ctx->W;                         // Get the W matrix
     Set *KSETS = ctx->kset;
     Set *HSETS = ctx->hset;
-    // #pragma omp parallel for num_threads(3) schedule(static)
+
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    {                   // ---- For each ballot box
-        if (b % 5 == 0) // Checks condition every 5 iterations
-            R_CheckUserInterrupt();
+    { // ---- For each ballot box
+        // if (b % 5 == 0) // Checks condition every 5 iterations
+        // R_CheckUserInterrupt();
         for (uint16_t f = 0; f < TOTAL_GROUPS; f++)
         { // ---- For each group, given a ballot box
             // #pragma omp parallel for collapse(2) It actually worsened the performance
@@ -443,8 +435,8 @@ void recursion(EMContext *ctx, MemoizationTable *memo)
 
                 for (size_t h = 0; h < HSET(ctx, b, f)->size; h++)
                 { // ---- For each element from the H_bf set
-                    if (HSET(ctx, b, f)->size > 5000 && h % 250 == 0)
-                        R_CheckUserInterrupt();
+                    // if (HSET(ctx, b, f)->size > 5000 && h % 250 == 0)
+                    // R_CheckUserInterrupt();
                     size_t *currentH = HSET(ctx, b, f)->data[h];
                     // ---- If the element from h isn't smaller than the one from k ----
                     // ---- Note that, when generating the H set, the restriction from candidate votes was also imposed,
@@ -598,7 +590,6 @@ void computeQExact(EMContext *ctx, QMethodInput params, double *ll)
         // ---- Define the memory for the matrix and its parameters ----
         CANDIDATEARRAYS = Calloc(TOTAL_BALLOTS, size_t *);
         // ---- Parallelize the loop over the ballot boxes ----
-        // #pragma omp parallel for
         for (uint16_t b = 0; b < TOTAL_BALLOTS; b++)
         { // ---- For all ballot boxes
             // ---- Allocate memory for the candidate array ----
@@ -615,8 +606,6 @@ void computeQExact(EMContext *ctx, QMethodInput params, double *ll)
     // ---- Initialize the dictionary variables ---- //
     // ---- Initialize the hash table ----
     MemoizationTable *table = initMemo();
-    // ---- Initialize the array to return
-    // double *array2 = (double *)Calloc(TOTAL_BALLOTS * TOTAL_CANDIDATES * TOTAL_GROUPS, double);
     // --- ... --- //
 
     // ---- Start the main computation ---- //
@@ -666,97 +655,3 @@ void computeQExact(EMContext *ctx, QMethodInput params, double *ll)
     freeMemo(table);
     // ---...--- //
 }
-
-/**
- * @brief Frees al the memory allocated on the H set.
- *
- */
-/*
-void freeHSet(void)
-{
-    // ---- If the set was created ----
-    if (HSETS != NULL)
-    {
-        for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-        { // ---- For each ballot box
-            if (HSETS[b] != NULL)
-            { // ---- If the value was created ----
-                for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-                { // ---- For each group given a ballot box
-                    if (HSETS[b][g].data != NULL)
-                    { // ---- If the array was created ----
-                        // ---- Free each configuration in the H set ----
-                        for (size_t i = 0; i < HSETS[b][g].size; i++)
-                        { // ---- For each combination in the bth and gth configuration ----
-                            Free(HSETS[b][g].data[i]);
-                        }
-                        Free(HSETS[b][g].data); // Free the array of configurations
-                    }
-                }
-                Free(HSETS[b]); // Free the array of Hsets for this ballot
-            }
-        }
-        Free(HSETS); // Free the global array
-        HSETS = NULL;
-    }
-}
-*/
-/**
- * @brief Frees al the memory allocated on the K set.
- *
- */
-/*
-void freeKSet(void)
-{
-    // ---- If the set was created ----
-    if (KSETS != NULL)
-    {
-        for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-        { // ---- For each ballot box
-            if (KSETS[b] != NULL)
-            { // ---- If the value was created ----
-                for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-                { // ---- For each group given a ballot box
-                    if (KSETS[b][g].data != NULL)
-                    { // ---- If the array was created ----
-                        // ---- Free each configuration in the K set ----
-                        for (size_t i = 0; i < KSETS[b][g].size; i++)
-                        { // ---- For each combination in the bth and gth configuration ----
-                            Free(KSETS[b][g].data[i]);
-                        }
-                        Free(KSETS[b][g].data); // Free the array of configurations
-                    }
-                }
-                Free(KSETS[b]); // Free the array of K sets for this ballot
-            }
-        }
-        Free(KSETS); // Free the global array
-        KSETS = NULL;
-    }
-}
-*/
-/*
-// __attribute__((destructor))
-void cleanExact(void)
-{
-    // ---- Destroy the candidate array of size_t ---- //
-    // ---- If the array was created ----
-    if (CANDIDATEARRAYS != NULL)
-    {
-        for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-        { // ---- For each ballot box
-            Free(CANDIDATEARRAYS[b]);
-        }
-        Free(CANDIDATEARRAYS);
-        CANDIDATEARRAYS = NULL;
-    }
-    // ---...--- //
-
-    // ---- Destroy every set ---- //
-    // ---- Destroy the array of precomputed H ----
-    freeHSet();
-    // ---- Destroy the array of precomputed H ----
-    freeKSet();
-    // ---...--- //
-}
-*/

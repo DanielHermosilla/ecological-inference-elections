@@ -88,7 +88,7 @@ EMContext *createEMContext(Matrix *X, Matrix *W, const char *method, QMethodInpu
     ctx->group_votes = Calloc(ctx->G, uint32_t);
     ctx->total_votes = 0;
 
-    // rellenar ballots_votes, inv_ballots_votes, candidates_votes, group_votes, total_votes
+    // Fill utility arrays
     for (uint32_t b = 0; b < ctx->B; ++b)
     {
         for (uint16_t c = 0; c < ctx->C; ++c)
@@ -283,7 +283,7 @@ void getInitialP(EMContext *ctx, const char *p_method)
  *
  * Given that different `Q` methods receive different parameters, a modularized approach is given towards each method
  *
- * @input[in] q_method A char with the q_method. Currently it supports "exact", "mcmc", "mult", "mvn_cdf"
+ * @input[in] q_method A char with the q_method. Currently it supports "exact", "mcmc", "mult", "mvn_cdf", "metropolis",
  * and "mvn_pdf"
  * @input[in] inputParams A QMethodInput struct, that should be defined in a main function, with the parameters for the
  * distinct methods
@@ -366,7 +366,7 @@ void getP(EMContext *ctx)
 
             double val;
             val = F77_CALL(ddot)(&tBal,
-                                 &ctx->W.data[g * TOTAL_BALLOTS], // Now correctly indexing W in column-major
+                                 &ctx->W.data[g * TOTAL_BALLOTS], // indexing W in column-major
                                  &newStride,                      // Column-major: stride is 1 for W
                                  baseY,                           // Column-major: index properly
                                  &stride                          // Stride: move down rows (1 step per row)
@@ -398,7 +398,9 @@ int checkGroups(EMContext ctx)
  * Given a method for estimating "q", it calculates the EM until it converges to arbitrary parameters. As of in the
  * paper, it currently supports mcmc, mult, mvn_cdf and mvn_pdf methods.
  *
- * @param[in] currentP Matrix of dimension (cxg) with the initial probabilities for the first iteration.
+ * @param[in, out] X The candidate matrix, with the votes per candidate per ballot box.
+ * @param[in, out] W The demographic matrix, with the votes per demographic group per ballot box.
+ * @param[in] p_method Pointer to a string that indicates the method or calculating "p".
  * @param[in] q_method Pointer to a string that indicates the method or calculating "q". Currently it supports "Hit
  * and Run", "mult", "mvn_cdf", "mvn_pdf" and "exact" methods.
  * @param[in] convergence Threshold value for convergence. Usually it's set to 0.001.
@@ -644,17 +646,14 @@ void cleanup(EMContext *ctx)
                 Set *s = &ctx->hset[b * ctx->G + g];
                 if (s->data)
                 {
-                    // cada entrada data[i] es un `size_t*` que hay que Free
                     for (size_t i = 0; i < s->size; ++i)
                     {
                         Free(s->data[i]);
                     }
-                    // luego liberas el array de punteros
                     Free(s->data);
                 }
             }
         }
-        // por último liberas el bloque de Set que era contiguo
         Free(ctx->hset);
         ctx->hset = NULL;
     }
@@ -667,17 +666,14 @@ void cleanup(EMContext *ctx)
                 Set *s = &ctx->kset[b * ctx->G + g];
                 if (s->data)
                 {
-                    // cada entrada data[i] es un `size_t*` que hay que Free
                     for (size_t i = 0; i < s->size; ++i)
                     {
                         Free(s->data[i]);
                     }
-                    // luego liberas el array de punteros
                     Free(s->data);
                 }
             }
         }
-        // por último liberas el bloque de Set que era contiguo
         Free(ctx->kset);
         ctx->kset = NULL;
     }

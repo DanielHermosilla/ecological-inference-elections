@@ -206,10 +206,7 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
 #endif
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For every ballot box
-        // if (b % 5 == 0)             // Checks condition every 5 iterations
-        // R_CheckUserInterrupt(); // This might be fatal, since it doesn't free global memory
         // ---- Define a seed, that will be unique per thread ----
-        //    unsigned int seed = rand_r(&seedNum) + omp_get_thread_number();
         // ---- Allocate memory for the ctx->omegaset ---- //
         ctx->omegaset[b] = Calloc(1, OmegaSet);
         ctx->omegaset[b]->b = b;
@@ -222,17 +219,12 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
         int ballotShift = floor(((double)b / TOTAL_BALLOTS) * (M * S));
 
         // Impose the first step
-        // IntMatrix *append = Calloc(1, IntMatrix);
-        // *append = copMatrixI(&startingZ);
-        // ctx->omegaset[b]->data[0] = append;A
         ctx->omegaset[b]->data[0] = copMatrixI(&startingZ);
         freeMatrixInt(&startingZ);
 
         for (int s = 1; s < S; s++)
         { // --- For each sample given a ballot box
             // ---- Copy the initial matrix ----
-            // IntMatrix pastMatrix = ctx->omegaset[b]->data[s - 1];
-            // IntMatrix steppingZ = copMatrixI(&pastMatrix);
             IntMatrix steppingZ = copMatrixI(&ctx->omegaset[b]->data[s - 1]);
             for (int m = 0; m < M; m++)
             { // --- For each step size given a sample and a ballot box
@@ -242,9 +234,6 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
                 uint8_t randomCDraw2 = c2[shiftIndex];
                 uint8_t randomGDraw = g1[shiftIndex];
                 uint8_t randomGDraw2 = g2[shiftIndex];
-
-                // decode(randomCDraw, TOTAL_CANDIDATES, &c1, &c2);
-                //  decode(randomGDraw, TOTAL_GROUPS, &g1, &g2);
 
                 // ---- Check non negativity condition ---- //
                 double firstSubstraction = MATRIX_AT(steppingZ, randomGDraw, randomCDraw);
@@ -264,7 +253,6 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
 
                 double prob = transitionProbDen / transitionProbNum;
 
-                // Rprintf("Ratio: %.4f\tProbabilidad uniforme: %.4f\n", prob, MS[shiftIndex]);
                 if (MS[shiftIndex] < prob)
                 {
                     MATRIX_AT(steppingZ, randomGDraw, randomCDraw) -= 1;
@@ -275,13 +263,9 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
                 //  ---...--- //
             } // --- End the step size loop
             // ---- Add the combination to the ctx->omegaset ---- //
-            // IntMatrix *append = Calloc(1, IntMatrix);
-            // *append = copMatrixI(&steppingZ);
             ctx->omegaset[b]->data[s] = steppingZ;
-            // freeMatrixInt(&steppingZ);
             // ---...--- //
         } // --- End the sample loop
-        // freeMatrix(&startingZ);
     } // --- End the ballot box loop
     Free(c1);
     Free(c2);
@@ -400,13 +384,14 @@ void computeQMetropolis(EMContext *ctx, QMethodInput params, double *ll)
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // --- For each candidate given a group and a ballot box
                 // ---- Obtain the summatory over all of the values ---- //
-                double firstTerm = 0.0;                    // Suma de enteros
+                int num = 0.0;
                 for (int s = 0; s < currentSet->size; s++) // Iterar por cada sample del ballot box
                 {                                          // --- For each sample
                     IntMatrix currentMatrix = currentSet->data[s];
-                    firstTerm += (MATRIX_AT(currentMatrix, g, c) / W_bg); // Se divide al final
+                    num += (MATRIX_AT(currentMatrix, g, c));
                 }
-                double result = firstTerm / currentSet->size;
+                int den = W_bg * currentSet->size;
+                double result = (double)num / (double)den;
                 Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = result;
                 // ---...--- //
             } // --- End candidate loop

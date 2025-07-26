@@ -165,10 +165,6 @@ void computeQMultinomial(EMContext *ctx, QMethodInput params, double *ll)
                 // Add the log-likelihood
                 if (g == 0)
                 {
-                    //*ll += MATRIX_AT(WP, b, c) != 0 && totalWP[b] != 0
-                    //          ? MATRIX_AT_PTR(X, c, b) * log(MATRIX_AT(WP, b, c) / totalWP[b]) -
-                    //               lgamma1p((int)MATRIX_AT_PTR(X, c, b))
-                    //        : 0;
                     *ll += MATRIX_AT(WP, b, c) != 0 && totalWP[b] != 0
                                ? MATRIX_AT_PTR(intX, c, b) * log(MATRIX_AT(WP, b, c) / totalWP[b]) -
                                      ctx->logGamma[MATRIX_AT_PTR(intX, c, b)]
@@ -184,18 +180,8 @@ void computeQMultinomial(EMContext *ctx, QMethodInput params, double *ll)
                     !isnan(result) && !isinf(result) ? finalNumerator[c] / tempSum : 0;
             }
         }
-        // *ll += lgamma1p(ctx->ballots_votes[b]);
         *ll += ctx->logGamma[ctx->ballots_votes[b]];
     }
     // *ll -= TOTAL_BALLOTS * TOTAL_CANDIDATES * log(totalWP);
     freeMatrix(&WP);
-}
-
-void cleanMultinomial(void)
-{
-    if (logGammaArr2 != NULL)
-    {
-        Free(logGammaArr2);
-        logGammaArr2 = NULL;
-    }
 }
