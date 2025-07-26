@@ -181,6 +181,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' - `mvn_cdf`: Uses a Multivariate Normal CDF distribution to approximate the conditional probability.
 #' - `mvn_pdf`: Uses a Multivariate Normal PDF distribution to approximate the conditional probability.
 #' - `mcmc`: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the E-step.
+#' - `metropolis`: Uses the Metropolis-Hastings algorithm to sample vote outcomes. This is used to estimate the conditional probability of the E-step.
 #' - `exact`: Solves the E-step using the Total Probability Law.
 #'
 #' For a detailed description of each method, see [fastei-package] and **References**.
@@ -231,6 +232,8 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'
 #' @param mvncdf_samples An optional integer specifying the number of Monte Carlo
 #'   samples for the `mvn_cdf` method. The default value is `5000`. This argument is only applicable when `method = "mvn_cdf"`.
+#'
+#' @param metropolis_iter An optional integer specifying the amount of iterations to run the Metropolis-Hastings algorithm for the `metropolis` method. The default value is `5`. This argument is only applicable when `method = "metropolis"`.
 #'
 #' @param ... Added for compability
 #'
@@ -336,6 +339,7 @@ run_em <- function(object = NULL,
                    mvncdf_method = "genz",
                    mvncdf_error = 1e-5,
                    mvncdf_samples = 5000,
+                   metropolis_iter = 5,
                    ...) {
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint
@@ -391,6 +395,9 @@ run_em <- function(object = NULL,
         object$mvncdf_samples <- if ("mvncdf_samples" %in% names(all_params)) all_params$mvncdf_samples else 5000
         # Montecarlo error
         object$mvncdf_error <- if ("mvncdf_error" %in% names(all_params)) all_params$mvncdf_error else 1e-6
+    } else if (method == "metropolis") {
+        # Metropolis iterations method
+        object$metropolis_iter <- if ("metropolis_iter" %in% names(all_params)) all_params$metropolis_iter else 5
     }
 
     W <- if (is.null(object$W_agg)) object$W else object$W_agg
@@ -409,8 +416,9 @@ run_em <- function(object = NULL,
         as.integer(if (!is.null(object$mcmc_stepsize)) object$mcmc_stepsize else 1000),
         as.integer(if (!is.null(object$mcmc_samples)) object$mcmc_samples else 3000),
         if (!is.null(object$mvncdf_method)) object$mvncdf_method else "genz",
+        as.numeric(if (!is.null(object$mvncdf_error)) object$mvncdf_error else 1e-6),
         as.numeric(if (!is.null(object$mvncdf_samples)) object$mvncdf_samples else 5000),
-        as.numeric(if (!is.null(object$mvncdf_error)) object$mvncdf_error else 1e-6)
+        as.integer(if (!is.null(object$metropolis_iter)) object$metropolis_iter else 5)
     )
     # ---------- ... ---------- #
 
@@ -594,6 +602,7 @@ bootstrap <- function(object = NULL,
     mvncdf_method <- ""
     mvncdf_samples <- 0L
     mvncdf_error <- 0.0
+    metropolis_iter <- 5L
 
     if (method == "mcmc") {
         mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
@@ -607,6 +616,13 @@ bootstrap <- function(object = NULL,
         mvncdf_error <- if (!is.null(all_params$mvncdf_error)) all_params$mvncdf_error else 1e-6
         mcmc_stepsize <- 0L
         mcmc_samples <- 0L
+    } else if (method == "metropolis") {
+        mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
+        mcmc_samples <- if (!is.null(all_params$mcmc_samples)) all_params$mcmc_samples else 1000
+        metropolis_iter <- if (!is.null(all_params$metropolis_iter)) all_params$metropolis_iter else 5L
+        mvncdf_method <- ""
+        mvncdf_samples <- 0L
+        mvncdf_error <- 0.0
     }
 
     # Call C bootstrap function
@@ -625,7 +641,8 @@ bootstrap <- function(object = NULL,
         as.integer(mcmc_samples),
         as.character(mvncdf_method),
         as.double(mvncdf_error),
-        as.integer(mvncdf_samples)
+        as.integer(mvncdf_samples),
+        as.integer(metropolis_iter)
     )
 
     object$sd <- result
@@ -799,6 +816,7 @@ get_agg_proxy <- function(object = NULL,
     mvncdf_method <- ""
     mvncdf_samples <- 0L
     mvncdf_error <- 0.0
+    metropolis_iter <- 5L
 
     if (method == "mcmc") {
         mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
@@ -812,6 +830,13 @@ get_agg_proxy <- function(object = NULL,
         mvncdf_error <- if (!is.null(all_params$mvncdf_error)) all_params$mvncdf_error else 1e-6
         mcmc_stepsize <- 0L
         mcmc_samples <- 0L
+    } else if (method == "metropolis") {
+        mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
+        mcmc_samples <- if (!is.null(all_params$mcmc_samples)) all_params$mcmc_samples else 1000
+        metropolis_iter <- if (!is.null(all_params$metropolis_iter)) all_params$metropolis_iter else 5L
+        mvncdf_method <- ""
+        mvncdf_samples <- 0L
+        mvncdf_error <- 0.0
     }
 
     result <- groupAgg(
@@ -832,7 +857,8 @@ get_agg_proxy <- function(object = NULL,
         as.integer(mcmc_samples),
         as.character(mvncdf_method),
         as.double(mvncdf_error),
-        as.integer(mvncdf_samples)
+        as.integer(mvncdf_samples),
+        as.integer(metropolis_iter)
     )
 
     # If the returned matrix isn't the best non-feasible result
@@ -993,6 +1019,7 @@ get_agg_opt <- function(object = NULL,
     mvncdf_method <- ""
     mvncdf_samples <- 0L
     mvncdf_error <- 0.0
+    metropolis_iter <- 5L
 
     if (method == "mcmc") {
         mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
@@ -1006,7 +1033,15 @@ get_agg_opt <- function(object = NULL,
         mvncdf_error <- if (!is.null(all_params$mvncdf_error)) all_params$mvncdf_error else 1e-6
         mcmc_stepsize <- 0L
         mcmc_samples <- 0L
+    } else if (method == "metropolis") {
+        mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
+        mcmc_samples <- if (!is.null(all_params$mcmc_samples)) all_params$mcmc_samples else 1000
+        metropolis_iter <- if (!is.null(all_params$metropolis_iter)) all_params$metropolis_iter else 5L
+        mvncdf_method <- ""
+        mvncdf_samples <- 0L
+        mvncdf_error <- 0.0
     }
+
 
     result <- groupAggGreedy(
         as.character(sd_statistic),
@@ -1025,7 +1060,8 @@ get_agg_opt <- function(object = NULL,
         as.integer(mcmc_samples),
         as.character(mvncdf_method),
         as.double(mvncdf_error),
-        as.integer(mvncdf_samples)
+        as.integer(mvncdf_samples),
+        as.integer(metropolis_iter)
     )
 
     if (result$indices[[1]] == -1) {

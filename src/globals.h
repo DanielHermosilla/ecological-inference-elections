@@ -70,26 +70,29 @@ extern "C"
         Matrix probabilities; // G×C
         double *q;            // B×G×C
         double *predicted_votes;
+        int iteration;
 
-        // tamaños
+        // Sizes
         uint32_t B; // TOTAL_BALLOTS
         uint16_t C; // TOTAL_CANDIDATES
         uint16_t G; // TOTAL_GROUPS
 
-        // auxiliares precomputados
+        // Precomputation
         uint16_t *ballots_votes;    // length B
         double *inv_ballots_votes;  // length B
         uint32_t *candidates_votes; // length C
         uint32_t *group_votes;      // length G
         double total_votes;
 
-        // estructuras para el muestreo
+        // Precomputation
         OmegaSet **omegaset;  // length B
         Set *kset;            // length B
         Set *hset;            // length B
         double **multinomial; // [b][s]
         double *logGamma;     // length max(W)
         double **Qconstant;   // [b][s]
+        Matrix metropolisProbability;
+
     } EMContext;
 
     typedef struct

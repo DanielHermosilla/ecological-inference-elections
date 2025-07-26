@@ -81,6 +81,7 @@ EMContext *createEMContext(Matrix *X, Matrix *W, const char *method, QMethodInpu
     ctx->intW = copMatrixDI(W);
     ctx->probabilities = createMatrix(ctx->G, ctx->C);
     ctx->q = (double *)Calloc(ctx->B * ctx->C * ctx->G, double);
+    ctx->iteration = 0;
 
     ctx->ballots_votes = Calloc(ctx->B, uint16_t);
     ctx->inv_ballots_votes = Calloc(ctx->B, double);
@@ -495,7 +496,8 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
         // ---- Timer for the current iteration
         clock_gettime(CLOCK_MONOTONIC, &iter_start);
         *iterTotal = i;
-        config.params.iters = i; // Update the iteration number in the parameters
+        // config.params.iters = i; // Update the iteration number in the parameters
+        ctx->iteration = i;
         config.computeQ(ctx, config.params, &newLL);
         memcpy(oldProbabilities.data, ctx->probabilities.data,
                sizeof(double) * oldProbabilities.rows * oldProbabilities.cols);
@@ -613,6 +615,10 @@ void cleanup(EMContext *ctx)
     if (ctx->probabilities.data != NULL)
     {
         freeMatrix(&ctx->probabilities);
+    }
+    if (ctx->metropolisProbability.data != NULL)
+    {
+        freeMatrix(&ctx->metropolisProbability);
     }
     if (ctx->q != NULL)
     {

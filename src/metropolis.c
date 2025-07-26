@@ -184,7 +184,8 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
         }
         Free(ctx->omegaset);
     }
-    Matrix *probabilities = &ctx->probabilities; // Get the probabilities matrix
+    Matrix *probabilities = &ctx->probabilities;           // Get the probabilities matrix
+    ctx->metropolisProbability = copMatrix(probabilities); // Copy the probabilities matrix for the metropolis method
     ctx->omegaset = Calloc(TOTAL_BALLOTS, OmegaSet *);
     uint8_t *c1 = NULL;
     uint8_t *c2 = NULL;
@@ -344,27 +345,19 @@ static double computeQ(EMContext *ctx)
             borrar2 += firstTerm * w_bg;
         }
     }
-    // Rprintf("----------\nQ: %f + %f + %f\n", borrar2, borrar, -thirdTerm);
 
     return total;
 }
 
-void computeQMetropolis(EMContext *ctx, QMethodInput params, double *ll)
+void computeQhastingIteration(EMContext *ctx, double *ll)
 {
-    // *iter = &params.iter;
     Matrix *X = &ctx->X;
     Matrix *W = &ctx->W;
     IntMatrix *intX = &ctx->intX;
     IntMatrix *intW = &ctx->intW;
     double *q = ctx->q;
     Matrix *probabilities = &ctx->probabilities;
-    generateOmegaSetMetropolis(ctx, params.M, params.S);
-    encode(ctx);
-    // ---...--- //
 
-    // ---- Use a static assignment since the workload is even between threads ----
-
-    *ll = 0;
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // --- For each ballot box
         OmegaSet *currentSet = ctx->omegaset[b];
@@ -385,8 +378,8 @@ void computeQMetropolis(EMContext *ctx, QMethodInput params, double *ll)
             { // --- For each candidate given a group and a ballot box
                 // ---- Obtain the summatory over all of the values ---- //
                 int num = 0.0;
-                for (int s = 0; s < currentSet->size; s++) // Iterar por cada sample del ballot box
-                {                                          // --- For each sample
+                for (int s = 0; s < currentSet->size; s++)
+                { // --- For each sample
                     IntMatrix currentMatrix = currentSet->data[s];
                     num += (MATRIX_AT(currentMatrix, g, c));
                 }
@@ -396,35 +389,128 @@ void computeQMetropolis(EMContext *ctx, QMethodInput params, double *ll)
                 // ---...--- //
             } // --- End candidate loop
         } // --- End group loop
-
-        // ---- Calculate the log-likelihood ---- //
-        /*
-        double sum_exp_num = 0.0;
-        double v = 0;
-        for (int i = 0; i < currentSet->size; i++)
-        { // --- For each sample
-            v = exp(multiplicationValues[i]);
-            sum_exp_num += v;
-        }
-        for (int i = 0; i < currentSet->size; i++)
-        { // --- For each sample
-            double val = exp(multiplicationValues[i]) / sum_exp_num;
-            *ll -= val * log(currentSet->counts[i] * val);
-            *ll += ctx->Qconstant[b][i] * val; // New term
-        }
-         */
-        // ---...--- //
-
-        // ---- Free allocated memory ---- //
         if (currentSet->size > 10000)
             Free(multiplicationValues);
-        // ---...--- //
-    } // --- End ballot box loop
-
-    // Calculo Q
-    /*
-    double toprint = computeQ(ctx);
-*/
-    // *ll += computeQ(array2, probabilities);
-    *ll += 0;
+    }
 }
+
+void computeQhastingMidIteration(EMContext *ctx, double *ll)
+{
+    Matrix *X = &ctx->X;
+    Matrix *W = &ctx->W;
+    IntMatrix *intX = &ctx->intX;
+    IntMatrix *intW = &ctx->intW;
+    double *q = ctx->q;
+    Matrix *probabilities = &ctx->probabilities;
+    Matrix *metropolisProbability = &ctx->metropolisProbability;
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    { // --- For each ballot box
+        OmegaSet *currentSet = ctx->omegaset[b];
+        double *multiplicationValues = (currentSet->size <= 10000) ? (double[10000]){1}                // Stack
+                                                                   : Calloc(currentSet->size, double); // Heap
+        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+        { // --- For each group given a ballot box
+            double W_bg = MATRIX_AT_PTR(W, b, g);
+            if (W_bg == 0)
+            {
+                for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+                {
+                    Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = 0;
+                }
+                continue;
+            }
+
+            // --- Precompute multiplicationValues for this (b, g) combination ---
+            double max = -DBL_MAX;
+            for (size_t s = 0; s < currentSet->size; s++)
+            {                                                  // --- For each sample given a group and a ballot box
+                IntMatrix currentMatrix = currentSet->data[s]; // Z
+                double a_i = logarithmicProduct(ctx, b, s);    // $\sum_{g\in G}\sum_{c\in C}z_{bgc}*\log(p_{gc})+$
+                multiplicationValues[s] = a_i;
+
+                max = multiplicationValues[s] > max ? multiplicationValues[s] : max;
+            }
+            // ---- Shift the values by the maximum
+            for (size_t s = 0; s < currentSet->size; s++)
+            {
+                multiplicationValues[s] -= max;
+            }
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            { // --- For each candidate given a group and a ballot box
+                // ---- Obtain the summatory over all of the values ---- //
+                double sum_exp_den = 0.0;
+                double sum_exp_num = 0.0;
+                double v = 0;
+                for (int i = 0; i < currentSet->size; i++)
+                {                                     // --- For each sample
+                    v = exp(multiplicationValues[i]); // exp(ls - m)
+                    sum_exp_num += v;
+                    IntMatrix currentMatrix = currentSet->data[i];
+                    sum_exp_den += (MATRIX_AT(currentMatrix, g, c) / W_bg) * v;
+                }
+                double log_sum_exp_num = log(sum_exp_num);
+                double result = exp(log(sum_exp_den) - log_sum_exp_num);
+                Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) =
+                    !isnan(result) && !isinf(result) ? result : 0;
+                // ---...--- //
+            } // --- End candidate loop
+        } // --- End group loop
+
+        if (currentSet->size > 10000)
+            Free(multiplicationValues);
+    }
+}
+
+void computeQMetropolis(EMContext *ctx, QMethodInput params, double *ll)
+{
+    int *SamplingIter = &params.iters;
+    int *currentIter = &ctx->iteration;
+    Matrix *X = &ctx->X;
+    Matrix *W = &ctx->W;
+    IntMatrix *intX = &ctx->intX;
+    IntMatrix *intW = &ctx->intW;
+    double *q = ctx->q;
+    Matrix *probabilities = &ctx->probabilities;
+    // ---...--- //
+
+    *ll = 0;
+    if (ctx->iteration % params.iters == 0)
+    {
+        generateOmegaSetMetropolis(ctx, params.M, params.S);
+        encode(ctx);
+        computeQhastingIteration(ctx, ll);
+        return;
+    }
+    else
+    {
+        computeQhastingMidIteration(ctx, ll);
+        return;
+    }
+
+    // ---- Calculate the log-likelihood ---- //
+    /*
+    double sum_exp_num = 0.0;
+    double v = 0;
+    for (int i = 0; i < currentSet->size; i++)
+    { // --- For each sample
+        v = exp(multiplicationValues[i]);
+        sum_exp_num += v;
+    }
+    for (int i = 0; i < currentSet->size; i++)
+    { // --- For each sample
+        double val = exp(multiplicationValues[i]) / sum_exp_num;
+        *ll -= val * log(currentSet->counts[i] * val);
+        *ll += ctx->Qconstant[b][i] * val; // New term
+    }
+     */
+    // ---...--- //
+
+    // ---- Free allocated memory ---- //
+    // ---...--- //
+} // --- End ballot box loop
+
+// Calculo Q
+/*
+double toprint = computeQ(ctx);
+*/
+// *ll += computeQ(array2, probabilities);

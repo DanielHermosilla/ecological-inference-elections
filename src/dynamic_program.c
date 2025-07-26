@@ -580,7 +580,7 @@ typedef struct
     int bestFinishReason;
     int bestIterTotal;
     int *bestBoundaries;
-    int *bestExpected;
+    double *bestExpected;
     int bestGroupCount;
 } ExhaustiveResult;
 

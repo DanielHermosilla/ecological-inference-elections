@@ -48,7 +48,7 @@ Matrix convertToMatrix(const Rcpp::NumericMatrix &mat)
 
 // ---- Helper Function: Initialize QMethodInput ---- //
 QMethodInput initializeQMethodInput(const std::string &EMAlg, int samples, int step_size, int monte_iter,
-                                    double monte_error, const std::string &monte_method)
+                                    double monte_error, int metropolisIter, const std::string &monte_method)
 {
     QMethodInput inputParams = {0}; // Default initialization
 
@@ -63,8 +63,12 @@ QMethodInput initializeQMethodInput(const std::string &EMAlg, int samples, int s
         inputParams.errorThreshold = monte_error;
         inputParams.simulationMethod = strdup(monte_method.c_str());
     }
+    if (EMAlg == "metropolis")
+    {
+        inputParams.iters = metropolisIter;
+    }
 
-    inputParams.iters = 0;
+    // inputParams.iters = 0;
 
     return inputParams;
 }
@@ -107,7 +111,8 @@ Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMa
                            Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
                            Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold,
                            Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples,
-                           Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter)
+                           Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter,
+                           Rcpp::IntegerVector metropolis_iter)
 {
     std::string probabilityM = probability_method;
     std::string EMAlg = em_method;
@@ -118,8 +123,8 @@ Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMa
     Matrix W;
     RsetParameters(candidate_matrix, group_matrix, &X, &W);
 
-    QMethodInput inputParams =
-        initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], monte_method);
+    QMethodInput inputParams = initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0],
+                                                      metropolis_iter[0], monte_method);
 
     EMContext *ctx = EMAlgoritm(&X, &W, probabilityM.c_str(), EMAlg.c_str(), stopping_threshold[0],
                                 log_stopping_threshold[0], maximum_iterations[0], maximum_seconds[0], verbose[0],
@@ -171,7 +176,8 @@ Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
                                  Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold,
                                  Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size,
                                  Rcpp::IntegerVector samples, Rcpp::String monte_method,
-                                 Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter)
+                                 Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter,
+                                 Rcpp::IntegerVector metropolis_iter)
 {
     if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
         Rcpp::stop("Error: X matrix has zero dimensions!");
@@ -186,8 +192,8 @@ Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
     std::string EMAlg = em_method;
     // cleanGlobals(EMAlg, false); // Cleans leftovers
 
-    QMethodInput inputParams =
-        initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], monte_method);
+    QMethodInput inputParams = initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0],
+                                                      metropolis_iter[0], monte_method);
 
     Matrix sdResult =
         bootstrapA(&XR, &WR, nboot[0], EMAlg.c_str(), probabilityM.c_str(), stopping_threshold[0],
@@ -217,7 +223,8 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
                     Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold,
                     Rcpp::NumericVector log_stopping_threshold, Rcpp::LogicalVector verbose,
                     Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method,
-                    Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter)
+                    Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter,
+                    Rcpp::IntegerVector metropolis_iter)
 {
     if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
         Rcpp::stop("Error: X matrix has zero dimensions!");
@@ -233,8 +240,8 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
     std::string aggMet = sd_statistic;
     // cleanGlobals(EMAlg, false); // Cleans leftovers
 
-    QMethodInput inputParams =
-        initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], monte_method);
+    QMethodInput inputParams = initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0],
+                                                      metropolis_iter[0], monte_method);
 
     // We'll hold the boundary indices here
     int G = WR.cols;
@@ -291,7 +298,8 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
                           Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
                           Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold,
                           Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples,
-                          Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter)
+                          Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter,
+                          Rcpp::IntegerVector metropolis_iter)
 {
 
     if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
@@ -323,8 +331,8 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
     int numCuts = 0;
     Matrix *bestBootstrap = NULL;
 
-    QMethodInput inputParams =
-        initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], monte_method);
+    QMethodInput inputParams = initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0],
+                                                      metropolis_iter[0], monte_method);
 
     Matrix greedyP =
         aggregateGroupsExhaustive(&XR, &WR, boundaries, &numCuts, set_method.c_str(), nboot[0], sd_threshold[0],
