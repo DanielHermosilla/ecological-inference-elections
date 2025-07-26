@@ -26,7 +26,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">fastei</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.8</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,7 +45,7 @@
     <li><a class="dropdown-item" href="../reference/get_agg_opt.html">get_agg_opt()</a></li>
     <li><a class="dropdown-item" href="../reference/get_agg_proxy.html">get_agg_proxy()</a></li>
     <li><a class="dropdown-item" href="../reference/waldtest.html">waldtest()</a></li>
-    <li><a class="dropdown-item" href="../reference/get_XW_chile.html">get_XW_chile()</a></li>
+    <li><a class="dropdown-item" href="../reference/get_eim_chile.html">get_eim_chile()</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Index</a></li>
@@ -73,7 +73,7 @@
                         <h4 data-toc-skip class="author">Charles
 Thraves, Pablo Ubilla, Daniel Hermosilla</h4>
             
-            <h4 data-toc-skip class="date">2025-07-19</h4>
+            <h4 data-toc-skip class="date">2025-07-25</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/DanielHermosilla/ecological-inference-elections/blob/HEAD/vignettes/demonstration.Rmd" class="external-link"><code>vignettes/demonstration.Rmd</code></a></small>
       <div class="d-none name"><code>demonstration.Rmd</code></div>
@@ -246,20 +246,24 @@ distribution of groups across ballot boxes is used, which ensures
 standard deviations are below a specific threshold. The package provides
 the following function for the latter:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">eim_nav_proxy</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_proxy.html">get_agg_proxy</a></span><span class="op">(</span><span class="va">eim_nav</span>, seed <span class="op">=</span> <span class="fl">6</span>, sd_threshold <span class="op">=</span> <span class="fl">0.03</span>, sd_statistic <span class="op">=</span> <span class="st">"maximum"</span><span class="op">)</span></span>
-<span><span class="va">eim_nav_proxy</span><span class="op">$</span><span class="va">group_agg</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="va">eim_nav_proxy</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_proxy.html">get_agg_proxy</a></span><span class="op">(</span><span class="va">eim_nav</span>, seed <span class="op">=</span> <span class="fl">6</span>, sd_threshold <span class="op">=</span> <span class="fl">0.03</span>, sd_statistic <span class="op">=</span> <span class="st">"maximum"</span><span class="op">)</span></span></code></pre></div>
+<pre><code><span><span class="co">## Matrix (2x8):</span></span>
+<span><span class="co">## | 0.011  0.011   0.015   0.011   0.003   0.006   0.005   0.003 |</span></span>
+<span><span class="co">## | 0.010  0.015   0.019   0.007   0.003   0.006   0.005   0.002 |</span></span></code></pre>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">eim_nav_proxy</span><span class="op">$</span><span class="va">group_agg</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] 4 8</span></span></code></pre>
 <p>As shown in the output, the heuristic finds a group aggregation that
 merges the first and last four age ranges, namely, macro-groups with
 voters aged 18-49, and older than 50. We can evaluate the effectiveness
 of this grouping by comparing the mean standard deviation to the
 original formulation:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">eim_nav</span><span class="op">$</span><span class="va">sd</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">eim_nav_proxy</span><span class="op">$</span><span class="va">sd</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] 0.07432595</span></span></code></pre>
 <p>It is possible to see the aggregated standard deviations
 visually:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">plot_matrix</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">mat</span>, <span class="va">sd</span> <span class="op">=</span> <span class="cn">FALSE</span>, <span class="va">y_labels</span> <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span> <span class="op">{</span></span>
 <span>    <span class="co"># Initial configurations</span></span>
 <span>    <span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="va">sd</span><span class="op">)</span> <span class="va">mat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="va">mat</span><span class="op">)</span></span>
@@ -312,7 +316,7 @@ visually:</p>
 <span><span class="op">}</span></span></code></pre></div>
 <p>We can visualize the standard deviations of the estimated
 probabilities.</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">plot_matrix</span><span class="op">(</span><span class="va">eim_nav_proxy</span><span class="op">$</span><span class="va">sd</span>, sd <span class="op">=</span> <span class="cn">TRUE</span>, y_labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"X18.49"</span>, <span class="st">"X50."</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
 <img src="demonstration_files/figure-html/standard_deviation_proxy-1.png" alt="Navidad aggregated standard deviation with proxy method" width="768"><p class="caption">
@@ -324,7 +328,7 @@ all combinations of adjacent groups in order to maximize the
 log-likelihood subject to having standard deviations below a given
 threshold. It might require substantial computation time; therefore it
 is recommended to use the default method, “mult”.</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_nav_opt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_agg_opt.html">get_agg_opt</a></span><span class="op">(</span><span class="va">eim_nav</span>, seed <span class="op">=</span> <span class="fl">0</span>, sd_threshold <span class="op">=</span> <span class="fl">0.03</span>, sd_statistic <span class="op">=</span> <span class="st">"maximum"</span><span class="op">)</span></span>
 <span><span class="va">eim_nav_opt</span><span class="op">$</span><span class="va">group_agg</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] 2 4 8</span></span></code></pre>
@@ -333,7 +337,7 @@ before. In this case, the group aggregation consists in the three age
 range: 18-29, 30-49, and older than 70.</p>
 <p>We can visualize the standard deviations of the estimated
 probabilities.</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">plot_matrix</span><span class="op">(</span><span class="va">eim_nav_opt</span><span class="op">$</span><span class="va">sd</span>, sd <span class="op">=</span> <span class="cn">TRUE</span>, y_labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"X18.29"</span>, <span class="st">"X30.49"</span>, <span class="st">"X50."</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
 <img src="demonstration_files/figure-html/standard_deviation_opt-1.png" alt="Navidad aggregated standard deviation with opt method" width="768"><p class="caption">
@@ -349,7 +353,7 @@ probability estimates of two sets of data, such as two different
 districts. For instance, we can compare the estimated probabilities of
 the district “LO BARNECHEA” and “LA GRANJA”, whose voting tendencies are
 expected to differ.</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_gra</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_eim_chile.html">get_eim_chile</a></span><span class="op">(</span><span class="st">"LA GRANJA"</span><span class="op">)</span></span>
 <span><span class="va">eim_gra</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_gra</span><span class="op">)</span></span>
 <span><span class="va">eim_bar</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_eim_chile.html">get_eim_chile</a></span><span class="op">(</span><span class="st">"LO BARNECHEA"</span><span class="op">)</span></span>
@@ -363,7 +367,7 @@ Lo Barnechea and La Granja comparison
 </div>
 <p>A Wald test can be applied to each component of the two probability
 matrix estimates:</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">comparison2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/waldtest.html">waldtest</a></span><span class="op">(</span></span>
 <span>    object1 <span class="op">=</span> <span class="va">eim_gra</span>,</span>
 <span>    object2 <span class="op">=</span> <span class="va">eim_bar</span>,</span>
@@ -386,7 +390,7 @@ matrix estimates:</p>
 boxes within a given region are partitioned into equally sized groups.
 In this configuration, both groups are expected to exhibit identical
 probability distributions.</p>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eimRM</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/get_eim_chile.html">get_eim_chile</a></span><span class="op">(</span>region <span class="op">=</span> <span class="st">"METROPOLITANA DE SANTIAGO"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">eimRM</span><span class="op">$</span><span class="va">X</span><span class="op">)</span></span>
@@ -405,7 +409,7 @@ probability distributions.</p>
 Equally sorted districts comparison
 </p>
 </div>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">comparison2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/waldtest.html">waldtest</a></span><span class="op">(</span></span>
 <span>    object1 <span class="op">=</span> <span class="va">eimRMhalf1</span>,</span>
 <span>    object2 <span class="op">=</span> <span class="va">eimRMhalf2</span>,</span>
@@ -431,7 +435,7 @@ Equally sorted districts comparison
 as an eim object with the simulated probability. This is useful for
 testing the package’s performance and comparing the different methods
 available.</p>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_election.html">simulate_election</a></span><span class="op">(</span>num_ballots <span class="op">=</span> <span class="fl">15</span>, num_groups <span class="op">=</span> <span class="fl">2</span>, num_candidates <span class="op">=</span> <span class="fl">3</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
 <span><span class="va">eim_sim</span></span></code></pre></div>
 <pre><code><span><span class="co">## eim ecological inference model</span></span>
@@ -457,7 +461,7 @@ available.</p>
 <span><span class="co">## .</span></span></code></pre>
 <p>The real voting probabilities of each group for each candidate can be
 obtained as follows:</p>
-<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim</span><span class="op">$</span><span class="va">real_prob</span></span></code></pre></div>
 <pre><code><span><span class="co">##           [,1]      [,2]      [,3]</span></span>
 <span><span class="co">## [1,] 0.2588692 0.3615164 0.3796145</span></span>
@@ -465,7 +469,7 @@ obtained as follows:</p>
 <p>In this case, we can access these values since this is a simulation;
 however, this is not possible when working with real data.</p>
 <p>The estimated voting probabilities are:</p>
-<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_sim</span><span class="op">)</span></span>
 <span><span class="va">eim_sim</span><span class="op">$</span><span class="va">prob</span></span></code></pre></div>
 <pre><code><span><span class="co">##           [,1]      [,2]      [,3]</span></span>
@@ -473,13 +477,13 @@ however, this is not possible when working with real data.</p>
 <span><span class="co">## [2,] 0.3014838 0.1827996 0.5157166</span></span></code></pre>
 <p>It is possible to provide a specific voting probability for each
 candidate for each group.</p>
-<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">input_probability</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.9</span>, <span class="fl">0.05</span>, <span class="fl">0.05</span>, <span class="fl">0.2</span>, <span class="fl">0.3</span>, <span class="fl">0.5</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">2</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="va">input_probability</span></span></code></pre></div>
 <pre><code><span><span class="co">##      [,1] [,2] [,3]</span></span>
 <span><span class="co">## [1,]  0.9 0.05 0.05</span></span>
 <span><span class="co">## [2,]  0.2 0.30 0.50</span></span></code></pre>
-<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_election.html">simulate_election</a></span><span class="op">(</span></span>
 <span>    num_ballots <span class="op">=</span> <span class="fl">30</span>, num_groups <span class="op">=</span> <span class="fl">2</span>, num_candidates <span class="op">=</span> <span class="fl">3</span>, seed <span class="op">=</span> <span class="fl">42</span>,</span>
 <span>    prob <span class="op">=</span> <span class="va">input_probability</span></span>
@@ -506,7 +510,7 @@ candidate for each group.</p>
 <span><span class="co">## .</span></span>
 <span><span class="co">## .</span></span>
 <span><span class="co">## .</span></span></code></pre>
-<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim2</span><span class="op">$</span><span class="va">real_prob</span></span></code></pre></div>
 <pre><code><span><span class="co">##      [,1] [,2] [,3]</span></span>
 <span><span class="co">## [1,]  0.9 0.05 0.05</span></span>
@@ -517,12 +521,12 @@ voters are all randomly assigned in ballot boxes; in contrast to lambda
 = 1, in which case voters are assigned in ballot boxes according to
 their demographic group. This is explained in detail in the
 documentation in <code><a href="../reference/simulate_election.html">simulate_election()</a></code>.</p>
-<div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb40"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim3</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_election.html">simulate_election</a></span><span class="op">(</span></span>
 <span>    num_ballots <span class="op">=</span> <span class="fl">20</span>, num_groups <span class="op">=</span> <span class="fl">4</span>, num_candidates <span class="op">=</span> <span class="fl">2</span>, seed <span class="op">=</span> <span class="fl">42</span>,</span>
 <span>    lambda <span class="op">=</span> <span class="fl">0.1</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb41"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">plot_matrix</span><span class="op">(</span><span class="va">eim_sim3</span><span class="op">$</span><span class="va">W</span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
 <img src="demonstration_files/figure-html/eim_sim3_heatmap-1.png" alt="Voters' heatmap for a low lambda value" width="768"><p class="caption">
@@ -530,7 +534,7 @@ Voters’ heatmap for a low lambda value
 </p>
 </div>
 <p>Having the following estimated probabilities:</p>
-<div class="sourceCode" id="cb40"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb42"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_sim3</span><span class="op">)</span><span class="op">$</span><span class="va">prob</span></span></code></pre></div>
 <pre><code><span><span class="co">##           [,1]      [,2]</span></span>
 <span><span class="co">## [1,] 0.3686854 0.6313146</span></span>
@@ -539,12 +543,12 @@ Voters’ heatmap for a low lambda value
 <span><span class="co">## [4,] 0.1805033 0.8194967</span></span></code></pre>
 <p>On the other side, it is possible to simulate an heterogeneous
 sample</p>
-<div class="sourceCode" id="cb42"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb44"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">eim_sim4</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_election.html">simulate_election</a></span><span class="op">(</span></span>
 <span>    num_ballots <span class="op">=</span> <span class="fl">20</span>, num_groups <span class="op">=</span> <span class="fl">4</span>, num_candidates <span class="op">=</span> <span class="fl">2</span>, seed <span class="op">=</span> <span class="fl">42</span>,</span>
 <span>    lambda <span class="op">=</span> <span class="fl">0.9</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb43"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb45"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">plot_matrix</span><span class="op">(</span><span class="va">eim_sim4</span><span class="op">$</span><span class="va">W</span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
 <img src="demonstration_files/figure-html/eim_sim4_heatmap-1.png" alt="Voters' heatmap for a high lambda value" width="768"><p class="caption">
@@ -552,7 +556,7 @@ Voters’ heatmap for a high lambda value
 </p>
 </div>
 <p>With the underlying probabilities</p>
-<div class="sourceCode" id="cb44"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb46"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">eim_sim4</span><span class="op">)</span><span class="op">$</span><span class="va">prob</span></span></code></pre></div>
 <pre><code><span><span class="co">##           [,1]      [,2]</span></span>
 <span><span class="co">## [1,] 0.3731878 0.6268122</span></span>
