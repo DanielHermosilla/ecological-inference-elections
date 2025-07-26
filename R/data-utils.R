@@ -36,7 +36,7 @@
 #' # Use it with group aggregation
 #' agg_result <- get_agg_proxy(
 #'     object = eim_obj,
-#'     sd_threshold = 0.03,
+#'     sd_threshold = 0.05,
 #'     allow_mismatch = TRUE,
 #'     seed = 123
 #' )

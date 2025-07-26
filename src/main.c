@@ -131,6 +131,28 @@ EMContext *createEMContext(Matrix *X, Matrix *W, const char *method, QMethodInpu
     return ctx;
 }
 
+/*
+ * @brief Computes the predicted votes outcome for each ballot box
+ */
+void getPredictedVotes(EMContext *ctx)
+{
+    ctx->predicted_votes = (double *)Calloc(ctx->B * ctx->C * ctx->G, double);
+    double *q = ctx->q;
+
+    for (int b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        for (int g = 0; g < TOTAL_GROUPS; g++)
+        {
+            int W_bg = MATRIX_AT(ctx->intW, b, g);
+            for (int c = 0; c < TOTAL_CANDIDATES; c++)
+            {
+                Q_3D(ctx->predicted_votes, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) +=
+                    W_bg * Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES);
+            }
+        }
+    }
+}
+
 /**
  * @brief Computes the initial probability of the EM algoritm.
  *
@@ -541,6 +563,7 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
     // ---...--- //
 results:
     config.computeQ(ctx, config.params, &newLL);
+    getPredictedVotes(ctx); // Compute the predicted votes for each ballot box
     *logLLarr = newLL;
     *time = elapsed_total;
     return ctx;
@@ -594,6 +617,10 @@ void cleanup(EMContext *ctx)
     if (ctx->q != NULL)
     {
         Free(ctx->q);
+    }
+    if (ctx->predicted_votes != NULL)
+    {
+        Free(ctx->predicted_votes);
     }
     if (ctx->omegaset != NULL)
     {

@@ -69,6 +69,7 @@ extern "C"
         IntMatrix intW;
         Matrix probabilities; // G×C
         double *q;            // B×G×C
+        double *predicted_votes;
 
         // tamaños
         uint32_t B; // TOTAL_BALLOTS

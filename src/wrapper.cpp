@@ -127,6 +127,7 @@ Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMa
 
     Matrix *Pnew = &ctx->probabilities;
     double *qvalue = ctx->q;
+    double *expected = ctx->predicted_votes;
 
     if (inputParams.simulationMethod != nullptr)
     {
@@ -145,15 +146,21 @@ Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMa
     {
         condProb[i] = qvalue[i];
     }
+    Rcpp::NumericVector expectedOut(N);
+    for (std::size_t i = 0; i < N; ++i)
+    {
+        expectedOut[i] = expected[i];
+    }
 
     condProb.attr("dim") = Rcpp::IntegerVector::create(TOTAL_GROUPS, TOTAL_CANDIDATES, TOTAL_BALLOTS);
+    expectedOut.attr("dim") = Rcpp::IntegerVector::create(TOTAL_GROUPS, TOTAL_CANDIDATES, TOTAL_BALLOTS);
 
     cleanup(ctx);
 
     return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = logLLarr,
                               Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter,
                               Rcpp::_["stopping_reason"] = stopping_reason, Rcpp::_["finish_id"] = finish,
-                              Rcpp::_["q"] = condProb);
+                              Rcpp::_["q"] = condProb, Rcpp::_["expected_outcome"] = expectedOut);
 }
 
 // ---- Run Bootstrapping Algorithm ---- //
@@ -305,6 +312,7 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
     double bestLogLL = 0.0;
     double bestTime = 0.0;
     double *bestQ = NULL;
+    double *bestExpected = NULL;
     int finishReason = 0;
     int totalIter = 0;
 
@@ -318,10 +326,11 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
     QMethodInput inputParams =
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], monte_method);
 
-    Matrix greedyP = aggregateGroupsExhaustive(
-        &XR, &WR, boundaries, &numCuts, set_method.c_str(), nboot[0], sd_threshold[0], probabilityM.c_str(),
-        EMAlg.c_str(), stopping_threshold[0], log_stopping_threshold[0], verbose[0], maximum_iterations[0],
-        maximum_seconds[0], &inputParams, &bestLogLL, &bestQ, &bestBootstrap, &bestTime, &finishReason, &totalIter);
+    Matrix greedyP =
+        aggregateGroupsExhaustive(&XR, &WR, boundaries, &numCuts, set_method.c_str(), nboot[0], sd_threshold[0],
+                                  probabilityM.c_str(), EMAlg.c_str(), stopping_threshold[0], log_stopping_threshold[0],
+                                  verbose[0], maximum_iterations[0], maximum_seconds[0], &inputParams, &bestLogLL,
+                                  &bestQ, &bestExpected, &bestBootstrap, &bestTime, &finishReason, &totalIter);
 
     if (inputParams.simulationMethod != nullptr)
     {
@@ -359,10 +368,17 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
     {
         condProb[i] = bestQ[i];
     }
+    Rcpp::NumericVector expectedOut(N);
+    for (std::size_t i = 0; i < N; ++i)
+    {
+        expectedOut[i] = bestExpected[i];
+    }
     condProb.attr("dim") = Rcpp::IntegerVector::create(greedyP.rows, greedyP.cols, WR.rows);
+    expectedOut.attr("dim") = Rcpp::IntegerVector::create(greedyP.rows, greedyP.cols, WR.rows);
 
     // condProb.attr("dim") = Rcpp::IntegerVector::create(WR.rows, greedyP.rows, XR.rows); // (b, A, c)
     free(bestQ);
+    free(bestExpected);
     freeMatrix(&greedyP);
     freeMatrix(bestBootstrap);
     Free(bestBootstrap);
@@ -381,6 +397,6 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
     return Rcpp::List::create(Rcpp::_["probabilities"] = probabilities, Rcpp::_["log_likelihood"] = bestLogLL,
                               Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = bestTime,
                               Rcpp::_["stopping_reason"] = stopping_reason, Rcpp::_["finish_id"] = finishReason,
-                              Rcpp::_["q"] = condProb, Rcpp::_["indices"] = result,
-                              Rcpp::_["bootstrap_sol"] = bootstrapSol);
+                              Rcpp::_["q"] = condProb, Rcpp::_["expected_outcome"] = expectedOut,
+                              Rcpp::_["indices"] = result, Rcpp::_["bootstrap_sol"] = bootstrapSol);
 }

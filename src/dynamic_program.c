@@ -507,7 +507,6 @@ Matrix aggregateGroups(
             {
                 Free(boundaries);
             }
-            printMatrix(&bootstrapMatrix);
             return bootstrapMatrix;
         }
         // --- Case it is a better candidate than before
@@ -581,6 +580,7 @@ typedef struct
     int bestFinishReason;
     int bestIterTotal;
     int *bestBoundaries;
+    int *bestExpected;
     int bestGroupCount;
 } ExhaustiveResult;
 
@@ -692,6 +692,8 @@ static void enumerateAllPartitions(int start, int G, int *currentBoundaries, int
                     freeMatrix(res->bestMat), Free(res->bestMat);
                 if (res->bestq)
                     Free(res->bestq);
+                if (res->bestExpected)
+                    Free(res->bestExpected);
                 if (res->bestBoundaries)
                     Free(res->bestBoundaries);
 
@@ -702,11 +704,13 @@ static void enumerateAllPartitions(int start, int G, int *currentBoundaries, int
                 res->bestIterTotal = totalIter;
 
                 res->bestq = qvals;
-                qvals = NULL; // prevent double‐free
+                res->bestExpected = ctx->predicted_votes;
+                ctx->predicted_votes = NULL; // prevent double‐free
+                qvals = NULL;                // prevent double‐free
 
                 // deep‐copy matrices
                 res->bestMat = (Matrix *)Calloc(1, Matrix);
-                *res->bestMat = ctx->probabilities;
+                *res->bestMat = copMatrix(&ctx->probabilities);
                 res->bestBootstrap = (Matrix *)Calloc(1, Matrix);
                 *res->bestBootstrap = copMatrix(&bootstrapedMat);
                 freeMatrix(&bootstrapedMat);
@@ -718,14 +722,15 @@ static void enumerateAllPartitions(int start, int G, int *currentBoundaries, int
                     res->bestBoundaries[i] = currentBoundaries[i];
             }
         }
-        else
-        {
-            // cleanup non‐best branch
-            // freeMatrix(&finalP);
-            cleanup(ctx);
-            // if (qvals)
-            //    Free(qvals);
-        }
+        // else
+        //  {
+        //  cleanup non‐best branch
+        //  freeMatrix(&finalP);
+        cleanup(ctx);
+        freeMatrix(&merged);
+        // if (qvals)
+        //    Free(qvals);
+        //}
         return;
     }
 
@@ -742,7 +747,8 @@ Matrix aggregateGroupsExhaustive(Matrix *xmat, Matrix *wmat, int *results, int *
                                  int bootiter, double max_qual, const char *p_method, const char *q_method,
                                  double convergence, double log_convergence, bool verbose, int maxIter,
                                  double maxSeconds, QMethodInput *inputParams, double *outBestLL, double **outBestQ,
-                                 Matrix **bestBootstrap, double *outBestTime, int *outFinishReason, int *outIterTotal)
+                                 double **bestExpected, Matrix **bestBootstrap, double *outBestTime,
+                                 int *outFinishReason, int *outIterTotal)
 {
     int G = wmat->cols;
 
@@ -809,6 +815,8 @@ Matrix aggregateGroupsExhaustive(Matrix *xmat, Matrix *wmat, int *results, int *
         *outIterTotal = res.bestIterTotal;
     if (bestBootstrap)
         *bestBootstrap = res.bestBootstrap;
+    if (bestExpected)
+        *bestExpected = res.bestExpected, res.bestExpected = NULL;
 
     // copy & clean up
     Matrix bestCopy = copMatrix(res.bestMat);

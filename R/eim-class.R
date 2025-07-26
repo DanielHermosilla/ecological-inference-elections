@@ -257,7 +257,8 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' The function returns an `eim` object with the function arguments and the following attributes:
 #' \describe{
 #'   \item{prob}{The estimated probability matrix `(g x c)`.}
-#' 	 \item{cond_prob}{A `(b x g x c)` 3d-array with the probability that a at each ballot-box a voter of each group voted for each candidate, given the observed outcome at the particular ballot-box.}
+#' 	 \item{cond_prob}{A `(g x c x b)` 3d-array with the probability that a at each ballot-box a voter of each group voted for each candidate, given the observed outcome at the particular ballot-box.}
+#' 	 \item{expected_outcome}{A `(g x c x b) 3d-array with the expected votes cast for each ballot box.}
 #'   \item{logLik}{The log-likelihood value from the last iteration.}
 #'   \item{iterations}{The total number of iterations performed by the EM algorithm.}
 #'   \item{time}{The total execution time of the algorithm in seconds.}
@@ -416,6 +417,12 @@ run_em <- function(object = NULL,
     object$cond_prob <- resulting_values$q
     # object$cond_prob <- aperm(resulting_values$q, perm = c(2, 3, 1)) # Correct dimensions
     dimnames(object$cond_prob) <- list(
+        colnames(W),
+        colnames(object$X),
+        rownames(object$X)
+    )
+    object$expected_outcome <- resulting_values$expected_outcome
+    dimnames(object$expected_outcome) <- list(
         colnames(W),
         colnames(object$X),
         rownames(object$X)
@@ -1033,6 +1040,12 @@ get_agg_opt <- function(object = NULL,
     object$cond_prob <- result$q
     # object$cond_prob <- aperm(result$q, perm = c(2, 3, 1)) # Correct dimensions
     dimnames(object$cond_prob) <- list(
+        NULL,
+        colnames(object$X),
+        rownames(object$X)
+    )
+    object$expected_outcome <- result$expected_outcome
+    dimnames(object$expected_outcome) <- list(
         NULL,
         colnames(object$X),
         rownames(object$X)
