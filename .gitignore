@@ -25,3 +25,6 @@ doc/*
 /doc/
 # Remove binaries
 src/**/*.o
+src/**/*.so
+src/**/*.json
+
