@@ -5,9 +5,7 @@
       fontURL: "https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/output/chtml/fonts/woff-v2"
     }
   };
-</script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"><link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet"><script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet"><link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet"><script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Compute the Expected-Maximization Algorithm — run_em"><meta name="description" content="Executes the Expectation-Maximization (EM) algorithm indicating the approximation method to use in the E-step.
-Certain methods may require additional arguments, which can be passed through ... (see fastei-package for more details)."><meta property="og:description" content="Executes the Expectation-Maximization (EM) algorithm indicating the approximation method to use in the E-step.
-Certain methods may require additional arguments, which can be passed through ... (see fastei-package for more details)."></head><body>
+</script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"><link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet"><script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet"><link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet"><script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Compute the Expected-Maximization Algorithm — run_em"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -53,8 +51,6 @@ Certain methods may require additional arguments, which can be passed through ..
     </div>
 
     <div class="ref-description section level2">
-    <p>Executes the Expectation-Maximization (EM) algorithm indicating the approximation method to use in the E-step.
-Certain methods may require additional arguments, which can be passed through <code>...</code> (see <a href="fastei-package.html">fastei-package</a> for more details).</p>
     </div>
 
     <div class="section level2">
@@ -79,6 +75,7 @@ Certain methods may require additional arguments, which can be passed through <c
 <span>  mvncdf_method <span class="op">=</span> <span class="st">"genz"</span>,</span>
 <span>  mvncdf_error <span class="op">=</span> <span class="fl">0.00001</span>,</span>
 <span>  mvncdf_samples <span class="op">=</span> <span class="fl">5000</span>,</span>
+<span>  metropolis_iter <span class="op">=</span> <span class="fl">5</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -109,6 +106,7 @@ options are:</p><ul><li><p><code>mult</code>: The default method, using a single
 <li><p><code>mvn_cdf</code>: Uses a Multivariate Normal CDF distribution to approximate the conditional probability.</p></li>
 <li><p><code>mvn_pdf</code>: Uses a Multivariate Normal PDF distribution to approximate the conditional probability.</p></li>
 <li><p><code>mcmc</code>: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the E-step.</p></li>
+<li><p><code>metropolis</code>: Uses the Metropolis-Hastings algorithm to sample vote outcomes. This is used to estimate the conditional probability of the E-step.</p></li>
 <li><p><code>exact</code>: Solves the E-step using the Total Probability Law.</p></li>
 </ul><p>For a detailed description of each method, see <a href="fastei-package.html">fastei-package</a> and <strong>References</strong>.</p></dd>
 
@@ -188,6 +186,10 @@ when <code>method = "mvn_cdf"</code>.</p></dd>
 samples for the <code>mvn_cdf</code> method. The default value is <code>5000</code>. This argument is only applicable when <code>method = "mvn_cdf"</code>.</p></dd>
 
 
+<dt id="arg-metropolis-iter">metropolis_iter<a class="anchor" aria-label="anchor" href="#arg-metropolis-iter"></a></dt>
+<dd><p>An optional integer specifying the amount of iterations to run the Metropolis-Hastings algorithm for the <code>metropolis</code> method. The default value is <code>5</code>. This argument is only applicable when <code>method = "metropolis"</code>.</p></dd>
+
+
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Added for compability</p></dd>
 
@@ -198,92 +200,45 @@ samples for the <code>mvn_cdf</code> method. The default value is <code>5000</co
 <dd><p>The estimated probability matrix <code>(g x c)</code>.</p></dd>
 
 <dt>cond_prob</dt>
-<dd><p>A <code>(b x g x c)</code> 3d-array with the probability that a at each ballot-box a voter of each group voted for each candidate, given the observed outcome at the particular ballot-box.</p></dd>
+<dd><p>A <code>(g x c x b)</code> 3d-array with the probability that a at each ballot-box a voter of each group voted for each candidate, given the observed outcome at the particular ballot-box.</p></dd>
 
-<dt>logLik</dt>
-<dd><p>The log-likelihood value from the last iteration.</p></dd>
-
-<dt>iterations</dt>
-<dd><p>The total number of iterations performed by the EM algorithm.</p></dd>
-
-<dt>time</dt>
-<dd><p>The total execution time of the algorithm in seconds.</p></dd>
-
-<dt>status</dt>
-<dd><p>The final status ID of the algorithm upon completion:</p><ul><li><p><code>0</code>: Converged</p></li>
-<li><p><code>1</code>: Maximum time reached.</p></li>
-<li><p><code>2</code>: Maximum iterations reached.</p></li>
-</ul></dd>
-
-<dt>message</dt>
-<dd><p>The finishing status displayed as a message, matching the status ID value.</p></dd>
-
-<dt>method</dt>
-<dd><p>The method for estimating the conditional probability in the E-step.</p></dd>
-
-
-</dl><p>Aditionally, it will create <code>mcmc_samples</code> and <code>mcmc_stepsize</code> parameters if the specified <code>method = "mcmc"</code>, or <code>mvncdf_method</code>, <code>mvncdf_error</code> and <code>mvncdf_samples</code> if <code>method = "mvn_cdf"</code>.</p>
+<dt>expected_outcome</dt>
+<dd><p>A <code>(g x c x b) 3d-array with the expected votes cast for each ballot box.} \item{logLik}{The log-likelihood value from the last iteration.} \item{iterations}{The total number of iterations performed by the EM algorithm.} \item{time}{The total execution time of the algorithm in seconds.} \item{status}{ The final status ID of the algorithm upon completion: \itemize{ \item \code{0}: Converged \item \code{1}: Maximum time reached. \item \code{2}: Maximum iterations reached. } } \item{message}{The finishing status displayed as a message, matching the status ID value.} \item{method}{The method for estimating the conditional probability in the E-step.} } Aditionally, it will create </code>mcmc_samples<code>and</code>mcmc_stepsize<code>parameters if the specified</code>method = "mcmc"<code>, or </code>mvncdf_method<code>, </code>mvncdf_error<code>and</code>mvncdf_samples<code>if</code>method = "mvn_cdf"`.</p>
 <p>Also, if the eim object supplied is created with the function <a href="simulate_election.html">simulate_election</a>, it also returns the real probability with the name <code>real_prob</code>. See <a href="simulate_election.html">simulate_election</a>.</p>
-<p>If <code>group_agg</code> is different than <code>NULL</code>, two values are returned: <code>W_agg</code> a <code>(b x a)</code> matrix with the number of voters of each aggregated group o each ballot-box, and <code>group_agg</code> the same input vector.</p>
-    </div>
-    <div class="section level2">
-    <h2 id="note">Note<a class="anchor" aria-label="anchor" href="#note"></a></h2>
-    <p>This function can be executed using one of three mutually exclusive approaches:</p><ol><li><p>By providing an existing <code>eim</code> object.</p></li>
+<p>If <code>group_agg</code> is different than <code>NULL</code>, two values are returned: <code>W_agg</code> a <code>(b x a)</code> matrix with the number of voters of each aggregated group o each ballot-box, and <code>group_agg</code> the same input vector.</p></dd>
+
+
+Executes the Expectation-Maximization (EM) algorithm indicating the approximation method to use in the E-step.
+Certain methods may require additional arguments, which can be passed through <code>...</code> (see <a href="fastei-package.html">fastei-package</a> for more details).
+
+
+This function can be executed using one of three mutually exclusive approaches:
+<ol><li><p>By providing an existing <code>eim</code> object.</p></li>
 <li><p>By supplying both input matrices (<code>X</code> and <code>W</code>) directly.</p></li>
 <li><p>By specifying a JSON file (<code>json_path</code>) containing the matrices.</p></li>
-</ol><p>These input methods are <strong>mutually exclusive</strong>, meaning that you must provide <strong>exactly one</strong> of
-these options. Attempting to provide more than one or none of these inputs will result in an error.</p>
-<p>When called with an <code>eim</code> object, the function updates the object with the computed results.
-If an <code>eim</code> object is not provided, the function will create one internally using either the
-supplied matrices or the data from the JSON file before executing the algorithm.</p>
-    </div>
-    <div class="section level2">
-    <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
-    <p><a href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834" class="external-link">Thraves, C., Ubilla, P. and Hermosilla, D.: <em>"Fast Ecological Inference Algorithm for the RxC Case"</em></a>. Aditionally, the MVN CDF is computed by the methods introduced in <a href="https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities" class="external-link">Genz, A. (2000). Numerical computation of multivariate normal probabilities. <em>Journal of Computational and Graphical Statistics</em></a></p>
-    </div>
-    <div class="section level2">
-    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p>The <a href="eim.html">eim</a> object implementation.</p></div>
-    </div>
+</ol>
 
-    <div class="section level2">
-    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
-<span class="r-in"><span><span class="co"># Example 1: Compute the Expected-Maximization with default settings</span></span></span>
-<span class="r-in"><span><span class="va">simulations</span> <span class="op">&lt;-</span> <span class="fu"><a href="simulate_election.html">simulate_election</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>    num_ballots <span class="op">=</span> <span class="fl">300</span>,</span></span>
-<span class="r-in"><span>    num_candidates <span class="op">=</span> <span class="fl">5</span>,</span></span>
-<span class="r-in"><span>    num_groups <span class="op">=</span> <span class="fl">3</span>,</span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu"><a href="eim.html">eim</a></span><span class="op">(</span><span class="va">simulations</span><span class="op">$</span><span class="va">X</span>, <span class="va">simulations</span><span class="op">$</span><span class="va">W</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu">run_em</span><span class="op">(</span><span class="va">model</span><span class="op">)</span> <span class="co"># Returns the object with updated attributes</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Example 2: Compute the Expected-Maximization using the mvn_pdf method</span></span></span>
-<span class="r-in"><span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu">run_em</span><span class="op">(</span></span></span>
-<span class="r-in"><span>    object <span class="op">=</span> <span class="va">model</span>,</span></span>
-<span class="r-in"><span>    method <span class="op">=</span> <span class="st">"mvn_pdf"</span>,</span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Example 3: Run the mvn_cdf method with default settings</span></span></span>
-<span class="r-in"><span><span class="va">model</span> <span class="op">&lt;-</span> <span class="fu">run_em</span><span class="op">(</span>object <span class="op">=</span> <span class="va">model</span>, method <span class="op">=</span> <span class="st">"mvn_cdf"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="co"># }</span></span></span>
-<span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># Example 4: Perform an Exact estimation using user-defined parameters</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="fu">run_em</span><span class="op">(</span></span></span>
-<span class="r-in"><span>    json_path <span class="op">=</span> <span class="st">"a/json/file.json"</span>,</span></span>
-<span class="r-in"><span>    method <span class="op">=</span> <span class="st">"exact"</span>,</span></span>
-<span class="r-in"><span>    initial_prob <span class="op">=</span> <span class="st">"uniform"</span>,</span></span>
-<span class="r-in"><span>    maxiter <span class="op">=</span> <span class="fl">10</span>,</span></span>
-<span class="r-in"><span>    maxtime <span class="op">=</span> <span class="fl">600</span>,</span></span>
-<span class="r-in"><span>    param_threshold <span class="op">=</span> <span class="fl">1e-3</span>,</span></span>
-<span class="r-in"><span>    ll_threshold <span class="op">=</span> <span class="fl">1e-5</span>,</span></span>
-<span class="r-in"><span>    verbose <span class="op">=</span> <span class="cn">TRUE</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
-<span class="r-in"><span></span></span>
-</code></pre></div>
-    </div>
+These input methods are <strong>mutually exclusive</strong>, meaning that you must provide <strong>exactly one</strong> of
+these options. Attempting to provide more than one or none of these inputs will result in an error.
+
+When called with an <code>eim</code> object, the function updates the object with the computed results.
+If an <code>eim</code> object is not provided, the function will create one internally using either the
+supplied matrices or the data from the JSON file before executing the algorithm.
+
+
+
+
+
+
+
+<a href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834" class="external-link">Thraves, C., Ubilla, P. and Hermosilla, D.: <em>"Fast Ecological Inference Algorithm for the RxC Case"</em></a>. Aditionally, the MVN CDF is computed by the methods introduced in <a href="https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities" class="external-link">Genz, A. (2000). Numerical computation of multivariate normal probabilities. <em>Journal of Computational and Graphical Statistics</em></a>
+
+
+The <a href="eim.html">eim</a> object implementation.
+
+
+</dl></div>
+
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 
