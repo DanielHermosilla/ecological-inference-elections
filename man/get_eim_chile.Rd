@@ -54,7 +54,7 @@ result <- run_em(eim_obj, allow_mismatch = TRUE)
 # Use it with group aggregation
 agg_result <- get_agg_proxy(
     object = eim_obj,
-    sd_threshold = 0.05,
+    sd_threshold = 0.03,
     allow_mismatch = TRUE,
     seed = 123
 )

@@ -156,6 +156,44 @@ static void allocateRandoms(int M, int S, uint8_t **c1, uint8_t **c2, uint8_t **
     PutRNGstate(); // Finalize RNG state to prevent repeatability
 }
 
+void qMid(EMContext *ctx)
+{
+    Matrix *logProbabilities = &ctx->metropolisProbability;
+    // bMatrix *qMetropolis = Calloc(TOTAL_BALLOTS * ctx->omegaset[0]->size, Matrix);
+    Matrix qMetropolis = createMatrix(TOTAL_BALLOTS, ctx->omegaset[0]->size);
+    for (int b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        int size = ctx->omegaset[b]->size;
+        for (int s = 0; s < size; s++)
+        {
+            IntMatrix sample = ctx->omegaset[b]->data[s]; // Z_b
+            double a = 0;
+            for (int g = 0; g < TOTAL_GROUPS; g++)
+            {
+                for (int c = 0; c < TOTAL_CANDIDATES; c++)
+                {
+                    int elementZ = MATRIX_AT(sample, g, c); // z_bgc
+                    a += elementZ * MATRIX_AT_PTR(logProbabilities, g, c);
+                }
+            }
+            MATRIX_AT(qMetropolis, b, s) = a; // q_bgs
+        }
+    }
+    ctx->qMetropolis = copMatrix(&qMetropolis);
+}
+
+void calculateLogP(EMContext *ctx)
+{
+    Matrix *oldProbabilities = &ctx->metropolisProbability;
+    for (int g = 0; g < TOTAL_GROUPS; g++)
+    {
+        for (int c = 0; c < TOTAL_CANDIDATES; c++)
+        {
+            MATRIX_AT_PTR(oldProbabilities, g, c) = log(MATRIX_AT_PTR(oldProbabilities, g, c));
+        }
+    }
+}
+
 /*
  * @brief Precomputes the sets used for the simulation.
  *
@@ -188,6 +226,7 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
     }
     Matrix *probabilities = &ctx->probabilities;           // Get the probabilities matrix
     ctx->metropolisProbability = copMatrix(probabilities); // Copy the probabilities matrix for the metropolis method
+    // calculateLogP(ctx); // Calculate the logarithm of the probabilities
     ctx->omegaset = Calloc(TOTAL_BALLOTS, OmegaSet *);
     uint8_t *c1 = NULL;
     uint8_t *c2 = NULL;
@@ -270,6 +309,8 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
             // ---...--- //
         } // --- End the sample loop
     } // --- End the ballot box loop
+    calculateLogP(ctx); // Calculate the logarithm of the probabilities
+    qMid(ctx);
     Free(c1);
     Free(c2);
     Free(g1);
@@ -440,75 +481,76 @@ static double logProduct(const EMContext *ctx, const Matrix *P, int b, int s)
     return acc;
 }
 
+// Entre interaciones
 void computeQhastingMidIteration(EMContext *ctx, double *ll)
 {
     Matrix *W = &ctx->W;
     Matrix *Pold = &ctx->metropolisProbability;
     Matrix *Pnew = &ctx->probabilities;
     double *q = ctx->q;
+    Matrix const *a = &ctx->qMetropolis;
 
     *ll = 0.0;
 
+    Matrix logPnew = createMatrix(Pnew->rows, Pnew->cols);
+    for (int g = 0; g < TOTAL_GROUPS; g++)
+    {
+        for (int c = 0; c < TOTAL_CANDIDATES; c++)
+        {
+            MATRIX_AT(logPnew, g, c) = log(MATRIX_AT_PTR(Pnew, g, c));
+        }
+    }
+    // 1. for en las mesas
+    // 2. for en los samples
+    // 3. Hacer el cálculo, restando probabilidad antigua
+    // 4. Guardar
+    //
+    Matrix bMatrix = createMatrix(TOTAL_BALLOTS, ctx->omegaset[0]->size);
     for (int b = 0; b < TOTAL_BALLOTS; b++)
     {
         OmegaSet *S = ctx->omegaset[b];
         int Ssz = S->size;
 
         // build log‐arrays for old and new
-        double *log_old = Calloc(Ssz, double);
-        double *log_new = Calloc(Ssz, double);
-        double *log_w = Calloc(Ssz, double);
-
+        double max_logw = -INFINITY;
         for (int s = 0; s < Ssz; s++)
         {
-            log_old[s] = logProduct(ctx, Pold, b, s);
-            log_new[s] = logProduct(ctx, Pnew, b, s);
-            log_w[s] = log_new[s] - log_old[s]; // log(p_new/p_old)
-        }
-
-        // find max for stability
-        double max_w = log_w[0];
-        for (int s = 1; s < Ssz; s++)
-            if (log_w[s] > max_w)
-                max_w = log_w[s];
-
-        // normalize weights in-place
-        double *w_norm = Calloc(Ssz, double);
-        for (int s = 0; s < Ssz; s++)
-            w_norm[s] = exp(log_w[s] - max_w);
-
-        // free old/new logs
-        Free(log_old);
-        Free(log_new);
-
-        // for each (g,c), form numerator and denominator
-        for (int g = 0; g < TOTAL_GROUPS; g++)
-        {
-            double Wbg = MATRIX_AT_PTR(W, b, g);
-            if (Wbg == 0.0)
+            IntMatrix sample = ctx->omegaset[b]->data[s]; // Z_b
+            double a2 = 0;
+            for (int g = 0; g < TOTAL_GROUPS; g++)
             {
                 for (int c = 0; c < TOTAL_CANDIDATES; c++)
-                    Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = 0.0;
-                continue;
-            }
-
-            for (int c = 0; c < TOTAL_CANDIDATES; c++)
-            {
-                double num = 0.0, den = 0.0;
-                for (int s = 0; s < Ssz; s++)
                 {
-                    double wgt = w_norm[s];
-                    den += wgt;
-                    double z = MATRIX_AT(S->data[s], g, c);
-                    if (z > 0.0)
-                        num += (z / Wbg) * wgt;
+                    int elementZ = MATRIX_AT(sample, g, c); // z_bgc
+                    a2 += elementZ * MATRIX_AT(logPnew, g, c);
                 }
-                Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = (den > 0.0 ? num / den : 0.0);
             }
+            MATRIX_AT(bMatrix, b, s) = a2 - MATRIX_AT_PTR(a, b, s); // q_bgs
+            if (MATRIX_AT(bMatrix, b, s) > max_logw)
+                max_logw = MATRIX_AT(bMatrix, b, s);
         }
 
-        Free(log_w);
-        Free(w_norm);
+        for (int g = 0; g < TOTAL_GROUPS; g++)
+        {
+            for (int c = 0; c < TOTAL_CANDIDATES; c++)
+            {
+
+                double num = 0.0;
+                double denom = 0.0;
+
+                for (int s = 0; s < Ssz; s++)
+                {
+                    double logw = MATRIX_AT(bMatrix, b, s);
+                    double w = exp(logw - max_logw); // log-sum-exp trick
+                    int z = MATRIX_AT(S->data[s], g, c);
+                    num += w * ((double)z / MATRIX_AT_PTR(W, b, g));
+                    denom += w;
+                }
+
+                Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num / denom;
+                // q[b * TOTAL_GROUPS * TOTAL_CANDIDATES + g * TOTAL_CANDIDATES + c] = num / denom;
+            }
+        }
     }
 }
 
