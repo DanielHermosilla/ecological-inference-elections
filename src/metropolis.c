@@ -180,6 +180,7 @@ void qMid(EMContext *ctx)
         }
     }
     ctx->qMetropolis = copMatrix(&qMetropolis);
+    Rprintf("versión actualizada!\n");
 }
 
 void calculateLogP(EMContext *ctx)
