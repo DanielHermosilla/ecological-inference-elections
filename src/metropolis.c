@@ -507,6 +507,7 @@ void computeQhastingMidIteration(EMContext *ctx, double *ll)
     // 4. Guardar
     //
     Matrix bMatrix = createMatrix(TOTAL_BALLOTS, ctx->omegaset[0]->size);
+    Rprintf("Entrando al cálculo de los q underflow\n");
     for (int b = 0; b < TOTAL_BALLOTS; b++)
     {
         OmegaSet *S = ctx->omegaset[b];
@@ -526,7 +527,7 @@ void computeQhastingMidIteration(EMContext *ctx, double *ll)
                     a2 += elementZ * MATRIX_AT(logPnew, g, c);
                 }
             }
-            MATRIX_AT(bMatrix, b, s) = a2 - MATRIX_AT_PTR(a, b, s); // q_bgs
+            MATRIX_AT(bMatrix, b, s) = -a2 + MATRIX_AT_PTR(a, b, s); // q_bgs
             if (MATRIX_AT(bMatrix, b, s) > max_logw)
                 max_logw = MATRIX_AT(bMatrix, b, s);
         }
