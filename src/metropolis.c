@@ -180,7 +180,6 @@ void qMid(EMContext *ctx)
         }
     }
     ctx->qMetropolis = copMatrix(&qMetropolis);
-    Rprintf("versión actualizada!\n");
 }
 
 void calculateLogP(EMContext *ctx)
@@ -507,7 +506,6 @@ void computeQhastingMidIteration(EMContext *ctx, double *ll)
     // 4. Guardar
     //
     Matrix bMatrix = createMatrix(TOTAL_BALLOTS, ctx->omegaset[0]->size);
-    Rprintf("Entrando al cálculo de los q underflow\n");
     for (int b = 0; b < TOTAL_BALLOTS; b++)
     {
         OmegaSet *S = ctx->omegaset[b];
