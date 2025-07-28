@@ -525,7 +525,7 @@ void computeQhastingMidIteration(EMContext *ctx, double *ll)
                     a2 += elementZ * MATRIX_AT(logPnew, g, c);
                 }
             }
-            MATRIX_AT(bMatrix, b, s) = -a2 + MATRIX_AT_PTR(a, b, s); // q_bgs
+            MATRIX_AT(bMatrix, b, s) = a2 - MATRIX_AT_PTR(a, b, s); // q_bgs
             if (MATRIX_AT(bMatrix, b, s) > max_logw)
                 max_logw = MATRIX_AT(bMatrix, b, s);
         }
@@ -547,7 +547,7 @@ void computeQhastingMidIteration(EMContext *ctx, double *ll)
                     denom += w;
                 }
 
-                Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num / denom;
+                Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num / Ssz;
                 // q[b * TOTAL_GROUPS * TOTAL_CANDIDATES + g * TOTAL_CANDIDATES + c] = num / denom;
             }
         }
