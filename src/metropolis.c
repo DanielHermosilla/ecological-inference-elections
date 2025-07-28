@@ -547,7 +547,7 @@ void computeQhastingMidIteration(EMContext *ctx, double *ll)
                     denom += w;
                 }
 
-                Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num / Ssz;
+                Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num / denom;
                 // q[b * TOTAL_GROUPS * TOTAL_CANDIDATES + g * TOTAL_CANDIDATES + c] = num / denom;
             }
         }
