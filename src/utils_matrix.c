@@ -1298,15 +1298,12 @@ bool matricesAreEqual(Matrix *a, Matrix *b)
 {
     checkMatrix(a);
     checkMatrix(b);
-    for (int g = 0; g < TOTAL_GROUPS; g++)
-    {
-        for (int c = 0; c < TOTAL_CANDIDATES; c++)
-        {
-            if (MATRIX_AT_PTR(a, g, c) != MATRIX_AT_PTR(b, g, c))
-                return false;
-        }
-    }
-    return true;
+
+    if (a->rows != b->rows || a->cols != b->cols)
+        return false;
+
+    size_t bytes = a->rows * a->cols * sizeof(double);
+    return memcmp(a->data, b->data, bytes) == 0;
 }
 
 /**
@@ -1444,17 +1441,13 @@ IntMatrix copMatrixDI(const Matrix *orig)
 
 IntMatrix copMatrixI(IntMatrix *original)
 {
-    // Create a new matrix with the same dimensions
     IntMatrix copy = createMatrixInt(original->rows, original->cols);
 
-    // Copy the data from the original matrix
-    for (int i = 0; i < original->rows; i++)
-    {
-        for (int j = 0; j < original->cols; j++)
-        {
-            MATRIX_AT(copy, i, j) = MATRIX_AT_PTR(original, i, j);
-        }
-    }
+    // Copy it with a memcpy
+    size_t total_elements = original->rows * original->cols;
+    memcpy(copy.data, original->data, total_elements * sizeof(int));
+
+    return copy;
 
     return copy;
 }
@@ -1471,15 +1464,10 @@ void freeMatrixInt(IntMatrix *m)
     m->cols = 0;
 }
 
+/*
+ * @brief Checks if two IntMatrices are equal.
+ */
 bool matricesAreEqualI(IntMatrix *a, IntMatrix *b)
 {
-    for (int g = 0; g < TOTAL_GROUPS; g++)
-    {
-        for (int c = 0; c < TOTAL_CANDIDATES; c++)
-        {
-            if (MATRIX_AT_PTR(a, g, c) != MATRIX_AT_PTR(b, g, c))
-                return false;
-        }
-    }
-    return true;
+    return memcmp(a->data, b->data, sizeof(int) * a->rows * a->cols) == 0;
 }

@@ -156,6 +156,9 @@ static void allocateRandoms(int M, int S, uint8_t **c1, uint8_t **c2, uint8_t **
     PutRNGstate(); // Finalize RNG state to prevent repeatability
 }
 
+/*
+ * Obtain the `q` values that are constant within iterations.
+ */
 void qMid(EMContext *ctx)
 {
     Matrix *logProbabilities = &ctx->metropolisProbability;
@@ -248,21 +251,13 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
 #endif
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For every ballot box
-        // ---- Define a seed, that will be unique per thread ----
         // ---- Allocate memory for the ctx->omegaset ---- //
         ctx->omegaset[b] = Calloc(1, OmegaSet);
         ctx->omegaset[b]->b = b;
         ctx->omegaset[b]->size = S;
         ctx->omegaset[b]->data = Calloc(S, IntMatrix);
-        // ctx->omegaset[b]->data = Calloc(S, IntMatrix *);
         // ---...--- //
-        // ---- The `base` element used as a starting point ----
-        IntMatrix startingZ = startingPoint3(ctx, b);
         int ballotShift = floor(((double)b / TOTAL_BALLOTS) * (M * S));
-
-        // Impose the first step
-        // ctx->omegaset[b]->data[0] = copMatrixI(&startingZ);
-        // freeMatrixInt(&startingZ);
 
         for (int s = 0; s < S; s++)
         { // --- For each sample given a ballot box
@@ -270,7 +265,8 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
             IntMatrix steppingZ;
             if (s == 0)
             {
-                steppingZ = startingPoint3(ctx, b); // Antes era copiado tal cual
+                // ---- The `base` element used as a starting point ----
+                steppingZ = startingPoint3(ctx, b);
             }
             else
             {
@@ -325,70 +321,6 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
     Free(g2);
 }
 
-/**
- * @brief Calculates the last term of the multiplication ctx->omegaset
- *
- * Given a probability matrix, a ballot index and a ctx->omegaset index, it calculates:
- *
- * $$\Prod_{g\in G}\Prod_{c\in C}p_{gc}^{z_{bgc}}$$
- *
- * @param[in] *probabilities A pointer toward the probabilities Matrix.
- * @param[in] b The index of the ballot box
- * @param[in] setIndex The index of the ctx->omegaset
- *
- * @return double: The result of the product
- *
- */
-/*
-static double logarithmicProduct(EMContext *ctx, Matrix *probabilities, const int b, const int setIndex)
-{
-    // ---- Define initial parameters ---- //
-    double log_result = 0;
-    IntMatrix currentMatrix = ctx->omegaset[b]->data[setIndex]; // Z
-    // ---...--- //
-    // ---- Main computation ---- //
-    for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-    { // ---- For each candidate
-        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-        { // ---- For each group
-            // Cambiar a log(1) if probabilidad 0
-            // Producto punto
-            double prob = MATRIX_AT_PTR(probabilities, g, c);
-            log_result += (prob > 0.0) ? MATRIX_AT(currentMatrix, g, c) * log(prob) : 0.0;
-        }
-    }
-    // --- ... --- //
-    return log_result;
-}
-*/
-double static logarithmicProduct(EMContext *ctx, Matrix *probMatrix, const int b, const int setIndex)
-{
-    IntMatrix currentMatrix = ctx->omegaset[b]->data[setIndex];
-    double sum = 0.0;
-
-    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-    {
-        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-        {
-            double p = MATRIX_AT_PTR(probMatrix, g, c);
-            double z = MATRIX_AT(currentMatrix, g, c);
-
-            if (z == 0)
-                continue;
-
-            if (p <= 1e-300) // Prevent log(0)
-                return -INFINITY;
-
-            sum += z * log(p);
-        }
-    }
-    return sum;
-}
-
-/*
- * Computes the big 'Q' for the log-likelihood.
- * This value needs to be aggregated to the log-likelihood
- */
 static double computeQ(EMContext *ctx)
 {
     Matrix *probabilities = &ctx->probabilities; // Get the probabilities matrix
@@ -441,14 +373,6 @@ void computeQhastingIteration(EMContext *ctx, double *ll)
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         { // --- For each group given a ballot box
             double W_bg = MATRIX_AT_PTR(W, b, g);
-            if (W_bg == 0)
-            {
-                for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-                {
-                    Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = 0;
-                }
-                continue;
-            }
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // --- For each candidate given a group and a ballot box
                 // ---- Obtain the summatory over all of the values ---- //
@@ -459,7 +383,7 @@ void computeQhastingIteration(EMContext *ctx, double *ll)
                     num += (MATRIX_AT(currentMatrix, g, c));
                 }
                 int den = W_bg * currentSet->size;
-                double result = (double)num / (double)den;
+                double result = den != 0 ? (double)num / (double)den : 0;
                 Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = result;
                 // ---...--- //
             } // --- End candidate loop
@@ -469,27 +393,7 @@ void computeQhastingIteration(EMContext *ctx, double *ll)
     }
 }
 
-static double logProduct(const EMContext *ctx, const Matrix *P, int b, int s)
-{
-    const IntMatrix Z = ctx->omegaset[b]->data[s];
-    double acc = 0.0;
-    for (int g = 0; g < TOTAL_GROUPS; g++)
-    {
-        for (int c = 0; c < TOTAL_CANDIDATES; c++)
-        {
-            double p = MATRIX_AT_PTR(P, g, c);
-            double z = MATRIX_AT(Z, g, c);
-            if (z == 0.0)
-                continue;
-            if (p < EPS)
-                p = EPS; // floor to avoid log(0)
-            acc += z * log(p);
-        }
-    }
-    return acc;
-}
-
-// Entre interaciones
+// Between iterations
 void computeQhastingMidIteration(EMContext *ctx, double *ll)
 {
     Matrix *W = &ctx->W;
@@ -508,11 +412,6 @@ void computeQhastingMidIteration(EMContext *ctx, double *ll)
             MATRIX_AT(logPnew, g, c) = log(MATRIX_AT_PTR(Pnew, g, c));
         }
     }
-    // 1. for en las mesas
-    // 2. for en los samples
-    // 3. Hacer el cálculo, restando probabilidad antigua
-    // 4. Guardar
-    //
     Matrix bMatrix = createMatrix(TOTAL_BALLOTS, ctx->omegaset[0]->size);
     for (int b = 0; b < TOTAL_BALLOTS; b++)
     {
@@ -542,6 +441,12 @@ void computeQhastingMidIteration(EMContext *ctx, double *ll)
         {
             for (int c = 0; c < TOTAL_CANDIDATES; c++)
             {
+                double w_bg = MATRIX_AT_PTR(W, b, g);
+                if (w_bg == 0)
+                {
+                    Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = 0;
+                    continue;
+                }
 
                 double num = 0.0;
                 double denom = 0.0;
@@ -554,8 +459,7 @@ void computeQhastingMidIteration(EMContext *ctx, double *ll)
                     num += w * ((double)z / MATRIX_AT_PTR(W, b, g));
                     denom += w;
                 }
-                Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num / denom;
-                // q[b * TOTAL_GROUPS * TOTAL_CANDIDATES + g * TOTAL_CANDIDATES + c] = num / denom;
+                Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = denom != 0 ? num / denom : 0;
             }
         }
     }
