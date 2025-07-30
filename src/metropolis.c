@@ -261,13 +261,21 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
         int ballotShift = floor(((double)b / TOTAL_BALLOTS) * (M * S));
 
         // Impose the first step
-        ctx->omegaset[b]->data[0] = copMatrixI(&startingZ);
-        freeMatrixInt(&startingZ);
+        // ctx->omegaset[b]->data[0] = copMatrixI(&startingZ);
+        // freeMatrixInt(&startingZ);
 
-        for (int s = 1; s < S; s++)
+        for (int s = 0; s < S; s++)
         { // --- For each sample given a ballot box
             // ---- Copy the initial matrix ----
-            IntMatrix steppingZ = copMatrixI(&ctx->omegaset[b]->data[s - 1]);
+            IntMatrix steppingZ;
+            if (s == 0)
+            {
+                steppingZ = startingPoint3(ctx, b); // Antes era copiado tal cual
+            }
+            else
+            {
+                steppingZ = copMatrixI(&ctx->omegaset[b]->data[s - 1]);
+            }
             for (int m = 0; m < M; m++)
             { // --- For each step size given a sample and a ballot box
                 // ---- Sample random indexes ---- //
@@ -546,20 +554,11 @@ void computeQhastingMidIteration(EMContext *ctx, double *ll)
                     num += w * ((double)z / MATRIX_AT_PTR(W, b, g));
                     denom += w;
                 }
-                if (g == 0 && b == 0 && c == 0)
-                {
-                    Rprintf("Numerador:\t%.4f\nDenominador:\t%.4f\n", num, denom);
-                }
-
                 Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num / denom;
                 // q[b * TOTAL_GROUPS * TOTAL_CANDIDATES + g * TOTAL_CANDIDATES + c] = num / denom;
             }
         }
     }
-    Rprintf("Printing the first 5 q values for ballot box 0:\n");
-    for (int i = 0; i < 5; i++)
-        Rprintf("%.4f, ", q[i]);
-    Rprintf("\n");
     freeMatrix(&bMatrix);
     freeMatrix(&logPnew);
 }
