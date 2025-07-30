@@ -546,6 +546,10 @@ void computeQhastingMidIteration(EMContext *ctx, double *ll)
                     num += w * ((double)z / MATRIX_AT_PTR(W, b, g));
                     denom += w;
                 }
+                if (g == 0 && b == 0 && c == 0)
+                {
+                    Rprintf("Numerador:\t%.4f\nDenominador:\t%.4f\n", num, denom);
+                }
 
                 Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = num / denom;
                 // q[b * TOTAL_GROUPS * TOTAL_CANDIDATES + g * TOTAL_CANDIDATES + c] = num / denom;
