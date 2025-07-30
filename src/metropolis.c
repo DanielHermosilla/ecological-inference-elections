@@ -552,6 +552,12 @@ void computeQhastingMidIteration(EMContext *ctx, double *ll)
             }
         }
     }
+    Rprintf("Printing the first 5 q values for ballot box 0:\n");
+    for (int i = 0; i < 5; i++)
+        Rprintf("%.4f, ", q[i]);
+    Rprintf("\n");
+    freeMatrix(&bMatrix);
+    freeMatrix(&logPnew);
 }
 
 void computeQMetropolis(EMContext *ctx, QMethodInput params, double *ll)
