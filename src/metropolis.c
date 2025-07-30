@@ -257,7 +257,10 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
         ctx->omegaset[b]->size = S;
         ctx->omegaset[b]->data = Calloc(S, IntMatrix);
         // ---...--- //
-        int ballotShift = floor(((double)b / TOTAL_BALLOTS) * (M * S));
+        int ballotShift = floor(((double)b / TOTAL_BALLOTS) * (arraySize));
+
+        // M_save =
+        // M_actual = burnInSteps
 
         for (int s = 0; s < S; s++)
         { // --- For each sample given a ballot box
@@ -272,18 +275,20 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
             {
                 steppingZ = copMatrixI(&ctx->omegaset[b]->data[s - 1]);
             }
+
+            // for (int m = 0; m < Mactual; m++)
             for (int m = 0; m < M; m++)
             { // --- For each step size given a sample and a ballot box
                 // ---- Sample random indexes ---- //
-                int shiftIndex = (s * M + ballotShift + m) % (M * S);
+                int shiftIndex = (s * M + ballotShift + m) % (arraySize);
                 uint8_t randomCDraw = c1[shiftIndex];
                 uint8_t randomCDraw2 = c2[shiftIndex];
                 uint8_t randomGDraw = g1[shiftIndex];
                 uint8_t randomGDraw2 = g2[shiftIndex];
 
                 // ---- Check non negativity condition ---- //
-                double firstSubstraction = MATRIX_AT(steppingZ, randomGDraw, randomCDraw);
-                double secondSubstraction = MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2);
+                int firstSubstraction = MATRIX_AT(steppingZ, randomGDraw, randomCDraw);
+                int secondSubstraction = MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2);
 
                 if (firstSubstraction <= 0 || secondSubstraction <= 0)
                     continue;
@@ -292,6 +297,7 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
                                            (MATRIX_AT(steppingZ, randomGDraw2, randomCDraw) + 1) *
                                            MATRIX_AT_PTR(probabilities, randomGDraw, randomCDraw) *
                                            MATRIX_AT_PTR(probabilities, randomGDraw2, randomCDraw2);
+
                 double transitionProbDen = (MATRIX_AT(steppingZ, randomGDraw, randomCDraw)) *
                                            (MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2)) *
                                            MATRIX_AT_PTR(probabilities, randomGDraw, randomCDraw2) *
@@ -308,6 +314,7 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
                 }
                 //  ---...--- //
             } // --- End the step size loop
+            // Mactual = M;
             // ---- Add the combination to the ctx->omegaset ---- //
             ctx->omegaset[b]->data[s] = steppingZ;
             // ---...--- //
@@ -372,11 +379,11 @@ void computeQhastingIteration(EMContext *ctx, double *ll)
                                                                    : Calloc(currentSet->size, double); // Heap
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         { // --- For each group given a ballot box
-            double W_bg = MATRIX_AT_PTR(W, b, g);
+            int W_bg = MATRIX_AT_PTR(intW, b, g);
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // --- For each candidate given a group and a ballot box
                 // ---- Obtain the summatory over all of the values ---- //
-                int num = 0.0;
+                int num = 0;
                 for (int s = 0; s < currentSet->size; s++)
                 { // --- For each sample
                     IntMatrix currentMatrix = currentSet->data[s];
@@ -384,7 +391,7 @@ void computeQhastingIteration(EMContext *ctx, double *ll)
                 }
                 int den = W_bg * currentSet->size;
                 double result = den != 0 ? (double)num / (double)den : 0;
-                Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = result;
+                Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = result;
                 // ---...--- //
             } // --- End candidate loop
         } // --- End group loop
@@ -397,6 +404,7 @@ void computeQhastingIteration(EMContext *ctx, double *ll)
 void computeQhastingMidIteration(EMContext *ctx, double *ll)
 {
     Matrix *W = &ctx->W;
+    IntMatrix *intW = &ctx->intW;
     Matrix *Pold = &ctx->metropolisProbability;
     Matrix *Pnew = &ctx->probabilities;
     double *q = ctx->q;
@@ -439,9 +447,9 @@ void computeQhastingMidIteration(EMContext *ctx, double *ll)
 
         for (int g = 0; g < TOTAL_GROUPS; g++)
         {
+            int w_bg = MATRIX_AT_PTR(intW, b, g);
             for (int c = 0; c < TOTAL_CANDIDATES; c++)
             {
-                double w_bg = MATRIX_AT_PTR(W, b, g);
                 if (w_bg == 0)
                 {
                     Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = 0;
@@ -456,10 +464,11 @@ void computeQhastingMidIteration(EMContext *ctx, double *ll)
                     double logw = MATRIX_AT(bMatrix, b, s);
                     double w = exp(logw - max_logw); // log-sum-exp trick
                     int z = MATRIX_AT(S->data[s], g, c);
-                    num += w * ((double)z / MATRIX_AT_PTR(W, b, g));
+                    num += w * z;
                     denom += w;
                 }
-                Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = denom != 0 ? num / denom : 0;
+
+                Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = denom != 0 ? num / (denom * w_bg) : 0;
             }
         }
     }
@@ -483,7 +492,7 @@ void computeQMetropolis(EMContext *ctx, QMethodInput params, double *ll)
     if (ctx->iteration % params.iters == 0)
     {
         generateOmegaSetMetropolis(ctx, params.M, params.S);
-        encode(ctx);
+        // encode(ctx);
         // preComputeMultinomial(ctx);
         computeQhastingIteration(ctx, ll);
         return;
