@@ -247,12 +247,14 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S, int burnInSteps)
     if (partitionSize == 0)
         partitionSize = 1; // Prevent division by zero in extreme cases
 
+    int a = 0;
 // ---- Perform the main iterations ---- //
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For every ballot box
+        int b = 0;
         // ---- Allocate memory for the ctx->omegaset ---- //
         if (ctx->omegaset[b] == NULL)
             ctx->omegaset[b] = Calloc(1, OmegaSet);
@@ -317,6 +319,7 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S, int burnInSteps)
 
                 if (MS[shiftIndex] < prob)
                 {
+                    b += 1;
                     MATRIX_AT(steppingZ, randomGDraw, randomCDraw) -= 1;
                     MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2) -= 1;
                     MATRIX_AT(steppingZ, randomGDraw, randomCDraw2) += 1;
@@ -327,9 +330,11 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S, int burnInSteps)
             Mactual = M;
             // ---- Add the combination to the ctx->omegaset ---- //
             ctx->omegaset[b]->data[s] = steppingZ;
+            a += b;
             // ---...--- //
         } // --- End the sample loop
     } // --- End the ballot box loop
+    Rprintf("%d movements in total, on average it would be %.4f per ballot box\n", a, (double)a / TOTAL_BALLOTS);
     calculateLogP(ctx); // Calculate the logarithm of the probabilities
     qMid(ctx);
     Free(c1);

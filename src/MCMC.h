@@ -44,7 +44,7 @@ extern "C"
      *
      * @return void. Written on the global variable.
      */
-    void generateOmegaSet(EMContext *ctx, int M, int S);
+    void generateOmegaSet(EMContext *ctx, int M, int S, int burnIn);
 
     double preMultinomialCoeff(EMContext *ctx, const int b, IntMatrix *currentMatrix);
 

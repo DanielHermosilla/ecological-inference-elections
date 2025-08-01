@@ -170,7 +170,7 @@ void allocateRandoms(int M, int S, uint8_t **c1, uint8_t **c2, uint8_t **g1, uin
  *
  * @return void. Written on the global variable.
  */
-void generateOmegaSet(EMContext *ctx, int M, int S)
+void generateOmegaSet(EMContext *ctx, int M, int S, int burnIn)
 {
     // ---- Allocate memory for the `b` index ----
     ctx->omegaset = Calloc(TOTAL_BALLOTS, OmegaSet *);
@@ -215,13 +215,18 @@ void generateOmegaSet(EMContext *ctx, int M, int S)
         ctx->omegaset[b]->data[0] = copMatrixI(&startingZ);
         freeMatrixInt(&startingZ);
 
-        for (int s = 1; s < S; s++)
+        int Mtotal = burnIn;
+        IntMatrix steppingZ;
+        for (int s = 0; s < S; s++)
         { // --- For each sample given a ballot box
             // ---- Copy the initial matrix ----
             // IntMatrix pastMatrix = ctx->omegaset[b]->data[s - 1];
             // IntMatrix steppingZ = copMatrixI(&pastMatrix);
-            IntMatrix steppingZ = copMatrixI(&ctx->omegaset[b]->data[s - 1]);
-            for (int m = 0; m < M; m++)
+            if (s != 0)
+                steppingZ = copMatrixI(&ctx->omegaset[b]->data[s - 1]);
+            else
+                steppingZ = ctx->omegaset[b]->data[0];
+            for (int m = 0; m < Mtotal; m++)
             { // --- For each step size given a sample and a ballot box
                 // ---- Sample random indexes ---- //
                 int shiftIndex = (s * M + ballotShift + m) % (M * S);
@@ -248,6 +253,7 @@ void generateOmegaSet(EMContext *ctx, int M, int S)
                 MATRIX_AT(steppingZ, randomGDraw2, randomCDraw) += 1;
                 //  ---...--- //
             } // --- End the step size loop
+            Mtotal = M;
             // ---- Add the combination to the ctx->omegaset ---- //
             // IntMatrix *append = Calloc(1, IntMatrix);
             // *append = copMatrixI(&steppingZ);

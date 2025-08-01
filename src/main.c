@@ -111,16 +111,14 @@ EMContext *createEMContext(Matrix *X, Matrix *W, const char *method, QMethodInpu
     }
     if (strcmp(method, "mcmc") == 0)
     {
-        generateOmegaSet(ctx, params.M, params.S);
+        generateOmegaSet(ctx, params.M, params.S, params.burnInSteps);
         encode(ctx);
         precomputeQConstant(ctx, params.S);
         preComputeMultinomial(ctx);
     }
     if (strcmp(method, "metropolis") == 0)
     {
-        // Rprintf("computing q constant\n");
         // precomputeQConstant(ctx, params.S);
-        // Rprintf("computing multinomial\n");
         // preComputeMultinomial(ctx);
     }
     if (strcmp(method, "exact") == 0)
@@ -611,6 +609,10 @@ void cleanup(EMContext *ctx)
     if (ctx->intX.data != NULL)
     {
         freeMatrixInt(&ctx->intX);
+    }
+    if (ctx->qMetropolis.data != NULL)
+    {
+        freeMatrix(&ctx->qMetropolis);
     }
     if (ctx->probabilities.data != NULL)
     {
