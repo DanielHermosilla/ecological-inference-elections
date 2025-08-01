@@ -330,7 +330,6 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S, int burnInSteps)
             // ---...--- //
         } // --- End the sample loop
     } // --- End the ballot box loop
-    Rprintf("%d movements in total, on average it would be %.4f per ballot box\n", a, (double)a / TOTAL_BALLOTS);
     calculateLogP(ctx); // Calculate the logarithm of the probabilities
     qMid(ctx);
     Free(c1);
