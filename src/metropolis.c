@@ -317,7 +317,6 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S, int burnInSteps)
 
                 if (MS[shiftIndex] < prob)
                 {
-                    b += 1;
                     MATRIX_AT(steppingZ, randomGDraw, randomCDraw) -= 1;
                     MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2) -= 1;
                     MATRIX_AT(steppingZ, randomGDraw, randomCDraw2) += 1;
@@ -328,7 +327,6 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S, int burnInSteps)
             Mactual = M;
             // ---- Add the combination to the ctx->omegaset ---- //
             ctx->omegaset[b]->data[s] = steppingZ;
-            a += k;
             // ---...--- //
         } // --- End the sample loop
     } // --- End the ballot box loop
