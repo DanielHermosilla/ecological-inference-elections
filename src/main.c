@@ -487,7 +487,6 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
         // TODO: Free the context
     }
     // ---...--- //
-
     Matrix oldProbabilities = createMatrix(ctx->G, ctx->C);
     // ---...--- //
     // ---- Execute the EM-iterations ---- //
@@ -520,8 +519,9 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
         bool decreasing = oldLL > newLL && i >= 50 ? true : false;
 
         // ---- Check convergence ---- //
-        if (i >= 1 && (fabs(newLL - oldLL) < LLconvergence ||
-                       convergeMatrix(&oldProbabilities, &ctx->probabilities, convergence)) ||
+        if (i >= 1 && i >= config.params.miniter &&
+                (fabs(newLL - oldLL) < LLconvergence ||
+                 convergeMatrix(&oldProbabilities, &ctx->probabilities, convergence)) ||
             decreasing)
         {
             // ---- End timer ----

@@ -44,7 +44,7 @@ extern "C"
      *
      * @return void. Written on the global variable.
      */
-    void generateOmegaSetMetropolis(EMContext *ctx, int M, int S);
+    void generateOmegaSetMetropolis(EMContext *ctx, int M, int S, int burnInSteps);
 
 #ifdef __cplusplus
 }

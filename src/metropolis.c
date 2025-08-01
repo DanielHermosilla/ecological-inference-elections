@@ -192,7 +192,8 @@ void calculateLogP(EMContext *ctx)
     {
         for (int c = 0; c < TOTAL_CANDIDATES; c++)
         {
-            MATRIX_AT_PTR(oldProbabilities, g, c) = log(MATRIX_AT_PTR(oldProbabilities, g, c));
+            double oldValue = MATRIX_AT_PTR(oldProbabilities, g, c);
+            MATRIX_AT_PTR(oldProbabilities, g, c) = oldValue != 0 ? log(MATRIX_AT_PTR(oldProbabilities, g, c)) : -1e10;
         }
     }
 }
@@ -208,7 +209,7 @@ void calculateLogP(EMContext *ctx)
  *
  * @return void. Written on the global variable.
  */
-void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
+void generateOmegaSetMetropolis(EMContext *ctx, int M, int S, int burnInSteps)
 {
     // ---- Allocate memory for the `b` index ----
     if (ctx->omegaset != NULL)
@@ -217,16 +218,17 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
         {
             if (ctx->omegaset[b] != NULL)
             {
-                for (int s = 0; s < ctx->omegaset[b]->size; s++)
+                for (int s = 1; s < ctx->omegaset[b]->size; s++)
                 {
                     freeMatrixInt(&ctx->omegaset[b]->data[s]);
                 }
-                Free(ctx->omegaset[b]->data);
-                Free(ctx->omegaset[b]);
+                // Free(ctx->omegaset[b]->data);
+                // Free(ctx->omegaset[b]);
             }
         }
         Free(ctx->omegaset);
     }
+    int iteration = ctx->iteration;
     Matrix *probabilities = &ctx->probabilities;           // Get the probabilities matrix
     ctx->metropolisProbability = copMatrix(probabilities); // Copy the probabilities matrix for the metropolis method
     // calculateLogP(ctx); // Calculate the logarithm of the probabilities
@@ -252,15 +254,19 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For every ballot box
         // ---- Allocate memory for the ctx->omegaset ---- //
-        ctx->omegaset[b] = Calloc(1, OmegaSet);
+        if (ctx->omegaset[b] == NULL)
+            ctx->omegaset[b] = Calloc(1, OmegaSet);
+        if (ctx->omegaset[b]->data == NULL)
+            Free(ctx->omegaset[b]->data);
+        // ---- Set the ballot box index and size ---- //
+        ctx->omegaset[b]->data = Calloc(S, IntMatrix);
         ctx->omegaset[b]->b = b;
         ctx->omegaset[b]->size = S;
-        ctx->omegaset[b]->data = Calloc(S, IntMatrix);
         // ---...--- //
         int ballotShift = floor(((double)b / TOTAL_BALLOTS) * (arraySize));
 
         // M_save =
-        // M_actual = burnInSteps
+        int Mactual = iteration == 0 ? burnInSteps : M;
 
         for (int s = 0; s < S; s++)
         { // --- For each sample given a ballot box
@@ -269,7 +275,11 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
             if (s == 0)
             {
                 // ---- The `base` element used as a starting point ----
-                steppingZ = startingPoint3(ctx, b);
+                if (ctx->omegaset[b]->data[0].data == NULL)
+                    steppingZ = startingPoint3(ctx, b);
+                else
+                    steppingZ = ctx->omegaset[b]->data[0];
+                // ----...---- //
             }
             else
             {
@@ -277,7 +287,7 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
             }
 
             // for (int m = 0; m < Mactual; m++)
-            for (int m = 0; m < M; m++)
+            for (int m = 0; m < Mactual; m++)
             { // --- For each step size given a sample and a ballot box
                 // ---- Sample random indexes ---- //
                 int shiftIndex = (s * M + ballotShift + m) % (arraySize);
@@ -314,7 +324,7 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S)
                 }
                 //  ---...--- //
             } // --- End the step size loop
-            // Mactual = M;
+            Mactual = M;
             // ---- Add the combination to the ctx->omegaset ---- //
             ctx->omegaset[b]->data[s] = steppingZ;
             // ---...--- //
@@ -417,7 +427,8 @@ void computeQhastingMidIteration(EMContext *ctx, double *ll)
     {
         for (int c = 0; c < TOTAL_CANDIDATES; c++)
         {
-            MATRIX_AT(logPnew, g, c) = log(MATRIX_AT_PTR(Pnew, g, c));
+            double currentP = MATRIX_AT_PTR(Pnew, g, c);
+            MATRIX_AT(logPnew, g, c) = currentP != 0 ? log(currentP) : -1e10; // Avoid log(0)
         }
     }
     Matrix bMatrix = createMatrix(TOTAL_BALLOTS, ctx->omegaset[0]->size);
@@ -491,7 +502,7 @@ void computeQMetropolis(EMContext *ctx, QMethodInput params, double *ll)
     *ll = 0;
     if (ctx->iteration % params.iters == 0)
     {
-        generateOmegaSetMetropolis(ctx, params.M, params.S);
+        generateOmegaSetMetropolis(ctx, params.M, params.S, 10000);
         // encode(ctx);
         // preComputeMultinomial(ctx);
         computeQhastingIteration(ctx, ll);

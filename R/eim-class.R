@@ -143,7 +143,10 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
             "mcmc_stepsize",
             "mvncdf_method",
             "mvncdf_samples",
-            "mvncdf_error"
+            "mvncdf_error",
+            "miniter",
+            "metropolis_iter",
+            "burn_in"
         )
         extra_params <- matrices[names(matrices) %in% allowed_params] # TODO: Validate them
     }
@@ -198,6 +201,8 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' @param maxiter An optional integer indicating the maximum number of EM iterations.
 #'   The default value is `1000`.
 #'
+#' @param miniter An optional integer indicating the minimum number of EM iterations. The default value is `0`.
+#'
 #' @param maxtime An optional numeric specifying the maximum running time (in seconds) for the
 #'   algorithm. This is checked at every iteration of the EM algorithm. The default value is `3600`, which corresponds to an hour.
 #'
@@ -235,6 +240,8 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'
 #' @param metropolis_iter An optional integer specifying the amount of iterations to run the Metropolis-Hastings algorithm for the `metropolis` method. The default value is `5`. This argument is only applicable when `method = "metropolis"`.
 #'
+#' @param burn_in Amount of iterations to discard before starting the MCMC sampling. This is only applicable when `method = "mcmc"` or `method = "metropolis"`. The default value is `10000`.
+#'
 #' @param ... Added for compability
 #'
 #' @references
@@ -261,7 +268,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' \describe{
 #'   \item{prob}{The estimated probability matrix `(g x c)`.}
 #' 	 \item{cond_prob}{A `(g x c x b)` 3d-array with the probability that a at each ballot-box a voter of each group voted for each candidate, given the observed outcome at the particular ballot-box.}
-#' 	 \item{expected_outcome}{A `(g x c x b) 3d-array with the expected votes cast for each ballot box.}
+#' 	 \item{expected_outcome}{A `(g x c x b)` 3d-array with the expected votes cast for each ballot box.}
 #'   \item{logLik}{The log-likelihood value from the last iteration.}
 #'   \item{iterations}{The total number of iterations performed by the EM algorithm.}
 #'   \item{time}{The total execution time of the algorithm in seconds.}
@@ -328,6 +335,7 @@ run_em <- function(object = NULL,
                    initial_prob = "group_proportional",
                    allow_mismatch = TRUE,
                    maxiter = 1000,
+                   miniter = 0,
                    maxtime = 3600,
                    param_threshold = 0.001,
                    ll_threshold = as.double(-Inf),
@@ -340,6 +348,7 @@ run_em <- function(object = NULL,
                    mvncdf_error = 1e-5,
                    mvncdf_samples = 5000,
                    metropolis_iter = 5,
+                   burn_in = 10000,
                    ...) {
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint
@@ -388,6 +397,8 @@ run_em <- function(object = NULL,
         object$mcmc_stepsize <- as.integer(if ("mcmc_stepsize" %in% names(all_params)) all_params$mcmc_stepsize else 3000)
         # Samples
         object$mcmc_samples <- as.integer(if ("mcmc_samples" %in% names(all_params)) all_params$mcmc_samples else 1000)
+        # Burn in
+        object$burn_in <- as.integer(if ("burn_in" %in% names(all_params)) all_params$burn_in else 10000)
     } else if (method == "mvn_cdf") {
         # Montecarlo method
         object$mvncdf_method <- if ("mvncdf_method" %in% names(all_params)) all_params$mvncdf_method else "genz"
@@ -398,6 +409,12 @@ run_em <- function(object = NULL,
     } else if (method == "metropolis") {
         # Metropolis iterations method
         object$metropolis_iter <- if ("metropolis_iter" %in% names(all_params)) all_params$metropolis_iter else 5
+        # Step size
+        object$mcmc_stepsize <- as.integer(if ("mcmc_stepsize" %in% names(all_params)) all_params$mcmc_stepsize else 3000)
+        # Samples
+        object$mcmc_samples <- as.integer(if ("mcmc_samples" %in% names(all_params)) all_params$mcmc_samples else 1000)
+        # Burn in
+        object$burn_in <- if ("burn_in" %in% names(all_params)) all_params$burn_in else 10000
     }
 
     W <- if (is.null(object$W_agg)) object$W else object$W_agg
@@ -413,12 +430,14 @@ run_em <- function(object = NULL,
         param_threshold,
         ll_threshold,
         verbose,
-        as.integer(if (!is.null(object$mcmc_stepsize)) object$mcmc_stepsize else 1000),
-        as.integer(if (!is.null(object$mcmc_samples)) object$mcmc_samples else 3000),
+        as.integer(if (!is.null(object$mcmc_stepsize)) object$mcmc_stepsize else 3000),
+        as.integer(if (!is.null(object$mcmc_samples)) object$mcmc_samples else 1000),
         if (!is.null(object$mvncdf_method)) object$mvncdf_method else "genz",
         as.numeric(if (!is.null(object$mvncdf_error)) object$mvncdf_error else 1e-6),
         as.numeric(if (!is.null(object$mvncdf_samples)) object$mvncdf_samples else 5000),
-        as.integer(if (!is.null(object$metropolis_iter)) object$metropolis_iter else 5)
+        as.integer(if (!is.null(object$metropolis_iter)) object$metropolis_iter else 5),
+        as.integer(if (!is.null(object$burn_in)) object$burn_in else 10000),
+        miniter
     )
     # ---------- ... ---------- #
 
@@ -443,8 +462,9 @@ run_em <- function(object = NULL,
     object$message <- resulting_values$stopping_reason
     object$status <- as.integer(resulting_values$finish_id)
     # Add function arguments
+    object$miniter <- miniter
     object$maxiter <- maxiter
-    object$maxiter <- maxtime
+    object$maxtime <- maxtime
     object$param_threshold <- param_threshold
     object$ll_threshold <- ll_threshold
     object$initial_prob <- initial_prob
@@ -585,6 +605,7 @@ bootstrap <- function(object = NULL,
     W <- if (is.null(object$W_agg)) object$W else object$W_agg
     initial_prob <- if (!is.null(all_params$initial_prob)) all_params$initial_prob else "group_proportional"
     maxiter <- if (!is.null(all_params$maxiter)) all_params$maxiter else 1000
+    miniter <- if (!is.null(all_params$miniter)) all_params$miniter else 0
     maxtime <- if (!is.null(all_params$maxtime)) all_params$maxtime else 3600
     param_threshold <- if (!is.null(all_params$param_threshold)) all_params$param_threshold else 0.001
     verbose <- if (!is.null(all_params$verbose)) all_params$verbose else FALSE
@@ -603,26 +624,21 @@ bootstrap <- function(object = NULL,
     mvncdf_samples <- 0L
     mvncdf_error <- 0.0
     metropolis_iter <- 5L
+    burn_in <- 10000L
 
     if (method == "mcmc") {
         mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
         mcmc_samples <- if (!is.null(all_params$mcmc_samples)) all_params$mcmc_samples else 1000
-        mvncdf_method <- ""
-        mvncdf_samples <- 0L
-        mvncdf_error <- 0.0
+        burn_in <- if (!is.null(all_params$burn_in)) all_params$burn_in else 10000
     } else if (method == "mvn_cdf") {
         mvncdf_method <- if (!is.null(all_params$mvncdf_method)) all_params$method else "genz"
         mvncdf_samples <- if (!is.null(all_params$mvncdf_samples)) all_params$mvncdf_samples else 5000
         mvncdf_error <- if (!is.null(all_params$mvncdf_error)) all_params$mvncdf_error else 1e-6
-        mcmc_stepsize <- 0L
-        mcmc_samples <- 0L
     } else if (method == "metropolis") {
         mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
         mcmc_samples <- if (!is.null(all_params$mcmc_samples)) all_params$mcmc_samples else 1000
         metropolis_iter <- if (!is.null(all_params$metropolis_iter)) all_params$metropolis_iter else 5L
-        mvncdf_method <- ""
-        mvncdf_samples <- 0L
-        mvncdf_error <- 0.0
+        burn_in <- if (!is.null(all_params$burn_in)) all_params$burn_in else 10000
     }
 
     # Call C bootstrap function
@@ -642,7 +658,9 @@ bootstrap <- function(object = NULL,
         as.character(mvncdf_method),
         as.double(mvncdf_error),
         as.integer(mvncdf_samples),
-        as.integer(metropolis_iter)
+        as.integer(metropolis_iter),
+        as.integer(burn_in),
+        as.integer(miniter)
     )
 
     object$sd <- result
@@ -799,6 +817,7 @@ get_agg_proxy <- function(object = NULL,
     # Extract parameters with defaults if missing
     initial_prob <- if (!is.null(all_params$initial_prob)) all_params$initial_prob else "group_proportional"
     maxiter <- if (!is.null(all_params$maxiter)) all_params$maxiter else 1000
+    miniter <- if (!is.null(all_params$miniter)) all_params$miniter else 0
     maxtime <- if (!is.null(all_params$maxtime)) all_params$maxtime else 3600
     param_threshold <- if (!is.null(all_params$param_threshold)) all_params$param_threshold else 0.01
     verbose <- if (!is.null(all_params$verbose)) all_params$verbose else FALSE
@@ -817,26 +836,21 @@ get_agg_proxy <- function(object = NULL,
     mvncdf_samples <- 0L
     mvncdf_error <- 0.0
     metropolis_iter <- 5L
+    burn_in <- 10000L
 
     if (method == "mcmc") {
         mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
         mcmc_samples <- if (!is.null(all_params$mcmc_samples)) all_params$mcmc_samples else 1000
-        mvncdf_method <- ""
-        mvncdf_samples <- 0L
-        mvncdf_error <- 0.0
+        burn_in <- if (!is.null(all_params$burn_in)) all_params$burn_in else 10000
     } else if (method == "mvn_cdf") {
         mvncdf_method <- if (!is.null(all_params$mvncdf_method)) all_params$method else "genz"
         mvncdf_samples <- if (!is.null(all_params$mvncdf_samples)) all_params$mvncdf_samples else 5000
         mvncdf_error <- if (!is.null(all_params$mvncdf_error)) all_params$mvncdf_error else 1e-6
-        mcmc_stepsize <- 0L
-        mcmc_samples <- 0L
     } else if (method == "metropolis") {
         mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
         mcmc_samples <- if (!is.null(all_params$mcmc_samples)) all_params$mcmc_samples else 1000
         metropolis_iter <- if (!is.null(all_params$metropolis_iter)) all_params$metropolis_iter else 5L
-        mvncdf_method <- ""
-        mvncdf_samples <- 0L
-        mvncdf_error <- 0.0
+        burn_in <- if (!is.null(all_params$burn_in)) all_params$burn_in else 10000
     }
 
     result <- groupAgg(
@@ -858,7 +872,9 @@ get_agg_proxy <- function(object = NULL,
         as.character(mvncdf_method),
         as.double(mvncdf_error),
         as.integer(mvncdf_samples),
-        as.integer(metropolis_iter)
+        as.integer(metropolis_iter),
+        as.integer(burn_in),
+        as.integer(miniter)
     )
 
     # If the returned matrix isn't the best non-feasible result
@@ -1002,6 +1018,7 @@ get_agg_opt <- function(object = NULL,
 
     initial_prob <- if (!is.null(all_params$initial_prob)) all_params$initial_prob else "group_proportional"
     maxiter <- if (!is.null(all_params$maxiter)) all_params$maxiter else 1000
+    miniter <- if (!is.null(all_params$miniter)) all_params$miniter else 0
     maxtime <- if (!is.null(all_params$maxtime)) all_params$maxtime else 3600
     param_threshold <- if (!is.null(all_params$param_threshold)) all_params$param_threshold else 0.01
     verbose <- if (!is.null(all_params$verbose)) all_params$verbose else FALSE
@@ -1020,26 +1037,21 @@ get_agg_opt <- function(object = NULL,
     mvncdf_samples <- 0L
     mvncdf_error <- 0.0
     metropolis_iter <- 5L
+    burn_in <- 10000L
 
     if (method == "mcmc") {
         mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
         mcmc_samples <- if (!is.null(all_params$mcmc_samples)) all_params$mcmc_samples else 1000
-        mvncdf_method <- ""
-        mvncdf_samples <- 0L
-        mvncdf_error <- 0.0
+        burn_in <- if (!is.null(all_params$burn_in)) all_params$burn_in else 10000
     } else if (method == "mvn_cdf") {
         mvncdf_method <- if (!is.null(all_params$mvncdf_method)) all_params$mvncdf_method else "genz"
         mvncdf_samples <- if (!is.null(all_params$mvncdf_samples)) all_params$mvncdf_samples else 5000
         mvncdf_error <- if (!is.null(all_params$mvncdf_error)) all_params$mvncdf_error else 1e-6
-        mcmc_stepsize <- 0L
-        mcmc_samples <- 0L
     } else if (method == "metropolis") {
         mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
         mcmc_samples <- if (!is.null(all_params$mcmc_samples)) all_params$mcmc_samples else 1000
         metropolis_iter <- if (!is.null(all_params$metropolis_iter)) all_params$metropolis_iter else 5L
-        mvncdf_method <- ""
-        mvncdf_samples <- 0L
-        mvncdf_error <- 0.0
+        burn_in <- if (!is.null(all_params$burn_in)) all_params$burn_in else 10000
     }
 
 
@@ -1061,7 +1073,9 @@ get_agg_opt <- function(object = NULL,
         as.character(mvncdf_method),
         as.double(mvncdf_error),
         as.integer(mvncdf_samples),
-        as.integer(metropolis_iter)
+        as.integer(metropolis_iter),
+        as.integer(burn_in),
+        as.integer(miniter)
     )
 
     if (result$indices[[1]] == -1) {
@@ -1104,6 +1118,7 @@ get_agg_opt <- function(object = NULL,
     object$param_threshold <- param_threshold
     object$maxtime <- maxtime
     object$maxiter <- maxiter
+    object$miniter <- miniter
     object$initial_prob <- initial_prob
 
     if (method == "mvn_cdf") {
@@ -1113,6 +1128,11 @@ get_agg_opt <- function(object = NULL,
     } else if (method == "mcmc") {
         object$mcmc_stepsize <- mcmc_stepsize
         object$mcmc_samples <- mcmc_samples
+    } else if (method == "metropolis") {
+        object$mcmc_stepsize <- mcmc_stepsize
+        object$mcmc_samples <- mcmc_samples
+        object$metropolis_iter <- metropolis_iter
+        object$burn_in <- burn_in
     }
 
     class(object) <- "eim"

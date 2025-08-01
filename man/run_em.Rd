@@ -14,6 +14,7 @@ run_em(
   initial_prob = "group_proportional",
   allow_mismatch = TRUE,
   maxiter = 1000,
+  miniter = 0,
   maxtime = 3600,
   param_threshold = 0.001,
   ll_threshold = as.double(-Inf),
@@ -26,6 +27,7 @@ run_em(
   mvncdf_error = 0.00001,
   mvncdf_samples = 5000,
   metropolis_iter = 5,
+  burn_in = 10000,
   ...
 )
 }
@@ -65,6 +67,8 @@ probability. Accepted values are:
 \item{maxiter}{An optional integer indicating the maximum number of EM iterations.
 The default value is \code{1000}.}
 
+\item{miniter}{An optional integer indicating the minimum number of EM iterations. The default value is \code{0}.}
+
 \item{maxtime}{An optional numeric specifying the maximum running time (in seconds) for the
 algorithm. This is checked at every iteration of the EM algorithm. The default value is \code{3600}, which corresponds to an hour.}
 
@@ -102,6 +106,8 @@ samples for the \code{mvn_cdf} method. The default value is \code{5000}. This ar
 
 \item{metropolis_iter}{An optional integer specifying the amount of iterations to run the Metropolis-Hastings algorithm for the \code{metropolis} method. The default value is \code{5}. This argument is only applicable when \code{method = "metropolis"}.}
 
+\item{burn_in}{Amount of iterations to discard before starting the MCMC sampling. This is only applicable when \code{method = "mcmc"} or \code{method = "metropolis"}. The default value is \code{10000}.}
+
 \item{...}{Added for compability}
 }
 \value{
@@ -109,7 +115,22 @@ The function returns an \code{eim} object with the function arguments and the fo
 \describe{
 \item{prob}{The estimated probability matrix \verb{(g x c)}.}
 \item{cond_prob}{A \verb{(g x c x b)} 3d-array with the probability that a at each ballot-box a voter of each group voted for each candidate, given the observed outcome at the particular ballot-box.}
-\item{expected_outcome}{A \verb{(g x c x b) 3d-array with the expected votes cast for each ballot box.\} \\item\{logLik\}\{The log-likelihood value from the last iteration.\} \\item\{iterations\}\{The total number of iterations performed by the EM algorithm.\} \\item\{time\}\{The total execution time of the algorithm in seconds.\} \\item\{status\}\{ The final status ID of the algorithm upon completion: \\itemize\{ \\item \code{0}: Converged \\item \code{1}: Maximum time reached. \\item \code{2}: Maximum iterations reached. \} \} \\item\{message\}\{The finishing status displayed as a message, matching the status ID value.\} \\item\{method\}\{The method for estimating the conditional probability in the E-step.\} \} Aditionally, it will create }mcmc_samples\code{and}mcmc_stepsize\verb{parameters if the specified}method = "mcmc"\verb{, or }mvncdf_method\verb{, }mvncdf_error\code{and}mvncdf_samples\code{if}method = "mvn_cdf"`.
+\item{expected_outcome}{A \verb{(g x c x b)} 3d-array with the expected votes cast for each ballot box.}
+\item{logLik}{The log-likelihood value from the last iteration.}
+\item{iterations}{The total number of iterations performed by the EM algorithm.}
+\item{time}{The total execution time of the algorithm in seconds.}
+\item{status}{
+The final status ID of the algorithm upon completion:
+\itemize{
+\item \code{0}: Converged
+\item \code{1}: Maximum time reached.
+\item \code{2}: Maximum iterations reached.
+}
+}
+\item{message}{The finishing status displayed as a message, matching the status ID value.}
+\item{method}{The method for estimating the conditional probability in the E-step.}
+}
+Aditionally, it will create \code{mcmc_samples} and \code{mcmc_stepsize} parameters if the specified \code{method = "mcmc"}, or \code{mvncdf_method}, \code{mvncdf_error} and \code{mvncdf_samples} if \code{method = "mvn_cdf"}.
 
 Also, if the eim object supplied is created with the function \link{simulate_election}, it also returns the real probability with the name \code{real_prob}. See \link{simulate_election}.
 
