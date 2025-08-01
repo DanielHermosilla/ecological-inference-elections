@@ -174,14 +174,28 @@ void getInitialP(EMContext *ctx, const char *p_method)
 
     // ---- Validation: check the method input ----//
     if (strcmp(p_method, "uniform") != 0 && strcmp(p_method, "proportional") != 0 &&
-        strcmp(p_method, "group_proportional") != 0 && strcmp(p_method, "random") != 0)
+        strcmp(p_method, "group_proportional") != 0 && strcmp(p_method, "random") != 0 &&
+        strcmp(p_method, "multinomial") != 0)
     {
-        error("Compute: The method `%s` to calculate the initial probability doesn't exist.\nThe supported methods "
-              "are: `uniform`, `proportional`, `random` and `group_proportional`.\n",
+        error("run_em: The method `%s` to calculate the initial probability doesn't exist.\nThe supported methods "
+              "are: `uniform`, `proportional`, `random`, `group_proportional` and `multinomial`.\n",
               p_method);
     }
     // ---...--- //
+    if (strcmp(p_method, "multinomial") == 0)
+    {
+        int iterTotal, finishing_reason;
+        double time, logLLarr;
+        QMethodInput inputParams = {0};
+        EMContext *newCtx = EMAlgoritm(&ctx->X, &ctx->W, "group_proportional", "mult", 0.001, 0.0001, 1000, 1000, false,
+                                       &time, &iterTotal, &logLLarr, &finishing_reason, &inputParams);
+        ctx->probabilities = createMatrix(newCtx->probabilities.rows, newCtx->probabilities.cols);
+        // printMatrix(&newCtx->probabilities);
+        size_t nel = (size_t)ctx->probabilities.rows * ctx->probabilities.cols;
+        memcpy(ctx->probabilities.data, newCtx->probabilities.data, nel * sizeof *ctx->probabilities.data);
 
+        // cleanup(newCtx);
+    }
     // ---- Compute the random method ---- //
     if (strcmp(p_method, "random") == 0)
     {
