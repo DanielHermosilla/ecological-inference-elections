@@ -248,10 +248,10 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S, int burnInSteps)
         partitionSize = 1; // Prevent division by zero in extreme cases
 
     int a = 0;
-// ---- Perform the main iterations ---- //
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
+    // ---- Perform the main iterations ---- //
+    // #ifdef _OPENMP
+    // #pragma omp parallel for
+    // #endif
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For every ballot box
         int b = 0;
