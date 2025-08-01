@@ -254,7 +254,7 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S, int burnInSteps)
     // #endif
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For every ballot box
-        int b = 0;
+        int k = 0;
         // ---- Allocate memory for the ctx->omegaset ---- //
         if (ctx->omegaset[b] == NULL)
             ctx->omegaset[b] = Calloc(1, OmegaSet);
@@ -330,7 +330,7 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S, int burnInSteps)
             Mactual = M;
             // ---- Add the combination to the ctx->omegaset ---- //
             ctx->omegaset[b]->data[s] = steppingZ;
-            a += b;
+            a += k;
             // ---...--- //
         } // --- End the sample loop
     } // --- End the ballot box loop
