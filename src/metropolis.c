@@ -253,7 +253,7 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S, int burnInSteps)
 #pragma omp parallel for
 #endif
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    {   // ---- For every ballot box
+    { // ---- For every ballot box
         // ---- Allocate memory for the ctx->omegaset ---- //
         int k = 0;
         if (ctx->omegaset[b] == NULL)
@@ -319,6 +319,7 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S, int burnInSteps)
 
                 if (MS[shiftIndex] < prob)
                 {
+                    k += 1;
                     MATRIX_AT(steppingZ, randomGDraw, randomCDraw) -= 1;
                     MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2) -= 1;
                     MATRIX_AT(steppingZ, randomGDraw, randomCDraw2) += 1;
