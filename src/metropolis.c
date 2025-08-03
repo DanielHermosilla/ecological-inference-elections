@@ -125,6 +125,77 @@ static IntMatrix startingPoint3(EMContext *ctx, int b)
     return toReturn;
 }
 
+static void allocateRandoms_weighted(int M, int S, uint8_t **c1, uint8_t **c2, uint8_t **g1, uint8_t **g2, double **MS,
+                                     const uint32_t *group_votes,    // tamaño TOTAL_GROUPS
+                                     const uint32_t *candidate_votes // tamaño TOTAL_CANDIDATES
+)
+{
+    uint32_t size = M * S;
+    *c1 = Calloc(size, uint8_t);
+    *c2 = Calloc(size, uint8_t);
+    *g1 = Calloc(size, uint8_t);
+    *g2 = Calloc(size, uint8_t);
+    *MS = Calloc(size, double);
+
+    // 1) Construir pesos acumulados de grupos
+    double cum_g[TOTAL_GROUPS];
+    cum_g[0] = group_votes[0];
+    for (int g = 1; g < TOTAL_GROUPS; g++)
+        cum_g[g] = cum_g[g - 1] + group_votes[g];
+    double total_g = cum_g[TOTAL_GROUPS - 1];
+
+    // 2) Pesos acumulados de candidatos
+    double cum_c[TOTAL_CANDIDATES];
+    cum_c[0] = candidate_votes[0];
+    for (int c = 1; c < TOTAL_CANDIDATES; c++)
+        cum_c[c] = cum_c[c - 1] + candidate_votes[c];
+    double total_c = cum_c[TOTAL_CANDIDATES - 1];
+
+    GetRNGstate();
+    for (int i = 0; i < size; i++)
+    {
+        if (i % 400 == 0)
+            R_CheckUserInterrupt();
+
+        // muestreo del uniform draw
+        (*MS)[i] = unif_rand();
+
+        // muestreo grupo g1
+        double u = unif_rand() * total_g;
+        int gsel = 0;
+        while (u > cum_g[gsel])
+            gsel++;
+        (*g1)[i] = (uint8_t)gsel;
+
+        // muestreo candidato c1
+        double v = unif_rand() * total_c;
+        int csel = 0;
+        while (v > cum_c[csel])
+            csel++;
+        (*c1)[i] = (uint8_t)csel;
+
+        // igual para g2,c2 con allow_repeat
+        int allow_repeat = (TOTAL_CANDIDATES <= 1 || TOTAL_GROUPS <= 1);
+        int g2sel, c2sel;
+        do
+        {
+            double u2 = unif_rand() * total_g;
+            g2sel = 0;
+            while (u2 > cum_g[g2sel])
+                g2sel++;
+
+            double v2 = unif_rand() * total_c;
+            c2sel = 0;
+            while (v2 > cum_c[c2sel])
+                c2sel++;
+        } while (!allow_repeat && (g2sel == gsel || c2sel == csel));
+
+        (*g2)[i] = (uint8_t)g2sel;
+        (*c2)[i] = (uint8_t)c2sel;
+    }
+    PutRNGstate();
+}
+
 static void allocateRandoms(int M, int S, uint8_t **c1, uint8_t **c2, uint8_t **g1, uint8_t **g2, double **MS)
 {
     uint32_t size = M * S;
@@ -241,23 +312,20 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S, int burnInSteps)
 
     uint32_t arraySize = M * S;
 
-    allocateRandoms(M, S, &c1, &c2, &g1, &g2, &MS);
+    allocateRandoms_weighted(M, S, &c1, &c2, &g1, &g2, &MS, ctx->group_votes, ctx->candidates_votes);
     // Compute the partition size
     int partitionSize = M / TOTAL_BALLOTS;
     if (partitionSize == 0)
         partitionSize = 1; // Prevent division by zero in extreme cases
-    uint64_t testvariable = 0;
-    uint64_t testvariable2 = 0;
 
     // ---- Perform the main iterations ---- //
-    // #ifdef _OPENMP
-    // #pragma omp parallel for
-    // #endif
+    uint64_t atest = 0;
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For every ballot box
         // ---- Allocate memory for the ctx->omegaset ---- //
-        uint64_t ktest = 0;
-        uint64_t ktest2 = 0;
         if (ctx->omegaset[b] == NULL)
             ctx->omegaset[b] = Calloc(1, OmegaSet);
         if (ctx->omegaset[b]->data == NULL)
@@ -271,6 +339,7 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S, int burnInSteps)
 
         // M_save =
         int Mactual = iteration == 0 ? burnInSteps : M;
+        uint64_t ktest = 0;
 
         for (int s = 0; s < S; s++)
         { // --- For each sample given a ballot box
@@ -306,7 +375,6 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S, int burnInSteps)
 
                 if (firstSubstraction <= 0 || secondSubstraction <= 0)
                     continue;
-                ktest2 += 1;
                 // ---...--- //
                 double transitionProbNum = (MATRIX_AT(steppingZ, randomGDraw, randomCDraw2) + 1) *
                                            (MATRIX_AT(steppingZ, randomGDraw2, randomCDraw) + 1) *
@@ -335,12 +403,10 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S, int burnInSteps)
             ctx->omegaset[b]->data[s] = steppingZ;
             // ---...--- //
         } // --- End the sample loop
-        testvariable += ktest;
-        testvariable2 += ktest2;
+        atest += ktest;
     } // --- End the ballot box loop
-    Rprintf("Did %llu REAL movements in total and %llu POSSIBLE, meaning %.4f REAL movements per ballot box and %.4f "
-            "POSSIBLE movements.\n",
-            testvariable, testvariable2, (double)testvariable / TOTAL_BALLOTS, (double)testvariable2 / TOTAL_BALLOTS);
+    Rprintf("Did %llu metropolis steps, equivalent to a %.4f percent \n", atest,
+            atest / (double)(TOTAL_BALLOTS * S * M));
     calculateLogP(ctx); // Calculate the logarithm of the probabilities
     qMid(ctx);
     Free(c1);
