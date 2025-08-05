@@ -190,9 +190,28 @@ void getInitialP(EMContext *ctx, const char *p_method)
         EMContext *newCtx = EMAlgoritm(&ctx->X, &ctx->W, "group_proportional", "mult", 0.001, 0.0001, 1000, 1000, false,
                                        &time, &iterTotal, &logLLarr, &finishing_reason, &inputParams);
         ctx->probabilities = createMatrix(newCtx->probabilities.rows, newCtx->probabilities.cols);
+        ctx->q = newCtx->q;
+        ctx->predicted_votes = newCtx->predicted_votes;
         // printMatrix(&newCtx->probabilities);
         size_t nel = (size_t)ctx->probabilities.rows * ctx->probabilities.cols;
+
         memcpy(ctx->probabilities.data, newCtx->probabilities.data, nel * sizeof *ctx->probabilities.data);
+        // now compute number of elements in qMultinomial
+        size_t nel2 = nel * (size_t)newCtx->W.rows;
+
+        // allocate storage for q
+        ctx->q = (double *)malloc(nel2 * sizeof *ctx->q);
+        ctx->predicted_votes = (double *)malloc(nel2 * sizeof *ctx->q);
+
+        if (!ctx->q)
+        {
+            perror("malloc for ctx->q");
+            exit(EXIT_FAILURE);
+        }
+
+        // copy qMultinomial
+        memcpy(ctx->q, newCtx->q, nel2 * sizeof *ctx->q);
+        memcpy(ctx->predicted_votes, newCtx->predicted_votes, nel2 * sizeof *ctx->predicted_votes);
 
         // cleanup(newCtx);
     }

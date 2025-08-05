@@ -1471,3 +1471,20 @@ bool matricesAreEqualI(IntMatrix *a, IntMatrix *b)
 {
     return memcmp(a->data, b->data, sizeof(int) * a->rows * a->cols) == 0;
 }
+
+void printMatrixInt(IntMatrix *matrix)
+{
+
+    Rprintf("Matrix (%dx%d):\n", matrix->rows, matrix->cols);
+
+    for (int i = 0; i < matrix->rows; i++)
+    {
+        Rprintf("| ");
+        for (int j = 0; j < matrix->cols - 1; j++)
+        {
+            Rprintf("%d\t", MATRIX_AT_PTR(matrix, i, j));
+        }
+        Rprintf("%df", MATRIX_AT_PTR(matrix, i, matrix->cols - 1));
+        Rprintf(" |\n");
+    }
+}

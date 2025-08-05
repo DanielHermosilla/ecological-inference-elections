@@ -539,6 +539,8 @@ extern "C"
 
     bool matricesAreEqualI(IntMatrix *a, IntMatrix *b);
 
+    void printMatrixInt(IntMatrix *matrix);
+
 #ifdef __cplusplus
 }
 #endif

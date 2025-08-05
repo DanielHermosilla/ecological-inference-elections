@@ -41,6 +41,8 @@ SOFTWARE.
 #endif
 
 static const double EPS = 1e-300;
+double *oldQ;
+double *logQ;
 
 static int lessThanColRow(IntMatrix mat, int b, int g, int c, int candidateVotes, int groupVotes)
 {
@@ -58,6 +60,48 @@ static int lessThanColRow(IntMatrix mat, int b, int g, int c, int candidateVotes
     int slackG = groupVotes - groupSum;
 
     return MIN(slackC, slackG);
+}
+
+static IntMatrix startingPoint4(EMContext *ctx, int b)
+{
+    Matrix *W = &ctx->W;
+    Matrix *X = &ctx->X;
+    double *Q = ctx->q;
+    double *votes = ctx->predicted_votes;
+    IntMatrix toReturn = createMatrixInt(TOTAL_GROUPS, TOTAL_CANDIDATES);
+
+    int count = 0;
+    for (int c = 0; c < TOTAL_CANDIDATES; c++)
+    {
+        for (int g = 0; g < TOTAL_GROUPS; g++)
+        {
+            int vote = (int)Q_3D(votes, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES);
+            MATRIX_AT(toReturn, g, c) = vote;
+            count += vote;
+        }
+    }
+    int repartir = ctx->ballots_votes[b] - count;
+    if (repartir == 0)
+        return toReturn;
+    else
+    {
+        double *groupVotes = getRow(W, b);
+        double *candidateVotes = getColumn(X, b);
+        for (int c = 0; c < TOTAL_CANDIDATES; c++)
+        {
+            for (int g = 0; g < TOTAL_GROUPS; g++)
+            {
+                int groupRestriction = groupVotes[g];
+                int candidateRestriction = candidateVotes[c];
+                int m = lessThanColRow(toReturn, b, g, c, candidateRestriction, groupRestriction);
+                if (m > 0)
+                {
+                    MATRIX_AT(toReturn, g, c) += m;
+                }
+            }
+        }
+        return toReturn;
+    }
 }
 
 static IntMatrix startingPoint3(EMContext *ctx, int b)
@@ -256,6 +300,26 @@ void qMid(EMContext *ctx)
     ctx->qMetropolis = copMatrix(&qMetropolis);
 }
 
+void calculateLogQ(EMContext *ctx)
+{
+    Matrix *oldProbabilities = &ctx->metropolisProbability;
+    double *q = ctx->q; // Get the q array
+
+    for (int b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        for (int g = 0; g < TOTAL_GROUPS; g++)
+        {
+            for (int c = 0; c < TOTAL_CANDIDATES; c++)
+            {
+
+                double oldValue = MATRIX_AT_PTR(oldProbabilities, g, c);
+                Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) =
+                    oldValue != 0 ? log(Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES)) : -1e10;
+            }
+        }
+    }
+}
+
 void calculateLogP(EMContext *ctx)
 {
     Matrix *oldProbabilities = &ctx->metropolisProbability;
@@ -267,6 +331,186 @@ void calculateLogP(EMContext *ctx)
             MATRIX_AT_PTR(oldProbabilities, g, c) = oldValue != 0 ? log(MATRIX_AT_PTR(oldProbabilities, g, c)) : -1e10;
         }
     }
+}
+
+void generateOmegaSetMetropolis2(EMContext *ctx, int M, int S, int burnInSteps)
+{
+    // ---- Allocate memory for the `b` index ----
+    if (ctx->omegaset != NULL)
+    {
+        for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+        {
+            if (ctx->omegaset[b] != NULL)
+            {
+                for (int s = 1; s < ctx->omegaset[b]->size; s++)
+                {
+                    freeMatrixInt(&ctx->omegaset[b]->data[s]);
+                }
+                // Free(ctx->omegaset[b]->data);
+                // Free(ctx->omegaset[b]);
+            }
+        }
+        Free(ctx->omegaset);
+    }
+    int iteration = ctx->iteration;
+    double *Q = ctx->q;                                    // Get the probabilities matrix
+    Matrix *probabilities = &ctx->probabilities;           // Get the probabilities matrix
+    ctx->metropolisProbability = copMatrix(probabilities); // Copy the probabilities matrix for the metropolis method
+    // calculateLogP(ctx); // Calculate the logarithm of the probabilities
+    ctx->omegaset = Calloc(TOTAL_BALLOTS, OmegaSet *);
+    uint8_t *c1 = NULL;
+    uint8_t *c2 = NULL;
+    uint8_t *g1 = NULL;
+    uint8_t *g2 = NULL;
+    double *MS = NULL;
+
+    uint32_t arraySize = M * S;
+
+    allocateRandoms_weighted(M, S, &c1, &c2, &g1, &g2, &MS, ctx->group_votes, ctx->candidates_votes);
+    // Compute the partition size
+    int partitionSize = M / TOTAL_BALLOTS;
+    if (partitionSize == 0)
+        partitionSize = 1; // Prevent division by zero in extreme cases
+
+    // ---- Perform the main iterations ---- //
+    uint64_t atest = 0;
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    { // ---- For every ballot box
+        // ---- Allocate memory for the ctx->omegaset ---- //
+        if (ctx->omegaset[b] == NULL)
+            ctx->omegaset[b] = Calloc(1, OmegaSet);
+        if (ctx->omegaset[b]->data == NULL)
+            Free(ctx->omegaset[b]->data);
+        // ---- Set the ballot box index and size ---- //
+        ctx->omegaset[b]->data = Calloc(S, IntMatrix);
+        ctx->omegaset[b]->b = b;
+        ctx->omegaset[b]->size = S;
+        // ---...--- //
+        int ballotShift = floor(((double)b / TOTAL_BALLOTS) * (arraySize));
+
+        // M_save =
+        int Mactual = iteration == 0 ? burnInSteps : M;
+        uint64_t ktest = 0;
+
+        for (int s = 0; s < S; s++)
+        { // --- For each sample given a ballot box
+            // ---- Copy the initial matrix ----
+            IntMatrix steppingZ;
+            if (s == 0)
+            {
+                // ---- The `base` element used as a starting point ----
+                if (ctx->omegaset[b]->data[0].data == NULL)
+                    steppingZ = startingPoint3(ctx, b);
+                else
+                    steppingZ = ctx->omegaset[b]->data[0];
+                if (b == 25)
+                {
+                    // Rprintf("Partiendo con\n");
+                    //  printMatrixInt(&steppingZ);
+                }
+                // ----...---- //
+            }
+            else
+            {
+                steppingZ = copMatrixI(&ctx->omegaset[b]->data[s - 1]);
+            }
+
+            // for (int m = 0; m < Mactual; m++)
+            for (int m = 0; m < Mactual; m++)
+            { // --- For each step size given a sample and a ballot box
+                // ---- Sample random indexes ---- //
+                int shiftIndex = (s * M + ballotShift + m) % (arraySize);
+                uint8_t randomCDraw = c1[shiftIndex];
+                uint8_t randomCDraw2 = c2[shiftIndex];
+                uint8_t randomGDraw = g1[shiftIndex];
+                uint8_t randomGDraw2 = g2[shiftIndex];
+
+                // ---- Check non negativity condition ---- //
+                int firstSubstraction = MATRIX_AT(steppingZ, randomGDraw, randomCDraw);
+                int secondSubstraction = MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2);
+
+                /*
+                if (b == 25 && ((randomCDraw == 0 && randomGDraw == 2) || (randomCDraw2 == 0 && randomGDraw2 == 2)))
+                {
+                    Rprintf("Se tiene que c1 = %d, c2 = %d, g1 = %d y g2 = %d\n", randomCDraw, randomCDraw2,
+                            randomGDraw, randomGDraw2);
+                }
+            */
+                if (b == 25 && ((randomCDraw == 2 && randomGDraw == 0) || (randomCDraw2 == 2 && randomGDraw2 == 0)))
+                {
+                    // Rprintf("Se tiene que c1 = %d, c2 = %d, g1 = %d y g2 = %d, ACá SE DEBERIA AÑADIR VOTOS\n",
+                    //        randomCDraw, randomCDraw2, randomGDraw, randomGDraw2);
+                }
+
+                if (firstSubstraction <= 0 || secondSubstraction <= 0)
+                {
+                    /*
+                    if (b == 25 && ((randomCDraw == 0 && randomGDraw == 2) || (randomCDraw2 == 0 && randomGDraw2 == 2)))
+                    {
+                        Rprintf("La resta da negativa\n");
+                        printMatrixInt(&steppingZ);
+                    }
+                    if (b == 25 && ((randomCDraw == 2 && randomGDraw == 0) || (randomCDraw2 == 2 && randomGDraw2 == 0)))
+                    {
+                        Rprintf("Resta negativa, seguir\n");
+                        // printMatrixInt(&steppingZ);
+                    }
+                    */
+
+                    continue;
+                }
+                // ---...--- //
+                double transitionProbNum = (MATRIX_AT(steppingZ, randomGDraw, randomCDraw2) + 1) *
+                                           (MATRIX_AT(steppingZ, randomGDraw2, randomCDraw) + 1) *
+                                           Q_3D(Q, b, randomGDraw, randomCDraw, TOTAL_GROUPS, TOTAL_CANDIDATES) *
+                                           Q_3D(Q, b, randomGDraw2, randomCDraw2, TOTAL_GROUPS, TOTAL_CANDIDATES);
+
+                double transitionProbDen = (MATRIX_AT(steppingZ, randomGDraw, randomCDraw)) *
+                                           (MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2)) *
+                                           Q_3D(Q, b, randomGDraw, randomCDraw2, TOTAL_GROUPS, TOTAL_CANDIDATES) *
+                                           Q_3D(Q, b, randomGDraw2, randomCDraw, TOTAL_GROUPS, TOTAL_CANDIDATES);
+
+                double prob = transitionProbDen / transitionProbNum;
+
+                // if (b == 25 && ((randomCDraw == 0 && randomGDraw == 2) || (randomCDraw2 == 0 && randomGDraw2 == 2)))
+                // Rprintf("La probabilidad de transición es %.4f\n", prob);
+
+                /*
+                if (b == 25 && ((randomCDraw == 2 && randomGDraw == 0) || (randomCDraw2 == 2 && randomGDraw2 == 0)))
+                    Rprintf("La probabilidad de TRANSICIóN es %.4f con numerador %.4f y denominador %.4f. Se tiene "
+                            "como factores del denominador a %.4f y %.4f \n",
+                            prob, transitionProbDen, transitionProbNum,
+                            Q_3D(Q, randomGDraw, randomCDraw, randomGDraw2, TOTAL_GROUPS, TOTAL_CANDIDATES),
+                            Q_3D(Q, randomGDraw2, randomCDraw, randomGDraw, TOTAL_GROUPS, TOTAL_CANDIDATES));
+*/
+                if (MS[shiftIndex] < prob)
+                {
+                    ktest += 1;
+                    MATRIX_AT(steppingZ, randomGDraw, randomCDraw) -= 1;
+                    MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2) -= 1;
+                    MATRIX_AT(steppingZ, randomGDraw, randomCDraw2) += 1;
+                    MATRIX_AT(steppingZ, randomGDraw2, randomCDraw) += 1;
+                }
+                //  ---...--- //
+            } // --- End the step size loop
+            Mactual = M;
+            // ---- Add the combination to the ctx->omegaset ---- //
+            ctx->omegaset[b]->data[s] = steppingZ;
+            // ---...--- //
+        } // --- End the sample loop
+        atest += ktest;
+    } // --- End the ballot box loop
+    // Rprintf("Did %llu metropolis steps, equivalent to a %.4f percent \n", atest,
+    //        atest / (double)(TOTAL_BALLOTS * S * M));
+    calculateLogP(ctx); // Calculate the logarithm of the probabilities
+    qMid(ctx);
+    Free(c1);
+    Free(c2);
+    Free(g1);
+    Free(g2);
 }
 
 /*
@@ -405,10 +649,10 @@ void generateOmegaSetMetropolis(EMContext *ctx, int M, int S, int burnInSteps)
         } // --- End the sample loop
         atest += ktest;
     } // --- End the ballot box loop
-    Rprintf("Did %llu metropolis steps, equivalent to a %.4f percent \n", atest,
-            atest / (double)(TOTAL_BALLOTS * S * M));
-    calculateLogP(ctx); // Calculate the logarithm of the probabilities
-    qMid(ctx);
+    // Rprintf("Did %llu metropolis steps, equivalent to a %.4f percent \n", atest,
+    //      atest / (double)(TOTAL_BALLOTS * S * M));
+    // calculateLogP(ctx); // Calculate the logarithm of the probabilities
+    // qMid(ctx);
     Free(c1);
     Free(c2);
     Free(g1);
@@ -457,7 +701,9 @@ void computeQhastingIteration(EMContext *ctx, double *ll)
     IntMatrix *intX = &ctx->intX;
     IntMatrix *intW = &ctx->intW;
     double *q = ctx->q;
+    // Rprintf("El primer elemento de q es: %.4f\n", Q_3D(q, 0, 0, 0, TOTAL_GROUPS, TOTAL_CANDIDATES));
     Matrix *probabilities = &ctx->probabilities;
+    // Rprintf("Se tiene que el omegaset es de tamaño %d\n", (int)ctx->omegaset[0]->size);
 
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // --- For each ballot box
@@ -471,11 +717,17 @@ void computeQhastingIteration(EMContext *ctx, double *ll)
             { // --- For each candidate given a group and a ballot box
                 // ---- Obtain the summatory over all of the values ---- //
                 int num = 0;
+                // if (g == 3 && c == 1 && b % 5 == 0)
+                // Rprintf("\niteración con sampleo para b = %d !\n", b);
                 for (int s = 0; s < currentSet->size; s++)
                 { // --- For each sample
                     IntMatrix currentMatrix = currentSet->data[s];
                     num += (MATRIX_AT(currentMatrix, g, c));
+                    // if (g == 3 && c == 1 && b % 5 == 0)
+                    //    Rprintf("%d, ", MATRIX_AT(currentMatrix, g, c));
                 }
+                // if (g == 3 && c == 1 && (b % 5 == 0))
+                //  Rprintf("\n");
                 int den = W_bg * currentSet->size;
                 double result = den != 0 ? (double)num / (double)den : 0;
                 Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = result;
@@ -485,6 +737,88 @@ void computeQhastingIteration(EMContext *ctx, double *ll)
         if (currentSet->size > 10000)
             Free(multiplicationValues);
     }
+}
+
+void computeQhastingMidIteration2(EMContext *ctx, double *ll)
+{
+    Matrix *W = &ctx->W;
+    IntMatrix *intW = &ctx->intW;
+    Matrix *Pold = &ctx->metropolisProbability;
+    Matrix *Pnew = &ctx->probabilities;
+    double *q = ctx->q;
+    Matrix const *a = &ctx->qMetropolis;
+
+    *ll = 0.0;
+
+    Matrix logPnew = createMatrix(Pnew->rows, Pnew->cols);
+    for (int g = 0; g < TOTAL_GROUPS; g++)
+    {
+        for (int c = 0; c < TOTAL_CANDIDATES; c++)
+        {
+            double currentP = MATRIX_AT_PTR(Pnew, g, c);
+            MATRIX_AT(logPnew, g, c) = currentP != 0 ? log(currentP) : -1e10; // Avoid log(0)
+        }
+    }
+    Matrix bMatrix = createMatrix(TOTAL_BALLOTS, ctx->omegaset[0]->size);
+    for (int b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        OmegaSet *S = ctx->omegaset[b];
+        int Ssz = S->size;
+
+        // build log‐arrays for old and new
+        double max_logw = -INFINITY;
+        for (int s = 0; s < Ssz; s++)
+        {
+            IntMatrix sample = ctx->omegaset[b]->data[s]; // Z_b
+            double a2 = 0;
+            for (int g = 0; g < TOTAL_GROUPS; g++)
+            {
+                for (int c = 0; c < TOTAL_CANDIDATES; c++)
+                {
+                    int elementZ = MATRIX_AT(sample, g, c); // z_bgc
+                    a2 += elementZ * MATRIX_AT(logPnew, g, c);
+                }
+            }
+            MATRIX_AT(bMatrix, b, s) = a2 - MATRIX_AT_PTR(a, b, s); // q_bgs
+            if (MATRIX_AT(bMatrix, b, s) > max_logw)
+                max_logw = MATRIX_AT(bMatrix, b, s);
+        }
+
+        for (int g = 0; g < TOTAL_GROUPS; g++)
+        {
+            int w_bg = MATRIX_AT_PTR(intW, b, g);
+            for (int c = 0; c < TOTAL_CANDIDATES; c++)
+            {
+                if (w_bg == 0)
+                {
+                    Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = 0;
+                    continue;
+                }
+
+                double num = 0.0;
+                double denom = 0.0;
+
+                // if (g == 3 && c == 1 && (b % 5 == 0))
+                // Rprintf("\niteración sin sampleo para b = %d!\n", b);
+                for (int s = 0; s < Ssz; s++)
+                {
+                    double logw = MATRIX_AT(bMatrix, b, s);
+                    double w = exp(logw - max_logw); // log-sum-exp trick
+                    int z = MATRIX_AT(S->data[s], g, c);
+                    num += w * z;
+                    denom += w;
+                    //  if (g == 3 & c == 1 && (b % 5 == 0))
+                    //     Rprintf("%d, ", z);
+                }
+                // if (g == 3 && c == 1 && (b % 5 == 0))
+                //  Rprintf("\n");
+
+                Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = denom != 0 ? num / (denom * w_bg) : 0;
+            }
+        }
+    }
+    freeMatrix(&bMatrix);
+    freeMatrix(&logPnew);
 }
 
 // Between iterations
@@ -547,6 +881,8 @@ void computeQhastingMidIteration(EMContext *ctx, double *ll)
                 double num = 0.0;
                 double denom = 0.0;
 
+                // if (g == 3 && c == 1 && (b % 5 == 0))
+                // Rprintf("\niteración sin sampleo para b = %d!\n", b);
                 for (int s = 0; s < Ssz; s++)
                 {
                     double logw = MATRIX_AT(bMatrix, b, s);
@@ -554,7 +890,11 @@ void computeQhastingMidIteration(EMContext *ctx, double *ll)
                     int z = MATRIX_AT(S->data[s], g, c);
                     num += w * z;
                     denom += w;
+                    //  if (g == 3 & c == 1 && (b % 5 == 0))
+                    //     Rprintf("%d, ", z);
                 }
+                // if (g == 3 && c == 1 && (b % 5 == 0))
+                //  Rprintf("\n");
 
                 Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) = denom != 0 ? num / (denom * w_bg) : 0;
             }
@@ -577,12 +917,19 @@ void computeQMetropolis(EMContext *ctx, QMethodInput params, double *ll)
     // ---...--- //
 
     *ll = 0;
+
+    if (ctx->iteration == 0)
+    {
+        generateOmegaSetMetropolis(ctx, params.M, params.S, params.burnInSteps);
+        computeQhastingIteration(ctx, ll);
+    }
     if (ctx->iteration % params.iters == 0)
     {
-        generateOmegaSetMetropolis(ctx, params.M, params.S, 10000);
+        generateOmegaSetMetropolis2(ctx, params.M, params.S, params.burnInSteps);
         // encode(ctx);
         // preComputeMultinomial(ctx);
         computeQhastingIteration(ctx, ll);
+        // computeQhastingMidIteration(ctx, ll);
         return;
     }
     else
