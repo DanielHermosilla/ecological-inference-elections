@@ -130,6 +130,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
             "convergence",
             "maxiter",
             "maxtime",
+            "sampling_method",
             "ll_threshold",
             "cond_prob",
             "sd",
@@ -349,6 +350,7 @@ run_em <- function(object = NULL,
                    mvncdf_samples = 5000,
                    metropolis_iter = 5,
                    burn_in = 10000,
+                   sampling_method = "proportional",
                    ...) {
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint
@@ -415,6 +417,8 @@ run_em <- function(object = NULL,
         object$mcmc_samples <- as.integer(if ("mcmc_samples" %in% names(all_params)) all_params$mcmc_samples else 1000)
         # Burn in
         object$burn_in <- if ("burn_in" %in% names(all_params)) all_params$burn_in else 10000
+        # Sampling method
+        object$sampling_method <- if ("sampling_method" %in% names(all_params)) all_params$sampling_method else "proportional"
     }
 
     W <- if (is.null(object$W_agg)) object$W else object$W_agg
@@ -437,6 +441,7 @@ run_em <- function(object = NULL,
         as.numeric(if (!is.null(object$mvncdf_samples)) object$mvncdf_samples else 5000),
         as.integer(if (!is.null(object$metropolis_iter)) object$metropolis_iter else 5),
         as.integer(if (!is.null(object$burn_in)) object$burn_in else 10000),
+        if (!is.null(object$sampling_method)) object$sampling_method else "proportional",
         miniter
     )
     # ---------- ... ---------- #
@@ -625,6 +630,7 @@ bootstrap <- function(object = NULL,
     mvncdf_error <- 0.0
     metropolis_iter <- 5L
     burn_in <- 10000L
+    sampling_method <- "proportional"
 
     if (method == "mcmc") {
         mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
@@ -639,6 +645,7 @@ bootstrap <- function(object = NULL,
         mcmc_samples <- if (!is.null(all_params$mcmc_samples)) all_params$mcmc_samples else 1000
         metropolis_iter <- if (!is.null(all_params$metropolis_iter)) all_params$metropolis_iter else 5L
         burn_in <- if (!is.null(all_params$burn_in)) all_params$burn_in else 10000
+        sampling_method <- if ("sampling_method" %in% names(all_params)) all_params$sampling_method else "proportional"
     }
 
     # Call C bootstrap function
@@ -660,6 +667,7 @@ bootstrap <- function(object = NULL,
         as.integer(mvncdf_samples),
         as.integer(metropolis_iter),
         as.integer(burn_in),
+        as.character(sampling_method),
         as.integer(miniter)
     )
 
@@ -837,6 +845,7 @@ get_agg_proxy <- function(object = NULL,
     mvncdf_error <- 0.0
     metropolis_iter <- 5L
     burn_in <- 10000L
+    sampling_method <- "proportional"
 
     if (method == "mcmc") {
         mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
@@ -851,6 +860,7 @@ get_agg_proxy <- function(object = NULL,
         mcmc_samples <- if (!is.null(all_params$mcmc_samples)) all_params$mcmc_samples else 1000
         metropolis_iter <- if (!is.null(all_params$metropolis_iter)) all_params$metropolis_iter else 5L
         burn_in <- if (!is.null(all_params$burn_in)) all_params$burn_in else 10000
+        sampling_method <- if ("sampling_method" %in% names(all_params)) all_params$sampling_method else "proportional"
     }
 
     result <- groupAgg(
@@ -874,6 +884,7 @@ get_agg_proxy <- function(object = NULL,
         as.integer(mvncdf_samples),
         as.integer(metropolis_iter),
         as.integer(burn_in),
+        as.character(sampling_method),
         as.integer(miniter)
     )
 
@@ -1038,6 +1049,7 @@ get_agg_opt <- function(object = NULL,
     mvncdf_error <- 0.0
     metropolis_iter <- 5L
     burn_in <- 10000L
+    sampling_method <- "proportional"
 
     if (method == "mcmc") {
         mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
@@ -1052,6 +1064,7 @@ get_agg_opt <- function(object = NULL,
         mcmc_samples <- if (!is.null(all_params$mcmc_samples)) all_params$mcmc_samples else 1000
         metropolis_iter <- if (!is.null(all_params$metropolis_iter)) all_params$metropolis_iter else 5L
         burn_in <- if (!is.null(all_params$burn_in)) all_params$burn_in else 10000
+        sampling_method <- if ("sampling_method" %in% names(all_params)) all_params$sampling_method else "proportional"
     }
 
 
@@ -1075,6 +1088,7 @@ get_agg_opt <- function(object = NULL,
         as.integer(mvncdf_samples),
         as.integer(metropolis_iter),
         as.integer(burn_in),
+        as.character(sampling_method),
         as.integer(miniter)
     )
 
@@ -1133,6 +1147,7 @@ get_agg_opt <- function(object = NULL,
         object$mcmc_samples <- mcmc_samples
         object$metropolis_iter <- metropolis_iter
         object$burn_in <- burn_in
+        object$sampling_method <- sampling_method
     }
 
     class(object) <- "eim"

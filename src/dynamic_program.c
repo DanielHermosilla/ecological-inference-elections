@@ -41,6 +41,9 @@ SOFTWARE.
 #define Free(p) R_chk_free((void *)(p))
 #endif
 
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+
 double getSigmaForRange(const Matrix *xmat, const Matrix *wmat, int g1, int g2, double *ballotVotes)
 {
     int ballotBoxes = wmat->rows;

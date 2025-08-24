@@ -175,48 +175,17 @@ void getInitialP(EMContext *ctx, const char *p_method)
     // ---- Validation: check the method input ----//
     if (strcmp(p_method, "uniform") != 0 && strcmp(p_method, "proportional") != 0 &&
         strcmp(p_method, "group_proportional") != 0 && strcmp(p_method, "random") != 0 &&
-        strcmp(p_method, "multinomial") != 0)
+        strcmp(p_method, "mult") != 0 && strcmp(p_method, "mvn_cdf") != 0 && strcmp(p_method, "mvn_pdf") != 0 &&
+        strcmp(p_method, "exact") != 0)
     {
         error("run_em: The method `%s` to calculate the initial probability doesn't exist.\nThe supported methods "
-              "are: `uniform`, `proportional`, `random`, `group_proportional` and `multinomial`.\n",
+              "are: `uniform`, `proportional`, `random`, `group_proportional`, `mult`, `mvn_cdf`, `mvn_pdf` and "
+              "`exact`.\n",
               p_method);
     }
     // ---...--- //
-    if (strcmp(p_method, "multinomial") == 0)
-    {
-        int iterTotal, finishing_reason;
-        double time, logLLarr;
-        QMethodInput inputParams = {0};
-        EMContext *newCtx = EMAlgoritm(&ctx->X, &ctx->W, "group_proportional", "mult", 0.001, 0.0001, 1000, 1000, false,
-                                       &time, &iterTotal, &logLLarr, &finishing_reason, &inputParams);
-        ctx->probabilities = createMatrix(newCtx->probabilities.rows, newCtx->probabilities.cols);
-        ctx->q = newCtx->q;
-        ctx->predicted_votes = newCtx->predicted_votes;
-        // printMatrix(&newCtx->probabilities);
-        size_t nel = (size_t)ctx->probabilities.rows * ctx->probabilities.cols;
-
-        memcpy(ctx->probabilities.data, newCtx->probabilities.data, nel * sizeof *ctx->probabilities.data);
-        // now compute number of elements in qMultinomial
-        size_t nel2 = nel * (size_t)newCtx->W.rows;
-
-        // allocate storage for q
-        ctx->q = (double *)malloc(nel2 * sizeof *ctx->q);
-        ctx->predicted_votes = (double *)malloc(nel2 * sizeof *ctx->q);
-
-        if (!ctx->q)
-        {
-            perror("malloc for ctx->q");
-            exit(EXIT_FAILURE);
-        }
-
-        // copy qMultinomial
-        memcpy(ctx->q, newCtx->q, nel2 * sizeof *ctx->q);
-        memcpy(ctx->predicted_votes, newCtx->predicted_votes, nel2 * sizeof *ctx->predicted_votes);
-
-        // cleanup(newCtx);
-    }
     // ---- Compute the random method ---- //
-    if (strcmp(p_method, "random") == 0)
+    else if (strcmp(p_method, "random") == 0)
     {
         // Integrate with R's RNG
         GetRNGstate();
@@ -280,7 +249,7 @@ void getInitialP(EMContext *ctx, const char *p_method)
 
     // ---- Compute the group_proportional method ---- //
     // ---- Considers the proportion of candidates votes and demographic groups aswell ----
-    else
+    else if (strcmp(p_method, "group_proportional") == 0)
     {
         // ---- Create a temporary matrix to store the first results ----
         Matrix ballotProbability = createMatrix(TOTAL_BALLOTS, TOTAL_CANDIDATES);
@@ -327,6 +296,39 @@ void getInitialP(EMContext *ctx, const char *p_method)
             }
         }
         freeMatrix(&ballotProbability);
+    }
+    else
+    {
+        int iterTotal, finishing_reason;
+        double time, logLLarr;
+        QMethodInput inputParams = {0};
+        EMContext *newCtx = EMAlgoritm(&ctx->X, &ctx->W, "group_proportional", p_method, 0.001, 0.0001, 1000, 1000,
+                                       false, &time, &iterTotal, &logLLarr, &finishing_reason, &inputParams);
+        ctx->probabilities = createMatrix(newCtx->probabilities.rows, newCtx->probabilities.cols);
+        ctx->q = newCtx->q;
+        ctx->predicted_votes = newCtx->predicted_votes;
+        // printMatrix(&newCtx->probabilities);
+        size_t nel = (size_t)ctx->probabilities.rows * ctx->probabilities.cols;
+
+        memcpy(ctx->probabilities.data, newCtx->probabilities.data, nel * sizeof *ctx->probabilities.data);
+        // now compute number of elements in qMultinomial
+        size_t nel2 = nel * (size_t)newCtx->W.rows;
+
+        // allocate storage for q
+        ctx->q = (double *)malloc(nel2 * sizeof *ctx->q);
+        ctx->predicted_votes = (double *)malloc(nel2 * sizeof *ctx->q);
+
+        if (!ctx->q)
+        {
+            perror("malloc for ctx->q");
+            exit(EXIT_FAILURE);
+        }
+
+        // copy qMultinomial
+        memcpy(ctx->q, newCtx->q, nel2 * sizeof *ctx->q);
+        memcpy(ctx->predicted_votes, newCtx->predicted_votes, nel2 * sizeof *ctx->predicted_votes);
+
+        // cleanup(newCtx);
     }
     // ---...--- //
 }

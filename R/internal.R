@@ -41,7 +41,7 @@
     }
 
     # Initial prob argument
-    valid_p_methods <- c("group_proportional", "proportional", "uniform", "random", "multinomial")
+    valid_p_methods <- c("group_proportional", "proportional", "uniform", "random", "mult", "mvn_cdf", "mvn_pdf", "exact")
     if ("initial_prob" %in% names(args) &&
         (!is.character(args$initial_prob) || length(args$initial_prob) != 1 || !(args$initial_prob %in% valid_p_methods))) {
         stop("Invalid 'initial_prob'. Must be one of: ", paste(valid_p_methods, collapse = ", "))

@@ -21,9 +21,11 @@ extern "C"
     // ---- Define the structure to store the input parameters ---- //
     typedef struct
     {
-        int S, M;        // Parameters for "MCMC"
-        int iters;       // Parameters for importance sampling
-        int burnInSteps; // For MCMC and Metropolis
+        int S, M;              // Parameters for "MCMC"
+        int iters;             // Parameters for importance sampling
+        int burnInSteps;       // For MCMC and Metropolis
+        char *sampling_method; // For Metropolis
+        char *initial_value;   // For Metropolis
         int miniter;
         int monteCarloIter;           // For "MVN CDF"
         double errorThreshold;        // For "MVN CDF"
