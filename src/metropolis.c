@@ -398,6 +398,32 @@ IntMatrix getCumulativeVotes(const IntMatrix *votes)
     return cum;
 }
 
+void sampleFromCumulative2(IntMatrix sampleMat, int *out_g, int *out_c, double draw, int Coriginal, int Goriginal)
+{
+    int G = sampleMat.rows;
+    int C = sampleMat.cols;
+    int N = C * G;
+
+    IntMatrix Z = copMatrixI(&sampleMat);
+
+    for (int c = 0; c < C; c++)
+    {
+        for (int g = 0; g < G; g++)
+        {
+            if (c == Coriginal || Goriginal == g)
+                MATRIX_AT(Z, g, c) = 0;
+        }
+    }
+
+    IntMatrix accumulatedVotes = getCumulativeVotes(&Z);
+    int Ncells = accumulatedVotes.rows * accumulatedVotes.cols;
+    int total1 = accumulatedVotes.data[Ncells - 1];
+    int drawFinal = (int)(draw * total1) + 1;
+    sampleFromCumulative(&accumulatedVotes, out_g, out_c, drawFinal);
+    freeMatrixInt(&Z);
+    freeMatrixInt(&accumulatedVotes);
+}
+
 int fzh(uint8_t g1, uint8_t g2, uint8_t c1, uint8_t c2, IntMatrix z, int h, double perc)
 {
 
@@ -408,6 +434,218 @@ int fzh(uint8_t g1, uint8_t g2, uint8_t c1, uint8_t c2, IntMatrix z, int h, doub
     int minimo = (int)floor(MIN(primerodos, ultimosdos) * perc);
 
     return MAX(1, minimo);
+}
+
+void generateOmegaSetMetropolis6(EMContext *ctx, int M, int S, int burnInSteps, char *initial_value)
+{
+    // ---- Allocate memory for the `b` index ----
+    if (ctx->omegaset != NULL)
+    {
+        for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+        {
+            if (ctx->omegaset[b] != NULL)
+            {
+                for (int s = 1; s < ctx->omegaset[b]->size; s++)
+                {
+                    freeMatrixInt(&ctx->omegaset[b]->data[s]);
+                }
+                // Free(ctx->omegaset[b]->data);
+                // Free(ctx->omegaset[b]);
+            }
+        }
+        Free(ctx->omegaset);
+    }
+    int iteration = ctx->iteration;
+    double *Q = ctx->q;                                    // Get the probabilities matrix
+    Matrix *probabilities = &ctx->probabilities;           // Get the probabilities matrix
+    ctx->metropolisProbability = copMatrix(probabilities); // Copy the probabilities matrix for the metropolis method
+    // calculateLogP(ctx); // Calculate the logarithm of the probabilities
+    ctx->omegaset = Calloc(TOTAL_BALLOTS, OmegaSet *);
+    uint8_t *c1 = NULL;
+    uint8_t *c2 = NULL;
+    uint8_t *g1 = NULL;
+    uint8_t *g2 = NULL;
+    double *MS = NULL;
+
+    uint32_t arraySize = M * S;
+
+    calculateLogP(ctx); // Calculate the logarithm of the probabilities, guarda en metropolisProbability
+    allocateRandoms(M, S, &c1, &c2, &g1, &g2, &MS);
+
+    // allocateRandoms_weighted(M, S, &c1, &c2, &g1, &g2, &MS, ctx->group_votes, ctx->candidates_votes);
+    // Compute the partition size
+    int partitionSize = M / TOTAL_BALLOTS;
+    if (partitionSize == 0)
+        partitionSize = 1; // Prevent division by zero in extreme cases
+
+    // ---- Perform the main iterations ---- //
+    uint64_t atest = 0;
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    { // ---- For every ballot box
+        // ---- Allocate memory for the ctx->omegaset ---- //
+        if (ctx->omegaset[b] == NULL)
+            ctx->omegaset[b] = Calloc(1, OmegaSet);
+        if (ctx->omegaset[b]->data == NULL)
+            Free(ctx->omegaset[b]->data);
+        // ---- Set the ballot box index and size ---- //
+        ctx->omegaset[b]->data = Calloc(S, IntMatrix);
+        ctx->omegaset[b]->b = b;
+        ctx->omegaset[b]->size = S;
+        // ---...--- //
+        int ballotShift = floor(((double)b / TOTAL_BALLOTS) * (arraySize));
+
+        // M_save =
+        int Mactual = iteration == 0 ? burnInSteps : M;
+        uint64_t ktest = 0;
+
+        for (int s = 0; s < S; s++)
+        { // --- For each sample given a ballot box
+            // ---- Copy the initial matrix ----
+            IntMatrix steppingZ;
+            if (s == 0)
+            {
+                // ---- The `base` element used as a starting point ----
+                if (ctx->omegaset[b]->data[0].data == NULL)
+                {
+                    if (strcmp(initial_value, "proportional") == 0)
+                        steppingZ = startingPoint3(ctx, b);
+                    else
+                        steppingZ = startingPoint4(ctx, b);
+                }
+                else
+                    steppingZ = ctx->omegaset[b]->data[0];
+                // ----...---- //
+            }
+            else
+            {
+                steppingZ = copMatrixI(&ctx->omegaset[b]->data[s - 1]);
+            }
+
+            IntMatrix accumulatedVotes = getCumulativeVotes(&steppingZ);
+
+            // for (int m = 0; m < Mactual; m++)
+            for (int m = 0; m < Mactual; m++)
+            { // --- For each step size given a sample and a ballot box
+                // ---- Sample random indexes ---- //
+                int shiftIndex = (s * M + ballotShift + m) % (arraySize);
+                int shiftIndex1 = (s * M + ballotShift + m + 42) % (arraySize);
+
+                int randomGDraw, randomCDraw;
+                int randomCDraw2;
+                int randomGDraw2;
+
+                int Ncells = accumulatedVotes.rows * accumulatedVotes.cols;
+                int total1 = accumulatedVotes.data[Ncells - 1];
+
+                int draw1 = (int)(MS[shiftIndex] * total1) + 1;
+                double draw2 = MS[shiftIndex1];
+
+                sampleFromCumulative(&accumulatedVotes, &randomGDraw, &randomCDraw, draw1);
+                sampleFromCumulative2(steppingZ, &randomGDraw2, &randomCDraw2, draw2, randomCDraw, randomGDraw);
+
+                if (randomCDraw == randomCDraw2 || randomGDraw == randomGDraw2)
+                {
+                    Rprintf("Se sampleo c1 = %d, c2 = %d, g1 = %d, g2 = %d\n", randomCDraw, randomCDraw2, randomGDraw,
+                            randomGDraw2);
+                    continue;
+                }
+
+                // ---- Check non negativity condition ---- //
+                int firstSubstraction = MATRIX_AT(steppingZ, randomGDraw, randomCDraw);
+                int secondSubstraction = MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2);
+
+                if (firstSubstraction <= 0 || secondSubstraction <= 0)
+                {
+                    continue;
+                }
+
+                int f = fzh(randomGDraw, randomGDraw2, randomCDraw, randomCDraw2, steppingZ, 0, 0.1);
+                int h = (int)(f * MS[shiftIndex1]) + 1;
+                int fh = fzh(randomGDraw, randomGDraw2, randomCDraw, randomCDraw2, steppingZ, h, 0.1);
+
+                if (h > fh)
+                    continue;
+
+                Matrix *logProb = &ctx->metropolisProbability;
+                double firstLine = h * (-MATRIX_AT_PTR(logProb, randomGDraw, randomCDraw) -
+                                        MATRIX_AT_PTR(logProb, randomGDraw2, randomCDraw2) +
+                                        MATRIX_AT_PTR(logProb, randomGDraw2, randomCDraw) +
+                                        MATRIX_AT_PTR(logProb, randomGDraw, randomCDraw2));
+
+                double secondLine = -lgamma1p(MATRIX_AT(steppingZ, randomGDraw, randomCDraw) - h);
+
+                double thirdLine = -lgamma1p(MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2) - h);
+
+                double fourthLine = lgamma1p(MATRIX_AT(steppingZ, randomGDraw2, randomCDraw));
+
+                double fifthLine = lgamma1p(MATRIX_AT(steppingZ, randomGDraw, randomCDraw2));
+
+                double sixthLine = log((double)f / (double)fh);
+
+                Matrix W = ctx->W;
+                Matrix X = ctx->X;
+                int commonTerm = 2 * ctx->total_votes - MATRIX_AT(W, b, randomGDraw) - MATRIX_AT(W, b, randomGDraw2) -
+                                 MATRIX_AT(X, randomCDraw, b) - MATRIX_AT(X, randomCDraw2, b);
+                double seventhLine = log(2 * h + commonTerm + MATRIX_AT(steppingZ, randomGDraw, randomCDraw2) +
+                                         MATRIX_AT(steppingZ, randomGDraw2, randomCDraw));
+                double eigthLine =
+                    -log(ctx->total_votes - MATRIX_AT(W, b, randomGDraw) - MATRIX_AT(X, randomCDraw2, b) +
+                         MATRIX_AT(steppingZ, randomGDraw, randomCDraw2) + h);
+                double nineLine = -log(ctx->total_votes - MATRIX_AT(W, b, randomGDraw2) - MATRIX_AT(X, randomCDraw, b) +
+                                       MATRIX_AT(steppingZ, randomGDraw2, randomCDraw) + h);
+                double tenthLine = -log(commonTerm + MATRIX_AT(steppingZ, randomGDraw, randomCDraw) +
+                                        MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2));
+                double eleventhLine =
+                    log(ctx->total_votes - MATRIX_AT(W, b, randomGDraw) - MATRIX_AT(X, randomCDraw, b) +
+                        MATRIX_AT(steppingZ, randomGDraw, randomCDraw));
+                double twelveLine =
+                    log(ctx->total_votes - MATRIX_AT(W, b, randomGDraw2) - MATRIX_AT(X, randomCDraw2, b) +
+                        MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2));
+
+                double total = firstLine + secondLine + thirdLine + fourthLine + fifthLine + sixthLine + seventhLine +
+                               eigthLine + nineLine + tenthLine + eleventhLine + twelveLine;
+
+                // Rprintf("%.4f\n", total);
+                // Rprintf("%.4f\n", exp(total));
+                if (log(MS[shiftIndex]) < total)
+                {
+                    ktest += 1;
+                    MATRIX_AT(steppingZ, randomGDraw, randomCDraw) -= h;
+                    MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2) -= h;
+                    MATRIX_AT(steppingZ, randomGDraw, randomCDraw2) += h;
+                    MATRIX_AT(steppingZ, randomGDraw2, randomCDraw) += h;
+
+                    int s1 = flatIdx(&accumulatedVotes, randomGDraw, randomCDraw);
+                    int s2 = flatIdx(&accumulatedVotes, randomGDraw2, randomCDraw2);
+                    int s3 = flatIdx(&accumulatedVotes, randomGDraw, randomCDraw2);
+                    int s4 = flatIdx(&accumulatedVotes, randomGDraw2, randomCDraw);
+
+                    updateFlattenCumsum(&accumulatedVotes, s1, -h);
+                    updateFlattenCumsum(&accumulatedVotes, s2, -h);
+                    updateFlattenCumsum(&accumulatedVotes, s3, h);
+                    updateFlattenCumsum(&accumulatedVotes, s4, h);
+                }
+
+                //  ---...--- //
+            } // --- End the step size loop
+            Mactual = M;
+            // ---- Add the combination to the ctx->omegaset ---- //
+            ctx->omegaset[b]->data[s] = steppingZ;
+            // ---...--- //
+        } // --- End the sample loop
+        atest += ktest;
+    } // --- End the ballot box loop
+    Rprintf("Did %llu metropolis steps, equivalent to a %.4f percent \n", atest,
+            atest / (double)(TOTAL_BALLOTS * S * M));
+    // calculateLogP(ctx); // Calculate the logarithm of the probabilities
+    qMid(ctx);
+    Free(c1);
+    Free(c2);
+    Free(g1);
+    Free(g2);
 }
 
 void generateOmegaSetMetropolis5(EMContext *ctx, int M, int S, int burnInSteps, char *initial_value)
@@ -588,8 +826,8 @@ void generateOmegaSetMetropolis5(EMContext *ctx, int M, int S, int burnInSteps, 
                     int s3 = flatIdx(&accumulatedVotes, randomGDraw, randomCDraw2);
                     int s4 = flatIdx(&accumulatedVotes, randomGDraw2, randomCDraw);
 
-                    updateFlattenCumsum(&accumulatedVotes, s1, h);
-                    updateFlattenCumsum(&accumulatedVotes, s2, h);
+                    updateFlattenCumsum(&accumulatedVotes, s1, -h);
+                    updateFlattenCumsum(&accumulatedVotes, s2, -h);
                     updateFlattenCumsum(&accumulatedVotes, s3, h);
                     updateFlattenCumsum(&accumulatedVotes, s4, h);
                 }
@@ -1640,6 +1878,8 @@ void computeQMetropolis(EMContext *ctx, QMethodInput params, double *ll)
     {
         if (strcmp(params.sampling_method, "sample_proportional") == 0)
             generateOmegaSetMetropolis5(ctx, params.M, params.S, params.burnInSteps, params.initial_value);
+        else if (strcmp(params.sampling_method, "sample_proportional2") == 0)
+            generateOmegaSetMetropolis6(ctx, params.M, params.S, params.burnInSteps, params.initial_value);
         else
             generateOmegaSetMetropolis4(ctx, params.M, params.S, params.burnInSteps, params.initial_value,
                                         params.sampling_method);
@@ -1651,6 +1891,8 @@ void computeQMetropolis(EMContext *ctx, QMethodInput params, double *ll)
     {
         if (strcmp(params.sampling_method, "sample_proportional") == 0)
             generateOmegaSetMetropolis5(ctx, params.M, params.S, params.burnInSteps, params.initial_value);
+        else if (strcmp(params.sampling_method, "sample_proportional2") == 0)
+            generateOmegaSetMetropolis6(ctx, params.M, params.S, params.burnInSteps, params.initial_value);
         else
             generateOmegaSetMetropolis4(ctx, params.M, params.S, params.burnInSteps, params.initial_value,
                                         params.sampling_method);
