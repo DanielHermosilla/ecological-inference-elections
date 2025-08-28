@@ -147,7 +147,8 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
             "mvncdf_error",
             "miniter",
             "metropolis_iter",
-            "burn_in"
+            "burn_in",
+            "step_gap"
         )
         extra_params <- matrices[names(matrices) %in% allowed_params] # TODO: Validate them
     }
@@ -351,6 +352,7 @@ run_em <- function(object = NULL,
                    metropolis_iter = 5,
                    burn_in = 10000,
                    sampling_method = "proportional",
+                   step_gap = 0.1,
                    ...) {
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint
@@ -419,6 +421,7 @@ run_em <- function(object = NULL,
         object$burn_in <- if ("burn_in" %in% names(all_params)) all_params$burn_in else 10000
         # Sampling method
         object$sampling_method <- if ("sampling_method" %in% names(all_params)) all_params$sampling_method else "proportional"
+        object$step_gap <- if ("step_gap" %in% names(all_params)) all_params$step_gap else 0.1
     }
 
     W <- if (is.null(object$W_agg)) object$W else object$W_agg
@@ -442,6 +445,7 @@ run_em <- function(object = NULL,
         as.integer(if (!is.null(object$metropolis_iter)) object$metropolis_iter else 5),
         as.integer(if (!is.null(object$burn_in)) object$burn_in else 10000),
         if (!is.null(object$sampling_method)) object$sampling_method else "proportional",
+        as.numeric(if (!is.null(object$step_gap)) object$step_gap else 0.1),
         miniter
     )
     # ---------- ... ---------- #
@@ -630,6 +634,7 @@ bootstrap <- function(object = NULL,
     mvncdf_error <- 0.0
     metropolis_iter <- 5L
     burn_in <- 10000L
+    step_gap <- 0.1
     sampling_method <- "proportional"
 
     if (method == "mcmc") {
@@ -646,6 +651,7 @@ bootstrap <- function(object = NULL,
         metropolis_iter <- if (!is.null(all_params$metropolis_iter)) all_params$metropolis_iter else 5L
         burn_in <- if (!is.null(all_params$burn_in)) all_params$burn_in else 10000
         sampling_method <- if ("sampling_method" %in% names(all_params)) all_params$sampling_method else "proportional"
+        step_gap <- if ("step_gap" %in% names(all_params)) all_params$step_gap else 0.1
     }
 
     # Call C bootstrap function
@@ -668,6 +674,7 @@ bootstrap <- function(object = NULL,
         as.integer(metropolis_iter),
         as.integer(burn_in),
         as.character(sampling_method),
+        as.double(step_gap),
         as.integer(miniter)
     )
 
@@ -846,6 +853,7 @@ get_agg_proxy <- function(object = NULL,
     metropolis_iter <- 5L
     burn_in <- 10000L
     sampling_method <- "proportional"
+    step_gap <- 0.1
 
     if (method == "mcmc") {
         mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
@@ -861,6 +869,7 @@ get_agg_proxy <- function(object = NULL,
         metropolis_iter <- if (!is.null(all_params$metropolis_iter)) all_params$metropolis_iter else 5L
         burn_in <- if (!is.null(all_params$burn_in)) all_params$burn_in else 10000
         sampling_method <- if ("sampling_method" %in% names(all_params)) all_params$sampling_method else "proportional"
+        step_gap <- if ("step_gap" %in% names(all_params)) all_params$step_gap else 0.1
     }
 
     result <- groupAgg(
@@ -885,6 +894,7 @@ get_agg_proxy <- function(object = NULL,
         as.integer(metropolis_iter),
         as.integer(burn_in),
         as.character(sampling_method),
+        as.double(step_gap),
         as.integer(miniter)
     )
 
@@ -1050,6 +1060,7 @@ get_agg_opt <- function(object = NULL,
     metropolis_iter <- 5L
     burn_in <- 10000L
     sampling_method <- "proportional"
+    step_gap <- 0.1
 
     if (method == "mcmc") {
         mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
@@ -1065,6 +1076,7 @@ get_agg_opt <- function(object = NULL,
         metropolis_iter <- if (!is.null(all_params$metropolis_iter)) all_params$metropolis_iter else 5L
         burn_in <- if (!is.null(all_params$burn_in)) all_params$burn_in else 10000
         sampling_method <- if ("sampling_method" %in% names(all_params)) all_params$sampling_method else "proportional"
+        step_gap <- if ("step_gap" %in% names(all_params)) all_params$step_gap else 0.1
     }
 
 
@@ -1089,6 +1101,7 @@ get_agg_opt <- function(object = NULL,
         as.integer(metropolis_iter),
         as.integer(burn_in),
         as.character(sampling_method),
+        as.double(step_gap),
         as.integer(miniter)
     )
 

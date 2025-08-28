@@ -436,7 +436,7 @@ int fzh(uint8_t g1, uint8_t g2, uint8_t c1, uint8_t c2, IntMatrix z, int h, doub
     return MAX(1, minimo);
 }
 
-void generateOmegaSetMetropolis6(EMContext *ctx, int M, int S, int burnInSteps, char *initial_value)
+void generateOmegaSetMetropolis6(EMContext *ctx, int M, int S, int burnInSteps, char *initial_value, double step_gap)
 {
     // ---- Allocate memory for the `b` index ----
     if (ctx->omegaset != NULL)
@@ -562,9 +562,9 @@ void generateOmegaSetMetropolis6(EMContext *ctx, int M, int S, int burnInSteps, 
                     continue;
                 }
 
-                int f = fzh(randomGDraw, randomGDraw2, randomCDraw, randomCDraw2, steppingZ, 0, 0.1);
+                int f = fzh(randomGDraw, randomGDraw2, randomCDraw, randomCDraw2, steppingZ, 0, step_gap);
                 int h = (int)(f * MS[shiftIndex1]) + 1;
-                int fh = fzh(randomGDraw, randomGDraw2, randomCDraw, randomCDraw2, steppingZ, h, 0.1);
+                int fh = fzh(randomGDraw, randomGDraw2, randomCDraw, randomCDraw2, steppingZ, h, step_gap);
 
                 if (h > fh)
                     continue;
@@ -659,7 +659,7 @@ void generateOmegaSetMetropolis6(EMContext *ctx, int M, int S, int burnInSteps, 
     Free(g2);
 }
 
-void generateOmegaSetMetropolis5(EMContext *ctx, int M, int S, int burnInSteps, char *initial_value)
+void generateOmegaSetMetropolis5(EMContext *ctx, int M, int S, int burnInSteps, char *initial_value, double step_gap)
 {
     // ---- Allocate memory for the `b` index ----
     if (ctx->omegaset != NULL)
@@ -797,9 +797,9 @@ void generateOmegaSetMetropolis5(EMContext *ctx, int M, int S, int burnInSteps, 
                     continue;
                 }
 
-                int f = fzh(randomGDraw, randomGDraw2, randomCDraw, randomCDraw2, steppingZ, 0, 0.1);
+                int f = fzh(randomGDraw, randomGDraw2, randomCDraw, randomCDraw2, steppingZ, 0, step_gap);
                 int h = (int)(f * MS[shiftIndex1]) + 1;
-                int fh = fzh(randomGDraw, randomGDraw2, randomCDraw, randomCDraw2, steppingZ, h, 0.1);
+                int fh = fzh(randomGDraw, randomGDraw2, randomCDraw, randomCDraw2, steppingZ, h, step_gap);
 
                 if (h > fh)
                     continue;
@@ -863,7 +863,7 @@ void generateOmegaSetMetropolis5(EMContext *ctx, int M, int S, int burnInSteps, 
 }
 
 void generateOmegaSetMetropolis4(EMContext *ctx, int M, int S, int burnInSteps, char *initial_value,
-                                 char *sampling_method)
+                                 char *sampling_method, double step_gap)
 {
     // ---- Allocate memory for the `b` index ----
     if (ctx->omegaset != NULL)
@@ -982,9 +982,9 @@ void generateOmegaSetMetropolis4(EMContext *ctx, int M, int S, int burnInSteps, 
                     continue;
                 }
 
-                int f = fzh(randomGDraw, randomGDraw2, randomCDraw, randomCDraw2, steppingZ, 0, 0.1);
+                int f = fzh(randomGDraw, randomGDraw2, randomCDraw, randomCDraw2, steppingZ, 0, step_gap);
                 int h = (int)(f * MS[shiftIndex1]) + 1;
-                int fh = fzh(randomGDraw, randomGDraw2, randomCDraw, randomCDraw2, steppingZ, h, 0.1);
+                int fh = fzh(randomGDraw, randomGDraw2, randomCDraw, randomCDraw2, steppingZ, h, step_gap);
 
                 if (h > fh)
                     continue;
@@ -1882,18 +1882,20 @@ void computeQMetropolis(EMContext *ctx, QMethodInput params, double *ll)
 
     *ll = 0;
 
-    Rprintf("Running metropolis with %s sampling method and %s starting point\n", params.sampling_method,
-            params.initial_value);
+    Rprintf("Running metropolis with %s sampling method, %s starting point and a stepping gap of %.2f\n",
+            params.sampling_method, params.initial_value, params.stepping_gap);
 
     if (ctx->iteration == 0)
     {
         if (strcmp(params.sampling_method, "sample_proportional") == 0)
-            generateOmegaSetMetropolis5(ctx, params.M, params.S, params.burnInSteps, params.initial_value);
+            generateOmegaSetMetropolis5(ctx, params.M, params.S, params.burnInSteps, params.initial_value,
+                                        params.stepping_gap);
         else if (strcmp(params.sampling_method, "sample_proportional2") == 0)
-            generateOmegaSetMetropolis6(ctx, params.M, params.S, params.burnInSteps, params.initial_value);
+            generateOmegaSetMetropolis6(ctx, params.M, params.S, params.burnInSteps, params.initial_value,
+                                        params.stepping_gap);
         else
             generateOmegaSetMetropolis4(ctx, params.M, params.S, params.burnInSteps, params.initial_value,
-                                        params.sampling_method);
+                                        params.sampling_method, params.stepping_gap);
 
         computeQhastingIteration(ctx, ll);
         return;
@@ -1901,12 +1903,14 @@ void computeQMetropolis(EMContext *ctx, QMethodInput params, double *ll)
     if (ctx->iteration % params.iters == 0)
     {
         if (strcmp(params.sampling_method, "sample_proportional") == 0)
-            generateOmegaSetMetropolis5(ctx, params.M, params.S, params.burnInSteps, params.initial_value);
+            generateOmegaSetMetropolis5(ctx, params.M, params.S, params.burnInSteps, params.initial_value,
+                                        params.stepping_gap);
         else if (strcmp(params.sampling_method, "sample_proportional2") == 0)
-            generateOmegaSetMetropolis6(ctx, params.M, params.S, params.burnInSteps, params.initial_value);
+            generateOmegaSetMetropolis6(ctx, params.M, params.S, params.burnInSteps, params.initial_value,
+                                        params.stepping_gap);
         else
             generateOmegaSetMetropolis4(ctx, params.M, params.S, params.burnInSteps, params.initial_value,
-                                        params.sampling_method);
+                                        params.sampling_method, params.stepping_gap);
         // encode(ctx);
         // preComputeMultinomial(ctx);
         computeQhastingIteration(ctx, ll);
