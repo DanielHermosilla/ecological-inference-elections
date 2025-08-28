@@ -575,32 +575,42 @@ void generateOmegaSetMetropolis6(EMContext *ctx, int M, int S, int burnInSteps, 
                                         MATRIX_AT_PTR(logProb, randomGDraw2, randomCDraw) +
                                         MATRIX_AT_PTR(logProb, randomGDraw, randomCDraw2));
 
-                double secondLine = -lgamma1p(MATRIX_AT(steppingZ, randomGDraw, randomCDraw) - h);
+                double secondLine = lgamma1p(MATRIX_AT(steppingZ, randomGDraw, randomCDraw) - 1) -
+                                    lgamma1p(MATRIX_AT(steppingZ, randomGDraw, randomCDraw) - h);
 
-                double thirdLine = -lgamma1p(MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2) - h);
+                double thirdLine = lgamma1p(MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2) - 1) -
+                                   lgamma1p(MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2) - h);
 
-                double fourthLine = lgamma1p(MATRIX_AT(steppingZ, randomGDraw2, randomCDraw));
+                double fourthLine = -lgamma1p(MATRIX_AT(steppingZ, randomGDraw2, randomCDraw) + h - 1) +
+                                    lgamma1p(MATRIX_AT(steppingZ, randomGDraw2, randomCDraw));
 
-                double fifthLine = lgamma1p(MATRIX_AT(steppingZ, randomGDraw, randomCDraw2));
+                double fifthLine = -lgamma1p(MATRIX_AT(steppingZ, randomGDraw, randomCDraw2) + h - 1) +
+                                   lgamma1p(MATRIX_AT(steppingZ, randomGDraw, randomCDraw2));
 
                 double sixthLine = log((double)f / (double)fh);
 
                 Matrix W = ctx->W;
                 Matrix X = ctx->X;
+
                 int commonTerm = 2 * ctx->total_votes - MATRIX_AT(W, b, randomGDraw) - MATRIX_AT(W, b, randomGDraw2) -
                                  MATRIX_AT(X, randomCDraw, b) - MATRIX_AT(X, randomCDraw2, b);
+
                 double seventhLine = log(2 * h + commonTerm + MATRIX_AT(steppingZ, randomGDraw, randomCDraw2) +
                                          MATRIX_AT(steppingZ, randomGDraw2, randomCDraw));
                 double eigthLine =
                     -log(ctx->total_votes - MATRIX_AT(W, b, randomGDraw) - MATRIX_AT(X, randomCDraw2, b) +
                          MATRIX_AT(steppingZ, randomGDraw, randomCDraw2) + h);
+
                 double nineLine = -log(ctx->total_votes - MATRIX_AT(W, b, randomGDraw2) - MATRIX_AT(X, randomCDraw, b) +
                                        MATRIX_AT(steppingZ, randomGDraw2, randomCDraw) + h);
+
                 double tenthLine = -log(commonTerm + MATRIX_AT(steppingZ, randomGDraw, randomCDraw) +
                                         MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2));
+
                 double eleventhLine =
                     log(ctx->total_votes - MATRIX_AT(W, b, randomGDraw) - MATRIX_AT(X, randomCDraw, b) +
                         MATRIX_AT(steppingZ, randomGDraw, randomCDraw));
+
                 double twelveLine =
                     log(ctx->total_votes - MATRIX_AT(W, b, randomGDraw2) - MATRIX_AT(X, randomCDraw2, b) +
                         MATRIX_AT(steppingZ, randomGDraw2, randomCDraw2));
@@ -609,6 +619,7 @@ void generateOmegaSetMetropolis6(EMContext *ctx, int M, int S, int burnInSteps, 
                                eigthLine + nineLine + tenthLine + eleventhLine + twelveLine;
 
                 // Rprintf("%.4f\n", total);
+                // if (randomCDraw == 8 && randomGDraw == 4)
                 // Rprintf("%.4f\n", exp(total));
                 if (log(MS[shiftIndex]) < total)
                 {
