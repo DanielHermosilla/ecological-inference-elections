@@ -651,7 +651,8 @@ void computeQExact(EMContext *ctx, QMethodInput params, double *ll)
         } // ---- End loop on groups
     } // ---- End loop on ballot boxes
 
-    *ll = exactLL(table);
+    if (params.computeLL)
+        *ll = exactLL(table);
     freeMemo(table);
     // ---...--- //
 }

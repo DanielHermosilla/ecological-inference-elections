@@ -105,21 +105,17 @@ EMContext *createEMContext(Matrix *X, Matrix *W, const char *method, QMethodInpu
     }
     TOTAL_VOTES = ctx->total_votes;
 
-    if (strcmp(method, "mult") == 0 || strcmp(method, "mcmc") == 0 || strcmp(method, "metropolis") == 0)
+    if (strcmp(method, "mult") == 0 && params.computeLL)
     {
         precomputeLogGammas(ctx);
     }
     if (strcmp(method, "mcmc") == 0)
     {
+        precomputeLogGammas(ctx);
         generateOmegaSet(ctx, params.M, params.S, params.burnInSteps);
         encode(ctx);
         precomputeQConstant(ctx, params.S);
         preComputeMultinomial(ctx);
-    }
-    if (strcmp(method, "metropolis") == 0)
-    {
-        // precomputeQConstant(ctx, params.S);
-        // preComputeMultinomial(ctx);
     }
     if (strcmp(method, "exact") == 0)
     {
@@ -373,14 +369,10 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
     {
         config.computeQ = computeQMultivariateCDF;
     }
-    else if (strcmp(q_method, "metropolis") == 0)
-    {
-        config.computeQ = computeQMetropolis;
-    }
     else
     {
         error("Compute: An invalid method was provided: `%s`\nThe supported methods are: `exact`, `mcmc`"
-              ", `mult`, `metropolis`, `mvn_cdf` and `mvn_pdf`.\n",
+              ", `mult`, `mvn_cdf` and `mvn_pdf`.\n",
               q_method);
     }
 

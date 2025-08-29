@@ -73,6 +73,9 @@
         if (args$param_threshold >= 1) {
             warning("Warning: A 'param_threshold' greater or equal than one will always be true after the first iteration.")
         }
+        if ("compute_ll" %in% names(args) && !args$compute_ll && is.infinite(args$param_threshold)) {
+            stop("You must provide a parameter threshold if 'compute_ll' is FALSE.")
+        }
     }
 
     # Verbose argument

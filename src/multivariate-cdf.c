@@ -328,6 +328,7 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
     IntMatrix *intW = &ctx->intW;
     double *q = ctx->q;
     Matrix *probabilities = &ctx->probabilities;
+    double *logArray;
 
     int monteCarloSamples = params.monteCarloIter;
     double epsilon = params.errorThreshold;
@@ -335,7 +336,9 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
 
     // ---- Define initial variables ---- //
     Matrix probabilitiesReduced = removeLastColumn(probabilities);
-    double *logArray = (double *)Calloc(TOTAL_BALLOTS, double);
+
+    if (params.computeLL)
+        logArray = (double *)Calloc(TOTAL_BALLOTS, double);
     // --- ... --- //
 
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
@@ -402,7 +405,8 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
                 }
                 montecarloResults[c] *= MATRIX_AT_PTR(probabilities, g, c);
                 denominator += !isnan(montecarloResults[c]) ? montecarloResults[c] : 0;
-                logArray[b] += g == 0 && !isnan(montecarloResults[c]) ? montecarloResults[c] : 0;
+                if (params.computeLL)
+                    logArray[b] += g == 0 && !isnan(montecarloResults[c]) ? montecarloResults[c] : 0;
                 // TODO: Make an arena for this loop
                 // Free(featureCopyA);
                 // Free(featureCopyB);
@@ -430,12 +434,15 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
     freeMatrix(&probabilitiesReduced);
 
     // Compute the log-likelihood
-    double finalLikelihood = 0;
-    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    if (params.computeLL)
     {
-        finalLikelihood += logArray[b] != 0 ? log(logArray[b]) : 0;
+        double finalLikelihood = 0;
+        for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+        {
+            finalLikelihood += logArray[b] != 0 ? log(logArray[b]) : 0;
+        }
+        *ll = finalLikelihood;
+        free(logArray);
     }
-    *ll = finalLikelihood;
     // *ll = log(*ll);
-    free(logArray);
 }

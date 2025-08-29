@@ -130,7 +130,6 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
             "convergence",
             "maxiter",
             "maxtime",
-            "sampling_method",
             "ll_threshold",
             "cond_prob",
             "sd",
@@ -146,9 +145,6 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
             "mvncdf_samples",
             "mvncdf_error",
             "miniter",
-            "metropolis_iter",
-            "burn_in",
-            "step_gap"
         )
         extra_params <- matrices[names(matrices) %in% allowed_params] # TODO: Validate them
     }
@@ -214,6 +210,8 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' @param ll_threshold An optional numeric value indicating the minimum difference between consecutive log-likelihood values to stop iterating. The default value is `inf`, essentially deactivating
 #' the threshold. Note that the algorithm will stop if either `ll_threshold` **or** `param_threshold` is accomplished.
 #'
+#' @param compute_ll An optional boolean indicating whether to compute the log-likelihood at each iteration. The default value is `TRUE`.
+#'
 #' @param verbose An optional boolean indicating whether to print informational messages during the EM
 #'   iterations. The default value is `FALSE`.
 #'
@@ -239,10 +237,6 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'
 #' @param mvncdf_samples An optional integer specifying the number of Monte Carlo
 #'   samples for the `mvn_cdf` method. The default value is `5000`. This argument is only applicable when `method = "mvn_cdf"`.
-#'
-#' @param metropolis_iter An optional integer specifying the amount of iterations to run the Metropolis-Hastings algorithm for the `metropolis` method. The default value is `5`. This argument is only applicable when `method = "metropolis"`.
-#'
-#' @param burn_in Amount of iterations to discard before starting the MCMC sampling. This is only applicable when `method = "mcmc"` or `method = "metropolis"`. The default value is `10000`.
 #'
 #' @param ... Added for compability
 #'
@@ -341,6 +335,7 @@ run_em <- function(object = NULL,
                    maxtime = 3600,
                    param_threshold = 0.001,
                    ll_threshold = as.double(-Inf),
+                   compute_ll = TRUE,
                    seed = NULL,
                    verbose = FALSE,
                    group_agg = NULL,
@@ -349,10 +344,6 @@ run_em <- function(object = NULL,
                    mvncdf_method = "genz",
                    mvncdf_error = 1e-5,
                    mvncdf_samples = 5000,
-                   metropolis_iter = 5,
-                   burn_in = 10000,
-                   sampling_method = "proportional",
-                   step_gap = 0.1,
                    ...) {
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint
@@ -410,18 +401,6 @@ run_em <- function(object = NULL,
         object$mvncdf_samples <- if ("mvncdf_samples" %in% names(all_params)) all_params$mvncdf_samples else 5000
         # Montecarlo error
         object$mvncdf_error <- if ("mvncdf_error" %in% names(all_params)) all_params$mvncdf_error else 1e-6
-    } else if (method == "metropolis") {
-        # Metropolis iterations method
-        object$metropolis_iter <- if ("metropolis_iter" %in% names(all_params)) all_params$metropolis_iter else 5
-        # Step size
-        object$mcmc_stepsize <- as.integer(if ("mcmc_stepsize" %in% names(all_params)) all_params$mcmc_stepsize else 3000)
-        # Samples
-        object$mcmc_samples <- as.integer(if ("mcmc_samples" %in% names(all_params)) all_params$mcmc_samples else 1000)
-        # Burn in
-        object$burn_in <- if ("burn_in" %in% names(all_params)) all_params$burn_in else 10000
-        # Sampling method
-        object$sampling_method <- if ("sampling_method" %in% names(all_params)) all_params$sampling_method else "proportional"
-        object$step_gap <- if ("step_gap" %in% names(all_params)) all_params$step_gap else 0.1
     }
 
     W <- if (is.null(object$W_agg)) object$W else object$W_agg
@@ -436,16 +415,13 @@ run_em <- function(object = NULL,
         maxtime,
         param_threshold,
         ll_threshold,
+        compute_ll,
         verbose,
         as.integer(if (!is.null(object$mcmc_stepsize)) object$mcmc_stepsize else 3000),
         as.integer(if (!is.null(object$mcmc_samples)) object$mcmc_samples else 1000),
         if (!is.null(object$mvncdf_method)) object$mvncdf_method else "genz",
         as.numeric(if (!is.null(object$mvncdf_error)) object$mvncdf_error else 1e-6),
         as.numeric(if (!is.null(object$mvncdf_samples)) object$mvncdf_samples else 5000),
-        as.integer(if (!is.null(object$metropolis_iter)) object$metropolis_iter else 5),
-        as.integer(if (!is.null(object$burn_in)) object$burn_in else 10000),
-        if (!is.null(object$sampling_method)) object$sampling_method else "proportional",
-        as.numeric(if (!is.null(object$step_gap)) object$step_gap else 0.1),
         miniter
     )
     # ---------- ... ---------- #
@@ -466,7 +442,9 @@ run_em <- function(object = NULL,
     object$prob <- as.matrix(resulting_values$result)
     dimnames(object$prob) <- list(colnames(W), colnames(object$X))
     object$iterations <- as.numeric(resulting_values$total_iterations)
-    object$logLik <- as.numeric(resulting_values$log_likelihood[length(resulting_values$log_likelihood)])
+    if (compute_ll) {
+        object$logLik <- as.numeric(resulting_values$log_likelihood[length(resulting_values$log_likelihood)])
+    }
     object$time <- resulting_values$total_time
     object$message <- resulting_values$stopping_reason
     object$status <- as.integer(resulting_values$finish_id)
@@ -618,6 +596,7 @@ bootstrap <- function(object = NULL,
     maxtime <- if (!is.null(all_params$maxtime)) all_params$maxtime else 3600
     param_threshold <- if (!is.null(all_params$param_threshold)) all_params$param_threshold else 0.001
     verbose <- if (!is.null(all_params$verbose)) all_params$verbose else FALSE
+    compute_ll <- if (!is.null(all_params$compute_ll)) all_params$compute_ll else TRUE
 
     # R does a subtle type conversion when handing -Inf. Hence, we'll use a direct assignment
     if ("ll_threshold" %in% names(all_params)) {
@@ -632,10 +611,6 @@ bootstrap <- function(object = NULL,
     mvncdf_method <- ""
     mvncdf_samples <- 0L
     mvncdf_error <- 0.0
-    metropolis_iter <- 5L
-    burn_in <- 10000L
-    step_gap <- 0.1
-    sampling_method <- "proportional"
 
     if (method == "mcmc") {
         mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
@@ -645,16 +620,8 @@ bootstrap <- function(object = NULL,
         mvncdf_method <- if (!is.null(all_params$mvncdf_method)) all_params$method else "genz"
         mvncdf_samples <- if (!is.null(all_params$mvncdf_samples)) all_params$mvncdf_samples else 5000
         mvncdf_error <- if (!is.null(all_params$mvncdf_error)) all_params$mvncdf_error else 1e-6
-    } else if (method == "metropolis") {
-        mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
-        mcmc_samples <- if (!is.null(all_params$mcmc_samples)) all_params$mcmc_samples else 1000
-        metropolis_iter <- if (!is.null(all_params$metropolis_iter)) all_params$metropolis_iter else 5L
-        burn_in <- if (!is.null(all_params$burn_in)) all_params$burn_in else 10000
-        sampling_method <- if ("sampling_method" %in% names(all_params)) all_params$sampling_method else "proportional"
-        step_gap <- if ("step_gap" %in% names(all_params)) all_params$step_gap else 0.1
-    }
+    } # Call C bootstrap function
 
-    # Call C bootstrap function
     result <- bootstrapAlg(
         t(object$X),
         W,
@@ -665,16 +632,13 @@ bootstrap <- function(object = NULL,
         as.double(maxtime),
         as.double(param_threshold),
         as.double(ll_threshold),
+        as.logical(compute_ll),
         as.logical(verbose),
         as.integer(mcmc_stepsize),
         as.integer(mcmc_samples),
         as.character(mvncdf_method),
         as.double(mvncdf_error),
         as.integer(mvncdf_samples),
-        as.integer(metropolis_iter),
-        as.integer(burn_in),
-        as.character(sampling_method),
-        as.double(step_gap),
         as.integer(miniter)
     )
 
@@ -836,6 +800,7 @@ get_agg_proxy <- function(object = NULL,
     maxtime <- if (!is.null(all_params$maxtime)) all_params$maxtime else 3600
     param_threshold <- if (!is.null(all_params$param_threshold)) all_params$param_threshold else 0.01
     verbose <- if (!is.null(all_params$verbose)) all_params$verbose else FALSE
+    compute_ll <- if (!is.null(all_params$compute_ll)) all_params$compute_ll else TRUE
 
     # R does a subtle type conversion when handing -Inf. Hence, we'll use a direct assignment
     if ("ll_threshold" %in% names(all_params)) {
@@ -850,10 +815,6 @@ get_agg_proxy <- function(object = NULL,
     mvncdf_method <- ""
     mvncdf_samples <- 0L
     mvncdf_error <- 0.0
-    metropolis_iter <- 5L
-    burn_in <- 10000L
-    sampling_method <- "proportional"
-    step_gap <- 0.1
 
     if (method == "mcmc") {
         mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
@@ -863,13 +824,6 @@ get_agg_proxy <- function(object = NULL,
         mvncdf_method <- if (!is.null(all_params$mvncdf_method)) all_params$method else "genz"
         mvncdf_samples <- if (!is.null(all_params$mvncdf_samples)) all_params$mvncdf_samples else 5000
         mvncdf_error <- if (!is.null(all_params$mvncdf_error)) all_params$mvncdf_error else 1e-6
-    } else if (method == "metropolis") {
-        mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
-        mcmc_samples <- if (!is.null(all_params$mcmc_samples)) all_params$mcmc_samples else 1000
-        metropolis_iter <- if (!is.null(all_params$metropolis_iter)) all_params$metropolis_iter else 5L
-        burn_in <- if (!is.null(all_params$burn_in)) all_params$burn_in else 10000
-        sampling_method <- if ("sampling_method" %in% names(all_params)) all_params$sampling_method else "proportional"
-        step_gap <- if ("step_gap" %in% names(all_params)) all_params$step_gap else 0.1
     }
 
     result <- groupAgg(
@@ -885,16 +839,13 @@ get_agg_proxy <- function(object = NULL,
         as.double(maxtime),
         as.double(param_threshold),
         as.double(ll_threshold),
+        as.logical(compute_ll),
         as.logical(verbose),
         as.integer(mcmc_stepsize),
         as.integer(mcmc_samples),
         as.character(mvncdf_method),
         as.double(mvncdf_error),
         as.integer(mvncdf_samples),
-        as.integer(metropolis_iter),
-        as.integer(burn_in),
-        as.character(sampling_method),
-        as.double(step_gap),
         as.integer(miniter)
     )
 
@@ -1043,6 +994,7 @@ get_agg_opt <- function(object = NULL,
     maxtime <- if (!is.null(all_params$maxtime)) all_params$maxtime else 3600
     param_threshold <- if (!is.null(all_params$param_threshold)) all_params$param_threshold else 0.01
     verbose <- if (!is.null(all_params$verbose)) all_params$verbose else FALSE
+    compute_ll <- if (!is.null(all_params$compute_ll)) all_params$compute_ll else TRUE
 
     # R does a subtle type conversion when handing -Inf. Hence, we'll use a direct assignment
     if ("ll_threshold" %in% names(all_params)) {
@@ -1057,10 +1009,6 @@ get_agg_opt <- function(object = NULL,
     mvncdf_method <- ""
     mvncdf_samples <- 0L
     mvncdf_error <- 0.0
-    metropolis_iter <- 5L
-    burn_in <- 10000L
-    sampling_method <- "proportional"
-    step_gap <- 0.1
 
     if (method == "mcmc") {
         mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
@@ -1070,15 +1018,7 @@ get_agg_opt <- function(object = NULL,
         mvncdf_method <- if (!is.null(all_params$mvncdf_method)) all_params$mvncdf_method else "genz"
         mvncdf_samples <- if (!is.null(all_params$mvncdf_samples)) all_params$mvncdf_samples else 5000
         mvncdf_error <- if (!is.null(all_params$mvncdf_error)) all_params$mvncdf_error else 1e-6
-    } else if (method == "metropolis") {
-        mcmc_stepsize <- if (!is.null(all_params$mcmc_stepsize)) all_params$mcmc_stepsize else 3000
-        mcmc_samples <- if (!is.null(all_params$mcmc_samples)) all_params$mcmc_samples else 1000
-        metropolis_iter <- if (!is.null(all_params$metropolis_iter)) all_params$metropolis_iter else 5L
-        burn_in <- if (!is.null(all_params$burn_in)) all_params$burn_in else 10000
-        sampling_method <- if ("sampling_method" %in% names(all_params)) all_params$sampling_method else "proportional"
-        step_gap <- if ("step_gap" %in% names(all_params)) all_params$step_gap else 0.1
     }
-
 
     result <- groupAggGreedy(
         as.character(sd_statistic),
@@ -1092,16 +1032,13 @@ get_agg_opt <- function(object = NULL,
         as.double(maxtime),
         as.double(param_threshold),
         as.double(ll_threshold),
+        as.logical(compute_ll),
         as.logical(verbose),
         as.integer(mcmc_stepsize),
         as.integer(mcmc_samples),
         as.character(mvncdf_method),
         as.double(mvncdf_error),
         as.integer(mvncdf_samples),
-        as.integer(metropolis_iter),
-        as.integer(burn_in),
-        as.character(sampling_method),
-        as.double(step_gap),
         as.integer(miniter)
     )
 

@@ -18,6 +18,7 @@ run_em(
   maxtime = 3600,
   param_threshold = 0.001,
   ll_threshold = as.double(-Inf),
+  compute_ll = TRUE,
   seed = NULL,
   verbose = FALSE,
   group_agg = NULL,
@@ -26,8 +27,6 @@ run_em(
   mvncdf_method = "genz",
   mvncdf_error = 0.00001,
   mvncdf_samples = 5000,
-  metropolis_iter = 5,
-  burn_in = 10000,
   ...
 )
 }
@@ -78,6 +77,8 @@ consecutive probability values required to stop iterating. The default value is 
 \item{ll_threshold}{An optional numeric value indicating the minimum difference between consecutive log-likelihood values to stop iterating. The default value is \code{inf}, essentially deactivating
 the threshold. Note that the algorithm will stop if either \code{ll_threshold} \strong{or} \code{param_threshold} is accomplished.}
 
+\item{compute_ll}{An optional boolean indicating whether to compute the log-likelihood at each iteration. The default value is \code{TRUE}.}
+
 \item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = "random"} or \code{method} is either \code{"mcmc"} or \code{"mvn_cdf"}.}
 
 \item{verbose}{An optional boolean indicating whether to print informational messages during the EM
@@ -103,10 +104,6 @@ when \code{method = "mvn_cdf"}.}
 
 \item{mvncdf_samples}{An optional integer specifying the number of Monte Carlo
 samples for the \code{mvn_cdf} method. The default value is \code{5000}. This argument is only applicable when \code{method = "mvn_cdf"}.}
-
-\item{metropolis_iter}{An optional integer specifying the amount of iterations to run the Metropolis-Hastings algorithm for the \code{metropolis} method. The default value is \code{5}. This argument is only applicable when \code{method = "metropolis"}.}
-
-\item{burn_in}{Amount of iterations to discard before starting the MCMC sampling. This is only applicable when \code{method = "mcmc"} or \code{method = "metropolis"}. The default value is \code{10000}.}
 
 \item{...}{Added for compability}
 }

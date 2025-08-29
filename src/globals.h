@@ -28,6 +28,7 @@ extern "C"
         char *sampling_method; // For Metropolis
         char *initial_value;   // For Metropolis
         int miniter;
+        bool computeLL;
         int monteCarloIter;           // For "MVN CDF"
         double errorThreshold;        // For "MVN CDF"
         const char *simulationMethod; // For "MVN CDF"

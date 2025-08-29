@@ -110,6 +110,7 @@ void computeQMultinomial(EMContext *ctx, QMethodInput params, double *ll)
     IntMatrix *intW = &ctx->intW;
     Matrix *probabilities = &ctx->probabilities;
     double *q = ctx->q;
+    bool compute_ll = params.computeLL;
     // -- Summatory calculation for g --
     // This is a simple matrix calculation, to be computed once.
     Matrix WP = createMatrix((int)TOTAL_BALLOTS, (int)TOTAL_CANDIDATES);
@@ -163,7 +164,7 @@ void computeQMultinomial(EMContext *ctx, QMethodInput params, double *ll)
                 tempSum += finalNumerator[c];
                 // ---...--- //
                 // Add the log-likelihood
-                if (g == 0)
+                if (compute_ll && g == 0)
                 {
                     *ll += MATRIX_AT(WP, b, c) != 0 && totalWP[b] != 0
                                ? MATRIX_AT_PTR(intX, c, b) * log(MATRIX_AT(WP, b, c) / totalWP[b]) -
@@ -180,7 +181,7 @@ void computeQMultinomial(EMContext *ctx, QMethodInput params, double *ll)
                     !isnan(result) && !isinf(result) ? finalNumerator[c] / tempSum : 0;
             }
         }
-        *ll += ctx->logGamma[ctx->ballots_votes[b]];
+        *ll += compute_ll ? ctx->logGamma[ctx->ballots_votes[b]] : 0;
     }
     // *ll -= TOTAL_BALLOTS * TOTAL_CANDIDATES * log(totalWP);
     freeMatrix(&WP);

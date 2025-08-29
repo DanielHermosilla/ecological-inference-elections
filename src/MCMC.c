@@ -514,6 +514,7 @@ double computeQ(EMContext *ctx)
 
 void computeQHitAndRun(EMContext *ctx, QMethodInput params, double *ll)
 {
+    *ll = 0;
     Matrix *X = &ctx->X;
     Matrix *W = &ctx->W;
     IntMatrix *intX = &ctx->intX;
@@ -587,7 +588,7 @@ void computeQHitAndRun(EMContext *ctx, QMethodInput params, double *ll)
             v = exp(multiplicationValues[i]);
             sum_exp_num += v;
         }
-        for (int i = 0; i < currentSet->size; i++)
+        for (int i = 0; i < currentSet->size && params.computeLL; i++)
         { // --- For each sample
             double val = exp(multiplicationValues[i]) / sum_exp_num;
             *ll -= val * log(currentSet->counts[i] * val);
@@ -601,9 +602,5 @@ void computeQHitAndRun(EMContext *ctx, QMethodInput params, double *ll)
         // ---...--- //
     } // --- End ballot box loop
 
-    // Calculo Q
-    double toprint = computeQ(ctx);
-
-    // *ll += computeQ(array2, probabilities);
-    *ll += toprint;
+    *ll += params.computeLL ? computeQ(ctx) : 0;
 }
