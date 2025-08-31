@@ -8,9 +8,9 @@ extern "C"
 {
 #endif
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
-
 // Macro for accessing a 3D flattened array (b x g x c)
 #define Q_3D(q, bIdx, gIdx, cIdx, G, C) ((q)[(bIdx) * (G) * (C) + (cIdx) * (G) + (gIdx)])
 #define MATRIX_AT(matrix, i, j) (matrix.data[(j) * (matrix.rows) + (i)])
