@@ -236,7 +236,7 @@ int LP_NW(EMContext *ctx, int b)
     // Extraer solución q_{gc} -> ctx->q[b,g,c]
     if (glp_ret == 0)
     {
-        Rprintf("funcionó el LP!\n");
+        // Rprintf("funcionó el LP!\n");
         for (int g = 0; g < G; ++g)
         {
             for (int c = 0; c < C; ++c)

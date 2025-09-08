@@ -500,12 +500,12 @@ void projectQ(EMContext *ctx, QMethodInput inputParams)
                     int status;
                     if (inputParams.LP_weights_w)
                     {
-                        Rprintf("Entrando a LP con peso de W\n");
+                        // Rprintf("Entrando a LP con peso de W\n");
                         status = LPW(ctx, b);
                     }
                     else
                     {
-                        Rprintf("Entrando a LP sin peso de W\n");
+                        // Rprintf("Entrando a LP sin peso de W\n");
                         status = LP_NW(ctx, b);
                     }
                 }
@@ -615,18 +615,18 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
         config.computeQ(ctx, config.params, &newLL);
         if (inputParams->LP_every_iter && strcmp(inputParams->LP, "plp") == 0)
         {
-            Rprintf("Proyectando\n");
+            // Rprintf("Proyectando\n");
             projectQ(ctx, *inputParams);
         }
         if (inputParams->LP_every_iter && strcmp(inputParams->LP, "lp") == 0 && inputParams->LP_weights_w)
         {
-            Rprintf("Haciendo el LP con peso W sin proyectar\n");
+            // Rprintf("Haciendo el LP con peso W sin proyectar\n");
             for (int b = 0; b < TOTAL_BALLOTS; b++)
                 LPW(ctx, b);
         }
         if (inputParams->LP_every_iter && strcmp(inputParams->LP, "lp") == 0 && !inputParams->LP_weights_w)
         {
-            Rprintf("Haciendo el LP sin peso W sin proyectar\n");
+            // Rprintf("Haciendo el LP sin peso W sin proyectar\n");
             for (int b = 0; b < TOTAL_BALLOTS; b++)
                 LP_NW(ctx, b);
         }
