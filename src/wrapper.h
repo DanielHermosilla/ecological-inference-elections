@@ -69,7 +69,8 @@ Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMa
                            Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold,
                            Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size,
                            Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error,
-                           Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations);
+                           Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP,
+                           Rcpp::LogicalVector LP_weights_w, Rcpp::LogicalVector LP_every_iter);
 
 /**
  *  Returns an array of col-major matrices with bootstrapped matrices.
@@ -106,26 +107,26 @@ Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMa
  *
  * @return An allocated array of size bootiter * TOTAL_BALLOTS that stores matrices.
  */
-
 Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
                                  Rcpp::IntegerVector nboot, Rcpp::String em_method, Rcpp::String probability_method,
                                  Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
-                                 Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_threshold,
+                                 Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold,
                                  Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose,
                                  Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method,
                                  Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter,
-                                 Rcpp::IntegerVector miniterations);
+                                 Rcpp::IntegerVector miniterations, Rcpp::String LP, Rcpp::LogicalVector LP_weights_w,
+                                 Rcpp::LogicalVector LP_every_iter);
 
 /*
  * Returns a list with an heuristic-optimal bootstrapped matrix with an ideal group aggregation.
  *
- * @param[in] sd_statistic String indicates the statistic for the standard deviation (gxc) matrix. It can take the value
+ * @param[in] sd_statistic String indicates the statistic for the standard deviation (gxc) matrix. It can take the
+ * value 'maximum', in which case computes the maximum over the standard deviation matrix, or 'average', in which
+ * case computes the average.
+ *
+ * @param[in] String indicates the statistic for the standard deviation (gxc) matrix. It can take the value
  * 'maximum', in which case computes the maximum over the standard deviation matrix, or 'average', in which case
  * computes the average.
- *
- * @param[in] String indicates the statistic for the standard deviation (gxc) matrix. It can take the value 'maximum',
- * in which case computes the maximum over the standard deviation matrix, or 'average', in which case computes the
- * average.
  *
  * @param[in] candidate_matrix The 'X' matrix of dimension (cxb).
  *
@@ -166,9 +167,11 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
                     Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix, Rcpp::IntegerVector nboot,
                     Rcpp::String em_method, Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations,
                     Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold,
-                    Rcpp::LogicalVector compute_ll, Rcpp::NumericVector log_threshold, Rcpp::LogicalVector verbose,
-                    Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method,
-                    Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations);
+                    Rcpp::NumericVector log_stopping_threshold, Rcpp::LogicalVector compute_ll,
+                    Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples,
+                    Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter,
+                    Rcpp::IntegerVector miniterations, Rcpp::String LP, Rcpp::LogicalVector LP_weights_w,
+                    Rcpp::LogicalVector LP_every_iter);
 
 /*
  *
@@ -209,8 +212,9 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
                           Rcpp::IntegerVector nboot, Rcpp::String em_method, Rcpp::String probability_method,
                           Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
                           Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold,
-                          Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size,
+                          Rcpp::NumericVector compute_ll, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size,
                           Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error,
-                          Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations);
+                          Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP,
+                          Rcpp::LogicalVector LP_weights_w, Rcpp::LogicalVector LP_every_iter);
 
 #endif // WRAPPER_H

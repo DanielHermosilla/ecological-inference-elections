@@ -344,6 +344,9 @@ run_em <- function(object = NULL,
                    mvncdf_method = "genz",
                    mvncdf_error = 1e-5,
                    mvncdf_samples = 5000,
+                   lp = "plp",
+                   lp_weights_w = TRUE,
+                   lp_every_iteration = TRUE,
                    ...) {
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint
@@ -422,7 +425,10 @@ run_em <- function(object = NULL,
         if (!is.null(object$mvncdf_method)) object$mvncdf_method else "genz",
         as.numeric(if (!is.null(object$mvncdf_error)) object$mvncdf_error else 1e-6),
         as.numeric(if (!is.null(object$mvncdf_samples)) object$mvncdf_samples else 5000),
-        miniter
+        miniter,
+        lp,
+        lp_weights_w,
+        lp_every_iteration
     )
     # ---------- ... ---------- #
 
@@ -597,6 +603,9 @@ bootstrap <- function(object = NULL,
     param_threshold <- if (!is.null(all_params$param_threshold)) all_params$param_threshold else 0.001
     verbose <- if (!is.null(all_params$verbose)) all_params$verbose else FALSE
     compute_ll <- if (!is.null(all_params$compute_ll)) all_params$compute_ll else TRUE
+    lp <- if (!is.null(all_params$lp)) all_params$lp else "plp"
+    lp_weights_w <- if (!is.null(all_params$lp_weights_w)) all_params$lp_weights_w else TRUE
+    lp_every_iteration <- if (!is.null(all_params$lp_every_iteration)) all_params$lp_every_iteration else TRUE
 
     # R does a subtle type conversion when handing -Inf. Hence, we'll use a direct assignment
     if ("ll_threshold" %in% names(all_params)) {
@@ -639,7 +648,10 @@ bootstrap <- function(object = NULL,
         as.character(mvncdf_method),
         as.double(mvncdf_error),
         as.integer(mvncdf_samples),
-        as.integer(miniter)
+        as.integer(miniter),
+        as.character(lp),
+        as.logical(lp_weights_w),
+        as.logical(lp_every_iteration)
     )
 
     object$sd <- result
@@ -802,6 +814,7 @@ get_agg_proxy <- function(object = NULL,
     verbose <- if (!is.null(all_params$verbose)) all_params$verbose else FALSE
     compute_ll <- if (!is.null(all_params$compute_ll)) all_params$compute_ll else TRUE
 
+
     # R does a subtle type conversion when handing -Inf. Hence, we'll use a direct assignment
     if ("ll_threshold" %in% names(all_params)) {
         ll_threshold <- all_params$ll_threshold
@@ -846,7 +859,10 @@ get_agg_proxy <- function(object = NULL,
         as.character(mvncdf_method),
         as.double(mvncdf_error),
         as.integer(mvncdf_samples),
-        as.integer(miniter)
+        as.integer(miniter),
+        as.character(lp),
+        as.logical(lp_weights_w),
+        as.logical(lp_every_iteration)
     )
 
     # If the returned matrix isn't the best non-feasible result
@@ -995,6 +1011,9 @@ get_agg_opt <- function(object = NULL,
     param_threshold <- if (!is.null(all_params$param_threshold)) all_params$param_threshold else 0.01
     verbose <- if (!is.null(all_params$verbose)) all_params$verbose else FALSE
     compute_ll <- if (!is.null(all_params$compute_ll)) all_params$compute_ll else TRUE
+    lp <- if (!is.null(all_params$lp)) all_params$lp else "plp"
+    lp_weights_w <- if (!is.null(all_params$lp_weights_w)) all_params$lp_weights_w else TRUE
+    lp_every_iteration <- if (!is.null(all_params$lp_every_iteration)) all_params$lp_every_iteration else TRUE
 
     # R does a subtle type conversion when handing -Inf. Hence, we'll use a direct assignment
     if ("ll_threshold" %in% names(all_params)) {
@@ -1039,7 +1058,10 @@ get_agg_opt <- function(object = NULL,
         as.character(mvncdf_method),
         as.double(mvncdf_error),
         as.integer(mvncdf_samples),
-        as.integer(miniter)
+        as.integer(miniter),
+        as.character(lp),
+        as.logical(lp_weights_w),
+        as.logical(lp_every_iteration)
     )
 
     if (result$indices[[1]] == -1) {

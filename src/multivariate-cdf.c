@@ -44,15 +44,28 @@ SOFTWARE.
 #define Free(p) R_chk_free((void *)(p))
 #endif
 
+void allocateSeed(EMContext *ctx, int iterations)
+{
+    int size = iterations * (ctx->C - 1) * ctx->B;
+    double *seed = Calloc(size, double);
+
+    for (int i = 0; i < size; i++)
+    {
+        seed[i] = unif_rand();
+    }
+    ctx->cdf_seeds = seed;
+}
 /*
- * @brief Compute the Montecarlo approximation proposed by Alan genz towards the most recent method, using univariate
- * conditional with quasirandom numbers.
+ * @brief Compute the Montecarlo approximation proposed by Alan genz towards the
+ * most recent method, using univariate conditional with quasirandom numbers.
  *
- * Computes an heuristic from the first Multivariate CDF proposed. More details at the following paper:
+ * Computes an heuristic from the first Multivariate CDF proposed. More details
+ * at the following paper:
  * https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities
  *
- * Note that this method gives the option to impose an error threshold. So, it stops iterating if, either the maximum
- * iterations are accomplished or the error threshold is passed.
+ * Note that this method gives the option to impose an error threshold. So, it
+ * stops iterating if, either the maximum iterations are accomplished or the
+ * error threshold is passed.
  *
  * @param[in] *cholesky. The cholesky matrix of the current iteration.
  * @param[in] *lowerBounds. An array with the initial lower bounds.
@@ -95,7 +108,8 @@ double genzMontecarloNew(const Matrix *cholesky, const double *lowerBounds, cons
         // ---- Do the main loop ---- //
         for (int i = 1; i < mvnDim; i++)
         {
-            // ---- Note that the summatory is equivalent to $\sum_{j=1}^{i-1}c_{ij}*y_{j}$.
+            // ---- Note that the summatory is equivalent to
+            // $\sum_{j=1}^{i-1}c_{ij}*y_{j}$.
             summatory = 0;
             for (int j = 0; j < i; j++)
             {
@@ -125,13 +139,16 @@ double genzMontecarloNew(const Matrix *cholesky, const double *lowerBounds, cons
 /*
  * @brief Compute the Montecarlo approximation proposed by Alan genz
  *
- * Compute a `manual` Montecarlo simulation, proposed by Dr. Alan genz book "Computation of Multivariate Normal and t
- * Probabilities". All of the variable names and conventions are adopted towards his proposed algorithm aswell. Refer to
- * https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities for more
- * information.
+ * Compute a `manual` Montecarlo simulation, proposed by Dr. Alan genz book
+ * "Computation of Multivariate Normal and t Probabilities". All of the variable
+ * names and conventions are adopted towards his proposed algorithm aswell.
+ * Refer to
+ * https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities
+ * for more information.
  *
- * Note that this method gives the option to impose an error threshold. So, it stops iterating if, either the maximum
- * iterations are accomplished or the error threshold is passed.
+ * Note that this method gives the option to impose an error threshold. So, it
+ * stops iterating if, either the maximum iterations are accomplished or the
+ * error threshold is passed.
  *
  * @param[in] *cholesky. The cholesky matrix of the current iteration.
  * @param[in] *lowerBounds. An array with the initial lower bounds.
@@ -189,7 +206,8 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
         {
             double draw = d[i - 1] + randomVector[i - 1] * (e[i - 1] - d[i - 1]);
             y[i - 1] = qnorm(draw, 0.0, 1.0, 1, 0);
-            // ---- Note that the summatory is equivalent to $\sum_{j=1}^{i-1}c_{ij}*y_{j}$.
+            // ---- Note that the summatory is equivalent to
+            // $\sum_{j=1}^{i-1}c_{ij}*y_{j}$.
 
             summatory = 0;
             for (int j = 0; j < i; j++)
@@ -226,17 +244,21 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
 /*
  * @brief Calls the main function to start all of the Montecarlo process
  *
- * Calls the function with all of the parameters needed to get the Montecarlo simulation of the Multivariate CDF.
+ * Calls the function with all of the parameters needed to get the Montecarlo
+ * simulation of the Multivariate CDF.
  *
  * @param[in] *chol A matrix with the cholenksy values of the current group
  * @param[in] *mu An array with the average values of the current feature vector
- * @param[in] *lowerLimits An array with the lower bounds of the integral (defined by the hypercube)
- * @param[in] *upperLimits An array with the upper bounds of the integral (defined by the hypercube)
- * @param[in] mvnDim The dimensions of the multivariate normal. Usually it's C-1.
+ * @param[in] *lowerLimits An array with the lower bounds of the integral
+ * (defined by the hypercube)
+ * @param[in] *upperLimits An array with the upper bounds of the integral
+ * (defined by the hypercube)
+ * @param[in] mvnDim The dimensions of the multivariate normal. Usually it's
+ * C-1.
  * @param[in] maxSamples Amount of samples for the Montecarlo simulation.
  * @param[in] epsilon The error threshold used for the genz Montecarlo.
- * @param[in] *method The method for calculating the Montecarlo simulation. Currently available methods are `Plain`,
- * `Miser` and `Vegas`.
+ * @param[in] *method The method for calculating the Montecarlo simulation.
+ * Currently available methods are `Plain`, `Miser` and `Vegas`.
  *
  * @note Refer to https://www.gnu.org/software/gsl/doc/html/montecarlo.html
  *
@@ -252,7 +274,12 @@ double Montecarlo(Matrix *chol, double *mu, double *lowerLimits, double *upperLi
     // ---- Case where there are no values ---- //
     if (MATRIX_AT_PTR(chol, 0, 0) == 0 ||
         memcmp(lowerLimits, upperLimits, sizeof(double) * (TOTAL_CANDIDATES - 1)) == 0)
+    {
+        Rprintf("Estoy acá\n");
+        Rprintf("La cholesky es:\n");
+        printMatrix(chol);
         return 0;
+    }
 
     // ---- Perform integration ---- //
     if (strcmp(method, "genz") == 0)
@@ -267,9 +294,11 @@ double Montecarlo(Matrix *chol, double *mu, double *lowerLimits, double *upperLi
     }
     else
     {
-        error("Multivariate CDF: An invalid method was handed to the Montecarlo simulation for calculating the "
+        error("Multivariate CDF: An invalid method was handed to the Montecarlo "
+              "simulation for calculating the "
               "Multivariate CDF "
-              "integral.\nThe method handed is:\t%s\nThe current available methods are `genz` or `genz2`"
+              "integral.\nThe method handed is:\t%s\nThe current available methods "
+              "are `genz` or `genz2`"
               ".\n",
               method);
     }
@@ -277,12 +306,15 @@ double Montecarlo(Matrix *chol, double *mu, double *lowerLimits, double *upperLi
 }
 
 /*
- * @brief Gets the a matrix of mu values and the inverse sigma for a given ballot box
+ * @brief Gets the a matrix of mu values and the inverse sigma for a given
+ * ballot box
  *
  * @param[in] b The ballot box index.
- * @param[in] *probabilitiesReduced Probabilities matrix without the last candidate.
- * @param[in, out] **cholesky An array of `g` matrices that stores (`c-1`X`c-1`) matrices with the cholesky values. The
- * cholesky matrix is filled on the upper and lower triangle with the same values since it's simmetric.
+ * @param[in] *probabilitiesReduced Probabilities matrix without the last
+ * candidate.
+ * @param[in, out] **cholesky An array of `g` matrices that stores (`c-1`X`c-1`)
+ * matrices with the cholesky values. The cholesky matrix is filled on the upper
+ * and lower triangle with the same values since it's simmetric.
  * @param[in, out] *mu A matrix of size (`g`x`c-1`) with the averages per group.
  *
  * @return void. Results to be written on cholesky and mu
@@ -312,10 +344,11 @@ void getMainParameters(EMContext *ctx, int b, Matrix const probabilitiesReduced,
  * @brief Computes the `q` values from the multivariate CDF method
  *
  * @param[in] *probabilities A pointer towards the current probabilities matrix.
- * @param[in] monteCarloSamples The amount of samples to use in the Monte Carlo simulation
+ * @param[in] monteCarloSamples The amount of samples to use in the Monte Carlo
+ * simulation
  * @param[in] epsilon The error threshold used for the genz Montecarlo method.
- * @param[in] *method The method for calculating the Montecarlo simulation. Currently available methods are `Plain`,
- * `Miser` and `Vegas`.
+ * @param[in] *method The method for calculating the Montecarlo simulation.
+ * Currently available methods are `Plain`, `Miser` and `Vegas`.
  *
  * @return A contiguos array with all the new probabilities
  */
@@ -343,7 +376,8 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
 
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // --- For each ballot box
-        // ---- Get the values of the Multivariate CDF that only depends on `b` ---- //
+        // ---- Get the values of the Multivariate CDF that only depends on `b` ----
+        // //
         // ---- Mu and inverse Sigma matrix ----
         Matrix mu = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES - 1);
         Matrix **choleskyVals = (Matrix **)Calloc(TOTAL_GROUPS, Matrix *);
@@ -370,8 +404,9 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
                 // ---- First, make a copy of the feature vector ----
                 double featureCopyA[TOTAL_CANDIDATES - 1];
                 double featureCopyB[TOTAL_CANDIDATES - 1];
-                // double *featureCopyA = (double *)Calloc((TOTAL_CANDIDATES - 1), double);
-                // double *featureCopyB = (double *)Calloc((TOTAL_CANDIDATES - 1), double);
+                // double *featureCopyA = (double *)Calloc((TOTAL_CANDIDATES - 1),
+                // double); double *featureCopyB = (double *)Calloc((TOTAL_CANDIDATES -
+                // 1), double);
 
                 memcpy(featureCopyA, feature, (TOTAL_CANDIDATES - 1) * sizeof(double));
                 memcpy(featureCopyB, feature, (TOTAL_CANDIDATES - 1) * sizeof(double));
@@ -380,7 +415,8 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
                 // ---- Note that the bounds NEEDS to be standarized ----
                 // ---- $$a=\sigma^{-1}(a-\mu)$$ ----
                 for (uint16_t k = 0; k < TOTAL_CANDIDATES - 1; k++)
-                { // --- For each candidate coordinate that is going to be integrated
+                { // --- For each candidate coordinate that is going to be
+                  // integrated
                     featureCopyA[k] -= 0.5;
                     featureCopyB[k] += 0.5;
                     if (k == c)
@@ -388,14 +424,22 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
                         featureCopyA[k] -= 1.0;
                         featureCopyB[k] -= 1.0;
                     }
-                    featureCopyA[k] -= currentMu[k];
-                    featureCopyB[k] -= currentMu[k];
+                    if (TOTAL_CANDIDATES == 2)
+                    {
+                        featureCopyA[k] -= currentMu[k]; // OJO con esto, descomentar en caso de algo raro
+                        featureCopyB[k] -= currentMu[k];
+                    }
                 }
                 // ---...--- //
                 // ---- Save the results and add them to the denominator ---- //
                 if (TOTAL_CANDIDATES != 2)
+                {
+                    Rprintf("Entrando con Cholesky de\n");
+                    printMatrix(currentCholesky);
+                    Rprintf("La probabilidad es %.16f\n", MATRIX_AT_PTR(probabilities, g, c));
                     montecarloResults[c] = Montecarlo(currentCholesky, currentMu, featureCopyA, featureCopyB,
                                                       (int)TOTAL_CANDIDATES - 1, monteCarloSamples, epsilon, method);
+                }
 
                 else
                 {
@@ -403,8 +447,29 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
                         (pnorm(featureCopyB[0], 0.0, sqrt(MATRIX_AT_PTR(currentCholesky, 0, 0)), 1, 0) -
                          pnorm(featureCopyA[0], 0.0, sqrt(MATRIX_AT_PTR(currentCholesky, 0, 0)), 1, 0));
                 }
+                if (false && c == TOTAL_CANDIDATES - 1)
+                {
+                    Rprintf("El valor montecarlo es %.16f y el denominador es %.16f\n", montecarloResults[c],
+                            denominator);
+                    Rprintf("Los limites son [%.4f, %.4f] y mu es %.4f\n", featureCopyA[0], featureCopyB[0],
+                            currentMu[0]);
+                }
                 montecarloResults[c] *= MATRIX_AT_PTR(probabilities, g, c);
                 denominator += !isnan(montecarloResults[c]) ? montecarloResults[c] : 0;
+                if (c == TOTAL_CANDIDATES - 1 && denominator == 0)
+                {
+                    printMatrix(currentCholesky);
+                    Rprintf("%.16f\n", montecarloResults[c]);
+                    Rprintf("Los límites y mu para cada dimensión son:\n");
+                    for (uint16_t k = 0; k < TOTAL_CANDIDATES - 1; k++)
+                    {
+                        Rprintf("[%.4f, %.4f] y mu es %.4f\n", featureCopyA[k], featureCopyB[k], currentMu[k]);
+                    }
+                    Rprintf("La matriz de mu completa es\n");
+                    printMatrix(&mu);
+                    Rprintf("El resultado sin multiplicar por probabilidad es %.4f\n",
+                            montecarloResults[c] / MATRIX_AT_PTR(probabilities, g, c));
+                }
                 if (params.computeLL)
                     logArray[b] += g == 0 && !isnan(montecarloResults[c]) ? montecarloResults[c] : 0;
                 // TODO: Make an arena for this loop
@@ -421,6 +486,15 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
             for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
             { // --- For each candidate
                 double result = montecarloResults[c] / denominator;
+                if (isnan(result) || isinf(result))
+                {
+                    // Rprintf("El valor del numerador es %.16f y el denominador es %.16f\n", montecarloResults[c],
+                    //      denominator);
+                }
+                if (c == 0 && b == 0)
+                {
+                    Rprintf("%.4f\n", result);
+                }
                 Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) =
                     !isnan(result) && !isinf(result) ? result : 0;
             } // --- End c loop

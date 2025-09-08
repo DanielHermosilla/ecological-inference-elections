@@ -32,6 +32,9 @@ extern "C"
         int monteCarloIter;           // For "MVN CDF"
         double errorThreshold;        // For "MVN CDF"
         const char *simulationMethod; // For "MVN CDF"
+        char *LP;
+        bool LP_weights_w;
+        bool LP_every_iter;
     } QMethodInput;
 
     // All of the helper functions are made towards double type matrices
@@ -77,6 +80,9 @@ extern "C"
         double *q;            // B×G×C
         double *predicted_votes;
         int iteration;
+
+        Matrix Wnorm;
+        double *cdf_seeds;
 
         // Sizes
         uint32_t B; // TOTAL_BALLOTS

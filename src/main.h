@@ -7,6 +7,7 @@ extern "C"
 {
 #endif
 
+#include "LP.h"
 #include "MCMC.h"
 #include "exact.h"
 #include "globals.h"
@@ -55,6 +56,8 @@ extern "C"
                           const double LLconvergence, const int maxIter, const double maxSeconds, const bool verbose,
                           double *time, int *iterTotal, double *logLLarr, int *finishing_reason,
                           QMethodInput *inputParams);
+
+    Matrix precomputeNorm(Matrix *W);
 
     /**
      * @brief Checks if a candidate didn't receive any votes.
