@@ -1108,8 +1108,8 @@ get_agg_opt <- function(object = NULL,
     object$maxiter <- maxiter
     object$miniter <- miniter
     object$initial_prob <- initial_prob
-    object$project <- project
-    object$lp <- lp
+    object$adjust_prob_cond_method <- adjust_prob_cond_method
+    object$adjust_prob_cond_every <- adjust_prob_cond_every
 
     if (method == "mvn_cdf") {
         object$mvncdf_error <- mvncdf_error

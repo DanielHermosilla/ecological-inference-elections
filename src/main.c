@@ -341,8 +341,7 @@ void getInitialP(EMContext *ctx, const char *p_method)
 
         if (!ctx->q)
         {
-            perror("malloc for ctx->q");
-            exit(EXIT_FAILURE);
+            error("Allocation error, submit a ticket in the Github repository.");
         }
 
         // copy qMultinomial

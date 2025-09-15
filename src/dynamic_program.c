@@ -345,7 +345,7 @@ int *solveDP(int G, int A, const Matrix *lastReward,
  * Obtain the bootstrapping values of the group aggregations and the convergence value
  *
  */
-Matrix testBootstrap(EMContext *ctx, double *quality, const char *set_method, const Matrix *xmat, const Matrix *wmat,
+Matrix testBootstrap(EMContext *ctx, double *quality, const char *set_method, Matrix *xmat, const Matrix *wmat,
                      const int *boundaries, int A, int bootiter, const char *q_method, const char *p_method,
                      const double convergence, const double log_convergence, const int maxIter, const double maxSeconds,
                      QMethodInput inputParams)

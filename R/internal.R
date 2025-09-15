@@ -161,7 +161,7 @@
     valid_lp_methods <- c("", "lp", "project_lp")
     if ("adjust_prob_cond_method" %in% names(args) &&
         (!is.character(args$adjust_prob_cond_method) || !(args$adjust_prob_cond_method %in% valid_lp_methods))) {
-        stop("Invalid 'adjust_prob_cond_method'. Must be one of: ", paste(valid_ld_methods, collapse = ", "))
+        stop("Invalid 'adjust_prob_cond_method'. Must be one of: ", paste(valid_lp_methods, collapse = ", "))
     }
 
     if ("adjust_prob_cond_every" %in% names(args)) {

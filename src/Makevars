@@ -1,14 +1,2 @@
-# Detecta el prefix real de GLPK instalado por Homebrew
-GLPK_PREFIX := $(shell brew --prefix glpk)
-
-# Includes para C/C++
-PKG_CPPFLAGS = -I"$(GLPK_PREFIX)/include"
-
-# Flags específicas por si tienes .cpp (no hacen daño tenerlas)
-PKG_CFLAGS   = $(SHLIB_OPENMP_CFLAGS)
-PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS)
-
-# Linkeo
-PKG_LIBS = -L"$(GLPK_PREFIX)/lib" -lglpk \
-           $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS) $(SHLIB_OPENMP_CXXFLAGS)
-
+PKG_CXXFLAGS  = $(SHLIB_OPENMP_CXXFLAGS) 
+PKG_LIBS      = $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS) $(SHLIB_OPENMP_CXXFLAGS)

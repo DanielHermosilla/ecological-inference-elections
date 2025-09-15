@@ -23,6 +23,7 @@
 //   int LPW  (EMContext *ctx, int b);  // unweighted ABS (same as your GLPK LPW)
 
 #include "globals.h" // EMContext, MATRIX_AT, Q_3D, TOTAL_* macros
+#include <R.h>
 #include <R_ext/BLAS.h>
 #include <R_ext/RS.h> // F77_CALL
 #include <math.h>
@@ -53,8 +54,7 @@ static void *xcalloc(size_t n, size_t sz)
     void *p = calloc(n, sz);
     if (!p)
     {
-        perror("calloc");
-        exit(1);
+        error("Allocation error, submit a ticket in the Github repository.");
     }
     return p;
 }
