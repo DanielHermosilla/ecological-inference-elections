@@ -25,8 +25,10 @@ run_em(
   mcmc_samples = 1000,
   mcmc_stepsize = 3000,
   mvncdf_method = "genz",
-  mvncdf_error = 0.00001,
+  mvncdf_error = 1e-05,
   mvncdf_samples = 5000,
+  adjust_prob_cond_method = "",
+  adjust_prob_cond_every = FALSE,
   ...
 )
 }
@@ -105,6 +107,10 @@ when \code{method = "mvn_cdf"}.}
 \item{mvncdf_samples}{An optional integer specifying the number of Monte Carlo
 samples for the \code{mvn_cdf} method. The default value is \code{5000}. This argument is only applicable when \code{method = "mvn_cdf"}.}
 
+\item{adjust_prob_cond_method}{An optional string indicating the method for projecting the conditional probability. The default value is an empty string, meaning that the option is disabled. Supported values are \code{lp}, which applies a linear programming projection at each ballot box, and \code{project_lp}, which additionally incorporates a linear projection.}
+
+\item{adjust_prob_cond_every}{An optional boolean indicating whether to make the conditional probability projection at every iteration or just at the end. This parameter won't work if an \code{adjust_prob_cond_method} is not given. The default value is \code{FALSE}.}
+
 \item{...}{Added for compability}
 }
 \value{
@@ -129,7 +135,7 @@ The final status ID of the algorithm upon completion:
 }
 Aditionally, it will create \code{mcmc_samples} and \code{mcmc_stepsize} parameters if the specified \code{method = "mcmc"}, or \code{mvncdf_method}, \code{mvncdf_error} and \code{mvncdf_samples} if \code{method = "mvn_cdf"}.
 
-Also, if the eim object supplied is created with the function \link{simulate_election}, it also returns the real probability with the name \code{real_prob}. See \link{simulate_election}.
+Also, if the eim object supplied is created with the function \link{simulate_election}, it also returns the real probability and unobserved votes with the name \code{real_prob} and \code{outcome} respectively. See \link{simulate_election}.
 
 If \code{group_agg} is different than \code{NULL}, two values are returned: \code{W_agg} a \verb{(b x a)} matrix with the number of voters of each aggregated group o each ballot-box, and \code{group_agg} the same input vector.
 }

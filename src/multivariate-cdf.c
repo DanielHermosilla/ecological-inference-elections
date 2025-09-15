@@ -44,17 +44,127 @@ SOFTWARE.
 #define Free(p) R_chk_free((void *)(p))
 #endif
 
-void allocateSeed(EMContext *ctx, int iterations)
+// ---- Arena with reusable buffers ---- //
+typedef struct
 {
-    int size = iterations * (ctx->C - 1) * ctx->B;
-    double *seed = Calloc(size, double);
+    double *feature;    // size C
+    double *mu_row;     // size C-1
+    double *featureA;   // size C-1
+    double *featureB;   // size C-1
+    double *mc_results; // size C
+} ArenaCDF;
 
-    for (int i = 0; i < size; i++)
-    {
-        seed[i] = unif_rand();
-    }
-    ctx->cdf_seeds = seed;
+/**
+ * @brief Create and allocate an ArenaCDF for dimension C.
+ */
+static ArenaCDF ArenaCDF_init(int C)
+{
+    ArenaCDF A = (ArenaCDF){0};
+    A.feature = (double *)Calloc(C, double);
+    A.mu_row = (double *)Calloc(C - 1, double);
+    A.featureA = (double *)Calloc(C - 1, double);
+    A.featureB = (double *)Calloc(C - 1, double);
+    A.mc_results = (double *)Calloc(C, double);
+    return A;
 }
+
+/**
+ * @brief Free the buffers of the ArenaCDF.
+ */
+static void ArenaCDF_free(ArenaCDF *A)
+{
+    if (!A)
+        return;
+    if (A->feature)
+        Free(A->feature);
+    if (A->mu_row)
+        Free(A->mu_row);
+    if (A->featureA)
+        Free(A->featureA);
+    if (A->featureB)
+        Free(A->featureB);
+    if (A->mc_results)
+        Free(A->mc_results);
+    memset(A, 0, sizeof(*A));
+}
+
+// ---- Helpers without dynamic allocation (avoid Calloc/Free in loops) ---- //
+
+/**
+ * @brief Copy column `col` of M into a preallocated buffer.
+ *
+ * @param[in]  *M   Input matrix
+ * @param[in]  col  Column index
+ * @param[out] *out Buffer of size M->rows
+ */
+static inline void getColumn_into(const Matrix *M, int col, double *out)
+{
+    for (int r = 0; r < M->rows; r++)
+        out[r] = MATRIX_AT_PTR(M, r, col);
+}
+
+/**
+ * @brief Copy row `row` of M into a preallocated buffer.
+ *
+ * @param[in]  *M   Input matrix
+ * @param[in]  row  Row index
+ * @param[out] *out Buffer of size M->cols
+ */
+static inline void getRow_into(const Matrix *M, int row, double *out)
+{
+    for (int c = 0; c < M->cols; c++)
+        out[c] = MATRIX_AT_PTR(M, row, c);
+}
+
+// ---- PDF into the midpoint ---- //
+static double pdf_midpoint(const Matrix *cholesky, const double *mu, const double *lower, const double *upper, int d)
+{
+    // ---- Get the middle point ---- //
+    double mid[d];
+    for (int i = 0; i < d; i++)
+        mid[i] = 0.5 * (lower[i] + upper[i]);
+    // ---...--- //
+
+    // ---- diff = mid - mu ---- //
+    double diff[d];
+    for (int i = 0; i < d; i++)
+        diff[i] = mid[i] - mu[i];
+    // ---...--- //
+
+    // ---- L*z = diff ---- //
+    double z[d];
+    for (int i = 0; i < d; i++)
+    {
+        double lii = MATRIX_AT_PTR(cholesky, i, i);
+        if (!(lii > 0.0))
+            return 0.0; // mal condicionada
+        double s = diff[i];
+        for (int j = 0; j < i; j++)
+            s -= MATRIX_AT_PTR(cholesky, i, j) * z[j];
+        z[i] = s / lii;
+    }
+    // ---...--- //
+
+    // ---- ||z||^2 ---- //
+    double z2 = 0.0;
+    for (int i = 0; i < d; i++)
+        z2 += z[i] * z[i];
+    // ---...--- //
+
+    // ---- log(|Σ|^(1/2)) = sum(log(L_ii)) ---- //
+    double log_det_sqrt = 0.0;
+    for (int i = 0; i < d; i++)
+        log_det_sqrt += log(MATRIX_AT_PTR(cholesky, i, i));
+    // ---...--- //
+
+    // ---- φ(mid; μ,Σ) = (2π)^(-d/2) * exp(-0.5*||z||^2) / Π L_ii ---- //
+    double log_norm = -0.5 * d * log(M_2_PI) - log_det_sqrt;
+    double log_pdf = log_norm - 0.5 * z2;
+    double pdf = exp(log_pdf);
+
+    return isfinite(pdf) ? pdf : 0.0;
+}
+
 /*
  * @brief Compute the Montecarlo approximation proposed by Alan genz towards the
  * most recent method, using univariate conditional with quasirandom numbers.
@@ -275,9 +385,6 @@ double Montecarlo(Matrix *chol, double *mu, double *lowerLimits, double *upperLi
     if (MATRIX_AT_PTR(chol, 0, 0) == 0 ||
         memcmp(lowerLimits, upperLimits, sizeof(double) * (TOTAL_CANDIDATES - 1)) == 0)
     {
-        Rprintf("Estoy acá\n");
-        Rprintf("La cholesky es:\n");
-        printMatrix(chol);
         return 0;
     }
 
@@ -319,25 +426,17 @@ double Montecarlo(Matrix *chol, double *mu, double *lowerLimits, double *upperLi
  *
  * @return void. Results to be written on cholesky and mu
  */
-void getMainParameters(EMContext *ctx, int b, Matrix const probabilitiesReduced, Matrix **cholesky, Matrix *mu)
+static void getMainParameters(EMContext *ctx, int b, const Matrix probabilitiesReduced, Matrix **cholesky, Matrix *mu)
 {
-
-    // --- Initialize empty array --- //
-    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-    { // ---- For each group ----
-        cholesky[g] = (Matrix *)Calloc(1, Matrix);
-        *cholesky[g] = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1); // Initialize
-    }
-    // ---...--- //
-
-    // ---- Get mu and sigma ---- //
+    // ---- Compute mu and sigma ---- //
     getAverageConditional(ctx, b, &probabilitiesReduced, mu, cholesky);
-    for (uint16_t g = 0; g < TOTAL_GROUPS && TOTAL_CANDIDATES != 2; g++)
-    { // ---- For each group ----
-        choleskyMat(cholesky[g]);
-    }
 
-    // ---...--- //
+    // ---- Cholesky factorization (if applicable) ---- //
+    if (TOTAL_CANDIDATES != 2)
+    {
+        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+            choleskyMat(cholesky[g]);
+    }
 }
 
 /*
@@ -348,175 +447,137 @@ void getMainParameters(EMContext *ctx, int b, Matrix const probabilitiesReduced,
  * simulation
  * @param[in] epsilon The error threshold used for the genz Montecarlo method.
  * @param[in] *method The method for calculating the Montecarlo simulation.
- * Currently available methods are `Plain`, `Miser` and `Vegas`.
+ * Currently available methods are `Genz` and `Genz1`.
  *
  * @return A contiguos array with all the new probabilities
  */
 void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
 {
     *ll = 0.0;
+
     Matrix *X = &ctx->X;
-    Matrix *W = &ctx->W;
-    IntMatrix *intX = &ctx->intX;
-    IntMatrix *intW = &ctx->intW;
     double *q = ctx->q;
-    Matrix *probabilities = &ctx->probabilities;
-    double *logArray;
+    Matrix *P = &ctx->probabilities;
+
+    const int B = (int)ctx->B;
+    const int G = (int)ctx->G;
+    const int C = (int)ctx->C;
+    const int d = C - 1;
 
     int monteCarloSamples = params.monteCarloIter;
     double epsilon = params.errorThreshold;
     const char *method = params.simulationMethod;
 
-    // ---- Define initial variables ---- //
-    Matrix probabilitiesReduced = removeLastColumn(probabilities);
+    // ---- Remove last column (needed for getAverageConditional) ---- //
+    Matrix P_red = removeLastColumn(P);
 
+    // ---- Optional log-likelihood array ---- //
+    double *logArray = NULL;
     if (params.computeLL)
-        logArray = (double *)Calloc(TOTAL_BALLOTS, double);
-    // --- ... --- //
+        logArray = (double *)Calloc(B, double);
 
-    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    { // --- For each ballot box
-        // ---- Get the values of the Multivariate CDF that only depends on `b` ----
-        // //
-        // ---- Mu and inverse Sigma matrix ----
-        Matrix mu = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES - 1);
-        Matrix **choleskyVals = (Matrix **)Calloc(TOTAL_GROUPS, Matrix *);
-        getMainParameters(ctx, b, probabilitiesReduced, choleskyVals, &mu);
-        // ---- Array with the results of the Xth candidate on ballot B ----
-        double *feature = getColumn(X, b); // Of size C-1
-                                           // ---...--- //
+    // ---- Arena reused across all ballots ---- //
+    ArenaCDF A = ArenaCDF_init(C);
 
-        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-        { // --- For each group given a ballot box
-            // ---- Define the current values to use that only depends on `g` ---- //
-            Matrix *currentCholesky = choleskyVals[g];
+    for (uint32_t b = 0; b < (uint32_t)B; b++)
+    {
+        // ---- Create per-ballot structures ---- //
+        Matrix **L = (Matrix **)Calloc(G, Matrix *);
+        for (int g = 0; g < G; g++)
+        {
+            L[g] = (Matrix *)Calloc(1, Matrix);
+            *L[g] = createMatrix(d, d); // The cholesky matrix of dimension C-1 x C - 1
+        }
+        Matrix mu = createMatrix(G, d); // Mu matrix of dimension G x C-1
 
-            double *currentMu = getRow(&mu, g);
-            // ---- Initialize empty variables to be filled ----
-            double montecarloResults[TOTAL_CANDIDATES];
-            double denominator = 0;
-            // ---...--- //
+        // ---- Fill mu and cholesky (no alloc inside) ---- //
+        getMainParameters(ctx, (int)b, P_red, L, &mu);
 
-            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-            { // --- For each candidate given a group and a ballot box
+        // ---- feature = X[, b] into Arena buffer ---- //
+        getColumn_into(X, (int)b, A.feature);
 
-                // ---- Define the borders of the hypercube ---- //
-                // ---- First, make a copy of the feature vector ----
-                double featureCopyA[TOTAL_CANDIDATES - 1];
-                double featureCopyB[TOTAL_CANDIDATES - 1];
-                // double *featureCopyA = (double *)Calloc((TOTAL_CANDIDATES - 1),
-                // double); double *featureCopyB = (double *)Calloc((TOTAL_CANDIDATES -
-                // 1), double);
+        for (uint16_t g = 0; g < G; g++)
+        {
+            Matrix *Lg = L[g];
+            getRow_into(&mu, g, A.mu_row);
 
-                memcpy(featureCopyA, feature, (TOTAL_CANDIDATES - 1) * sizeof(double));
-                memcpy(featureCopyB, feature, (TOTAL_CANDIDATES - 1) * sizeof(double));
+            double denom = 0.0;
 
-                // ---- Substract/add and normalize ----
-                // ---- Note that the bounds NEEDS to be standarized ----
-                // ---- $$a=\sigma^{-1}(a-\mu)$$ ----
-                for (uint16_t k = 0; k < TOTAL_CANDIDATES - 1; k++)
-                { // --- For each candidate coordinate that is going to be
-                  // integrated
-                    featureCopyA[k] -= 0.5;
-                    featureCopyB[k] += 0.5;
+            for (uint16_t c = 0; c < C; c++)
+            {
+                // ---- Copy and adjust hypercube bounds ---- //
+                memcpy(A.featureA, A.feature, d * sizeof(double));
+                memcpy(A.featureB, A.feature, d * sizeof(double));
+                for (uint16_t k = 0; k < d; k++)
+                {
+                    A.featureA[k] -= 0.5;
+                    A.featureB[k] += 0.5;
                     if (k == c)
                     {
-                        featureCopyA[k] -= 1.0;
-                        featureCopyB[k] -= 1.0;
+                        A.featureA[k] -= 1.0;
+                        A.featureB[k] -= 1.0;
                     }
-                    if (TOTAL_CANDIDATES == 2)
+                    if (C == 2)
                     {
-                        featureCopyA[k] -= currentMu[k]; // OJO con esto, descomentar en caso de algo raro
-                        featureCopyB[k] -= currentMu[k];
+                        A.featureA[k] -= A.mu_row[k];
+                        A.featureB[k] -= A.mu_row[k];
                     }
-                }
-                // ---...--- //
-                // ---- Save the results and add them to the denominator ---- //
-                if (TOTAL_CANDIDATES != 2)
-                {
-                    Rprintf("Entrando con Cholesky de\n");
-                    printMatrix(currentCholesky);
-                    Rprintf("La probabilidad es %.16f\n", MATRIX_AT_PTR(probabilities, g, c));
-                    montecarloResults[c] = Montecarlo(currentCholesky, currentMu, featureCopyA, featureCopyB,
-                                                      (int)TOTAL_CANDIDATES - 1, monteCarloSamples, epsilon, method);
                 }
 
+                // ---- Monte Carlo integral or closed form ---- //
+                double val;
+                if (C != 2)
+                {
+                    val = Montecarlo(Lg, A.mu_row, A.featureA, A.featureB, d, monteCarloSamples, epsilon, method);
+                }
                 else
                 {
-                    montecarloResults[c] =
-                        (pnorm(featureCopyB[0], 0.0, sqrt(MATRIX_AT_PTR(currentCholesky, 0, 0)), 1, 0) -
-                         pnorm(featureCopyA[0], 0.0, sqrt(MATRIX_AT_PTR(currentCholesky, 0, 0)), 1, 0));
+                    double s = sqrt(MATRIX_AT_PTR(Lg, 0, 0));
+                    val = pnorm(A.featureB[0], 0.0, s, 1, 0) - pnorm(A.featureA[0], 0.0, s, 1, 0);
                 }
-                if (false && c == TOTAL_CANDIDATES - 1)
-                {
-                    Rprintf("El valor montecarlo es %.16f y el denominador es %.16f\n", montecarloResults[c],
-                            denominator);
-                    Rprintf("Los limites son [%.4f, %.4f] y mu es %.4f\n", featureCopyA[0], featureCopyB[0],
-                            currentMu[0]);
-                }
-                montecarloResults[c] *= MATRIX_AT_PTR(probabilities, g, c);
-                denominator += !isnan(montecarloResults[c]) ? montecarloResults[c] : 0;
-                if (c == TOTAL_CANDIDATES - 1 && denominator == 0)
-                {
-                    printMatrix(currentCholesky);
-                    Rprintf("%.16f\n", montecarloResults[c]);
-                    Rprintf("Los límites y mu para cada dimensión son:\n");
-                    for (uint16_t k = 0; k < TOTAL_CANDIDATES - 1; k++)
-                    {
-                        Rprintf("[%.4f, %.4f] y mu es %.4f\n", featureCopyA[k], featureCopyB[k], currentMu[k]);
-                    }
-                    Rprintf("La matriz de mu completa es\n");
-                    printMatrix(&mu);
-                    Rprintf("El resultado sin multiplicar por probabilidad es %.4f\n",
-                            montecarloResults[c] / MATRIX_AT_PTR(probabilities, g, c));
-                }
-                if (params.computeLL)
-                    logArray[b] += g == 0 && !isnan(montecarloResults[c]) ? montecarloResults[c] : 0;
-                // TODO: Make an arena for this loop
-                // Free(featureCopyA);
-                // Free(featureCopyB);
-                // ---...--- //
-            } // --- End c loop
-            Free(currentMu);
-            freeMatrix(currentCholesky);
-            freeMatrix(choleskyVals[g]);
-            Free(choleskyVals[g]);
 
-            // ---- Add the final results to the array ----//
-            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-            { // --- For each candidate
-                double result = montecarloResults[c] / denominator;
-                if (isnan(result) || isinf(result))
-                {
-                    // Rprintf("El valor del numerador es %.16f y el denominador es %.16f\n", montecarloResults[c],
-                    //      denominator);
-                }
-                if (c == 0 && b == 0)
-                {
-                    Rprintf("%.4f\n", result);
-                }
-                Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) =
-                    !isnan(result) && !isinf(result) ? result : 0;
-            } // --- End c loop
-            // ---...--- //
-        } // --- End g loop
-        // error("stopping here"); // Erse this
-        Free(feature);
+                // ---- Fallback with PDF midpoint ---- //
+                if (!(val > 0.0) || !isfinite(val))
+                    val = pdf_midpoint(Lg, A.mu_row, A.featureA, A.featureB, d);
+
+                // ---- Weight by prior probability ---- //
+                val *= MATRIX_AT_PTR(P, g, c);
+
+                A.mc_results[c] = val;
+                denom += isfinite(val) ? val : 0.0;
+
+                if (params.computeLL && g == 0 && isfinite(val))
+                    logArray[b] += val;
+            }
+
+            // ---- Normalize and store q ---- //
+            for (uint16_t c = 0; c < C; c++)
+            {
+                double result = A.mc_results[c] / denom;
+                Q_3D(q, b, g, c, G, C) = (isfinite(result) ? result : 0.0);
+            }
+        }
+
+        // ---- Free per-ballot matrices ---- //
+        for (int g = 0; g < G; g++)
+        {
+            freeMatrix(L[g]);
+            Free(L[g]);
+        }
+        Free(L);
         freeMatrix(&mu);
-        Free(choleskyVals);
-    } // --- End b loop
-    freeMatrix(&probabilitiesReduced);
+    }
 
-    // Compute the log-likelihood
+    // ---- Cleanup global ---- //
+    freeMatrix(&P_red);
+    ArenaCDF_free(&A);
+
     if (params.computeLL)
     {
-        double finalLikelihood = 0;
-        for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-        {
-            finalLikelihood += logArray[b] != 0 ? log(logArray[b]) : 0;
-        }
-        *ll = finalLikelihood;
-        free(logArray);
+        double finalLL = 0.0;
+        for (uint32_t b = 0; b < (uint32_t)B; b++)
+            finalLL += (logArray[b] != 0.0) ? log(logArray[b]) : 0.0;
+        *ll = finalLL;
+        Free(logArray);
     }
-    // *ll = log(*ll);
 }

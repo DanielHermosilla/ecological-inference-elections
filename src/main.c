@@ -478,12 +478,10 @@ void projectQ(EMContext *ctx, QMethodInput inputParams)
         {
             for (int c = 0; c < TOTAL_CANDIDATES; c++)
             {
-                // double predictedVote = Q_3D(ctx->predicted_votes, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES);
                 double predictedVote = MATRIX_AT(temp, b, c);
                 Q_3D(ctx->q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) =
                     Q_3D(ctx->q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) -
                     (predictedVote - MATRIX_AT_PTR(X, c, b)) * MATRIX_AT_PTR(norm, b, g);
-                // Rprintf("%.4f\n", Q_3D(ctx->q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES));
             }
         }
     }
@@ -498,16 +496,7 @@ void projectQ(EMContext *ctx, QMethodInput inputParams)
                     Q_3D(ctx->q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) > 1)
                 {
                     int status;
-                    if (inputParams.LP_weights_w)
-                    {
-                        // Rprintf("Entrando a LP con peso de W\n");
-                        status = LPW(ctx, b);
-                    }
-                    else
-                    {
-                        // Rprintf("Entrando a LP sin peso de W\n");
-                        status = LP_NW(ctx, b);
-                    }
+                    status = LPW(ctx, b);
                 }
             }
         }
@@ -600,8 +589,6 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
         // TODO: Free the context
     }
     // ---...--- //
-    Rprintf("Los valores de input son LP: %s, LP_every_iter: %d, LP_weights_w: %d\n", inputParams->LP,
-            inputParams->LP_every_iter, inputParams->LP_weights_w);
     Matrix oldProbabilities = createMatrix(ctx->G, ctx->C);
     // ---...--- //
     // ---- Execute the EM-iterations ---- //
@@ -613,23 +600,16 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
         // config.params.iters = i; // Update the iteration number in the parameters
         ctx->iteration = i;
         config.computeQ(ctx, config.params, &newLL);
-        if (inputParams->LP_every_iter && strcmp(inputParams->LP, "plp") == 0)
+        // ---- Project Q if needed ---- //
+        if (inputParams->prob_cond_every)
         {
-            // Rprintf("Proyectando\n");
-            projectQ(ctx, *inputParams);
+            if (strcmp(inputParams->prob_cond, "project_lp") == 0)
+                projectQ(ctx, *inputParams);
+            else if (strcmp(inputParams->prob_cond, "lp") == 0)
+                for (int b = 0; b < TOTAL_BALLOTS; b++)
+                    LPW(ctx, b);
         }
-        if (inputParams->LP_every_iter && strcmp(inputParams->LP, "lp") == 0 && inputParams->LP_weights_w)
-        {
-            // Rprintf("Haciendo el LP con peso W sin proyectar\n");
-            for (int b = 0; b < TOTAL_BALLOTS; b++)
-                LPW(ctx, b);
-        }
-        if (inputParams->LP_every_iter && strcmp(inputParams->LP, "lp") == 0 && !inputParams->LP_weights_w)
-        {
-            // Rprintf("Haciendo el LP sin peso W sin proyectar\n");
-            for (int b = 0; b < TOTAL_BALLOTS; b++)
-                LP_NW(ctx, b);
-        }
+        // ---...--- //
 
         memcpy(oldProbabilities.data, ctx->probabilities.data,
                sizeof(double) * oldProbabilities.rows * oldProbabilities.cols);
@@ -698,11 +678,11 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
     // ---...--- //
 results:
     config.computeQ(ctx, config.params, &newLL);
-    if (strcmp(inputParams->LP, "plp") == 0)
-    {
-        Rprintf("Proyectando al final\n");
+    if (strcmp(inputParams->prob_cond, "project_lp") == 0)
         projectQ(ctx, *inputParams);
-    }
+    else if (strcmp(inputParams->prob_cond, "lp") == 0)
+        for (int b = 0; b < TOTAL_BALLOTS; b++)
+            LPW(ctx, b);
     getPredictedVotes(ctx); // Compute the predicted votes for each ballot box
     *logLLarr = newLL;
     *time = elapsed_total;

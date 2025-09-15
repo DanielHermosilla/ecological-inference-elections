@@ -8,6 +8,7 @@ extern "C"
 #endif
 
 #include "globals.h"
+#include "multivariate-pdf.h"
 #include "utils_matrix.h"
 #include "utils_multivariate.h"
 

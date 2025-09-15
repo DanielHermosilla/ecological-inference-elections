@@ -41,7 +41,7 @@
     }
 
     # Initial prob argument
-    valid_p_methods <- c("group_proportional", "proportional", "uniform", "random", "mult", "mvn_cdf", "mvn_pdf", "exact")
+    valid_p_methods <- c("group_proportional", "proportional", "uniform", "random", "mult", "mcmc", "mvn_cdf", "mvn_pdf", "exact")
     if ("initial_prob" %in% names(args) &&
         (!is.character(args$initial_prob) || length(args$initial_prob) != 1 || !(args$initial_prob %in% valid_p_methods))) {
         stop("Invalid 'initial_prob'. Must be one of: ", paste(valid_p_methods, collapse = ", "))
@@ -157,6 +157,21 @@
     if ("alternative" %in% names(args) && !args$alternative %in% c("two.sided", "greater", "less")) {
         stop("Invalid 'alternative'. Must be one of: two.sided, greater, less")
     }
+
+    valid_lp_methods <- c("", "lp", "project_lp")
+    if ("adjust_prob_cond_method" %in% names(args) &&
+        (!is.character(args$adjust_prob_cond_method) || !(args$adjust_prob_cond_method %in% valid_lp_methods))) {
+        stop("Invalid 'adjust_prob_cond_method'. Must be one of: ", paste(valid_sd_methods, collapse = ", "))
+    }
+
+    if ("adjust_prob_cond_every" %in% names(args)) {
+        if (!is.logical(args$adjust_prob_cond_every)) {
+            stop("Invalid 'adjust_prob_cond_every'. Must be a boolean value.")
+        }
+        if ("adjust_prob_cond_method" %in% names(args) && args$adjust_prob_cond_method == "") {
+            warning("You provided 'adjust_prob_cond_every' but not 'adjust_prob_cond_method'. The former will be ignored.")
+        }
+    }
 }
 
 
@@ -266,7 +281,7 @@
 #' \item{groups}{The number of demographic groups that were drawn.}
 #' \item{total_votes}{A vector with the number of total votes per ballot box.}
 #'
-#' @seealso [simulate_elections()]
+#' @seealso [simulate_election()]
 #' @examples
 #'
 #' bal_range <- c(30, 50)

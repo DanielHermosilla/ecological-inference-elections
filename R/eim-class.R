@@ -145,6 +145,8 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
             "mvncdf_samples",
             "mvncdf_error",
             "miniter",
+            "adjust_prob_cond_method",
+            "adjust_prob_cond_every"
         )
         extra_params <- matrices[names(matrices) %in% allowed_params] # TODO: Validate them
     }
@@ -211,6 +213,10 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' the threshold. Note that the algorithm will stop if either `ll_threshold` **or** `param_threshold` is accomplished.
 #'
 #' @param compute_ll An optional boolean indicating whether to compute the log-likelihood at each iteration. The default value is `TRUE`.
+#'
+#' @param adjust_prob_cond_method An optional string indicating the method for projecting the conditional probability. The default value is an empty string, meaning that the option is disabled. Supported values are `lp`, which applies a linear programming projection at each ballot box, and `project_lp`, which additionally incorporates a linear projection.
+#'
+#' @param adjust_prob_cond_every An optional boolean indicating whether to make the conditional probability projection at every iteration or just at the end. This parameter won't work if an `adjust_prob_cond_method` is not given. The default value is `FALSE`.
 #'
 #' @param verbose An optional boolean indicating whether to print informational messages during the EM
 #'   iterations. The default value is `FALSE`.
@@ -281,7 +287,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' }
 #' Aditionally, it will create `mcmc_samples` and `mcmc_stepsize` parameters if the specified `method = "mcmc"`, or `mvncdf_method`, `mvncdf_error` and `mvncdf_samples` if `method = "mvn_cdf"`.
 #'
-#' Also, if the eim object supplied is created with the function [simulate_election], it also returns the real probability with the name `real_prob`. See [simulate_election].
+#' Also, if the eim object supplied is created with the function [simulate_election], it also returns the real probability and unobserved votes with the name `real_prob` and `outcome` respectively. See [simulate_election].
 #'
 #' If `group_agg` is different than `NULL`, two values are returned: `W_agg` a `(b x a)` matrix with the number of voters of each aggregated group o each ballot-box, and `group_agg` the same input vector.
 #'
@@ -344,9 +350,8 @@ run_em <- function(object = NULL,
                    mvncdf_method = "genz",
                    mvncdf_error = 1e-5,
                    mvncdf_samples = 5000,
-                   lp = "plp",
-                   lp_weights_w = TRUE,
-                   lp_every_iteration = TRUE,
+                   adjust_prob_cond_method = "",
+                   adjust_prob_cond_every = FALSE,
                    ...) {
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint
@@ -426,9 +431,8 @@ run_em <- function(object = NULL,
         as.numeric(if (!is.null(object$mvncdf_error)) object$mvncdf_error else 1e-6),
         as.numeric(if (!is.null(object$mvncdf_samples)) object$mvncdf_samples else 5000),
         miniter,
-        lp,
-        lp_weights_w,
-        lp_every_iteration
+        adjust_prob_cond_method,
+        adjust_prob_cond_every
     )
     # ---------- ... ---------- #
 
@@ -461,6 +465,8 @@ run_em <- function(object = NULL,
     object$param_threshold <- param_threshold
     object$ll_threshold <- ll_threshold
     object$initial_prob <- initial_prob
+    object$adjust_prob_cond_method <- adjust_prob_cond_method
+    object$adjust_prob_cond_every <- adjust_prob_cond_every
 
     invisible(object) # Updates the object.
 }
@@ -603,9 +609,8 @@ bootstrap <- function(object = NULL,
     param_threshold <- if (!is.null(all_params$param_threshold)) all_params$param_threshold else 0.001
     verbose <- if (!is.null(all_params$verbose)) all_params$verbose else FALSE
     compute_ll <- if (!is.null(all_params$compute_ll)) all_params$compute_ll else TRUE
-    lp <- if (!is.null(all_params$lp)) all_params$lp else "plp"
-    lp_weights_w <- if (!is.null(all_params$lp_weights_w)) all_params$lp_weights_w else TRUE
-    lp_every_iteration <- if (!is.null(all_params$lp_every_iteration)) all_params$lp_every_iteration else TRUE
+    adjust_prob_cond_method <- if (!is.null(all_params$adjust_prob_cond_method)) all_params$adjust_prob_cond_method else ""
+    adjust_prob_cond_every <- if (!is.null(all_params$adjust_prob_cond_every)) all_params$adjust_prob_cond_every else FALSE
 
     # R does a subtle type conversion when handing -Inf. Hence, we'll use a direct assignment
     if ("ll_threshold" %in% names(all_params)) {
@@ -649,9 +654,8 @@ bootstrap <- function(object = NULL,
         as.double(mvncdf_error),
         as.integer(mvncdf_samples),
         as.integer(miniter),
-        as.character(lp),
-        as.logical(lp_weights_w),
-        as.logical(lp_every_iteration)
+        as.character(adjust_prob_cond_method),
+        as.logical(adjust_prob_cond_every)
     )
 
     object$sd <- result
@@ -813,6 +817,8 @@ get_agg_proxy <- function(object = NULL,
     param_threshold <- if (!is.null(all_params$param_threshold)) all_params$param_threshold else 0.01
     verbose <- if (!is.null(all_params$verbose)) all_params$verbose else FALSE
     compute_ll <- if (!is.null(all_params$compute_ll)) all_params$compute_ll else TRUE
+    adjust_prob_cond_method <- if (!is.null(all_params$adjust_prob_cond_method)) all_params$adjust_prob_cond_method else ""
+    adjust_prob_cond_every <- if (!is.null(all_params$adjust_prob_cond_every)) all_params$adjust_prob_cond_every else FALSE
 
 
     # R does a subtle type conversion when handing -Inf. Hence, we'll use a direct assignment
@@ -860,9 +866,8 @@ get_agg_proxy <- function(object = NULL,
         as.double(mvncdf_error),
         as.integer(mvncdf_samples),
         as.integer(miniter),
-        as.character(lp),
-        as.logical(lp_weights_w),
-        as.logical(lp_every_iteration)
+        as.character(adjust_prob_cond_method),
+        as.logical(adjust_prob_cond_every)
     )
 
     # If the returned matrix isn't the best non-feasible result
@@ -1011,9 +1016,8 @@ get_agg_opt <- function(object = NULL,
     param_threshold <- if (!is.null(all_params$param_threshold)) all_params$param_threshold else 0.01
     verbose <- if (!is.null(all_params$verbose)) all_params$verbose else FALSE
     compute_ll <- if (!is.null(all_params$compute_ll)) all_params$compute_ll else TRUE
-    lp <- if (!is.null(all_params$lp)) all_params$lp else "plp"
-    lp_weights_w <- if (!is.null(all_params$lp_weights_w)) all_params$lp_weights_w else TRUE
-    lp_every_iteration <- if (!is.null(all_params$lp_every_iteration)) all_params$lp_every_iteration else TRUE
+    adjust_prob_cond_method <- if (!is.null(all_params$adjust_prob_cond_method)) all_params$adjust_prob_cond_method else ""
+    adjust_prob_cond_every <- if (!is.null(all_params$adjust_prob_cond_every)) all_params$adjust_prob_cond_every else FALSE
 
     # R does a subtle type conversion when handing -Inf. Hence, we'll use a direct assignment
     if ("ll_threshold" %in% names(all_params)) {
@@ -1059,9 +1063,8 @@ get_agg_opt <- function(object = NULL,
         as.double(mvncdf_error),
         as.integer(mvncdf_samples),
         as.integer(miniter),
-        as.character(lp),
-        as.logical(lp_weights_w),
-        as.logical(lp_every_iteration)
+        as.character(adjust_prob_cond_method),
+        as.logical(adjust_prob_cond_every)
     )
 
     if (result$indices[[1]] == -1) {
@@ -1106,6 +1109,8 @@ get_agg_opt <- function(object = NULL,
     object$maxiter <- maxiter
     object$miniter <- miniter
     object$initial_prob <- initial_prob
+    object$project <- project
+    object$lp <- lp
 
     if (method == "mvn_cdf") {
         object$mvncdf_error <- mvncdf_error
@@ -1346,7 +1351,9 @@ print.eim <- function(x, ...) {
         }
         cat("Total Iterations:", object$iterations, "\n")
         cat("Total Time (s):", object$time, "\n")
-        cat("Log-likelihood:", tail(object$logLik, 1), "\n")
+        if (!is.null(object$logLik)) {
+            cat("Log-likelihood:", tail(object$logLik, 1), "\n")
+        }
     }
 }
 

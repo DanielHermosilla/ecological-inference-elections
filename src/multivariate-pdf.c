@@ -38,6 +38,76 @@ SOFTWARE.
 #define Free(p) R_chk_free((void *)(p))
 #endif
 
+typedef struct
+{
+    Matrix muR;      // G x (C-1)
+    Matrix **sigma;  // array G of (C-1 x C-1) matrices
+    double *feature; // size C (temp: X[,b])
+    double *muG;     // size C-1 (temp: muR[g,])
+    double *QC;      // size C (per-group numerators)
+    double *maha;    // size G*C (mahalanobis distances, row-major)
+} Arena;
+
+// Create and initialize an Arena
+static Arena Arena_init(int G, int C)
+{
+    Arena A = {0};
+    A.muR = createMatrix(G, C - 1);
+
+    A.sigma = (Matrix **)Calloc(G, Matrix *);
+    for (int g = 0; g < G; ++g)
+    {
+        A.sigma[g] = (Matrix *)Calloc(1, Matrix);
+        *(A.sigma[g]) = createMatrix(C - 1, C - 1);
+    }
+
+    A.feature = (double *)Calloc(C, double);
+    A.muG = (double *)Calloc(C - 1, double);
+    A.QC = (double *)Calloc(C, double);
+    A.maha = (double *)Calloc((size_t)G * (size_t)C, double);
+
+    return A;
+}
+
+// Frees an Arena
+static void Arena_free(Arena *A, int G)
+{
+    if (!A)
+        return;
+    for (int g = 0; g < G; ++g)
+    {
+        if (A->sigma && A->sigma[g])
+        {
+            freeMatrix(A->sigma[g]);
+            Free(A->sigma[g]);
+        }
+    }
+    if (A->sigma)
+        Free(A->sigma);
+    freeMatrix(&A->muR);
+    if (A->feature)
+        Free(A->feature);
+    if (A->muG)
+        Free(A->muG);
+    if (A->QC)
+        Free(A->QC);
+    if (A->maha)
+        Free(A->maha);
+    memset(A, 0, sizeof(*A));
+}
+
+static inline void getColumn_into(const Matrix *M, int col, double *out)
+{
+    for (int r = 0; r < M->rows; r++)
+        out[r] = MATRIX_AT_PTR(M, r, col);
+}
+
+static inline void getRow_into(const Matrix *M, int row, double *out)
+{
+    for (int c = 0; c < M->cols; c++)
+        out[c] = MATRIX_AT_PTR(M, row, c);
+}
+
 /**
  * @brief Computes the `q` values for a given ballot box.
  *
@@ -51,101 +121,68 @@ SOFTWARE.
  * @return A (g x c) matrix with the values of `q` according the candidate and group index.
  *
  */
-
-Matrix computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, const Matrix *probabilitiesReduced,
-                          double *ll, QMethodInput params)
+void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, const Matrix *probabilitiesReduced,
+                        double *ll, QMethodInput params, Arena *A)
 {
+    const int G = (int)ctx->G;
+    const int C = (int)ctx->C;
     Matrix *X = &ctx->X;
 
-    // --- Get the mu and sigma --- //
-    Matrix muR = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES - 1);
-    Matrix **sigma = (Matrix **)Calloc(TOTAL_GROUPS, Matrix *);
+    // ---- Fill muR and sigma for this ballot ---- //
+    getAverageConditional(ctx, b, probabilitiesReduced, &A->muR, A->sigma);
 
-    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-    { // ---- For each group ----
-        sigma[g] = (Matrix *)Calloc(1, Matrix);
-        *sigma[g] = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1); // Initialize
-    }
+    // Invert sigmas
+    for (int g = 0; g < G; ++g)
+        inverseSymmetricPositiveMatrix(A->sigma[g]);
 
-    getAverageConditional(ctx, b, probabilitiesReduced, &muR, sigma);
-
-    // ---- ... ----
-
-    // ---- Get the inverse matrix for each sigma ---- //
-    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-    { // ---- For each group ----
-        inverseSymmetricPositiveMatrix(sigma[g]);
-    }
-    // ---- ... ----
-    // ---- Get the determinant FOR THE LOG-LIKELIHOOD ---- //
-    double det = 1;
-    double normalizeConstant = 1;
+    // ---- Compute determinant (for loglikelihood normalization) ---- //
+    double normalizeConstant = 1.0;
     if (params.computeLL)
     {
-        for (uint16_t c = 0; c < TOTAL_CANDIDATES - 1; c++)
-        {
-            det *= MATRIX_AT_PTR(sigma[0], c, c);
-        }
+        double det = 1.0;
+        for (int c = 0; c < C - 1; ++c)
+            det *= MATRIX_AT_PTR(A->sigma[0], c, c);
         det = 1.0 / (det * det);
-        normalizeConstant = R_pow(R_pow_di(M_2_PI, (int)(TOTAL_CANDIDATES - 1)) * det, 0.5);
+        normalizeConstant = R_pow(R_pow_di(M_2_PI, C - 1) * det, 0.5);
     }
 
-    // --- Calculate the mahanalobis distance --- //
-    double **mahanalobisDistances = (double **)Calloc(TOTAL_GROUPS, double *);
+    // ---- Feature vector (candidate results) ----
+    getColumn_into(X, b, A->feature);
 
-    // // #pragma omp parallel for
-    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-    { // ---- For each group ----
-        mahanalobisDistances[g] = (double *)Calloc(TOTAL_CANDIDATES, double);
-        // ---- Get the feature vector (the candidate results) ----
-        double *feature = getColumn(X, b);
-        // ---- Get the average values for the candidate results ----
-        double *muG = getRow(&muR, g);
-        // ---- Call the mahanalobis function ----
-        getMahanalobisDist(feature, muG, sigma[g], mahanalobisDistances[g], TOTAL_CANDIDATES - 1, false);
-        // ---- Free allocated and temporary values ----
-        freeMatrix(sigma[g]);
-        Free(sigma[g]);
-        Free(feature);
-        Free(muG);
+    // ---- Mahalanobis per group ----
+    for (int g = 0; g < G; ++g)
+    { // --- For each group
+        getRow_into(&A->muR, g, A->muG);
+        double *dst = &A->maha[(size_t)g * (size_t)C];
+        // --- Mahalanobis distance for each candidate given a group, accounting the mean
+        getMahanalobisDist(A->feature, A->muG, A->sigma[g], dst, C - 1, false);
     }
-    Free(sigma);
-    freeMatrix(&muR);
-    // --- .... --- //
 
-    // --- Calculate the returning values --- //
-    // ---- Create the matrix to return ----
-    Matrix toReturn = createMatrix(TOTAL_GROUPS, TOTAL_CANDIDATES);
-    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-    { // ---- For each group
-        // ---- Initialize variables ----
-        double den = 0;
-        double *QC = (double *)Calloc(TOTAL_CANDIDATES, double); // Value of Q on candidate C
+    // ---- build q’s directly into ctx->q ----
+    for (int g = 0; g < G; ++g)
+    { // --- For each group
+        double den = 0.0;
+        double *ma = &A->maha[(size_t)g * (size_t)C];
 
-        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-        { // ---- For each candidate given a group
-            // ---- The `q` value is calculated as exp(-0.5 * mahanalobis) * probabilities ----
-            QC[c] = exp(-0.5 * mahanalobisDistances[g][c]) * MATRIX_AT_PTR(probabilities, g, c);
-            // ---- Add the values towards the denominator to later divide by it ----
-            den += QC[c];
+        for (int c = 0; c < C; ++c)
+        { // --- For each candidate given a group
+          // ---- The `q` value is calculated as exp(-0.5 * mahanalobis) * probabilities ----
+            double num = exp(-0.5 * ma[c]) * MATRIX_AT_PTR(probabilities, g, c);
+            // ---- Store the numerator temporarily in the arena ----
+            A->QC[c] = num;
+            den += num;
         }
-        *ll += g == 0 && den > 0 && params.computeLL ? log(den) * normalizeConstant : 0;
-        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-        { // ---- For each candidate given a group
-            // ---- Store each value, divided by the denominator ----
-            if (den != 0)
-                MATRIX_AT(toReturn, g, c) = QC[c] / den;
-            else
-                MATRIX_AT(toReturn, g, c) = 0;
-        }
-        // ---- Free allocated memory ----
-        Free(mahanalobisDistances[g]);
-        Free(QC);
-    }
-    Free(mahanalobisDistances); // Might have to remove
 
-    return toReturn;
-    // --- ... --- //
+        if (g == 0 && params.computeLL && den > 0.0)
+            // Normalize and accumulate log-likelihood
+            *ll += log(den) * normalizeConstant;
+
+        for (int c = 0; c < C; ++c)
+        { // --- For each candidate given a group
+            double qgc = (den != 0.0) ? (A->QC[c] / den) : 0.0;
+            Q_3D(ctx->q, b, g, c, G, C) = (!isnan(qgc) && !isinf(qgc)) ? qgc : 0.0;
+        }
+    }
 }
 
 /**
@@ -161,43 +198,23 @@ Matrix computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, co
  */
 void computeQMultivariatePDF(EMContext *ctx, QMethodInput params, double *ll)
 {
-    // ---- Initialize values ---- //
-    *ll = 0;
-    Matrix *X = &ctx->X;
-    Matrix *W = &ctx->W;
-    IntMatrix *intX = &ctx->intX;
-    IntMatrix *intW = &ctx->intW;
-    double *q = ctx->q;
+    *ll = 0.0;
+
     Matrix *probabilities = &ctx->probabilities;
-    // ---- The probabilities without the last column will be used for each iteration ----
-
-    // ---- The idea is to remove the column with the most votes, so it'll swap it to the last column and later reswap
-    // it. ----
     Matrix probabilitiesReduced = removeLastColumn(probabilities);
-    // ---- Fill the array with the results ---- //
-    // #pragma omp parallel for
-    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    { // ---- For each ballot
-        // ---- Call the function for calculating the `q` results for a given ballot
-        Matrix resultsForB = computeQforABallot(ctx, (int)b, probabilities, &probabilitiesReduced, ll, params);
-        // TODO: Optimize the return
-        // #pragma omp parallel for collapse(2)
-        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-        { // ---- For each group given a ballot box
-            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-            { // ---- For each candidate given a ballot box and a group
-                double results = MATRIX_AT(resultsForB, g, c);
 
-                Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) =
-                    !isnan(results) && !isinf(results) ? results : 0;
-            }
-        }
-        // ---- Frees allocated space ----
-        freeMatrix(&resultsForB);
+    // ---- Make only one big allocation ---- //
+    Arena A = Arena_init((int)ctx->G, (int)ctx->C);
+
+    for (uint32_t b = 0; b < ctx->B; ++b)
+    {
+        computeQforABallot(ctx, (int)b, probabilities, &probabilitiesReduced, ll, params, &A);
     }
 
+    // ---- Free the arena ---- //
+    Arena_free(&A, (int)ctx->G);
     freeMatrix(&probabilitiesReduced);
+
     if (isnan(*ll) || isinf(*ll))
-        *ll = 0;
-    // --- ... --- //
+        *ll = 0.0;
 }

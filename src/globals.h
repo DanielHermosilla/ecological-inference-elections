@@ -32,9 +32,8 @@ extern "C"
         int monteCarloIter;           // For "MVN CDF"
         double errorThreshold;        // For "MVN CDF"
         const char *simulationMethod; // For "MVN CDF"
-        char *LP;
-        bool LP_weights_w;
-        bool LP_every_iter;
+        char *prob_cond;
+        bool prob_cond_every;
     } QMethodInput;
 
     // All of the helper functions are made towards double type matrices
