@@ -27,7 +27,7 @@ run_em(
   mvncdf_method = "genz",
   mvncdf_error = 1e-05,
   mvncdf_samples = 5000,
-  adjust_prob_cond_method = "",
+  adjust_prob_cond_method = "project_lp",
   adjust_prob_cond_every = FALSE,
   ...
 )
@@ -48,7 +48,6 @@ options are:
 \item \code{mvn_cdf}: Uses a Multivariate Normal CDF distribution to approximate the conditional probability.
 \item \code{mvn_pdf}: Uses a Multivariate Normal PDF distribution to approximate the conditional probability.
 \item \code{mcmc}: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the E-step.
-\item \code{metropolis}: Uses the Metropolis-Hastings algorithm to sample vote outcomes. This is used to estimate the conditional probability of the E-step.
 \item \code{exact}: Solves the E-step using the Total Probability Law.
 }
 
@@ -107,9 +106,9 @@ when \code{method = "mvn_cdf"}.}
 \item{mvncdf_samples}{An optional integer specifying the number of Monte Carlo
 samples for the \code{mvn_cdf} method. The default value is \code{5000}. This argument is only applicable when \code{method = "mvn_cdf"}.}
 
-\item{adjust_prob_cond_method}{An optional string indicating the method for projecting the conditional probability. The default value is an empty string, meaning that the option is disabled. Supported values are \code{lp}, which applies a linear programming projection at each ballot box, and \code{project_lp}, which additionally incorporates a linear projection.}
+\item{adjust_prob_cond_method}{An optional string indicating the method to adjust the conditional probability so that for each candidate, the sum product of voters and conditional probabilities across groups equals the votes obtained by the candidate. It can take values: \code{""} if no adjusting is made, \code{lp} if the adjustment is based on a linear programming that penalizes with zero norm, \code{project_lp} if the adjustment is performed using projection and linear programming (this is the default)}
 
-\item{adjust_prob_cond_every}{An optional boolean indicating whether to make the conditional probability projection at every iteration or just at the end. This parameter won't work if an \code{adjust_prob_cond_method} is not given. The default value is \code{FALSE}.}
+\item{adjust_prob_cond_every}{An optional boolean indicating whether to adjust the conditional probability on every iteration (if \code{TRUE}), or only at the conditional probabilities obtained at the end of the EM algorithm (if \code{FALSE}, this is the default). This parameter applies only if \code{adjust_prob_conditional_method} is \code{lp} or \code{project_lp}.}
 
 \item{...}{Added for compability}
 }

@@ -184,7 +184,6 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' - `mvn_cdf`: Uses a Multivariate Normal CDF distribution to approximate the conditional probability.
 #' - `mvn_pdf`: Uses a Multivariate Normal PDF distribution to approximate the conditional probability.
 #' - `mcmc`: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the E-step.
-#' - `metropolis`: Uses the Metropolis-Hastings algorithm to sample vote outcomes. This is used to estimate the conditional probability of the E-step.
 #' - `exact`: Solves the E-step using the Total Probability Law.
 #'
 #' For a detailed description of each method, see [fastei-package] and **References**.
@@ -214,9 +213,9 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'
 #' @param compute_ll An optional boolean indicating whether to compute the log-likelihood at each iteration. The default value is `TRUE`.
 #'
-#' @param adjust_prob_cond_method An optional string indicating the method for projecting the conditional probability. The default value is an empty string, meaning that the option is disabled. Supported values are `lp`, which applies a linear programming projection at each ballot box, and `project_lp`, which additionally incorporates a linear projection.
+#' @param adjust_prob_cond_method An optional string indicating the method to adjust the conditional probability so that for each candidate, the sum product of voters and conditional probabilities across groups equals the votes obtained by the candidate. It can take values: `""` if no adjusting is made, `lp` if the adjustment is based on a linear programming that penalizes with zero norm, `project_lp` if the adjustment is performed using projection and linear programming (this is the default)
 #'
-#' @param adjust_prob_cond_every An optional boolean indicating whether to make the conditional probability projection at every iteration or just at the end. This parameter won't work if an `adjust_prob_cond_method` is not given. The default value is `FALSE`.
+#' @param adjust_prob_cond_every An optional boolean indicating whether to adjust the conditional probability on every iteration (if `TRUE`), or only at the conditional probabilities obtained at the end of the EM algorithm (if `FALSE`, this is the default). This parameter applies only if `adjust_prob_conditional_method` is `lp` or `project_lp`.
 #'
 #' @param verbose An optional boolean indicating whether to print informational messages during the EM
 #'   iterations. The default value is `FALSE`.
@@ -350,7 +349,7 @@ run_em <- function(object = NULL,
                    mvncdf_method = "genz",
                    mvncdf_error = 1e-5,
                    mvncdf_samples = 5000,
-                   adjust_prob_cond_method = "",
+                   adjust_prob_cond_method = "project_lp",
                    adjust_prob_cond_every = FALSE,
                    ...) {
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
@@ -1119,12 +1118,6 @@ get_agg_opt <- function(object = NULL,
     } else if (method == "mcmc") {
         object$mcmc_stepsize <- mcmc_stepsize
         object$mcmc_samples <- mcmc_samples
-    } else if (method == "metropolis") {
-        object$mcmc_stepsize <- mcmc_stepsize
-        object$mcmc_samples <- mcmc_samples
-        object$metropolis_iter <- metropolis_iter
-        object$burn_in <- burn_in
-        object$sampling_method <- sampling_method
     }
 
     class(object) <- "eim"
