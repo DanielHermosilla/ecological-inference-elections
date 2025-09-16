@@ -26,6 +26,11 @@ extern "C"
      */
     void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll);
 
+    /*
+     * @brief Allocates the seeds for the Montecarlo simulation
+     */
+    void allocateSeed(EMContext *ctx, QMethodInput params);
+
 #ifdef __cplusplus
 }
 #endif

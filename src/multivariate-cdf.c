@@ -88,6 +88,19 @@ static void ArenaCDF_free(ArenaCDF *A)
     memset(A, 0, sizeof(*A));
 }
 
+void allocateSeed(EMContext *ctx, QMethodInput params)
+{
+    GetRNGstate();
+    int total = (ctx->C - 1) * params.monteCarloIter;
+
+    ctx->cdf_seeds = (double *)Calloc(total, double);
+    for (int i = 0; i < total; i++)
+    {
+        ctx->cdf_seeds[i] = unif_rand();
+    }
+    PutRNGstate();
+}
+
 // ---- Helpers without dynamic allocation (avoid Calloc/Free in loops) ---- //
 
 /**
@@ -186,10 +199,10 @@ static double pdf_midpoint(const Matrix *cholesky, const double *mu, const doubl
  *
  * @return The value of the estimated integral
  */
-double genzMontecarloNew(const Matrix *cholesky, const double *lowerBounds, const double *upperBounds, double epsilon,
-                         int iterations, int mvnDim)
+double genzMontecarloNew(EMContext *ctx, const Matrix *cholesky, const double *lowerBounds, const double *upperBounds,
+                         double epsilon, int iterations, int mvnDim)
 {
-    GetRNGstate();
+    // GetRNGstate();
 
     // ---- Initialize Montecarlo variables ---- //
     double intsum = 0;
@@ -207,7 +220,8 @@ double genzMontecarloNew(const Matrix *cholesky, const double *lowerBounds, cons
         double pseudoRandom[mvnDim];
         for (int i = 0; i < mvnDim; i++)
         {
-            pseudoRandom[i] = unif_rand();
+            /* pseudoRandom[i] = unif_rand(); */
+            pseudoRandom[i] = ctx->cdf_seeds[currentIterations * (mvnDim - 1) + i];
         }
 
         // ---- Compute the base case
@@ -241,7 +255,7 @@ double genzMontecarloNew(const Matrix *cholesky, const double *lowerBounds, cons
         // ---...--- //
     } while (currentError > epsilon && currentIterations < iterations);
 
-    PutRNGstate();
+    /* PutRNGstate(); */
     return mean;
 }
 
@@ -269,12 +283,12 @@ double genzMontecarloNew(const Matrix *cholesky, const double *lowerBounds, cons
  *
  * @return The value of the estimated integral
  */
-double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const double *upperBounds, double epsilon,
-                      int iterations, int mvnDim)
+double genzMontecarlo(EMContext *ctx, const Matrix *cholesky, const double *lowerBounds, const double *upperBounds,
+                      double epsilon, int iterations, int mvnDim)
 {
 
     // ---- Initialize randomizer ---- //
-    GetRNGstate();
+    // GetRNGstate();
     // Rprintf("Using the cholesky matrix of:\n");
     // printMatrix(cholesky);
 
@@ -305,7 +319,9 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
         // ---- Generate the random vector ---- //
         { // --- For each dimension
             // ---- Generate random values in [0,1) ----
-            randomVector[i] = unif_rand();
+            // randomVector[i] = unif_rand();
+            randomVector[i] = ctx->cdf_seeds[currentIterations * (mvnDim - 1) + i];
+            // ---...--- //
         }
         // ---...--- //
 
@@ -345,7 +361,7 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
 
     } while (currentError > epsilon && currentIterations < iterations);
     // ---...--- //
-    PutRNGstate();
+    // PutRNGstate();
     // Rprintf("returning %.10f\n", intsum / currentIterations);
 
     return intsum / currentIterations;
@@ -375,8 +391,8 @@ double genzMontecarlo(const Matrix *cholesky, const double *lowerBounds, const d
  * @return The result of the approximated integral
  */
 
-double Montecarlo(Matrix *chol, double *mu, double *lowerLimits, double *upperLimits, int mvnDim, int maxSamples,
-                  double epsilon, const char *method)
+double Montecarlo(EMContext *ctx, Matrix *chol, double *mu, double *lowerLimits, double *upperLimits, int mvnDim,
+                  int maxSamples, double epsilon, const char *method)
 {
     // ---- Set up the initial parameter ---- //
     double result;
@@ -391,12 +407,12 @@ double Montecarlo(Matrix *chol, double *mu, double *lowerLimits, double *upperLi
     // ---- Perform integration ---- //
     if (strcmp(method, "genz") == 0)
     {
-        result = genzMontecarlo(chol, lowerLimits, upperLimits, epsilon, maxSamples, mvnDim);
+        result = genzMontecarlo(ctx, chol, lowerLimits, upperLimits, epsilon, maxSamples, mvnDim);
         return result;
     }
     else if (strcmp(method, "genz2") == 0)
     {
-        result = genzMontecarloNew(chol, lowerLimits, upperLimits, epsilon, maxSamples, mvnDim);
+        result = genzMontecarloNew(ctx, chol, lowerLimits, upperLimits, epsilon, maxSamples, mvnDim);
         return result;
     }
     else
@@ -528,7 +544,7 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
                 double val;
                 if (C != 2)
                 {
-                    val = Montecarlo(Lg, A.mu_row, A.featureA, A.featureB, d, monteCarloSamples, epsilon, method);
+                    val = Montecarlo(ctx, Lg, A.mu_row, A.featureA, A.featureB, d, monteCarloSamples, epsilon, method);
                 }
                 else
                 {

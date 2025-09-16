@@ -102,8 +102,6 @@ extern "C"
         double **multinomial; // [b][s]
         double *logGamma;     // length max(W)
         double **Qconstant;   // [b][s]
-        Matrix metropolisProbability;
-        Matrix qMetropolis;
 
     } EMContext;
 

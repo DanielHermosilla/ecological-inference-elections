@@ -126,7 +126,7 @@ EMContext *createEMContext(Matrix *X, Matrix *W, const char *method, QMethodInpu
     }
     if (strcmp(method, "mvn_cdf") == 0)
     {
-        // allocateSeed(ctx, params.monteCarloIter);
+        allocateSeed(ctx, params);
     }
 
     return ctx;
@@ -729,21 +729,17 @@ void cleanup(EMContext *ctx)
     {
         freeMatrixInt(&ctx->intX);
     }
-    if (ctx->qMetropolis.data != NULL)
-    {
-        freeMatrix(&ctx->qMetropolis);
-    }
     if (ctx->probabilities.data != NULL)
     {
         freeMatrix(&ctx->probabilities);
     }
-    if (ctx->metropolisProbability.data != NULL)
-    {
-        freeMatrix(&ctx->metropolisProbability);
-    }
     if (ctx->q != NULL)
     {
         Free(ctx->q);
+    }
+    if (ctx->cdf_seeds != NULL)
+    {
+        Free(ctx->cdf_seeds);
     }
     if (ctx->predicted_votes != NULL)
     {
