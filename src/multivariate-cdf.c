@@ -129,55 +129,55 @@ static inline void getRow_into(const Matrix *M, int row, double *out)
         out[c] = MATRIX_AT_PTR(M, row, c);
 }
 
-// ---- PDF into the midpoint ---- //
 static double pdf_midpoint(const Matrix *cholesky, const double *mu, const double *lower, const double *upper, int d)
 {
-    // ---- Get the middle point ---- //
+    // midpoint
     double mid[d];
     for (int i = 0; i < d; i++)
         mid[i] = 0.5 * (lower[i] + upper[i]);
-    // ---...--- //
 
-    // ---- diff = mid - mu ---- //
+    // diff = mid - mu
     double diff[d];
     for (int i = 0; i < d; i++)
         diff[i] = mid[i] - mu[i];
-    // ---...--- //
 
-    // ---- L*z = diff ---- //
+    // Solve L z = diff  (L lower-triangular Cholesky s.t. L L^T = Σ)
     double z[d];
     for (int i = 0; i < d; i++)
     {
         double lii = MATRIX_AT_PTR(cholesky, i, i);
-        if (!(lii > 0.0))
-            return 0.0; // mal condicionada
+        if (!(lii > 0.0) || !isfinite(lii))
+            return DBL_MIN; // ill-conditioned, avoid exact zero
         double s = diff[i];
         for (int j = 0; j < i; j++)
             s -= MATRIX_AT_PTR(cholesky, i, j) * z[j];
         z[i] = s / lii;
     }
-    // ---...--- //
 
-    // ---- ||z||^2 ---- //
+    // z^T z
     double z2 = 0.0;
     for (int i = 0; i < d; i++)
         z2 += z[i] * z[i];
-    // ---...--- //
 
-    // ---- log(|Σ|^(1/2)) = sum(log(L_ii)) ---- //
+    // log|\Sigma|^{1/2} = sum(log L_ii)
     double log_det_sqrt = 0.0;
     for (int i = 0; i < d; i++)
-        log_det_sqrt += log(MATRIX_AT_PTR(cholesky, i, i));
-    // ---...--- //
+    {
+        double lii = MATRIX_AT_PTR(cholesky, i, i);
+        log_det_sqrt += log(lii);
+    }
 
-    // ---- φ(mid; μ,Σ) = (2π)^(-d/2) * exp(-0.5*||z||^2) / Π L_ii ---- //
-    double log_norm = -0.5 * d * log(M_2_PI) - log_det_sqrt;
-    double log_pdf = log_norm - 0.5 * z2;
-    double pdf = exp(log_pdf);
+    // log pdf = -0.5*d*log(2\pi) - log|\Sigma|^{1/2} - 0.5*z^T z
+    double log_pdf = -0.5 * d * M_LN_2PI - log_det_sqrt - 0.5 * z2;
 
-    return isfinite(pdf) ? pdf : 0.0;
+    // If caller needs a number in (0, ∞), clamp to avoid exact 0
+    if (log_pdf < log(DBL_MIN))
+        return DBL_MIN; // underflow guard
+    if (log_pdf > log(DBL_MAX))
+        return DBL_MAX;        // overflow guard (unlikely)
+    double pdf = exp(log_pdf); // exponentiate for getting the final result
+    return (isfinite(pdf) && pdf > 0.0) ? pdf : DBL_MIN;
 }
-
 /*
  * @brief Compute the Montecarlo approximation proposed by Alan genz towards the
  * most recent method, using univariate conditional with quasirandom numbers.
@@ -554,7 +554,9 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
 
                 // ---- Fallback with PDF midpoint ---- //
                 if (!(val > 0.0) || !isfinite(val))
+                {
                     val = pdf_midpoint(Lg, A.mu_row, A.featureA, A.featureB, d);
+                }
 
                 // ---- Weight by prior probability ---- //
                 val *= MATRIX_AT_PTR(P, g, c);

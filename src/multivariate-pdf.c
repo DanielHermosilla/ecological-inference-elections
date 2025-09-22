@@ -157,30 +157,45 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
         // --- Mahalanobis distance for each candidate given a group, accounting the mean
         getMahanalobisDist(A->feature, A->muG, A->sigma[g], dst, C - 1, false);
     }
-
     // ---- build q’s directly into ctx->q ----
     for (int g = 0; g < G; ++g)
     { // --- For each group
-        double den = 0.0;
         double *ma = &A->maha[(size_t)g * (size_t)C];
 
+        // ---- Work in log-space to avoid underflow ---- //
+        double logw[C]; // log of the unnormalized weights numerator
+        double logw_max = -INFINITY;
+
         for (int c = 0; c < C; ++c)
-        { // --- For each candidate given a group
-          // ---- The `q` value is calculated as exp(-0.5 * mahanalobis) * probabilities ----
-            double num = exp(-0.5 * ma[c]) * MATRIX_AT_PTR(probabilities, g, c);
-            // ---- Store the numerator temporarily in the arena ----
-            A->QC[c] = num;
-            den += num;
+        {
+            double prior = MATRIX_AT_PTR(probabilities, g, c);
+            double logP = (prior > 0.0) ? log(prior) : -INFINITY;
+            logw[c] = -0.5 * ma[c] + logP; // numerator in log-space
+                                           // -0.5 * ma[c] + log(P) <=> exp(-0.5 * ma[c]) * P
+            if (isfinite(logw[c]) && logw[c] > logw_max)
+                logw_max = logw[c];
         }
 
-        if (g == 0 && params.computeLL && den > 0.0)
-            // Normalize and accumulate log-likelihood
-            *ll += log(den) * normalizeConstant;
-
+        double den = 0.0;
         for (int c = 0; c < C; ++c)
-        { // --- For each candidate given a group
-            double qgc = (den != 0.0) ? (A->QC[c] / den) : 0.0;
-            Q_3D(ctx->q, b, g, c, G, C) = (!isnan(qgc) && !isinf(qgc)) ? qgc : 0.0;
+        {
+            double val = isfinite(logw[c]) ? exp(logw[c] - logw_max) : 0.0; // Here we go back from log-space
+            A->QC[c] = val;
+            den += val;
+        }
+
+        // ---- log-likelihood contribution ---- //
+        if (g == 0 && params.computeLL && den > 0.0 && isfinite(logw_max))
+        {
+            double logden = logw_max + log(den);
+            *ll += logden * log(normalizeConstant);
+        }
+
+        // ---- Normalize and store q ---- //
+        for (int c = 0; c < C; ++c)
+        {
+            double qgc = (den > 0.0) ? (A->QC[c] / den) : 0.0;
+            Q_3D(ctx->q, b, g, c, G, C) = qgc;
         }
     }
 }
