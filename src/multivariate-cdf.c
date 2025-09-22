@@ -507,10 +507,10 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
         Matrix mu = createMatrix(G, d); // Mu matrix of dimension G x C-1
 
         // ---- Fill mu and cholesky (no alloc inside) ---- //
-        getMainParameters(ctx, (int)b, P_red, L, &mu);
+        getMainParameters(ctx, b, P_red, L, &mu);
 
         // ---- feature = X[, b] into Arena buffer ---- //
-        getColumn_into(X, (int)b, A.feature);
+        getColumn_into(X, b, A.feature);
 
         for (uint16_t g = 0; g < G; g++)
         {

@@ -22,6 +22,8 @@ SOFTWARE.
 
 #include "multivariate-pdf.h"
 #include <R.h>
+#include <R_ext/BLAS.h>
+#include <R_ext/Lapack.h>
 #include <R_ext/Memory.h>
 #include <R_ext/RS.h> /* for R_Calloc/R_Free, F77_CALL */
 #include <Rinternals.h>
@@ -41,34 +43,41 @@ SOFTWARE.
 typedef struct
 {
     Matrix muR;      // G x (C-1)
-    Matrix **sigma;  // array G of (C-1 x C-1) matrices
-    double *feature; // size C (temp: X[,b])
-    double *muG;     // size C-1 (temp: muR[g,])
-    double *QC;      // size C (per-group numerators)
-    double *maha;    // size G*C (mahalanobis distances, row-major)
+    Matrix **sigma;  // array G de matrices (C-1 x C-1)  (aquí guardaremos L de Cholesky)
+    double *feature; // size C
+    double *muG;     // size C-1
+    double *QC;      // size C
+    double *maha;    // size G*C
+    // scratch:
+    double *diff;      // size C-1
+    double *y;         // size C-1
+    double *z;         // size C-1
+    double *ec;        // size C-1
+    double *diag_Sinv; // size G*(C-1) (opcional; si no quieres cachear, puedes calcular al vuelo)
 } Arena;
 
-// Create and initialize an Arena
 static Arena Arena_init(int G, int C)
 {
-    Arena A = {0};
+    Arena A = (Arena){0};
     A.muR = createMatrix(G, C - 1);
-
     A.sigma = (Matrix **)Calloc(G, Matrix *);
     for (int g = 0; g < G; ++g)
     {
         A.sigma[g] = (Matrix *)Calloc(1, Matrix);
         *(A.sigma[g]) = createMatrix(C - 1, C - 1);
     }
-
     A.feature = (double *)Calloc(C, double);
     A.muG = (double *)Calloc(C - 1, double);
     A.QC = (double *)Calloc(C, double);
     A.maha = (double *)Calloc((size_t)G * (size_t)C, double);
 
+    A.diff = (double *)Calloc(C - 1, double);
+    A.y = (double *)Calloc(C - 1, double);
+    A.z = (double *)Calloc(C - 1, double);
+    A.ec = (double *)Calloc(C - 1, double);
+    A.diag_Sinv = (double *)Calloc((size_t)G * (size_t)(C - 1), double); // opcional
     return A;
 }
-
 // Frees an Arena
 static void Arena_free(Arena *A, int G)
 {
@@ -93,6 +102,16 @@ static void Arena_free(Arena *A, int G)
         Free(A->QC);
     if (A->maha)
         Free(A->maha);
+    if (A->diff)
+        Free(A->diff);
+    if (A->y)
+        Free(A->y);
+    if (A->z)
+        Free(A->z);
+    if (A->ec)
+        Free(A->ec);
+    if (A->diag_Sinv)
+        Free(A->diag_Sinv);
     memset(A, 0, sizeof(*A));
 }
 
@@ -126,15 +145,19 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
 {
     const int G = (int)ctx->G;
     const int C = (int)ctx->C;
+    const int n = C - 1;
     Matrix *X = &ctx->X;
 
     // ---- Fill muR and sigma for this ballot ---- //
     getAverageConditional(ctx, b, probabilitiesReduced, &A->muR, A->sigma);
 
-    // Invert sigmas
     for (int g = 0; g < G; ++g)
-        inverseSymmetricPositiveMatrix(A->sigma[g]);
-
+    {
+        choleskyMat(A->sigma[g]);
+    }
+    // Invert sigmas
+    // for (int g = 0; g < G; ++g)
+    //     inverseSymmetricPositiveMatrix(A->sigma[g]);
     // ---- Compute determinant (for loglikelihood normalization) ---- //
     double normalizeConstant = 1.0;
     if (params.computeLL)
@@ -147,16 +170,29 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
     }
 
     // ---- Feature vector (candidate results) ----
-    getColumn_into(X, b, A->feature);
+    getColumn_into(X, b, A->feature); // Obtain the bth column of X
 
     // ---- Mahalanobis per group ----
     for (int g = 0; g < G; ++g)
-    { // --- For each group
-        getRow_into(&A->muR, g, A->muG);
+    {
+        getRow_into(&A->muR, g, A->muG); // \mu_g (size n)
+        for (int i = 0; i < n; ++i)
+            A->diff[i] = A->feature[i] - A->muG[i];
+
+        double *Sdiag_g = A->diag_Sinv ? &A->diag_Sinv[g * (size_t)n] : NULL;
+        double baseline = getMahanalobisDist2(A->sigma[g], A->diff, A->y, A->z, A->ec, Sdiag_g, n, true, true);
+
         double *dst = &A->maha[(size_t)g * (size_t)C];
-        // --- Mahalanobis distance for each candidate given a group, accounting the mean
-        getMahanalobisDist(A->feature, A->muG, A->sigma[g], dst, C - 1, false);
+
+        // ---- Obtain the last candidate's Mahalanobis distance ---- //
+        dst[n] = baseline;
+        for (int c = 0; c < n; ++c)
+        {
+            double diagcc = Sdiag_g ? Sdiag_g[c] : 0.0;
+            dst[c] = baseline - 2.0 * A->z[c] + diagcc;
+        }
     }
+
     // ---- build q’s directly into ctx->q ----
     for (int g = 0; g < G; ++g)
     { // --- For each group
@@ -223,7 +259,7 @@ void computeQMultivariatePDF(EMContext *ctx, QMethodInput params, double *ll)
 
     for (uint32_t b = 0; b < ctx->B; ++b)
     {
-        computeQforABallot(ctx, (int)b, probabilities, &probabilitiesReduced, ll, params, &A);
+        computeQforABallot(ctx, b, probabilities, &probabilitiesReduced, ll, params, &A);
     }
 
     // ---- Free the arena ---- //

@@ -66,6 +66,14 @@ extern "C"
      * a size `C` array.
      */
     void getMahanalobisDist(double *x, double *mu, Matrix *inverseSigma, double *maha, int size, bool reduced);
+
+    /*
+     * @brief Obtains the Mahanalobis distance using the Cholesky factorization of Sigma, without having to invert it.
+     *
+     */
+    double getMahanalobisDist2(const Matrix *sigmaL, const double *diff, double *y, double *z, double *ec,
+                               double *Sdiag, int n, int need_z, int need_diag);
+
 #ifdef __cplusplus
 }
 #endif

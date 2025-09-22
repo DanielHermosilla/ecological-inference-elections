@@ -349,3 +349,45 @@ void getMahanalobisDist(double *x, double *mu, Matrix *inverseSigma, double *mah
     }
     // ---...--- //
 }
+
+double getMahanalobisDist2(const Matrix *sigmaL, const double *diff, double *y, double *z, double *ec, double *Sdiag,
+                           int n, int need_z, int need_diag)
+{
+    char uplo = 'L', transN = 'N', transT = 'T', diagN = 'N';
+    int lda = n, inc = 1;
+
+    // y = diff
+    for (int i = 0; i < n; ++i)
+        y[i] = diff[i];
+
+    // ---- Forward solve ---- //
+    F77_CALL(dtrsv)(&uplo, &transN, &diagN, &n, sigmaL->data, &lda, y, &inc FCONE FCONE FCONE);
+
+    double baseline = 0.0;
+    for (int i = 0; i < n; ++i)
+        baseline += y[i] * y[i];
+
+    // ---- back solve: L^T z = y => z = \sigma^{-1} diff ---- //
+    if (need_z)
+    {
+        for (int i = 0; i < n; ++i)
+            z[i] = y[i];
+        F77_CALL(dtrsv)(&uplo, &transT, &diagN, &n, sigmaL->data, &lda, z, &inc FCONE FCONE FCONE);
+    }
+    // ---- Get the diagonal of \sigma^{-1} ---- //
+    if (need_diag && Sdiag)
+    {
+        for (int c = 0; c < n; ++c)
+        {
+            for (int i = 0; i < n; ++i)
+                ec[i] = 0.0;
+            ec[c] = 1.0;
+            F77_CALL(dtrsv)(&uplo, &transN, &diagN, &n, sigmaL->data, &lda, ec, &inc FCONE FCONE FCONE);
+            double acc = 0.0;
+            for (int i = 0; i < n; ++i)
+                acc += ec[i] * ec[i];
+            Sdiag[c] = acc;
+        }
+    }
+    return baseline;
+}
