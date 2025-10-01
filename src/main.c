@@ -678,11 +678,18 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
 results:
     config.computeQ(ctx, config.params, &newLL);
     if (strcmp(inputParams->prob_cond, "project_lp") == 0)
+    {
         projectQ(ctx, *inputParams);
+        getP(ctx); // M-Step
+    }
     else if (strcmp(inputParams->prob_cond, "lp") == 0)
+    {
         for (int b = 0; b < TOTAL_BALLOTS; b++)
             LPW(ctx, b);
+        getP(ctx); // M-Step
+    }
     getPredictedVotes(ctx); // Compute the predicted votes for each ballot box
+
     *logLLarr = newLL;
     *time = elapsed_total;
     return ctx;
@@ -692,6 +699,9 @@ results:
 // __attribute__((destructor)) // Executes when the library is ready
 void cleanup(EMContext *ctx)
 {
+    if (ctx == NULL)
+        return;
+
     TOTAL_VOTES = 0;
     TOTAL_BALLOTS = 0;
     TOTAL_CANDIDATES = 0;
@@ -700,67 +710,102 @@ void cleanup(EMContext *ctx)
     if (ctx->candidates_votes != NULL)
     {
         Free(ctx->candidates_votes);
+        ctx->candidates_votes = NULL;
     }
     if (ctx->group_votes != NULL)
     {
         Free(ctx->group_votes);
+        ctx->group_votes = NULL;
     }
     if (ctx->ballots_votes != NULL)
     {
         Free(ctx->ballots_votes);
+        ctx->ballots_votes = NULL;
     }
     if (ctx->inv_ballots_votes != NULL)
     {
         Free(ctx->inv_ballots_votes);
+        ctx->inv_ballots_votes = NULL;
     }
-    if (ctx->X.data != NULL) // Note that the columns and rows are usually stack.
-    {
+
+    if (ctx->X.data != NULL)
+    { // Note that the columns and rows are usually stack.
         freeMatrix(&ctx->X);
+        ctx->X.data = NULL;
     }
     if (ctx->W.data != NULL)
     {
         freeMatrix(&ctx->W);
+        ctx->W.data = NULL;
+    }
+    if (ctx->Wnorm.data != NULL)
+    { // <--- FALTABA
+        freeMatrix(&ctx->Wnorm);
+        ctx->Wnorm.data = NULL;
     }
     if (ctx->intW.data != NULL)
     {
         freeMatrixInt(&ctx->intW);
+        ctx->intW.data = NULL;
     }
     if (ctx->intX.data != NULL)
     {
         freeMatrixInt(&ctx->intX);
+        ctx->intX.data = NULL;
     }
     if (ctx->probabilities.data != NULL)
     {
         freeMatrix(&ctx->probabilities);
+        ctx->probabilities.data = NULL;
     }
+
     if (ctx->q != NULL)
     {
         Free(ctx->q);
+        ctx->q = NULL;
     }
     if (ctx->cdf_seeds != NULL)
     {
         Free(ctx->cdf_seeds);
+        ctx->cdf_seeds = NULL;
     }
     if (ctx->predicted_votes != NULL)
     {
         Free(ctx->predicted_votes);
+        ctx->predicted_votes = NULL;
     }
+
+    // ---- OmegaSet **
     if (ctx->omegaset != NULL)
     {
         for (uint32_t b = 0; b < ctx->B; b++)
         {
             if (ctx->omegaset[b] != NULL)
             {
-                for (size_t s = 0; s < ctx->omegaset[b]->size; s++)
+                OmegaSet *os = ctx->omegaset[b];
+                if (os->data != NULL)
                 {
-                    freeMatrixInt(&ctx->omegaset[b]->data[s]);
+                    for (size_t s = 0; s < os->size; s++)
+                    {
+                        freeMatrixInt(&os->data[s]); // deja os->data[s].data = NULL
+                    }
+                    Free(os->data);
+                    os->data = NULL;
                 }
-                Free(ctx->omegaset[b]->data);
-                Free(ctx->omegaset[b]);
+                if (os->counts != NULL)
+                { // <--- FALTABA
+                    Free(os->counts);
+                    os->counts = NULL;
+                }
+                Free(os);
+                ctx->omegaset[b] = NULL;
             }
         }
         Free(ctx->omegaset);
+        ctx->omegaset = NULL;
     }
+
+    // ---- multinomial [b][s]
     if (ctx->multinomial != NULL)
     {
         for (uint32_t b = 0; b < ctx->B; b++)
@@ -768,14 +813,20 @@ void cleanup(EMContext *ctx)
             if (ctx->multinomial[b] != NULL)
             {
                 Free(ctx->multinomial[b]);
+                ctx->multinomial[b] = NULL;
             }
         }
         Free(ctx->multinomial);
+        ctx->multinomial = NULL;
     }
+
     if (ctx->logGamma != NULL)
     {
         Free(ctx->logGamma);
+        ctx->logGamma = NULL;
     }
+
+    // ---- Qconstant [b][s]
     if (ctx->Qconstant != NULL)
     {
         for (uint32_t b = 0; b < ctx->B; b++)
@@ -783,45 +834,59 @@ void cleanup(EMContext *ctx)
             if (ctx->Qconstant[b] != NULL)
             {
                 Free(ctx->Qconstant[b]);
+                ctx->Qconstant[b] = NULL;
             }
         }
         Free(ctx->Qconstant);
+        ctx->Qconstant = NULL;
     }
-    if (ctx->hset)
+
+    // ---- hset: debe ser B*G si lo indexás como [b * G + g]
+    if (ctx->hset != NULL)
     {
-        for (uint32_t b = 0; b < ctx->B; ++b)
+        size_t total = (size_t)ctx->B * (size_t)ctx->G; // asegurate que así se alocó
+        for (size_t idx = 0; idx < total; ++idx)
         {
-            for (uint16_t g = 0; g < ctx->G; ++g)
+            Set *s = &ctx->hset[idx];
+            if (s->data != NULL)
             {
-                Set *s = &ctx->hset[b * ctx->G + g];
-                if (s->data)
+                for (size_t i = 0; i < s->size; ++i)
                 {
-                    for (size_t i = 0; i < s->size; ++i)
+                    if (s->data[i] != NULL)
                     {
                         Free(s->data[i]);
+                        s->data[i] = NULL;
                     }
-                    Free(s->data);
                 }
+                Free(s->data);
+                s->data = NULL;
+                s->size = 0;
             }
         }
         Free(ctx->hset);
         ctx->hset = NULL;
     }
-    if (ctx->kset)
+
+    // ---- kset: idem B*G
+    if (ctx->kset != NULL)
     {
-        for (uint32_t b = 0; b < ctx->B; ++b)
+        size_t total = (size_t)ctx->B * (size_t)ctx->G; // asegurate que así se alocó
+        for (size_t idx = 0; idx < total; ++idx)
         {
-            for (uint16_t g = 0; g < ctx->G; ++g)
+            Set *s = &ctx->kset[idx];
+            if (s->data != NULL)
             {
-                Set *s = &ctx->kset[b * ctx->G + g];
-                if (s->data)
+                for (size_t i = 0; i < s->size; ++i)
                 {
-                    for (size_t i = 0; i < s->size; ++i)
+                    if (s->data[i] != NULL)
                     {
                         Free(s->data[i]);
+                        s->data[i] = NULL;
                     }
-                    Free(s->data);
                 }
+                Free(s->data);
+                s->data = NULL;
+                s->size = 0;
             }
         }
         Free(ctx->kset);

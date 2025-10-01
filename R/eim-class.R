@@ -347,7 +347,7 @@ run_em <- function(object = NULL,
                    mcmc_samples = 1000,
                    mcmc_stepsize = 3000,
                    mvncdf_method = "genz",
-                   mvncdf_error = 1e-5,
+                   mvncdf_error = 1e-3,
                    mvncdf_samples = 5000,
                    adjust_prob_cond_method = "project_lp",
                    adjust_prob_cond_every = FALSE,
@@ -407,7 +407,7 @@ run_em <- function(object = NULL,
         # Montecarlo samples
         object$mvncdf_samples <- if ("mvncdf_samples" %in% names(all_params)) all_params$mvncdf_samples else 5000
         # Montecarlo error
-        object$mvncdf_error <- if ("mvncdf_error" %in% names(all_params)) all_params$mvncdf_error else 1e-6
+        object$mvncdf_error <- if ("mvncdf_error" %in% names(all_params)) all_params$mvncdf_error else 1e-3
     }
 
     W <- if (is.null(object$W_agg)) object$W else object$W_agg
@@ -427,7 +427,7 @@ run_em <- function(object = NULL,
         as.integer(if (!is.null(object$mcmc_stepsize)) object$mcmc_stepsize else 3000),
         as.integer(if (!is.null(object$mcmc_samples)) object$mcmc_samples else 1000),
         if (!is.null(object$mvncdf_method)) object$mvncdf_method else "genz",
-        as.numeric(if (!is.null(object$mvncdf_error)) object$mvncdf_error else 1e-6),
+        as.numeric(if (!is.null(object$mvncdf_error)) object$mvncdf_error else 1e-3),
         as.numeric(if (!is.null(object$mvncdf_samples)) object$mvncdf_samples else 5000),
         miniter,
         adjust_prob_cond_method,

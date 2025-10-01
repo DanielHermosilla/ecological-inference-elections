@@ -44,8 +44,25 @@ SOFTWARE.
 #define Realloc(p, n, t) ((t *)R_chk_realloc((void *)(p), (size_t)((n) * sizeof(t))))
 #endif
 
-size_t **CANDIDATEARRAYS; // 2D array indexed by [c][b]
+size_t **CANDIDATEARRAYS;
 
+// Helper to free the [B][C] candidate arrays
+static inline void freeCandidateArrays(uint32_t B)
+{
+    if (CANDIDATEARRAYS != NULL)
+    {
+        for (uint32_t b = 0; b < B; ++b)
+        {
+            if (CANDIDATEARRAYS[b] != NULL)
+            {
+                Free(CANDIDATEARRAYS[b]);
+                CANDIDATEARRAYS[b] = NULL;
+            }
+        }
+        Free(CANDIDATEARRAYS);
+        CANDIDATEARRAYS = NULL;
+    }
+}
 /**
  * @brief Calculate the difference between two vectors.
  *
@@ -414,13 +431,15 @@ void recursion(EMContext *ctx, MemoizationTable *memo)
     Set *KSETS = ctx->kset;
     Set *HSETS = ctx->hset;
 
+    // #pragma omp parallel for
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // ---- For each ballot box
         // if (b % 5 == 0) // Checks condition every 5 iterations
         // R_CheckUserInterrupt();
         for (uint16_t f = 0; f < TOTAL_GROUPS; f++)
         { // ---- For each group, given a ballot box
-            // #pragma omp parallel for collapse(2) It actually worsened the performance
+            // #pragma omp parallel for collapse(2)
+            // It actually worsened the performance
             for (size_t k = 0; k < KSET(ctx, b, f)->size; k++)
             { // ---- For each element from the K_bf set
                 // ---- If there's no existing combination, skip the loop ----
@@ -479,9 +498,9 @@ void recursion(EMContext *ctx, MemoizationTable *memo)
                             // ---- No more border cases, at this point, every past value should had been defined ----
                             else
                             {
-#ifdef _OPENMP
-#pragma omp critical
-#endif
+                                // #ifdef _OPENMP
+                                // #pragma omp critical
+                                // #endif
                                 {
                                     valueBefore =
                                         getMemoValue(memo, b, f - 1, g, c, substractionVector, TOTAL_CANDIDATES);
@@ -490,9 +509,9 @@ void recursion(EMContext *ctx, MemoizationTable *memo)
                             // --- ... --- //
                             double valueNow;
                             // ---- Get the current value ---- //
-#ifdef _OPENMP
-#pragma omp critical
-#endif
+                            // #ifdef _OPENMP
+                            // #pragma omp critical
+                            // #endif
                             {
                                 valueNow = getMemoValue(memo, b, f, g, c, currentK, TOTAL_CANDIDATES);
                             }
@@ -654,5 +673,6 @@ void computeQExact(EMContext *ctx, QMethodInput params, double *ll)
     if (params.computeLL)
         *ll = exactLL(table);
     freeMemo(table);
+    freeCandidateArrays(TOTAL_BALLOTS);
     // ---...--- //
 }

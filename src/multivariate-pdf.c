@@ -43,7 +43,7 @@ SOFTWARE.
 typedef struct
 {
     Matrix muR;      // G x (C-1)
-    Matrix **sigma;  // array G de matrices (C-1 x C-1)  (aquí guardaremos L de Cholesky)
+    Matrix **sigma;  // array G de matrices (C-1 x C-1)
     double *feature; // size C
     double *muG;     // size C-1
     double *QC;      // size C
@@ -53,7 +53,7 @@ typedef struct
     double *y;         // size C-1
     double *z;         // size C-1
     double *ec;        // size C-1
-    double *diag_Sinv; // size G*(C-1) (opcional; si no quieres cachear, puedes calcular al vuelo)
+    double *diag_Sinv; // size G*(C-1)
 } Arena;
 
 static Arena Arena_init(int G, int C)
@@ -133,12 +133,14 @@ static inline void getRow_into(const Matrix *M, int row, double *out)
  * Given a ballot box index, probabilities and the reduced version (with C-1 candidates) of the probabilities matrix, it
  * calculates the `q` values in a flattened way
  *
- * @param[in] b. The index of the ballot box
- * @param[in] *probabilities. A pointer towards the probabilities matrix.
- * @param[in] *probabilitiesReduced. A pointer towards the reduced probabilities matrix.
+ * @param[in] b The index of the ballot box
+ * @param[in] *probabilities A pointer towards the probabilities matrix
+ * @param[in] *probabilitiesReduced A pointer towards the reduced probabilities matrix
+ * @param[in,out] *ll Log-likelihood accumulator (only used if params.computeLL = true)
+ * @param[in] params Method input configuration
+ * @param[in,out] *A Arena scratch space
  *
- * @return A (g x c) matrix with the values of `q` according the candidate and group index.
- *
+ * @return Writes into ctx->q a (B x G x C) tensor of q values
  */
 void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, const Matrix *probabilitiesReduced,
                         double *ll, QMethodInput params, Arena *A)
@@ -151,83 +153,113 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
     // ---- Fill muR and sigma for this ballot ---- //
     getAverageConditional(ctx, b, probabilitiesReduced, &A->muR, A->sigma);
 
-    for (int g = 0; g < G; ++g)
-    {
-        choleskyMat(A->sigma[g]);
-    }
-    // Invert sigmas
-    // for (int g = 0; g < G; ++g)
-    //     inverseSymmetricPositiveMatrix(A->sigma[g]);
-    // ---- Compute determinant (for loglikelihood normalization) ---- //
+    // ---- Normalization constant for log-likelihood ---- //
     double normalizeConstant = 1.0;
     if (params.computeLL)
     {
-        double det = 1.0;
-        for (int c = 0; c < C - 1; ++c)
-            det *= MATRIX_AT_PTR(A->sigma[0], c, c);
-        det = 1.0 / (det * det);
-        normalizeConstant = R_pow(R_pow_di(M_2_PI, C - 1) * det, 0.5);
+        if (C == 2)
+        {
+            // For C=2, we use the inverse later. Determinant can be computed if needed.
+            normalizeConstant = 1.0; // neutral factor
+        }
+        else
+        {
+            // For C > 2, sigma[g] stores the Cholesky factor L, so determinant = (prod diag(L))^2
+            double det = 1.0;
+            for (int c = 0; c < n; ++c)
+                det *= MATRIX_AT_PTR(A->sigma[0], c, c);
+            det = 1.0 / (det * det);
+            normalizeConstant = R_pow(R_pow_di(M_2_PI, n) * det, 0.5);
+        }
     }
 
-    // ---- Feature vector (candidate results) ----
-    getColumn_into(X, b, A->feature); // Obtain the bth column of X
+    // ---- Feature vector (candidate results) ---- //
+    getColumn_into(X, b, A->feature);
 
-    // ---- Mahalanobis per group ----
+    // ---- Sigma preparation depending on C ---- //
+    if (C == 2)
+    {
+        // Inverse Sigma directly for Mahalanobis original implementation
+        for (int g = 0; g < G; ++g)
+        {
+            inverseSymmetricPositiveMatrix(A->sigma[g]); // now A->sigma[g] = Sigma^{-1}
+        }
+    }
+    else
+    {
+        // Cholesky factorization for Mahalanobis stable computation
+        for (int g = 0; g < G; ++g)
+        {
+            choleskyMat(A->sigma[g]); // store L (lower) in A->sigma[g]
+        }
+    }
+
+    // ---- Mahalanobis distance per group ---- //
     for (int g = 0; g < G; ++g)
     {
         getRow_into(&A->muR, g, A->muG); // \mu_g (size n)
         for (int i = 0; i < n; ++i)
             A->diff[i] = A->feature[i] - A->muG[i];
 
-        double *Sdiag_g = A->diag_Sinv ? &A->diag_Sinv[g * (size_t)n] : NULL;
-        double baseline = getMahanalobisDist2(A->sigma[g], A->diff, A->y, A->z, A->ec, Sdiag_g, n, true, true);
-
         double *dst = &A->maha[(size_t)g * (size_t)C];
 
-        // ---- Obtain the last candidate's Mahalanobis distance ---- //
-        dst[n] = baseline;
-        for (int c = 0; c < n; ++c)
+        if (C == 2)
         {
-            double diagcc = Sdiag_g ? Sdiag_g[c] : 0.0;
-            dst[c] = baseline - 2.0 * A->z[c] + diagcc;
+            // Original implementation with inverse Sigma
+            getMahanalobisDist(A->feature, A->muG, A->sigma[g], dst, n, /*reduced*/ false);
+        }
+        else
+        {
+            // Current implementation with Cholesky
+            double *Sdiag_g = A->diag_Sinv ? &A->diag_Sinv[g * (size_t)n] : NULL;
+            double baseline = getMahanalobisDist2(A->sigma[g], A->diff, A->y, A->z, A->ec, Sdiag_g, n, /*need_z*/ true,
+                                                  /*need_diag*/ true);
+
+            // Last candidate = baseline
+            dst[n] = baseline;
+            for (int c = 0; c < n; ++c)
+            {
+                double diagcc = Sdiag_g ? Sdiag_g[c] : 0.0;
+                dst[c] = baseline - 2.0 * A->z[c] + diagcc;
+            }
         }
     }
 
-    // ---- build q’s directly into ctx->q ----
+    // ---- Build q’s directly into ctx->q (always in log-space) ---- //
     for (int g = 0; g < G; ++g)
-    { // --- For each group
+    {
         double *ma = &A->maha[(size_t)g * (size_t)C];
 
-        // ---- Work in log-space to avoid underflow ---- //
-        double logw[C]; // log of the unnormalized weights numerator
+        double logw[C];
         double logw_max = -INFINITY;
 
+        // --- Numerators in log-space ---
         for (int c = 0; c < C; ++c)
         {
             double prior = MATRIX_AT_PTR(probabilities, g, c);
             double logP = (prior > 0.0) ? log(prior) : -INFINITY;
-            logw[c] = -0.5 * ma[c] + logP; // numerator in log-space
-                                           // -0.5 * ma[c] + log(P) <=> exp(-0.5 * ma[c]) * P
+            logw[c] = -0.5 * ma[c] + logP; // exp(-0.5*ma[c]) * prior
             if (isfinite(logw[c]) && logw[c] > logw_max)
                 logw_max = logw[c];
         }
 
+        // --- Softmax with shift ---
         double den = 0.0;
         for (int c = 0; c < C; ++c)
         {
-            double val = isfinite(logw[c]) ? exp(logw[c] - logw_max) : 0.0; // Here we go back from log-space
+            double val = isfinite(logw[c]) ? exp(logw[c] - logw_max) : 0.0;
             A->QC[c] = val;
             den += val;
         }
 
-        // ---- log-likelihood contribution ---- //
+        // --- Log-likelihood contribution ---
         if (g == 0 && params.computeLL && den > 0.0 && isfinite(logw_max))
         {
             double logden = logw_max + log(den);
             *ll += logden * log(normalizeConstant);
         }
 
-        // ---- Normalize and store q ---- //
+        // --- Normalize and store q ---
         for (int c = 0; c < C; ++c)
         {
             double qgc = (den > 0.0) ? (A->QC[c] / den) : 0.0;
