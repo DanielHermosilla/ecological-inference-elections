@@ -139,7 +139,8 @@ static double pdf_midpoint(const Matrix *cholesky, const double *mu, const doubl
     // diff = mid - mu
     double diff[d];
     for (int i = 0; i < d; i++)
-        diff[i] = mid[i] - mu[i];
+        diff[i] = mid[i];
+    // - mu[i];
 
     // Solve L z = diff  (L lower-triangular Cholesky s.t. L L^T = Σ)
     double z[d];
@@ -533,7 +534,7 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
                 memcpy(A.featureA, A.feature, d * sizeof(double));
                 memcpy(A.featureB, A.feature, d * sizeof(double));
                 // Rprintf("Los valores de featureA y featureB son:\n");
-                for (uint16_t k = 0; k < d; k++)
+                for (uint16_t k = 0; k < d; k++) // d = C-1
                 {
                     A.featureA[k] -= 0.5;
                     A.featureB[k] += 0.5;
@@ -551,6 +552,7 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
                 if (C != 2)
                 {
                     val = Montecarlo(ctx, Lg, A.featureA, A.featureB, d, monteCarloSamples, epsilon, method);
+                    // val2 = val / pow(0.02, d);
                 }
                 else
                 {
@@ -560,8 +562,10 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
 
                 // ---- Fallback with PDF midpoint ---- //
                 if (!(val > 0.0) || !isfinite(val))
+                // if (true)
                 {
                     val = pdf_midpoint(Lg, A.mu_row, A.featureA, A.featureB, d);
+                    // Rprintf("La pdf es %.16f y val2 es %.4f\n", pdf, val2);
                     // Rprintf("Fallback!\n");
                 }
 
