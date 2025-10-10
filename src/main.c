@@ -628,13 +628,12 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
          * For avoiding loops between same iterations (such as in the case of mvn_cdf), we impose that the
          * log-likelihood shouldn't decrease from the 50th iteration and on.
          */
-        bool decreasing = oldLL > newLL && i >= 50 ? true : false;
+        // bool decreasing = oldLL > newLL && i >= 50 ? true : false;
 
         // ---- Check convergence ---- //
         if (i >= 1 && i >= config.params.miniter &&
-                (fabs(newLL - oldLL) < LLconvergence ||
-                 convergeMatrix(&oldProbabilities, &ctx->probabilities, convergence)) ||
-            decreasing)
+            (fabs(newLL - oldLL) < LLconvergence ||
+             convergeMatrix(&oldProbabilities, &ctx->probabilities, convergence)))
         {
             // ---- End timer ----
             clock_gettime(CLOCK_MONOTONIC_RAW, &end);
