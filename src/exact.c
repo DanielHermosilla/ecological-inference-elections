@@ -562,117 +562,201 @@ void recursion(EMContext *ctx, MemoizationTable *memo)
  *
  * TODO: Make an alternative version where we do not assume the exact method is being computed.
  */
-double exactLL(MemoizationTable *memo)
+static inline double exactLL_one_b(MemoizationTable *memo_b, uint32_t b)
 {
-    double sum = 0;
-    // Note that CANDIDATEARRAYS should be initialized
-    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    {
-// Note that G must be different than f
-// getMemoValue(table, b, TOTAL_GROUPS - 1, g, c, CANDIDATEARRAYS[b], TOTAL_CANDIDATES)
-#ifdef _OPENMP
-#pragma omp critical
-#endif
-        {
-            double px =
-                getMemoValue(memo, b, TOTAL_GROUPS - 1, 0, TOTAL_CANDIDATES - 1, CANDIDATEARRAYS[b], TOTAL_CANDIDATES);
-            sum += fabs(px) > 0 ? log(fabs(px)) : 0;
-        }
-    }
-    return sum;
+    double px =
+        getMemoValue(memo_b, b, TOTAL_GROUPS - 1, 0, TOTAL_CANDIDATES - 1, CANDIDATEARRAYS[b], TOTAL_CANDIDATES);
+    return (fabs(px) > 0 ? log(fabs(px)) : 0.0);
 }
 
 /**
- * @brief Calculate the value of `q_{bgc}`.
+ * @brief Calculates the main loop of the pseudocode for a single ballot box.
  *
- * It calculates all of the values for q_{bgc} by the definition on the paper. It returns the array of type
- * `double`.
+ * It will loop over every value and add the results in the memoization table, but only for a single `b`.
+ * This version is meant to be executed in parallel over `b`, each one with its own `MemoizationTable *memo_b`,
+ * avoiding any race conditions between threads.
  *
- * @param[in] *probabilities A pointer to the matrix with the probabilities.
- * @param[in] params The parameters to use for the `q` probability. On this case, it should be empty.
+ * @param[in]  *ctx   A pointer to the EMContext with all matrices and parameters.
+ * @param[in]   b     Index of the current ballot box to process.
+ * @param[in,out] *memo_b A pointer toward the hash table for this specific ballot box.
  *
- * @return *double: A pointer toward the array.
- *
- * @note: A single pointer is used to store the array continously. This is for using cBLAS operations later.
+ * @return void. Results to be written on the hash table.
  *
  */
+void recursion_one_b(EMContext *ctx, uint32_t b, MemoizationTable *memo_b)
+{
+    Matrix *probabilities = &ctx->probabilities; // Get the probabilities matrix
+    Matrix *W = &ctx->W;                         // Get the W matrix
+    Set *KSETS = ctx->kset;
+    Set *HSETS = ctx->hset;
+
+    for (uint16_t f = 0; f < TOTAL_GROUPS; f++)
+    { // ---- For each group, given a ballot box
+        for (size_t k = 0; k < KSET(ctx, b, f)->size; k++)
+        { // ---- For each element from the K_bf set
+            // ---- If there's no existing combination, skip the loop ----
+            if (!KSET(ctx, b, f)->data || !(KSET(ctx, b, f)->data[k]) || (KSET(ctx, b, f)->data[k]) == NULL)
+            {
+                continue;
+            }
+
+            // ---- Define the current element from the K set ----
+            size_t *currentK = KSET(ctx, b, f)->data[k];
+
+            for (size_t h = 0; h < HSET(ctx, b, f)->size; h++)
+            { // ---- For each element from the H_bf set
+                size_t *currentH = HSET(ctx, b, f)->data[h];
+                // ---- If the element from h isn't smaller than the one from k ----
+                // ---- Note that, when generating the H set, the restriction from candidate votes was also imposed,
+                // so it excluded "trivial" cases ----
+                if (!ifAllElements(currentH, currentK))
+                { // ---- Maybe could be optimized
+                    continue;
+                }
+
+                // ---- Compute the values that are independent from c and g ---- //
+                // ---- The value `a` from the pseudocode. Check `computeA` for more information ----
+                double a = computeA(ctx, b, f, currentH);
+                // ---- Initialize the variable that will store the past iteration ----
+                double valueBefore;
+                // ---- Substract the Kth element with the Hth element (k-h) ----
+                size_t *substractionVector = Calloc((size_t)TOTAL_CANDIDATES, size_t); // ---- Allocates memory
+                vectorDiff(currentK, currentH, substractionVector);
+                // --- ... --- //
+
+                // ---- Retrieve the initial and current values  ---- //
+                for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+                { // ----  For each candidate
+                    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+                    { // ---- For each group given a candidate
+
+                        // ---- Get the value from the last iteration ---- //
+
+                        // ---- Border case, if f = 0 we assume that it's initialized as 1 if the substracting
+                        // vector is one ----
+                        if (f == 0 && checkNull(substractionVector, TOTAL_CANDIDATES))
+                        {
+                            valueBefore = 1.0;
+                        }
+                        // ---- Another border case, if the substracting vector isn't 0 and f = 0, then the
+                        // initialized value is zero ----
+                        else if (f == 0)
+                        {
+                            valueBefore = 0.0;
+                        }
+                        // ---- No more border cases, at this point, every past value should had been defined ----
+                        else
+                        {
+                            valueBefore = getMemoValue(memo_b, b, f - 1, g, c, substractionVector, TOTAL_CANDIDATES);
+                        }
+                        // --- ... --- //
+                        double valueNow;
+                        // ---- Get the current value ---- //
+                        valueNow = getMemoValue(memo_b, b, f, g, c, currentK, TOTAL_CANDIDATES);
+                        // ---- If there's not a value created, set it as zero. ----
+                        if (valueNow == INVALID)
+                            valueNow = 0.0;
+                        // --- ... --- //
+
+                        // ---- Calculate the new value ---- //
+                        if (f == g)
+                        {
+                            // ---- Precompute the denominator to avoid divisions by zero. ----
+                            double den = MATRIX_AT_PTR(probabilities, f, c) * MATRIX_AT_PTR(W, b, f);
+                            if (den == 0)
+                                continue;
+                            // ---- Add the new value ----
+                            valueNow += valueBefore * a * currentH[c] / den;
+                        }
+                        else
+                        {
+                            valueNow += valueBefore * a;
+                        }
+                        // --- ... --- //
+
+                        // ---- Store the value ---- //
+                        // ---- We do NOT set a critical section here since each b runs on its own memo table ----
+                        setMemoValue(memo_b, b, f, g, c, currentK, TOTAL_CANDIDATES, valueNow);
+                        // --- ... --- //
+                    } // ---- End g loop
+                } // ---- End c loop
+                Free(substractionVector);
+                // ---...--- //
+            } // ---- End H set loop
+        } // ---- End K set loop
+    } // ---- End `f` loop
+}
+
 void computeQExact(EMContext *ctx, QMethodInput params, double *ll)
 {
     Matrix *probabilities = &ctx->probabilities;
     Matrix *X = &ctx->X;
-    Matrix *W = &ctx->W;
     double *q = ctx->q;
 
-    // ---- Initialize CANDIDATEARRAYS, which corresponds as a copy of `X` but in size_t. ---- //
+    // ---------- Build CANDIDATEARRAYS once ----------
     if (CANDIDATEARRAYS == NULL)
     {
-        // ---- Define the memory for the matrix and its parameters ----
         CANDIDATEARRAYS = Calloc(TOTAL_BALLOTS, size_t *);
-        // ---- Parallelize the loop over the ballot boxes ----
         for (uint16_t b = 0; b < TOTAL_BALLOTS; b++)
-        { // ---- For all ballot boxes
-            // ---- Allocate memory for the candidate array ----
+        {
             CANDIDATEARRAYS[b] = Calloc(TOTAL_CANDIDATES, size_t);
             for (uint32_t c = 0; c < TOTAL_CANDIDATES; c++)
-            { // ---- For each candidate given a ballot box
-                // ---- Add the result to the array ----
+            {
                 CANDIDATEARRAYS[b][c] = (size_t)MATRIX_AT_PTR(X, c, b);
             }
         }
     }
-    // --- ... --- //
 
-    // ---- Initialize the dictionary variables ---- //
-    // ---- Initialize the hash table ----
-    MemoizationTable *table = initMemo();
-    // --- ... --- //
+    double ll_sum = 0.0;
 
-    // ---- Start the main computation ---- //
-    recursion(ctx, table);
-    // --- ... --- //
-
-    // ---- Store the results ---- //
-    // #pragma omp parallel for schedule(dynamic) collapse(2)
-    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
-    { // ---- For each ballot box
-        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
-        { // ---- For each group
-            // ---- Initialize the denominator variable to avoid multiple computations
-            double den = 0;
-            double num[TOTAL_CANDIDATES];
-            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-            { // ---- For each candidate
-              // ---- Add the values of the denominator
+    // ---------- Parallelize over b with owner-computes ----------
+    // Each thread creates, uses, and frees its own memo table.
+    // No critical sections needed; reduction for LL.
 #ifdef _OPENMP
-#pragma omp critical
+#pragma omp parallel for schedule(dynamic) reduction(+ : ll_sum)
 #endif
-                {
-                    num[c] = getMemoValue(table, b, TOTAL_GROUPS - 1, g, c, CANDIDATEARRAYS[b], TOTAL_CANDIDATES) *
-                             MATRIX_AT_PTR(probabilities, g, c);
-                    den += num[c];
-                }
-            } // ---- End loop on candidates
-            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
-            { // ---- For each candidate
-                // ---- Compute the numerator ----
-                // ---- Store the resulting values as q_{bgc} ----;
-                double result = num[c] / den;
-                if (!isnan(result) && !isinf(result))
-                {
-                    Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = result;
-                }
-                else
-                {
-                    Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = 0;
-                }
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        MemoizationTable *memo_b = initMemo();
 
-            } // ---- End loop on candidates
-        } // ---- End loop on groups
-    } // ---- End loop on ballot boxes
+        // Fill memo for this b
+        recursion_one_b(ctx, b, memo_b);
+
+        // Compute q_{b,g,c} using this b's memo
+        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+        {
+            double den = 0.0;
+            double num[TOTAL_CANDIDATES];
+
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            {
+                double m = getMemoValue(memo_b, b, TOTAL_GROUPS - 1, g, c, CANDIDATEARRAYS[b], TOTAL_CANDIDATES);
+
+                num[c] = m * MATRIX_AT_PTR(probabilities, g, c);
+                den += num[c];
+            }
+
+            for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+            {
+                double result = (den != 0.0) ? (num[c] / den) : 0.0;
+                if (isnan(result) || isinf(result))
+                    result = 0.0;
+
+                Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES) = result;
+            }
+        }
+
+        // Optional: add to LL
+        if (params.computeLL)
+        {
+            ll_sum += exactLL_one_b(memo_b, b);
+        }
+
+        freeMemo(memo_b);
+    } // end parallel for b
 
     if (params.computeLL)
-        *ll = exactLL(table);
-    freeMemo(table);
+        *ll = ll_sum;
+
     freeCandidateArrays(TOTAL_BALLOTS);
-    // ---...--- //
 }

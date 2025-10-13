@@ -336,8 +336,8 @@ void getInitialP(EMContext *ctx, const char *p_method)
         size_t nel2 = nel * (size_t)newCtx->W.rows;
 
         // allocate storage for q
-        ctx->q = (double *)malloc(nel2 * sizeof *ctx->q);
-        ctx->predicted_votes = (double *)malloc(nel2 * sizeof *ctx->q);
+        ctx->q = (double *)Calloc(nel2, double);
+        ctx->predicted_votes = (double *)Calloc(nel2, double);
 
         if (!ctx->q)
         {
