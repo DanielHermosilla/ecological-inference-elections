@@ -195,7 +195,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' - `group_proportional`: Computes the probability matrix by taking into account both group and candidate proportions. This is the default method.
 #' - `random`: Use randomized values to fill the probability matrix.
 #'
-#' @param allow_mismatch Boolean, if `TRUE`, allows a mismatch between the voters and votes for each ballot-box, only works if `method` is `"mvn_cdf"`, `"mvn_pdf"`, `"mult"` and `"mcmc"`. If `FALSE`, throws an error if there is a mismatch. By default it is `TRUE`.
+#' @param allow_mismatch Boolean, if `TRUE`, allows a mismatch between the voters and votes for each ballot-box. If `FALSE`, throws an error if there is a mismatch. By default it is `TRUE`. See **Notes** for more details.
 #'
 #' @param maxiter An optional integer indicating the maximum number of EM iterations.
 #'   The default value is `1000`.
@@ -213,7 +213,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'
 #' @param compute_ll An optional boolean indicating whether to compute the log-likelihood at each iteration. The default value is `TRUE`.
 #'
-#' @param adjust_prob_cond_method An optional string indicating the method to adjust the conditional probability so that for each candidate, the sum product of voters and conditional probabilities across groups equals the votes obtained by the candidate. It can take values: `""` if no adjusting is made, `lp` if the adjustment is based on a linear programming that penalizes with zero norm, `project_lp` if the adjustment is performed using projection and linear programming (this is the default)
+#' @param adjust_prob_cond_method An optional string indicating the method to adjust the conditional probability so that for each candidate, the sum product of voters and conditional probabilities across groups equals the votes obtained by the candidate. It can take values: `""` if no adjusting is made, `"lp"` if the adjustment is based on a linear programming that penalizes with L1-norm, `"project_lp"` if the adjustment is performed using projection and linear programming (this is the default)
 #'
 #' @param adjust_prob_cond_every An optional boolean indicating whether to adjust the conditional probability on every iteration (if `TRUE`), or only at the conditional probabilities obtained at the end of the EM algorithm (if `FALSE`, this is the default). This parameter applies only if `adjust_prob_conditional_method` is `lp` or `project_lp`.
 #'
@@ -243,6 +243,8 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' @param mvncdf_samples An optional integer specifying the number of Monte Carlo
 #'   samples for the `mvn_cdf` method. The default value is `5000`. This argument is only applicable when `method = "mvn_cdf"`.
 #'
+#' @param scale_factor An optional numeric value used to scale down the `X` and `W` matrices before executing the EM algorithm. This scaling can help improve performance when dealing with large vote counts. For example if `scale_factor = 2` all elements of `X` and `W` are divided by two and rounded. The default value is `1`, which means no scaling is applied. In case the scaling results in mismatch between `W` and `X`, ensure that `allow_mismatch = TRUE`.
+#'
 #' @param ... Added for compability
 #'
 #' @references
@@ -261,6 +263,8 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' When called with an `eim` object, the function updates the object with the computed results.
 #' If an `eim` object is not provided, the function will create one internally using either the
 #' supplied matrices or the data from the JSON file before executing the algorithm.
+#'
+#' If there are ballot-boxes with mismatch between `W` and `X`, and `allow_mismatch = TRUE`, then: if `method = "exact"`, at each ballot-box with mismatch D'Hont is applied to add or remove the necessary voters from (`W`) so that its total match the total number of votes (`X`); if method is "`mvn_pdf`", "`mvn_cdf`" or "`mcmc`", the number of voters (`W`) of the ballot-box with mismatch is scaled to match its total number of votes (`X`).
 #'
 #' @seealso The [eim] object implementation.
 #'
@@ -351,6 +355,7 @@ run_em <- function(object = NULL,
                    mvncdf_samples = 5000,
                    adjust_prob_cond_method = "project_lp",
                    adjust_prob_cond_every = FALSE,
+                   scale_factor = 1,
                    ...) {
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint
@@ -365,6 +370,13 @@ run_em <- function(object = NULL,
         stop("run_em: The object must be initialized with the eim() function.")
     }
 
+
+    # Applies a scaling
+    if (scale_factor != 1) {
+        object$X <- round(object$X / all_params$scale_factor)
+        object$W <- round(object$W / all_params$scale_factor)
+    }
+
     # Note: Mismatch restricted methods are checked inside .validate_compute
     mismatch_rows <- which(rowSums(object$X) != rowSums(object$W))
     if (!allow_mismatch && length(mismatch_rows) > 0) {
@@ -374,7 +386,9 @@ run_em <- function(object = NULL,
             "To allow mismatches, set `allow_mismatch = TRUE`."
         )
     } else if (method == "exact" && length(mismatch_rows) > 0) {
-        stop("run_em: Exact method isn't supported with mismatch")
+        W <- .dhondt_correction(object$W, object$X)
+        message("Applying a D'Hondt correction for correcting mismatches in W")
+        # stop("run_em: Exact method isn't supported with mismatch")
     }
 
     # Handle the group aggregation, if provided
@@ -582,6 +596,13 @@ bootstrap <- function(object = NULL,
 
     # I need to define the method before on this case
     method <- if (!is.null(all_params$method)) all_params$method else "mult"
+
+    # Applies a scaling
+    if (!is.null(all_params$scale_factor) && all_params$scale_factor != 1) {
+        object$X <- round(object$X / all_params$scale_factor)
+        object$W <- round(object$W / all_params$scale_factor)
+    }
+
     # Note: Mismatch restricted methods are checked inside .validate_compute
     if (!allow_mismatch) {
         mismatch_rows <- which(rowSums(object$X) != rowSums(object$W))
@@ -594,7 +615,12 @@ bootstrap <- function(object = NULL,
             )
         }
     } else {
-        if (method == "exact") stop("run_em: Exact method isn't supported with mismatch")
+        if (method == "exact") {
+            W <- .dhondt_correction(object$W, object$X)
+        }
+        message("Applying a D'Hondt correction for correcting mismatches in W")
+
+        # stop("run_em: Exact method isn't supported with mismatch")
     }
     # Set seed for reproducibility
     if (!is.null(seed)) set.seed(seed)
@@ -692,6 +718,8 @@ bootstrap <- function(object = NULL,
 #' If `TRUE`, no output is returned if the method does not find a group aggregation whose standard deviation statistic is below the threshold. If `FALSE` and the latter holds, it returns the group aggregation obtained from the DP with the the lowest standard deviation statistic. See **Details** for more information. Default is `TRUE`.
 #'
 #' @inheritParams bootstrap
+#'
+#' @param allow_mismatch Boolean, if `TRUE`, allows a mismatch between the voters and votes for each ballot-box. If `FALSE`, throws an error if there is a mismatch. By default it is `TRUE`. See **Notes** in [run_em] for more details.
 #'
 #' @param ... Additional arguments passed to the [run_em] function that will execute the EM algorithm.
 #'
@@ -792,6 +820,11 @@ get_agg_proxy <- function(object = NULL,
     }
 
     # I need to define the method before
+    if (!is.null(all_params$scale_factor) && all_params$scale_factor != 1) {
+        object$X <- round(object$X / all_params$scale_factor)
+        object$W <- round(object$W / all_params$scale_factor)
+    }
+
     method <- if (!is.null(all_params$method)) all_params$method else "mult"
     # Note: Mismatch restricted methods are checked inside .validate_compute
     if (!allow_mismatch) {
@@ -805,7 +838,12 @@ get_agg_proxy <- function(object = NULL,
             )
         }
     } else {
-        if (method == "exact") stop("run_em: Exact method isn't supported with mismatch")
+        if (method == "exact") {
+            W <- .dhondt_correction(object$W, object$X)
+        }
+        message("Applying a D'Hondt correction for correcting mismatches in W")
+
+        # stop("run_em: Exact method isn't supported with mismatch")
     }
 
     # Extract parameters with defaults if missing
@@ -917,6 +955,8 @@ get_agg_proxy <- function(object = NULL,
 #'
 #' @param ... Additional arguments passed to the [run_em] function that will execute the EM algorithm.
 #'
+#' @param allow_mismatch Boolean, if `TRUE`, allows a mismatch between the voters and votes for each ballot-box. If `FALSE`, throws an error if there is a mismatch. By default it is `TRUE`. See **Notes** in [run_em] for more details.
+#'
 #' @return
 #' It returns an eim object with the same attributes as the output of [run_em], plus the attributes:
 #'
@@ -993,6 +1033,12 @@ get_agg_opt <- function(object = NULL,
 
     # Note: Mismatch restricted methods are checked inside .validate_compute
     # Method needs to be defined before
+
+    if (!is.null(all_params$scale_factor) && all_params$scale_factor != 1) {
+        object$X <- round(object$X / all_params$scale_factor)
+        object$W <- round(object$W / all_params$scale_factor)
+    }
+
     method <- if (!is.null(all_params$method)) all_params$method else "mult"
     if (!allow_mismatch) {
         mismatch_rows <- which(rowSums(object$X) != rowSums(object$W))
@@ -1005,7 +1051,12 @@ get_agg_opt <- function(object = NULL,
             )
         }
     } else {
-        if (method == "exact") stop("run_em: Exact method isn't supported with mismatch")
+        if (method == "exact") {
+            W <- .dhondt_correction(object$W, object$X)
+        }
+        message("Applying a D'Hondt correction for correcting mismatches in W")
+
+        # stop("run_em: Exact method isn't supported with mismatch")
     }
 
     initial_prob <- if (!is.null(all_params$initial_prob)) all_params$initial_prob else "group_proportional"

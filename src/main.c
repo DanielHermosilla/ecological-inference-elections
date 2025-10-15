@@ -450,10 +450,34 @@ void getP(EMContext *ctx)
     // ---...--- //
 }
 
+bool hasMismatch(EMContext *ctx)
+{
+    for (int b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        double sumW = 0.0;
+        double sumX = 0.0;
+        for (int g = 0; g < TOTAL_GROUPS; g++)
+        {
+            sumW += MATRIX_AT(ctx->W, b, g);
+        }
+        for (int c = 0; c < TOTAL_CANDIDATES; c++)
+        {
+            sumX += MATRIX_AT(ctx->X, c, b);
+        }
+        if (fabs(sumW - sumX) > 1e-6)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 void projectQ(EMContext *ctx, QMethodInput inputParams)
 {
     Matrix *X = &ctx->X;
+    Matrix *W = &ctx->W;
     Matrix *norm = &ctx->Wnorm;
+    bool mismatch = hasMismatch(ctx);
     // getPredictedVotes(ctx); // Obtain WQ
 
     Matrix temp = createMatrix(TOTAL_BALLOTS, TOTAL_CANDIDATES);
@@ -465,7 +489,20 @@ void projectQ(EMContext *ctx, QMethodInput inputParams)
             double sum = 0.0;
             for (int g = 0; g < TOTAL_GROUPS; g++)
             {
-                sum += Q_3D(ctx->q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) * MATRIX_AT(ctx->W, b, g);
+                // Here we should rescale if there's a mismatch between W and X totals
+                if (!mismatch)
+                {
+                    sum += Q_3D(ctx->q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) * MATRIX_AT(ctx->W, b, g);
+                }
+                else
+                {
+                    double sum_x = ctx->ballots_votes[b];
+                    double sum_w = 0.0;
+                    for (int g = 0; g < TOTAL_GROUPS; g++)
+                        sum_w += MATRIX_AT(ctx->W, b, g);
+                    sum +=
+                        Q_3D(ctx->q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) * MATRIX_AT(ctx->W, b, g) * sum_x / sum_w;
+                }
             }
             MATRIX_AT(temp, b, c) = sum;
         }
@@ -628,12 +665,13 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
          * For avoiding loops between same iterations (such as in the case of mvn_cdf), we impose that the
          * log-likelihood shouldn't decrease from the 50th iteration and on.
          */
-        // bool decreasing = oldLL > newLL && i >= 50 ? true : false;
+        bool decreasing = oldLL > newLL ? true : false;
+        bool early_stop = decreasing && strcmp(q_method, "exact") == 0 ? true : false;
 
         // ---- Check convergence ---- //
         if (i >= 1 && i >= config.params.miniter &&
             (fabs(newLL - oldLL) < LLconvergence ||
-             convergeMatrix(&oldProbabilities, &ctx->probabilities, convergence)))
+             convergeMatrix(&oldProbabilities, &ctx->probabilities, convergence) || early_stop))
         {
             // ---- End timer ----
             clock_gettime(CLOCK_MONOTONIC_RAW, &end);

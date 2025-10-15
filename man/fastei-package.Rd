@@ -57,7 +57,7 @@ Useful links:
 Authors:
 \itemize{
   \item Charles Thraves \email{ctharves@dii.uchile.cl} (\href{https://orcid.org/0000-0001-7491-7477}{ORCID})
-  \item Pablo Ubilla
+  \item Pablo Ubilla (\href{https://orcid.org/0009-0003-9048-1767}{ORCID})
 }
 
 Other contributors:

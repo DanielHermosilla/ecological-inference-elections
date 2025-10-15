@@ -44,7 +44,7 @@ options are:
 \item{nboot}{Integer specifying how many times to run the
 EM algorithm.}
 
-\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box, only works if \code{method} is \code{"mvn_cdf"}, \code{"mvn_pdf"}, \code{"mult"} and \code{"mcmc"}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{TRUE}.}
+\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{TRUE}. See \strong{Notes} in \link{run_em} for more details.}
 
 \item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = "random"} or \code{method} is either \code{"mcmc"} or \code{"mvn_cdf"}. Aditionally, it sets the random draws of the ballot boxes.}
 

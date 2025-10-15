@@ -25,10 +25,11 @@ run_em(
   mcmc_samples = 1000,
   mcmc_stepsize = 3000,
   mvncdf_method = "genz",
-  mvncdf_error = 1e-05,
+  mvncdf_error = 0.001,
   mvncdf_samples = 5000,
   adjust_prob_cond_method = "project_lp",
   adjust_prob_cond_every = FALSE,
+  scale_factor = 1,
   ...
 )
 }
@@ -62,7 +63,7 @@ probability. Accepted values are:
 \item \code{random}: Use randomized values to fill the probability matrix.
 }}
 
-\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box, only works if \code{method} is \code{"mvn_cdf"}, \code{"mvn_pdf"}, \code{"mult"} and \code{"mcmc"}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{TRUE}.}
+\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{TRUE}. See \strong{Notes} for more details.}
 
 \item{maxiter}{An optional integer indicating the maximum number of EM iterations.
 The default value is \code{1000}.}
@@ -110,6 +111,8 @@ samples for the \code{mvn_cdf} method. The default value is \code{5000}. This ar
 
 \item{adjust_prob_cond_every}{An optional boolean indicating whether to adjust the conditional probability on every iteration (if \code{TRUE}), or only at the conditional probabilities obtained at the end of the EM algorithm (if \code{FALSE}, this is the default). This parameter applies only if \code{adjust_prob_conditional_method} is \code{lp} or \code{project_lp}.}
 
+\item{scale_factor}{An optional numeric value used to scale down the \code{X} and \code{W} matrices before executing the EM algorithm. This scaling can help improve performance when dealing with large vote counts. For example if \code{scale_factor = 2} all elements of \code{X} and \code{W} are divided by two and rounded. The default value is \code{1}, which means no scaling is applied. In case the scaling results in mismatch between \code{W} and \code{X}, ensure that \code{allow_mismatch = TRUE}.}
+
 \item{...}{Added for compability}
 }
 \value{
@@ -156,6 +159,8 @@ these options. Attempting to provide more than one or none of these inputs will 
 When called with an \code{eim} object, the function updates the object with the computed results.
 If an \code{eim} object is not provided, the function will create one internally using either the
 supplied matrices or the data from the JSON file before executing the algorithm.
+
+If there are ballot-boxes with mismatch between \code{W} and \code{X}, and \code{allow_mismatch = TRUE}, then: if \code{method = "exact"}, at each ballot-box with mismatch D'Hont is applied to add or remove the necessary voters from (\code{W}) so that its total match the total number of votes (\code{X}); if method is "\code{mvn_pdf}", "\code{mvn_cdf}" or "\code{mcmc}", the number of voters (\code{W}) of the ballot-box with mismatch is scaled to match its total number of votes (\code{X}).
 }
 \examples{
 \donttest{

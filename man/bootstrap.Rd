@@ -28,7 +28,7 @@ bootstrap(
 \item{nboot}{Integer specifying how many times to run the
 EM algorithm.}
 
-\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box, only works if \code{method} is \code{"mvn_cdf"}, \code{"mvn_pdf"}, \code{"mult"} and \code{"mcmc"}. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{TRUE}.}
+\item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{TRUE}. See \strong{Notes} for more details.}
 
 \item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = "random"} or \code{method} is either \code{"mcmc"} or \code{"mvn_cdf"}. Aditionally, it sets the random draws of the ballot boxes.}
 
@@ -54,6 +54,8 @@ these options. Attempting to provide more than one or none of these inputs will 
 When called with an \code{eim} object, the function updates the object with the computed results.
 If an \code{eim} object is not provided, the function will create one internally using either the
 supplied matrices or the data from the JSON file before executing the algorithm.
+
+If there are ballot-boxes with mismatch between \code{W} and \code{X}, and \code{allow_mismatch = TRUE}, then: if \code{method = "exact"}, at each ballot-box with mismatch D'Hont is applied to add or remove the necessary voters from (\code{W}) so that its total match the total number of votes (\code{X}); if method is "\code{mvn_pdf}", "\code{mvn_cdf}" or "\code{mcmc}", the number of voters (\code{W}) of the ballot-box with mismatch is scaled to match its total number of votes (\code{X}).
 }
 \examples{
 \donttest{
