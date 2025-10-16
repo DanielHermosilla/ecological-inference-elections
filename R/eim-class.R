@@ -1654,9 +1654,16 @@ logLik.eim <- function(object, ...) {
 }
 
 #' @export
-exactLL <- function(object) {
+exactLL <- function(object, scale_factor = 1) {
     if (is.null(object$X) || is.null(object$W) || is.null(object$prob)) {
         stop("The object must contain X, W and prob matrices.")
+    }
+
+    # Applies a scaling
+    if (scale_factor != 1) {
+        object$X <- round(object$X / all_params$scale_factor)
+        object$W <- round(object$W / all_params$scale_factor)
+        object$W <- .dhondt_correction(object$W, object$X)
     }
 
     ll <- computeExactLL(t(object$X), object$W, object$prob)
