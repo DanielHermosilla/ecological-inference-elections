@@ -1661,8 +1661,8 @@ exactLL <- function(object, scale_factor = 1) {
 
     # Applies a scaling
     if (scale_factor != 1) {
-        object$X <- round(object$X / all_params$scale_factor)
-        object$W <- round(object$W / all_params$scale_factor)
+        object$X <- round(object$X / scale_factor)
+        object$W <- round(object$W / scale_factor)
         object$W <- .dhondt_correction(object$W, object$X)
     }
 
