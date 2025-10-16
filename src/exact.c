@@ -707,6 +707,9 @@ double computeExactLoglikelihood(EMContext *ctx)
             }
         }
     }
+#ifdef _OPENMP
+#pragma omp parallel for schedule(dynamic) reduction(+ : ll_sum)
+#endif
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
         MemoizationTable *memo_b = initMemo();
