@@ -1652,3 +1652,13 @@ logLik.eim <- function(object, ...) {
     }
     tail(object$logLik, 1)
 }
+
+#' @export
+exactLL <- function(object) {
+    if (is.null(object$X) || is.null(object$W) || is.null(object$prob)) {
+        stop("The object must contain X, W and prob matrices.")
+    }
+
+    ll <- computeExactLL(t(object$X), object$W, object$prob)
+    ll
+}

@@ -107,7 +107,7 @@ when \code{method = "mvn_cdf"}.}
 \item{mvncdf_samples}{An optional integer specifying the number of Monte Carlo
 samples for the \code{mvn_cdf} method. The default value is \code{5000}. This argument is only applicable when \code{method = "mvn_cdf"}.}
 
-\item{adjust_prob_cond_method}{An optional string indicating the method to adjust the conditional probability so that for each candidate, the sum product of voters and conditional probabilities across groups equals the votes obtained by the candidate. It can take values: \code{""} if no adjusting is made, \code{lp} if the adjustment is based on a linear programming that penalizes with zero norm, \code{project_lp} if the adjustment is performed using projection and linear programming (this is the default)}
+\item{adjust_prob_cond_method}{An optional string indicating the method to adjust the conditional probability so that for each candidate, the sum product of voters and conditional probabilities across groups equals the votes obtained by the candidate. It can take values: \code{""} if no adjusting is made, \code{"lp"} if the adjustment is based on a linear programming that penalizes with L1-norm, \code{"project_lp"} if the adjustment is performed using projection and linear programming (this is the default)}
 
 \item{adjust_prob_cond_every}{An optional boolean indicating whether to adjust the conditional probability on every iteration (if \code{TRUE}), or only at the conditional probabilities obtained at the end of the EM algorithm (if \code{FALSE}, this is the default). This parameter applies only if \code{adjust_prob_conditional_method} is \code{lp} or \code{project_lp}.}
 

@@ -17,3 +17,7 @@ groupAggGreedy <- function(sd_statistic, sd_threshold, candidate_matrix, group_m
     .Call(`_fastei_groupAggGreedy`, sd_statistic, sd_threshold, candidate_matrix, group_matrix, nboot, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every)
 }
 
+computeExactLL <- function(candidate_matrix, group_matrix, prob_matrix) {
+    .Call(`_fastei_computeExactLL`, candidate_matrix, group_matrix, prob_matrix)
+}
+

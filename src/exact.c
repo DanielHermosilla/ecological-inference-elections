@@ -687,6 +687,40 @@ void recursion_one_b(EMContext *ctx, uint32_t b, MemoizationTable *memo_b)
     } // ---- End `f` loop
 }
 
+double computeExactLoglikelihood(EMContext *ctx)
+{
+
+    double ll_sum = 0.0;
+    Matrix *X = &ctx->X;
+    Rprintf("Computing exact log-likelihood...\n");
+    Rprintf("Probability matrix:\n");
+    printMatrix(&ctx->probabilities);
+    if (CANDIDATEARRAYS == NULL)
+    {
+        CANDIDATEARRAYS = Calloc(TOTAL_BALLOTS, size_t *);
+        for (uint16_t b = 0; b < TOTAL_BALLOTS; b++)
+        {
+            CANDIDATEARRAYS[b] = Calloc(TOTAL_CANDIDATES, size_t);
+            for (uint32_t c = 0; c < TOTAL_CANDIDATES; c++)
+            {
+                CANDIDATEARRAYS[b][c] = (size_t)MATRIX_AT_PTR(X, c, b);
+            }
+        }
+    }
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        MemoizationTable *memo_b = initMemo();
+
+        // Fill memo for this b
+        recursion_one_b(ctx, b, memo_b);
+        ll_sum += exactLL_one_b(memo_b, b);
+        freeMemo(memo_b);
+    }
+    freeCandidateArrays(TOTAL_BALLOTS);
+
+    return ll_sum;
+}
+
 void computeQExact(EMContext *ctx, QMethodInput params, double *ll)
 {
     Matrix *probabilities = &ctx->probabilities;

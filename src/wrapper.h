@@ -215,4 +215,7 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
                           Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
                           Rcpp::LogicalVector project_every);
 
+Rcpp::NumericVector computeExactLL(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                                   Rcpp::NumericMatrix prob_matrix);
+
 #endif // WRAPPER_H

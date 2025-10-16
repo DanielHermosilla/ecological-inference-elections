@@ -58,6 +58,8 @@ extern "C"
      */
     void generateKSets(EMContext *ctx);
 
+    double computeExactLoglikelihood(EMContext *ctx);
+
 #ifdef __cplusplus
 }
 #endif

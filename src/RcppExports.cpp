@@ -130,12 +130,26 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// computeExactLL
+Rcpp::NumericVector computeExactLL(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix, Rcpp::NumericMatrix prob_matrix);
+RcppExport SEXP _fastei_computeExactLL(SEXP candidate_matrixSEXP, SEXP group_matrixSEXP, SEXP prob_matrixSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type candidate_matrix(candidate_matrixSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type group_matrix(group_matrixSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type prob_matrix(prob_matrixSEXP);
+    rcpp_result_gen = Rcpp::wrap(computeExactLL(candidate_matrix, group_matrix, prob_matrix));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_fastei_EMAlgorithmFull", (DL_FUNC) &_fastei_EMAlgorithmFull, 18},
     {"_fastei_bootstrapAlg", (DL_FUNC) &_fastei_bootstrapAlg, 19},
     {"_fastei_groupAgg", (DL_FUNC) &_fastei_groupAgg, 22},
     {"_fastei_groupAggGreedy", (DL_FUNC) &_fastei_groupAggGreedy, 21},
+    {"_fastei_computeExactLL", (DL_FUNC) &_fastei_computeExactLL, 3},
     {NULL, NULL, 0}
 };
 

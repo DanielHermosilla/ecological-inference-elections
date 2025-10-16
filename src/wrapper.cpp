@@ -23,6 +23,7 @@ SOFTWARE.
 #include "wrapper.h"
 #include "bootstrap.h"
 #include "dynamic_program.h"
+#include "exact.h"
 #include "main.h"
 #include <R.h>
 #include <R_ext/Random.h>
@@ -385,4 +386,32 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
                               Rcpp::_["stopping_reason"] = stopping_reason, Rcpp::_["finish_id"] = finishReason,
                               Rcpp::_["q"] = condProb, Rcpp::_["expected_outcome"] = expectedOut,
                               Rcpp::_["indices"] = result, Rcpp::_["bootstrap_sol"] = bootstrapSol);
+}
+
+// ---- Computes the exact log-likelihood ---- //
+// [[Rcpp::export]]
+Rcpp::NumericVector computeExactLL(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                                   Rcpp::NumericMatrix prob_matrix)
+{
+    if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
+        Rcpp::stop("Error: X matrix has zero dimensions!");
+
+    if (group_matrix.nrow() == 0 || group_matrix.ncol() == 0)
+        Rcpp::stop("Error: W matrix has zero dimensions!");
+
+    Matrix XR = convertToMatrix(candidate_matrix);
+    Matrix WR = convertToMatrix(group_matrix);
+    Matrix PR = convertToMatrix(prob_matrix);
+
+    EMContext *ctx = createEMContext(&XR, &WR, "exact", (QMethodInput){0});
+    ctx->probabilities = PR;
+
+    double ll = computeExactLoglikelihood(ctx);
+
+    cleanup(ctx);
+
+    Rcpp::NumericVector result(1);
+    result[0] = ll;
+
+    return result;
 }
