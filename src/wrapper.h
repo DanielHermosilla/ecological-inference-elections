@@ -70,7 +70,7 @@ Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMa
                            Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size,
                            Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error,
                            Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
-                           Rcpp::LogicalVector project_every);
+                           Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities);
 /**
  *  Returns an array of col-major matrices with bootstrapped matrices.
  *
@@ -114,7 +114,7 @@ Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
                                  Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method,
                                  Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter,
                                  Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
-                                 Rcpp::LogicalVector project_every);
+                                 Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities);
 
 /*
  * Returns a list with an heuristic-optimal bootstrapped matrix with an ideal group aggregation.

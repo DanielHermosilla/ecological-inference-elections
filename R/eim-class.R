@@ -431,7 +431,7 @@ run_em <- function(object = NULL,
         t(object$X),
         W,
         method,
-        initial_prob,
+        if (is.character(initial_prob)) initial_prob else "custom",
         maxiter,
         maxtime,
         param_threshold,
@@ -445,7 +445,8 @@ run_em <- function(object = NULL,
         as.numeric(if (!is.null(object$mvncdf_samples)) object$mvncdf_samples else 5000),
         miniter,
         adjust_prob_cond_method,
-        adjust_prob_cond_every
+        adjust_prob_cond_every,
+        if (is.matrix(initial_prob)) initial_prob else matrix(-1, nrow = 1, ncol = 1)
     )
     # ---------- ... ---------- #
 
@@ -666,7 +667,7 @@ bootstrap <- function(object = NULL,
         W,
         as.integer(nboot),
         as.character(method),
-        as.character(initial_prob),
+        if (is.character(initial_prob)) as.character(initial_prob) else "custom",
         as.integer(maxiter),
         as.double(maxtime),
         as.double(param_threshold),
@@ -680,7 +681,8 @@ bootstrap <- function(object = NULL,
         as.integer(mvncdf_samples),
         as.integer(miniter),
         as.character(adjust_prob_cond_method),
-        as.logical(adjust_prob_cond_every)
+        as.logical(adjust_prob_cond_every),
+        if (is.matrix(initial_prob)) initial_prob else matrix(-1, nrow = 1, ncol = 1)
     )
 
     object$sd <- result
@@ -890,7 +892,7 @@ get_agg_proxy <- function(object = NULL,
         object$W,
         as.integer(nboot),
         as.character(method),
-        as.character(initial_prob),
+        if (is.character(initial_prob)) as.character(initial_prob) else "custom",
         as.integer(maxiter),
         as.double(maxtime),
         as.double(param_threshold),
@@ -904,7 +906,8 @@ get_agg_proxy <- function(object = NULL,
         as.integer(mvncdf_samples),
         as.integer(miniter),
         as.character(adjust_prob_cond_method),
-        as.logical(adjust_prob_cond_every)
+        as.logical(adjust_prob_cond_every),
+        if (is.matrix(initial_prob)) initial_prob else matrix(-1, nrow = 1, ncol = 1)
     )
 
     # If the returned matrix isn't the best non-feasible result
@@ -1100,7 +1103,7 @@ get_agg_opt <- function(object = NULL,
         object$W,
         as.integer(nboot),
         as.character(method),
-        as.character(initial_prob),
+        if (is.character(initial_prob)) as.character(initial_prob) else "group_proportional",
         as.integer(maxiter),
         as.double(maxtime),
         as.double(param_threshold),
@@ -1115,6 +1118,7 @@ get_agg_opt <- function(object = NULL,
         as.integer(miniter),
         as.character(adjust_prob_cond_method),
         as.logical(adjust_prob_cond_every)
+        # if (is.matrix(initial_prob)) initial_prob else matrix(-1, nrow = 1, ncol = 1)
     )
 
     if (result$indices[[1]] == -1) {

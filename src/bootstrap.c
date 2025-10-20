@@ -124,7 +124,7 @@ Matrix standardDeviations(Matrix *bootstrapResults, Matrix *sumMatrix, int total
  */
 Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const char *q_method, const char *p_method,
                   const double convergence, const double log_convergence, const int maxIter, const double maxSeconds,
-                  const bool verbose, QMethodInput *inputParams)
+                  const bool verbose, Matrix *probMatrix, QMethodInput *inputParams)
 {
 
     // ---- Initial variables
@@ -184,8 +184,9 @@ sampling:
         double time;
         double logLLarr = 0;
         int finishing_reason, iterTotal;
-        EMContext *ctx = EMAlgoritm(&iterX, &iterW, p_method, q_method, convergence, log_convergence, maxIter,
-                                    maxSeconds, false, &time, &iterTotal, &logLLarr, &finishing_reason, inputParams);
+        EMContext *ctx =
+            EMAlgoritm(&iterX, &iterW, p_method, q_method, convergence, log_convergence, maxIter, maxSeconds, false,
+                       &time, &iterTotal, &logLLarr, &finishing_reason, probMatrix, inputParams);
         Matrix *resultP = &ctx->probabilities;
         Matrix copyP = createMatrix(resultP->rows, resultP->cols);
         memcpy(copyP.data, resultP->data, sizeof(double) * resultP->rows * resultP->cols);

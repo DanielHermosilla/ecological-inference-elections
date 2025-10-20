@@ -348,7 +348,7 @@ int *solveDP(int G, int A, const Matrix *lastReward,
 Matrix testBootstrap(EMContext *ctx, double *quality, const char *set_method, Matrix *xmat, const Matrix *wmat,
                      const int *boundaries, int A, int bootiter, const char *q_method, const char *p_method,
                      const double convergence, const double log_convergence, const int maxIter, const double maxSeconds,
-                     QMethodInput inputParams)
+                     Matrix *pmat, QMethodInput inputParams)
 {
 
     Matrix mergedMat, standardMat;
@@ -360,7 +360,7 @@ Matrix testBootstrap(EMContext *ctx, double *quality, const char *set_method, Ma
         // ---- Obtain the bootstrapped results ---- //
         GetRNGstate();
         standardMat = bootstrapA(xmat, &mergedMat, bootiter, q_method, p_method, convergence, log_convergence, maxIter,
-                                 maxSeconds, false, &inputParams);
+                                 maxSeconds, false, pmat, &inputParams);
         PutRNGstate();
         // ---...--- //
     }
@@ -439,7 +439,7 @@ Matrix aggregateGroups(
     // ---- EM and Bootstrap parameters
     double set_threshold, const char *set_method, bool feasible, int bootiter, const char *p_method,
     const char *q_method, const double convergence, const double log_convergence, const int maxIter, double maxSeconds,
-    const bool verbose, QMethodInput *inputParams)
+    const bool verbose, Matrix *P, QMethodInput *inputParams)
 {
     Matrix *wmat = &ctx->W;
     Matrix *xmat = &ctx->X;
@@ -478,15 +478,17 @@ Matrix aggregateGroups(
                 Rprintf("Groups standard deviation:\t%f\n", bestVal);
             }
             // ---- Calculate the bootstrap matrix according the cutting boundaries
-            bootstrapMatrix = testBootstrap(ctx, &quality, set_method, xmat, wmat, boundaries, i, bootiter, q_method,
-                                            p_method, convergence, log_convergence, maxIter, maxSeconds, *inputParams);
+            bootstrapMatrix =
+                testBootstrap(ctx, &quality, set_method, xmat, wmat, boundaries, i, bootiter, q_method, p_method,
+                              convergence, log_convergence, maxIter, maxSeconds, P, *inputParams);
         }
         // ---- Case where there's no cuts ---- //
         else
         {
             // int *boundaries = Calloc(2, int);
-            bootstrapMatrix = testBootstrap(ctx, &quality, set_method, xmat, wmat, boundaries, -1, bootiter, q_method,
-                                            p_method, convergence, log_convergence, maxIter, maxSeconds, *inputParams);
+            bootstrapMatrix =
+                testBootstrap(ctx, &quality, set_method, xmat, wmat, boundaries, -1, bootiter, q_method, p_method,
+                              convergence, log_convergence, maxIter, maxSeconds, P, *inputParams);
         }
         if (verbose && quality)
         {
@@ -591,6 +593,7 @@ typedef struct
 {
     Matrix *xmat;
     Matrix *wmat;
+    Matrix *pmat;
     const char *set_method;
     int bootiter;
     const char *p_method;
@@ -642,7 +645,7 @@ static void enumerateAllPartitions(int start, int G, int *currentBoundaries, int
 
         EMContext *ctx = EMAlgoritm(opts->xmat, &merged, opts->p_method, opts->q_method, opts->convergence,
                                     opts->log_convergence, opts->maxIter, opts->maxSeconds, false, &timeUsed,
-                                    &totalIter, &logLLs, &finishingReason, &opts->inputParams);
+                                    &totalIter, &logLLs, &finishingReason, opts->pmat, &opts->inputParams);
 
         size_t n_q = (size_t)ctx->B * ctx->G * ctx->C;
         qvals = (double *)Calloc(n_q, double);
@@ -681,7 +684,7 @@ static void enumerateAllPartitions(int start, int G, int *currentBoundaries, int
             Matrix bootstrapedMat =
                 testBootstrap(ctx, &qual, opts->set_method, opts->xmat, opts->wmat, currentBoundaries, currentSize,
                               opts->bootiter, opts->q_method, opts->p_method, opts->convergence, opts->log_convergence,
-                              opts->maxIter, opts->maxSeconds, opts->inputParams);
+                              opts->maxIter, opts->maxSeconds, opts->pmat, opts->inputParams);
             // freeMatrix(&bootstrapedMat);
             if (opts->verbose && qual != INFINITY)
                 Rprintf("Standard deviation statistic:\t%f\n", qual);
@@ -749,8 +752,8 @@ static void enumerateAllPartitions(int start, int G, int *currentBoundaries, int
 Matrix aggregateGroupsExhaustive(Matrix *xmat, Matrix *wmat, int *results, int *cuts, const char *set_method,
                                  int bootiter, double max_qual, const char *p_method, const char *q_method,
                                  double convergence, double log_convergence, bool verbose, int maxIter,
-                                 double maxSeconds, QMethodInput *inputParams, double *outBestLL, double **outBestQ,
-                                 double **bestExpected, Matrix **bestBootstrap, double *outBestTime,
+                                 double maxSeconds, Matrix *P, QMethodInput *inputParams, double *outBestLL,
+                                 double **outBestQ, double **bestExpected, Matrix **bestBootstrap, double *outBestTime,
                                  int *outFinishReason, int *outIterTotal)
 {
     int G = wmat->cols;
@@ -758,6 +761,7 @@ Matrix aggregateGroupsExhaustive(Matrix *xmat, Matrix *wmat, int *results, int *
     // Initialize options and result
     ExhaustiveOptions opts = {.xmat = xmat,
                               .wmat = wmat,
+                              .pmat = P,
                               .set_method = set_method,
                               .bootiter = bootiter,
                               .p_method = p_method,

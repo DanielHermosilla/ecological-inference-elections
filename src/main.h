@@ -54,7 +54,7 @@ extern "C"
      */
     EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_method, const double convergence,
                           const double LLconvergence, const int maxIter, const double maxSeconds, const bool verbose,
-                          double *time, int *iterTotal, double *logLLarr, int *finishing_reason,
+                          double *time, int *iterTotal, double *logLLarr, int *finishing_reason, Matrix *probMatrix,
                           QMethodInput *inputParams);
 
     Matrix precomputeNorm(Matrix *W);

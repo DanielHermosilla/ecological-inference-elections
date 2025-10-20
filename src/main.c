@@ -190,11 +190,12 @@ void getPredictedVotes(EMContext *ctx)
  * - `x` and `w` dimensions must be coherent.
  *
  */
-void getInitialP(EMContext *ctx, const char *p_method)
+void getInitialP(EMContext *ctx, const char *p_method, Matrix *probMatrix)
 {
 
+    // bool custom_matrix = MATRIX_AT_PTR(probMatrix, 0, 0) != -1 ? true : false;
     // ---- Validation: check the method input ----//
-    if (strcmp(p_method, "uniform") != 0 && strcmp(p_method, "proportional") != 0 &&
+    if (strcmp(p_method, "custom") && strcmp(p_method, "uniform") != 0 && strcmp(p_method, "proportional") != 0 &&
         strcmp(p_method, "group_proportional") != 0 && strcmp(p_method, "random") != 0 &&
         strcmp(p_method, "mult") != 0 && strcmp(p_method, "mvn_cdf") != 0 && strcmp(p_method, "mvn_pdf") != 0 &&
         strcmp(p_method, "exact") != 0)
@@ -318,13 +319,22 @@ void getInitialP(EMContext *ctx, const char *p_method)
         }
         freeMatrix(&ballotProbability);
     }
+    else if (strcmp(p_method, "custom") == 0)
+    {
+        if (probMatrix->rows != ctx->G || probMatrix->cols != ctx->C)
+        {
+            error("Custom matrix dimensions do not match the expected size of (%d x %d).", ctx->G, ctx->C);
+        }
+        ctx->probabilities = *copMatrixPtr(probMatrix);
+    }
     else
     {
         int iterTotal, finishing_reason;
         double time, logLLarr;
         QMethodInput inputParams = {0};
-        EMContext *newCtx = EMAlgoritm(&ctx->X, &ctx->W, "group_proportional", p_method, 0.001, 0.0001, 1000, 1000,
-                                       false, &time, &iterTotal, &logLLarr, &finishing_reason, &inputParams);
+        EMContext *newCtx =
+            EMAlgoritm(&ctx->X, &ctx->W, "group_proportional", p_method, 0.001, 0.0001, 1000, 1000, false, &time,
+                       &iterTotal, &logLLarr, &finishing_reason, probMatrix, &inputParams);
         ctx->probabilities = createMatrix(newCtx->probabilities.rows, newCtx->probabilities.cols);
         ctx->q = newCtx->q;
         ctx->predicted_votes = newCtx->predicted_votes;
@@ -583,7 +593,8 @@ int checkGroups(EMContext ctx)
  */
 EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_method, const double convergence,
                       const double LLconvergence, const int maxIter, const double maxSeconds, const bool verbose,
-                      double *time, int *iterTotal, double *logLLarr, int *finishing_reason, QMethodInput *inputParams)
+                      double *time, int *iterTotal, double *logLLarr, int *finishing_reason, Matrix *probMatrix,
+                      QMethodInput *inputParams)
 {
     // ---- Error handling is done on getQMethodConfig!
     if (verbose)
@@ -603,7 +614,7 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
 
     // ---- Precomputations
     EMContext *ctx = createEMContext(X, W, q_method, *inputParams); // Allocate the important variables
-    getInitialP(ctx, p_method);                                     // Get the initial probabilities
+    getInitialP(ctx, p_method, probMatrix);                         // Get the initial probabilities
     QMethodConfig config = getQMethodConfig(q_method, *inputParams);
     double newLL;
     double oldLL = -DBL_MAX;
@@ -616,7 +627,7 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
         removeColumn(&ctx->W, invalidGroup);
         EMContext *newCtx =
             EMAlgoritm(&ctx->X, &ctx->W, "group_proportional", q_method, convergence, LLconvergence, maxIter,
-                       maxSeconds, verbose, time, iterTotal, logLLarr, finishing_reason, inputParams);
+                       maxSeconds, verbose, time, iterTotal, logLLarr, finishing_reason, probMatrix, inputParams);
         cleanup(ctx);
         addColumnOfZeros(&newCtx->W, invalidGroup);
         // setParameters(X, W);

@@ -41,11 +41,11 @@
     }
 
     # Initial prob argument
-    valid_p_methods <- c("group_proportional", "proportional", "uniform", "random", "mult", "mcmc", "mvn_cdf", "mvn_pdf", "exact")
-    if ("initial_prob" %in% names(args) &&
-        (!is.character(args$initial_prob) || length(args$initial_prob) != 1 || !(args$initial_prob %in% valid_p_methods))) {
-        stop("Invalid 'initial_prob'. Must be one of: ", paste(valid_p_methods, collapse = ", "))
-    }
+    # valid_p_methods <- c("group_proportional", "proportional", "uniform", "random", "mult", "mcmc", "mvn_cdf", "mvn_pdf", "exact")
+    # if ("initial_prob" %in% names(args) && (!is.matrix(args$initial_prob) ||
+    #     (!is.character(args$initial_prob) || length(args$initial_prob) != 1 || !(args$initial_prob %in% valid_p_methods)))) {
+    #     stop("Invalid 'initial_prob'. Must be one of: ", paste(valid_p_methods, collapse = ", "))
+    # }
 
     if ("maxiter" %in% names(args)) {
         if (!is.numeric(args$maxiter) || as.integer(args$maxiter) != args$maxiter || args$maxiter < 1) { # Infinite are valid, skip this case
