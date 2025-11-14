@@ -30,6 +30,7 @@ run_em(
   adjust_prob_cond_method = "project_lp",
   adjust_prob_cond_every = FALSE,
   scale_factor = 1,
+  symmetric = FALSE,
   ...
 )
 }
@@ -112,6 +113,8 @@ samples for the \code{mvn_cdf} method. The default value is \code{5000}. This ar
 \item{adjust_prob_cond_every}{An optional boolean indicating whether to adjust the conditional probability on every iteration (if \code{TRUE}), or only at the conditional probabilities obtained at the end of the EM algorithm (if \code{FALSE}, this is the default). This parameter applies only if \code{adjust_prob_conditional_method} is \code{lp} or \code{project_lp}.}
 
 \item{scale_factor}{An optional numeric value used to scale down the \code{X} and \code{W} matrices before executing the EM algorithm. This scaling can help improve performance when dealing with large vote counts. For example if \code{scale_factor = 2} all elements of \code{X} and \code{W} are divided by two and rounded. The default value is \code{1}, which means no scaling is applied. In case the scaling results in mismatch between \code{W} and \code{X}, ensure that \code{allow_mismatch = TRUE}.}
+
+\item{symmetric}{An boolean indicating whether to perform a symmetric estimation. If \code{TRUE}, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. The final probabilities are obtained by averaging the expected outcomes from both runs. This approach can provide a more balanced estimation in certain scenarios. The default value is \code{FALSE}.}
 
 \item{...}{Added for compability}
 }

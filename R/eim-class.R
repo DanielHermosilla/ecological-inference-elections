@@ -245,6 +245,8 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'
 #' @param scale_factor An optional numeric value used to scale down the `X` and `W` matrices before executing the EM algorithm. This scaling can help improve performance when dealing with large vote counts. For example if `scale_factor = 2` all elements of `X` and `W` are divided by two and rounded. The default value is `1`, which means no scaling is applied. In case the scaling results in mismatch between `W` and `X`, ensure that `allow_mismatch = TRUE`.
 #'
+#' @param symmetric An boolean indicating whether to perform a symmetric estimation. If `TRUE`, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. The final probabilities are obtained by averaging the expected outcomes from both runs. This approach can provide a more balanced estimation in certain scenarios. The default value is `FALSE`.
+#'
 #' @param ... Added for compability
 #'
 #' @references
@@ -356,7 +358,9 @@ run_em <- function(object = NULL,
                    adjust_prob_cond_method = "project_lp",
                    adjust_prob_cond_every = FALSE,
                    scale_factor = 1,
+                   symmetric = FALSE,
                    ...) {
+    base_call <- match.call()
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint
 
@@ -481,6 +485,40 @@ run_em <- function(object = NULL,
     object$initial_prob <- initial_prob
     object$adjust_prob_cond_method <- adjust_prob_cond_method
     object$adjust_prob_cond_every <- adjust_prob_cond_every
+
+    if (symmetric) {
+        # --- Second run with X/W swapped and symmetric = FALSE ---
+        base_call_sym <- base_call
+        base_call_sym$symmetric <- FALSE
+        base_call_sym$X <- object$W
+        base_call_sym$W <- object$X
+        base_call_sym$json_path <- NULL
+        base_call_sym$object <- NULL
+
+        inverse <- eval(base_call_sym, parent.frame())
+
+        # --- Accumulate time and iterations ---
+        object$time <- object$time + inverse$time
+        object$iterations <- object$iterations + inverse$iterations
+
+        # --- Symmetrize expected_outcome (G x C x B) ---
+        # inverse$expected_outcome is B x C x G (since X/W swapped)
+        A2 <- aperm(inverse$expected_outcome, c(2, 1, 3)) # G x C x B
+        object$expected_outcome <- 0.5 * (object$expected_outcome + A2)
+
+        # --- Compute cond_prob[g,c,b] = expected_outcome[g,c,b] / W[b,g] ---
+        # Work in B x G x C, divide by W (B x G), then permute back.
+        E_bgc <- aperm(object$expected_outcome, c(3, 1, 2)) # B x G x C
+        Q_bgc <- sweep(E_bgc, c(1, 2), object$W, "/") # divide by W[b,g]
+        object$cond_prob <- aperm(Q_bgc, c(2, 3, 1)) # G x C x B
+
+        # --- Compute prob[g,c] = sum_b expected_outcome[g,c,b] / sum_b W[b,g] ---
+        num <- apply(object$expected_outcome, c(1, 2), sum) # G x C (sum over B)
+        den <- colSums(object$W) # length G (sum over B)
+
+        # divide each row g by den[g]
+        object$prob <- sweep(num, 1, den, "/")
+    }
 
     invisible(object) # Updates the object.
 }
