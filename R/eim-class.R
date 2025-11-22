@@ -146,7 +146,10 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
             "mvncdf_error",
             "miniter",
             "adjust_prob_cond_method",
-            "adjust_prob_cond_every"
+            "adjust_prob_cond_every",
+            "prob_inv",
+            "cond_prob_inv",
+            "expected_outcome_inv"
         )
         extra_params <- matrices[names(matrices) %in% allowed_params] # TODO: Validate them
     }
@@ -245,7 +248,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #'
 #' @param scale_factor An optional numeric value used to scale down the `X` and `W` matrices before executing the EM algorithm. This scaling can help improve performance when dealing with large vote counts. For example if `scale_factor = 2` all elements of `X` and `W` are divided by two and rounded. The default value is `1`, which means no scaling is applied. In case the scaling results in mismatch between `W` and `X`, ensure that `allow_mismatch = TRUE`.
 #'
-#' @param symmetric An boolean indicating whether to perform a symmetric estimation. If `TRUE`, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. The final probabilities are obtained by averaging the expected outcomes from both runs. This approach can provide a more balanced estimation in certain scenarios. The default value is `FALSE`.
+#' @param symmetric A boolean indicating whether to perform a symmetric estimation. If `TRUE`, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. The final probabilities are obtained by averaging the expected outcomes from both runs. This approach can provide a more balanced estimation in certain scenarios. The default value is `FALSE`.
 #'
 #' @param ... Added for compability
 #'
@@ -295,6 +298,13 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' Also, if the eim object supplied is created with the function [simulate_election], it also returns the real probability and unobserved votes with the name `real_prob` and `outcome` respectively. See [simulate_election].
 #'
 #' If `group_agg` is different than `NULL`, two values are returned: `W_agg` a `(b x a)` matrix with the number of voters of each aggregated group o each ballot-box, and `group_agg` the same input vector.
+#'
+#' Furthermore, if `symmetric = TRUE`, the following additional attributes are included:
+#' \describe{
+#' 		\item{prob_inv}{The estimated probability matrix `(c x g)`, obtained by swapping `X` and `W`.}
+#' 		\item{cond_prob_inv}{A `(c x g x b)` 3d-array with the probability that at each ballot-box a voter of each candidate voted for each group, given the observed outcome at the particular ballot-box.}
+#' }
+#' Under this argument, the conditional probabilities will be obtained by dividing new expected outcomes by `W`. The probabilities will be calculated by performing an M-step.
 #'
 #' @examples
 #' \donttest{
@@ -496,6 +506,10 @@ run_em <- function(object = NULL,
         base_call_sym$object <- NULL
 
         inverse <- eval(base_call_sym, parent.frame())
+        # --- Reversed features ---
+        object$cond_prob_inv <- inverse$cond_prob
+        object$prob_inv <- inverse$prob
+        # object$expected_outcome_inv <- inverse$expected_outcome
 
         # --- Accumulate time and iterations ---
         object$time <- object$time + inverse$time
