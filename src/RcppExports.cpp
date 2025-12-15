@@ -70,8 +70,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // groupAgg
-Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold, Rcpp::LogicalVector feasible, Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix, Rcpp::IntegerVector nboot, Rcpp::String em_method, Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold, Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method, Rcpp::LogicalVector project_every);
-RcppExport SEXP _fastei_groupAgg(SEXP sd_statisticSEXP, SEXP sd_thresholdSEXP, SEXP feasibleSEXP, SEXP candidate_matrixSEXP, SEXP group_matrixSEXP, SEXP nbootSEXP, SEXP em_methodSEXP, SEXP probability_methodSEXP, SEXP maximum_iterationsSEXP, SEXP maximum_secondsSEXP, SEXP stopping_thresholdSEXP, SEXP log_stopping_thresholdSEXP, SEXP compute_llSEXP, SEXP verboseSEXP, SEXP step_sizeSEXP, SEXP samplesSEXP, SEXP monte_methodSEXP, SEXP monte_errorSEXP, SEXP monte_iterSEXP, SEXP miniterationsSEXP, SEXP LP_methodSEXP, SEXP project_everySEXP) {
+Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold, Rcpp::LogicalVector feasible, Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix, Rcpp::IntegerVector nboot, Rcpp::String em_method, Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold, Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method, Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities);
+RcppExport SEXP _fastei_groupAgg(SEXP sd_statisticSEXP, SEXP sd_thresholdSEXP, SEXP feasibleSEXP, SEXP candidate_matrixSEXP, SEXP group_matrixSEXP, SEXP nbootSEXP, SEXP em_methodSEXP, SEXP probability_methodSEXP, SEXP maximum_iterationsSEXP, SEXP maximum_secondsSEXP, SEXP stopping_thresholdSEXP, SEXP log_stopping_thresholdSEXP, SEXP compute_llSEXP, SEXP verboseSEXP, SEXP step_sizeSEXP, SEXP samplesSEXP, SEXP monte_methodSEXP, SEXP monte_errorSEXP, SEXP monte_iterSEXP, SEXP miniterationsSEXP, SEXP LP_methodSEXP, SEXP project_everySEXP, SEXP initial_probabilitiesSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -97,7 +97,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type miniterations(miniterationsSEXP);
     Rcpp::traits::input_parameter< Rcpp::String >::type LP_method(LP_methodSEXP);
     Rcpp::traits::input_parameter< Rcpp::LogicalVector >::type project_every(project_everySEXP);
-    rcpp_result_gen = Rcpp::wrap(groupAgg(sd_statistic, sd_threshold, feasible, candidate_matrix, group_matrix, nboot, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every));
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type initial_probabilities(initial_probabilitiesSEXP);
+    rcpp_result_gen = Rcpp::wrap(groupAgg(sd_statistic, sd_threshold, feasible, candidate_matrix, group_matrix, nboot, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, initial_probabilities));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -132,26 +133,12 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// computeExactLL
-Rcpp::NumericVector computeExactLL(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix, Rcpp::NumericMatrix prob_matrix);
-RcppExport SEXP _fastei_computeExactLL(SEXP candidate_matrixSEXP, SEXP group_matrixSEXP, SEXP prob_matrixSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type candidate_matrix(candidate_matrixSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type group_matrix(group_matrixSEXP);
-    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type prob_matrix(prob_matrixSEXP);
-    rcpp_result_gen = Rcpp::wrap(computeExactLL(candidate_matrix, group_matrix, prob_matrix));
-    return rcpp_result_gen;
-END_RCPP
-}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_fastei_EMAlgorithmFull", (DL_FUNC) &_fastei_EMAlgorithmFull, 19},
     {"_fastei_bootstrapAlg", (DL_FUNC) &_fastei_bootstrapAlg, 20},
-    {"_fastei_groupAgg", (DL_FUNC) &_fastei_groupAgg, 22},
+    {"_fastei_groupAgg", (DL_FUNC) &_fastei_groupAgg, 23},
     {"_fastei_groupAggGreedy", (DL_FUNC) &_fastei_groupAggGreedy, 21},
-    {"_fastei_computeExactLL", (DL_FUNC) &_fastei_computeExactLL, 3},
     {NULL, NULL, 0}
 };
 

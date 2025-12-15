@@ -212,7 +212,8 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
                     Rcpp::NumericVector log_stopping_threshold, Rcpp::LogicalVector compute_ll,
                     Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples,
                     Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter,
-                    Rcpp::IntegerVector miniterations, Rcpp::String LP_method, Rcpp::LogicalVector project_every)
+                    Rcpp::IntegerVector miniterations, Rcpp::String LP_method, Rcpp::LogicalVector project_every,
+                    Rcpp::NumericMatrix initial_probabilities)
 {
     if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
         Rcpp::stop("Error: X matrix has zero dimensions!");
@@ -222,7 +223,8 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
 
     Matrix XR = convertToMatrix(candidate_matrix);
     Matrix WR = convertToMatrix(group_matrix);
-    Matrix P = createMatrix(WR.cols, XR.rows); // Empty initial probabilities
+    // Matrix P = createMatrix(WR.cols, XR.rows); // Empty initial probabilities
+    Matrix P = convertToMatrix(initial_probabilities);
 
     std::string probabilityM = probability_method;
     std::string EMAlg = em_method;
@@ -393,29 +395,28 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
 }
 
 // ---- Computes the exact log-likelihood ---- //
-// [[Rcpp::export]]
-Rcpp::NumericVector computeExactLL(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
-                                   Rcpp::NumericMatrix prob_matrix)
-{
-    if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
-        Rcpp::stop("Error: X matrix has zero dimensions!");
-
-    if (group_matrix.nrow() == 0 || group_matrix.ncol() == 0)
-        Rcpp::stop("Error: W matrix has zero dimensions!");
-
-    Matrix XR = convertToMatrix(candidate_matrix);
-    Matrix WR = convertToMatrix(group_matrix);
-    Matrix PR = convertToMatrix(prob_matrix);
-
-    EMContext *ctx = createEMContext(&XR, &WR, "exact", (QMethodInput){0});
-    ctx->probabilities = PR;
-
-    double ll = computeExactLoglikelihood(ctx);
-
-    cleanup(ctx);
-
-    Rcpp::NumericVector result(1);
-    result[0] = ll;
-
-    return result;
-}
+// Rcpp::NumericVector computeExactLL(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+//                                    Rcpp::NumericMatrix prob_matrix)
+// {
+//     if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
+//         Rcpp::stop("Error: X matrix has zero dimensions!");
+//
+//     if (group_matrix.nrow() == 0 || group_matrix.ncol() == 0)
+//         Rcpp::stop("Error: W matrix has zero dimensions!");
+//
+//     Matrix XR = convertToMatrix(candidate_matrix);
+//     Matrix WR = convertToMatrix(group_matrix);
+//     Matrix PR = convertToMatrix(prob_matrix);
+//
+//     EMContext *ctx = createEMContext(&XR, &WR, "exact", (QMethodInput){0});
+//     ctx->probabilities = PR;
+//
+//     double ll = computeExactLoglikelihood(ctx);
+//
+//     cleanup(ctx);
+//
+//     Rcpp::NumericVector result(1);
+//     result[0] = ll;
+//
+//     return result;
+// }

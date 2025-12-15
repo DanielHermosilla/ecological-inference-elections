@@ -169,7 +169,8 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
                     Rcpp::NumericVector log_stopping_threshold, Rcpp::LogicalVector compute_ll,
                     Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples,
                     Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter,
-                    Rcpp::IntegerVector miniterations, Rcpp::String LP_method, Rcpp::LogicalVector project_every);
+                    Rcpp::IntegerVector miniterations, Rcpp::String LP_method, Rcpp::LogicalVector project_every,
+                    Rcpp::NumericMatrix initial_probabilities);
 
 /*
  *

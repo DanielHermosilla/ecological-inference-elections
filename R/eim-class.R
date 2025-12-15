@@ -504,6 +504,15 @@ run_em <- function(object = NULL,
         base_call_sym$W <- object$X
         base_call_sym$json_path <- NULL
         base_call_sym$object <- NULL
+        ip <- all_params$initial_prob
+        if (is.matrix(ip)) {
+            col_tot_X <- colSums(object$X)
+            num <- sweep(ip, 2, col_tot_X, "*")
+            denom <- rowSums(num)
+            base_call_sym$initial_prob <- sweep(num, 1, denom, "/")
+            base_call_sym$initial_prob <- t(base_call_sym$initial_prob)
+        }
+
 
         inverse <- eval(base_call_sym, parent.frame())
         # --- Reversed features ---
@@ -1709,19 +1718,19 @@ logLik.eim <- function(object, ...) {
     tail(object$logLik, 1)
 }
 
-#' @export
-exactLL <- function(object, scale_factor = 1) {
-    if (is.null(object$X) || is.null(object$W) || is.null(object$prob)) {
-        stop("The object must contain X, W and prob matrices.")
-    }
-
-    # Applies a scaling
-    if (scale_factor != 1) {
-        object$X <- round(object$X / scale_factor)
-        object$W <- round(object$W / scale_factor)
-        object$W <- .dhondt_correction(object$W, object$X)
-    }
-
-    ll <- computeExactLL(t(object$X), object$W, object$prob)
-    ll
-}
+# Maybe for a future patch, if it's needed, add the option to get the eaxct log-likelihood
+# exactLL <- function(object, scale_factor = 1) {
+#     if (is.null(object$X) || is.null(object$W) || is.null(object$prob)) {
+#         stop("The object must contain X, W and prob matrices.")
+#     }
+#
+#     # Applies a scaling
+#     if (scale_factor != 1) {
+#         object$X <- round(object$X / scale_factor)
+#         object$W <- round(object$W / scale_factor)
+#         object$W <- .dhondt_correction(object$W, object$X)
+#     }
+#
+#     ll <- computeExactLL(t(object$X), object$W, object$prob)
+#     ll
+# }
