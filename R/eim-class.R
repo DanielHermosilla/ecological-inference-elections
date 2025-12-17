@@ -504,6 +504,7 @@ run_em <- function(object = NULL,
         base_call_sym$W <- object$X
         base_call_sym$json_path <- NULL
         base_call_sym$object <- NULL
+        base_call_sym$scale_factor <- 1
         ip <- all_params$initial_prob
         if (is.matrix(ip)) {
             col_tot_X <- colSums(object$X)
