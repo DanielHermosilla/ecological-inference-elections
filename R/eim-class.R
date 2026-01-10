@@ -123,6 +123,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
         W <- as.matrix(matrices$W)
         allowed_params <- c(
             "prob",
+            "avg_prob",
             "initial_prob",
             "iterations",
             "nboot",
@@ -569,7 +570,7 @@ run_em <- function(object = NULL,
 #' @seealso The [eim] object and [run_em] implementation.
 #'
 #' @return
-#' Returns an `eim` object with the `sd` field containing the estimated standard deviations of the probabilities and the amount of iterations that were made. If an `eim` object is provided, its attributes (see [run_em]) are retained in the returned object.
+#' Returns an `eim` object with the `sd` field containing the estimated standard deviations of the probabilities and the `avg_prob` field with the average bootstrapped probability matrix. If an `eim` object is provided, its attributes (see [run_em]) are retained in the returned object.
 #'
 #' @examples
 #' \donttest{
@@ -747,10 +748,13 @@ bootstrap <- function(object = NULL,
         if (is.matrix(initial_prob)) initial_prob else matrix(-1, nrow = 1, ncol = 1)
     )
 
-    object$sd <- result
+    object$sd <- result$sd
     dimnames(object$sd) <- list(colnames(W), colnames(object$X))
+    object$avg_prob <- result$avg_prob
+    dimnames(object$avg_prob) <- list(colnames(W), colnames(object$X))
     object$nboot <- nboot
     object$sd[object$sd == 9999] <- Inf
+    object$avg_prob[object$avg_prob == 9999] <- Inf
 
     class(object) <- "eim"
     return(object)
@@ -1513,6 +1517,9 @@ summary.eim <- function(object, ...) {
     # Display sd if the bootstrapping method has been called.
     if (!is.null(object$sd)) {
         object_run_em_attr$sd <- object$sd
+    }
+    if (!is.null(object$avg_prob)) {
+        object_run_em_attr$avg_prob <- object$avg_prob
     }
 
     final_list <- c(object_core_attr, object_run_em_attr)

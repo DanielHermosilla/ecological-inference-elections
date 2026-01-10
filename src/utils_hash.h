@@ -8,17 +8,15 @@ extern "C"
 #endif
 
 #include "globals.h"
-#include "uthash.h"
 #include <stdbool.h>
 #include <stdint.h>
 
 #define INVALID -1.0
-    // Entry structure: stores the hash and the associated value
+    // Entry structure: stores the key and the associated value
     typedef struct
     {
-        uint64_t hash;     // Hash of the MemoizationKey
-        double value;      // Value associated with the key
-        UT_hash_handle hh; // Hash table handle
+        uint64_t key; // Hash of the memoization key
+        double value;
     } MemoizationEntry;
 
     // Hash table structure
@@ -27,14 +25,6 @@ extern "C"
         MemoizationEntry *hashmap; // Pointer to the hash table
     } MemoizationTable;
 
-    // Define your MatrixHash struct to store a key computed from the matrix content.
-    typedef struct
-    {
-        unsigned int key;  // computed over the matrix data
-        IntMatrix *matrix; // canonical copy of the matrix
-        int count;
-        UT_hash_handle hh;
-    } MatrixHash;
     /**
      * @brief Generates a hash for the key.
      *
@@ -95,7 +85,7 @@ extern "C"
     /**
      * @brief Frees the memory from the Hash Table.
      *
-     * Given the hash table, it frees the vector, entry and removes the hash table.
+     * Given the hash table, it releases all entries and removes the hash table.
      *
      * @param[in] *table The hash table to be removed
      *

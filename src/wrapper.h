@@ -104,17 +104,16 @@ Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMa
  * respectively.
  *
  *
- * @return An allocated array of size bootiter * TOTAL_BALLOTS that stores matrices.
+ * @return A list with the bootstrap standard deviation matrix ("sd") and the average probability matrix ("avg_prob").
  */
-Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
-                                 Rcpp::IntegerVector nboot, Rcpp::String em_method, Rcpp::String probability_method,
-                                 Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
-                                 Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold,
-                                 Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose,
-                                 Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method,
-                                 Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter,
-                                 Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
-                                 Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities);
+Rcpp::List bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                        Rcpp::IntegerVector nboot, Rcpp::String em_method, Rcpp::String probability_method,
+                        Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
+                        Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold,
+                        Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size,
+                        Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error,
+                        Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
+                        Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities);
 
 /*
  * Returns a list with an heuristic-optimal bootstrapped matrix with an ideal group aggregation.

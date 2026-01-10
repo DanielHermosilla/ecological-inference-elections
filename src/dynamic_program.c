@@ -360,7 +360,7 @@ Matrix testBootstrap(EMContext *ctx, double *quality, const char *set_method, Ma
         // ---- Obtain the bootstrapped results ---- //
         GetRNGstate();
         standardMat = bootstrapA(xmat, &mergedMat, bootiter, q_method, p_method, convergence, log_convergence, maxIter,
-                                 maxSeconds, false, pmat, &inputParams);
+                                 maxSeconds, false, pmat, &inputParams, NULL);
         PutRNGstate();
         // ---...--- //
     }

@@ -244,26 +244,74 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
         }
 
         // --- Softmax with shift ---
+        // double den = 0.0;
+        // for (int c = 0; c < C; ++c)
+        // {
+        //     double val = isfinite(logw[c]) ? exp(logw[c] - logw_max) : 0.0;
+        //     A->QC[c] = val;
+        //     den += val;
+        // }
+        //
+        // // --- Log-likelihood contribution ---
+        // if (g == 0 && params.computeLL && den > 0.0 && isfinite(logw_max))
+        // {
+        //     double logden = logw_max + log(den);
+        //     *ll += logden * log(normalizeConstant);
+        // }
+        //
+        // // --- Normalize and store q ---
+        // for (int c = 0; c < C; ++c)
+        // {
+        //     double qgc = (den > 0.0) ? (A->QC[c] / den) : 0.0;
+        //     Q_3D(ctx->q, b, g, c, G, C) = qgc;
+        // }
+        // --- Softmax with shift ---
         double den = 0.0;
         for (int c = 0; c < C; ++c)
         {
-            double val = isfinite(logw[c]) ? exp(logw[c] - logw_max) : 0.0;
+            double val = (isfinite(logw[c]) && isfinite(logw_max)) ? exp(logw[c] - logw_max) : 0.0;
             A->QC[c] = val;
             den += val;
         }
 
-        // --- Log-likelihood contribution ---
+        // --- Fallback si den == 0: usar priors y renormalizar ---
+        if (!(den > 0.0) || !isfinite(den))
+        {
+            double s = 0.0;
+            for (int c = 0; c < C; ++c)
+            {
+                double prior = MATRIX_AT_PTR(probabilities, g, c);
+                double val = (prior > 0.0 && isfinite(prior)) ? prior : 0.0;
+                A->QC[c] = val;
+                s += val;
+            }
+
+            if (s > 0.0)
+            {
+                for (int c = 0; c < C; ++c)
+                    Q_3D(ctx->q, b, g, c, G, C) = A->QC[c] / s;
+            }
+            else
+            {
+                double uni = 1.0 / (double)C;
+                for (int c = 0; c < C; ++c)
+                    Q_3D(ctx->q, b, g, c, G, C) = uni;
+            }
+
+            continue;
+        }
+
+        // --- Log-likelihood contribution (ahora sí den existe) ---
         if (g == 0 && params.computeLL && den > 0.0 && isfinite(logw_max))
         {
             double logden = logw_max + log(den);
             *ll += logden * log(normalizeConstant);
         }
 
-        // --- Normalize and store q ---
+        // --- Normalize and store q (normal path) ---
         for (int c = 0; c < C; ++c)
         {
-            double qgc = (den > 0.0) ? (A->QC[c] / den) : 0.0;
-            Q_3D(ctx->q, b, g, c, G, C) = qgc;
+            Q_3D(ctx->q, b, g, c, G, C) = A->QC[c] / den;
         }
     }
 }

@@ -30,13 +30,15 @@ extern "C"
      * @param[in, out] finishing_reason The reason that the algorithm has been stopped. It can either be 0, 1, 2, 3,
      * representing a normal convergence, log likelihood decrease, maximum time reached and maximum iterations reached,
      * respectively.
+     * @param[out] avgProbOut Optional pointer to store the average probability matrix from the bootstrap iterations.
      *
      *
-     * @return An allocated array of size bootiter * TOTAL_BALLOTS that stores matrices.
+     * @return Matrix with the bootstrap standard deviations for each probability component.
      */
     Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const char *q_method, const char *p_method,
                       const double convergence, const double log_convergence, const int maxIter,
-                      const double maxSeconds, const bool verbose, Matrix *probMatrix, QMethodInput *inputParams);
+                      const double maxSeconds, const bool verbose, Matrix *probMatrix, QMethodInput *inputParams,
+                      Matrix *avgProbOut);
 
     Matrix bootSingleMat(Matrix *xmat, Matrix *wmat, int bootiter, const bool verbose);
 

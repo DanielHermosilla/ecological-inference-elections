@@ -84,12 +84,18 @@ EMContext *createEMContext(Matrix *X, Matrix *W, const char *method, QMethodInpu
     ctx->iteration = 0;
 
     ctx->ballots_votes = Calloc(ctx->B, uint16_t);
+    ctx->scale_factors = Calloc(ctx->B, double);
+    for (uint32_t b = 0; b < ctx->B; ++b)
+        ctx->scale_factors[b] = 1;
     ctx->inv_ballots_votes = Calloc(ctx->B, double);
     ctx->candidates_votes = Calloc(ctx->C, uint32_t);
     ctx->group_votes = Calloc(ctx->G, uint32_t);
     ctx->total_votes = 0;
 
-    ctx->Wnorm = precomputeNorm(W);
+    if (hasMismatch(X, W))
+        precomputeScaleFactors(ctx->scale_factors, X, W);
+
+    ctx->Wnorm = precomputeNorm(ctx->scale_factors, X, W);
 
     // Fill utility arrays
     for (uint32_t b = 0; b < ctx->B; ++b)
@@ -132,17 +138,36 @@ EMContext *createEMContext(Matrix *X, Matrix *W, const char *method, QMethodInpu
     return ctx;
 }
 
-Matrix precomputeNorm(Matrix *W)
+void precomputeScaleFactors(double *scale_factors, Matrix *X, Matrix *W)
 {
+    for (int b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        double sum = 0.0;
+        double sum_x = 0.0;
+        double sum_w = 0.0;
+        for (int c = 0; c < TOTAL_CANDIDATES; c++)
+            sum_x += MATRIX_AT_PTR(X, c, b);
+        for (int g = 0; g < TOTAL_GROUPS; g++)
+            sum_w += MATRIX_AT_PTR(W, b, g);
+        double escala = sum_x / sum_w;
+        scale_factors[b] = escala;
+    }
+}
+
+Matrix precomputeNorm(double *scale_factors, Matrix *X, Matrix *W)
+{
+    // bool mismatch = hasMismatch(X, W);
     Matrix returnMat = createMatrix(TOTAL_BALLOTS, TOTAL_GROUPS);
+
     for (int b = 0; b < TOTAL_BALLOTS; b++)
     {
         double sum = 0;
         for (int g = 0; g < TOTAL_GROUPS; g++)
         {
-            sum += pow(MATRIX_AT_PTR(W, b, g), 2);
+            // sum += pow(MATRIX_AT_PTR(W, b, g), 2);
+            sum += MATRIX_AT_PTR(W, b, g) * MATRIX_AT_PTR(W, b, g);
         }
-        // sum = sqrt(sum);
+        sum *= scale_factors[b];
         for (int g = 0; g < TOTAL_GROUPS; g++)
         {
             MATRIX_AT(returnMat, b, g) = MATRIX_AT_PTR(W, b, g) / sum;
@@ -170,6 +195,73 @@ void getPredictedVotes(EMContext *ctx)
                     W_bg * Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES);
             }
         }
+    }
+}
+
+// Debug helper to locate where q row sums drift from 1.
+static void checkQRowSums(const EMContext *ctx, const char *stage, int iter)
+{
+    const int B = (int)ctx->B;
+    const int G = (int)ctx->G;
+    const int C = (int)ctx->C;
+    const double tol = 1e-6;
+    const int max_print = 10;
+    int count = 0;
+    double max_diff = 0.0;
+    double max_sum = 0.0;
+    int max_b = -1;
+    int max_g = -1;
+
+    for (int b = 0; b < B; ++b)
+    {
+        for (int g = 0; g < G; ++g)
+        {
+            double sum = 0.0;
+            for (int c = 0; c < C; ++c)
+            {
+                sum += Q_3D(ctx->q, b, g, c, G, C);
+            }
+
+            if (!isfinite(sum))
+            {
+                if (count < max_print)
+                {
+                    Rprintf("Q row sum drift at iter=%d stage=%s b=%d g=%d: sum=%g (non-finite)\n", iter + 1,
+                            stage ? stage : "unknown", b + 1, g + 1, sum);
+                }
+                count++;
+                max_diff = INFINITY;
+                max_sum = sum;
+                max_b = b;
+                max_g = g;
+                continue;
+            }
+
+            double diff = sum - 1.0;
+            double adiff = fabs(diff);
+            if (adiff > tol)
+            {
+                if (count < max_print)
+                {
+                    Rprintf("Q row sum drift at iter=%d stage=%s b=%d g=%d: sum=%.10f diff=%+.3e\n", iter + 1,
+                            stage ? stage : "unknown", b + 1, g + 1, sum, diff);
+                }
+                count++;
+                if (adiff > max_diff)
+                {
+                    max_diff = adiff;
+                    max_sum = sum;
+                    max_b = b;
+                    max_g = g;
+                }
+            }
+        }
+    }
+
+    if (count > 0)
+    {
+        Rprintf("Q row sum drift summary: iter=%d stage=%s count=%d max_diff=%.3e at b=%d g=%d (sum=%.10f)\n", iter + 1,
+                stage ? stage : "unknown", count, max_diff, max_b + 1, max_g + 1, max_sum);
     }
 }
 
@@ -460,7 +552,7 @@ void getP(EMContext *ctx)
     // ---...--- //
 }
 
-bool hasMismatch(EMContext *ctx)
+bool hasMismatch(Matrix *X, Matrix *W)
 {
     for (int b = 0; b < TOTAL_BALLOTS; b++)
     {
@@ -468,11 +560,11 @@ bool hasMismatch(EMContext *ctx)
         double sumX = 0.0;
         for (int g = 0; g < TOTAL_GROUPS; g++)
         {
-            sumW += MATRIX_AT(ctx->W, b, g);
+            sumW += MATRIX_AT_PTR(W, b, g);
         }
         for (int c = 0; c < TOTAL_CANDIDATES; c++)
         {
-            sumX += MATRIX_AT(ctx->X, c, b);
+            sumX += MATRIX_AT_PTR(X, c, b);
         }
         if (fabs(sumW - sumX) > 1e-6)
         {
@@ -487,7 +579,7 @@ void projectQ(EMContext *ctx, QMethodInput inputParams)
     Matrix *X = &ctx->X;
     Matrix *W = &ctx->W;
     Matrix *norm = &ctx->Wnorm;
-    bool mismatch = hasMismatch(ctx);
+    bool mismatch = hasMismatch(X, W);
     // getPredictedVotes(ctx); // Obtain WQ
 
     Matrix temp = createMatrix(TOTAL_BALLOTS, TOTAL_CANDIDATES);
@@ -500,19 +592,8 @@ void projectQ(EMContext *ctx, QMethodInput inputParams)
             for (int g = 0; g < TOTAL_GROUPS; g++)
             {
                 // Here we should rescale if there's a mismatch between W and X totals
-                if (!mismatch)
-                {
-                    sum += Q_3D(ctx->q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) * MATRIX_AT(ctx->W, b, g);
-                }
-                else
-                {
-                    double sum_x = ctx->ballots_votes[b];
-                    double sum_w = 0.0;
-                    for (int g = 0; g < TOTAL_GROUPS; g++)
-                        sum_w += MATRIX_AT(ctx->W, b, g);
-                    sum +=
-                        Q_3D(ctx->q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) * MATRIX_AT(ctx->W, b, g) * sum_x / sum_w;
-                }
+                sum += Q_3D(ctx->q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) * MATRIX_AT(ctx->W, b, g) *
+                       ctx->scale_factors[b];
             }
             MATRIX_AT(temp, b, c) = sum;
         }
@@ -531,7 +612,6 @@ void projectQ(EMContext *ctx, QMethodInput inputParams)
             }
         }
     }
-
     for (int b = 0; b < TOTAL_BALLOTS; b++)
     {
         for (int g = 0; g < TOTAL_GROUPS; g++)
@@ -724,8 +804,8 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
     *finishing_reason = 2;
     // ---...--- //
 results:
-    config.computeQ(ctx, config.params, &newLL);
-    if (strcmp(inputParams->prob_cond, "project_lp") == 0)
+    config.computeQ(ctx, config.params, &newLL);           // Acá se calcula el Q, con el método respectivo
+    if (strcmp(inputParams->prob_cond, "project_lp") == 0) // Si, prob_cond == project_lp
     {
         projectQ(ctx, *inputParams);
         getP(ctx); // M-Step
@@ -769,6 +849,11 @@ void cleanup(EMContext *ctx)
     {
         Free(ctx->ballots_votes);
         ctx->ballots_votes = NULL;
+    }
+    if (ctx->scale_factors != NULL)
+    {
+        Free(ctx->scale_factors);
+        ctx->scale_factors = NULL;
     }
     if (ctx->inv_ballots_votes != NULL)
     {

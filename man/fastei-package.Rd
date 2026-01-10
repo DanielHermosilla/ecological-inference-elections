@@ -60,10 +60,5 @@ Authors:
   \item Pablo Ubilla (\href{https://orcid.org/0009-0003-9048-1767}{ORCID})
 }
 
-Other contributors:
-\itemize{
-  \item Hanson Troy [contributor, copyright holder]
-}
-
 }
 \concept{package}

@@ -22,6 +22,7 @@ SOFTWARE.
 
 #include "MCMC.h"
 #include "globals.h"
+#include "stb_ds.h"
 #include <R.h>
 #include <R_ext/Memory.h>
 #include <R_ext/Random.h>
@@ -269,6 +270,18 @@ void generateOmegaSet(EMContext *ctx, int M, int S, int burnIn)
     Free(g2);
 }
 
+typedef struct
+{
+    IntMatrix *matrix;
+    int count;
+} MatrixCount;
+
+typedef struct
+{
+    unsigned int key;
+    MatrixCount *value;
+} MatrixHashBucket;
+
 void encode(EMContext *ctx)
 {
     for (int b = 0; b < TOTAL_BALLOTS; b++)
@@ -276,23 +289,37 @@ void encode(EMContext *ctx)
         OmegaSet *set = ctx->omegaset[b];
         int S = set->size;
 
-        MatrixHash *hashTable = NULL;
+        MatrixHashBucket *hashTable = NULL;
 
         // First pass: identify and count unique matrices
         for (int s = 0; s < S; s++)
         {
-            IntMatrix current = set->data[s];
-            unsigned int key = computeMatrixKey(&current);
+            IntMatrix *current = &set->data[s];
+            unsigned int key = computeMatrixKey(current);
 
-            MatrixHash *entry = NULL;
-            HASH_FIND(hh, hashTable, &key, sizeof(unsigned int), entry);
+            MatrixHashBucket *bucket = hmgetp_null(hashTable, key);
+
+            if (bucket == NULL)
+            {
+                MatrixHashBucket newBucket = {0};
+                MatrixCount entry = {0};
+
+                entry.matrix = current;
+                entry.count = 1;
+
+                newBucket.key = key;
+                arrput(newBucket.value, entry);
+                hmputs(hashTable, newBucket);
+                continue;
+            }
 
             int found = 0;
-            for (MatrixHash *iter = entry; iter != NULL; iter = iter->hh.next)
+            int entriesLen = (int)arrlen(bucket->value);
+            for (int i = 0; i < entriesLen; i++)
             {
-                if (iter->key == key && matricesAreEqualI(iter->matrix, &current))
+                if (matricesAreEqualI(bucket->value[i].matrix, current))
                 {
-                    iter->count++;
+                    bucket->value[i].count++;
                     found = 1;
                     break;
                 }
@@ -300,11 +327,10 @@ void encode(EMContext *ctx)
 
             if (!found)
             {
-                MatrixHash *newEntry = Calloc(1, MatrixHash);
-                newEntry->key = key;
-                newEntry->matrix = &current;
-                newEntry->count = 1;
-                HASH_ADD(hh, hashTable, key, sizeof(unsigned int), newEntry);
+                MatrixCount entry = {0};
+                entry.matrix = current;
+                entry.count = 1;
+                arrput(bucket->value, entry);
             }
         }
 
@@ -316,31 +342,39 @@ void encode(EMContext *ctx)
 
         for (int s = 0; s < S; s++)
         {
-            IntMatrix current = set->data[s];
-            unsigned int key = computeMatrixKey(&current);
+            IntMatrix *current = &set->data[s];
+            unsigned int key = computeMatrixKey(current);
 
-            MatrixHash *entry = NULL;
-            HASH_FIND(hh, hashTable, &key, sizeof(unsigned int), entry);
-
-            for (MatrixHash *iter = entry; iter != NULL; iter = iter->hh.next)
+            MatrixHashBucket *bucket = hmgetp_null(hashTable, key);
+            if (bucket == NULL)
             {
-                if (iter->key == key && matricesAreEqualI(iter->matrix, &current))
+                set->counts[s] = 1;
+                continue;
+            }
+
+            int found = 0;
+            int entriesLen = (int)arrlen(bucket->value);
+            for (int i = 0; i < entriesLen; i++)
+            {
+                if (matricesAreEqualI(bucket->value[i].matrix, current))
                 {
-                    set->counts[s] = iter->count; // All duplicates now get the same count
+                    set->counts[s] = bucket->value[i].count; // All duplicates now get the same count
+                    found = 1;
                     break;
                 }
             }
-            if (set->counts[s] == 0) // Hash collision case
+
+            if (!found) // Hash collision case
                 set->counts[s] = 1;
         }
 
         // Clean up
-        MatrixHash *entry, *tmp;
-        HASH_ITER(hh, hashTable, entry, tmp)
+        int buckets = (int)hmlen(hashTable);
+        for (int i = 0; i < buckets; i++)
         {
-            HASH_DEL(hashTable, entry);
-            Free(entry);
+            arrfree(hashTable[i].value);
         }
+        hmfree(hashTable);
     }
 }
 /**

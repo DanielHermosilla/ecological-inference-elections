@@ -35,7 +35,7 @@ EM algorithm.}
 \item{...}{Additional arguments passed to the \link{run_em} function that will execute the EM algorithm.}
 }
 \value{
-Returns an \code{eim} object with the \code{sd} field containing the estimated standard deviations of the probabilities and the amount of iterations that were made. If an \code{eim} object is provided, its attributes (see \link{run_em}) are retained in the returned object.
+Returns an \code{eim} object with the \code{sd} field containing the estimated standard deviations of the probabilities and the \code{avg_prob} field with the average bootstrapped probability matrix. If an \code{eim} object is provided, its attributes (see \link{run_em}) are retained in the returned object.
 }
 \description{
 This function computes the Expected-Maximization (EM) algorithm "\code{nboot}" times. It then computes the standard deviation from the \code{nboot} estimated probability matrices on each component.

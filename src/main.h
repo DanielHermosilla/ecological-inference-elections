@@ -57,7 +57,11 @@ extern "C"
                           double *time, int *iterTotal, double *logLLarr, int *finishing_reason, Matrix *probMatrix,
                           QMethodInput *inputParams);
 
-    Matrix precomputeNorm(Matrix *W);
+    bool hasMismatch(Matrix *X, Matrix *W);
+
+    Matrix precomputeNorm(double *scale_factors, Matrix *X, Matrix *W);
+
+    void precomputeScaleFactors(double *scale_factors, Matrix *X, Matrix *W);
 
     /**
      * @brief Checks if a candidate didn't receive any votes.

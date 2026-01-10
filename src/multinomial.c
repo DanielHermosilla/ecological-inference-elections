@@ -133,7 +133,8 @@ void computeQMultinomial(EMContext *ctx, QMethodInput params, double *ll)
     );
 
     // ---- Do not parallelize ----
-    double totalWP[TOTAL_BALLOTS];
+    // double totalWP[TOTAL_BALLOTS];
+    double *totalWP = (double *)Calloc(TOTAL_BALLOTS, double);
 
     for (int b = 0; b < (int)TOTAL_BALLOTS; b++)
     {
@@ -149,7 +150,8 @@ void computeQMultinomial(EMContext *ctx, QMethodInput params, double *ll)
         { // --- For each group given a ballot box
             // ---- Create temporal variables ----
             double tempSum = 0.0;
-            double finalNumerator[TOTAL_CANDIDATES];
+            // double finalNumerator[TOTAL_CANDIDATES];
+            double *finalNumerator = (double *)Calloc(TOTAL_CANDIDATES, double);
 
             for (int c = 0; c < (int)TOTAL_CANDIDATES; c++)
             { // --- For each candidate given a group and a ballot box
@@ -166,10 +168,15 @@ void computeQMultinomial(EMContext *ctx, QMethodInput params, double *ll)
                 // Add the log-likelihood
                 if (compute_ll && g == 0)
                 {
-                    *ll += MATRIX_AT(WP, b, c) != 0 && totalWP[b] != 0
-                               ? MATRIX_AT_PTR(intX, c, b) * log(MATRIX_AT(WP, b, c) / totalWP[b]) -
-                                     ctx->logGamma[MATRIX_AT_PTR(intX, c, b)]
-                               : 0;
+                    int x = MATRIX_AT_PTR(intX, c, b);
+                    if (x > 0 && (MATRIX_AT(WP, b, c) == 0 || totalWP[b] == 0))
+                    {
+                        *ll = -INFINITY;
+                    }
+                    else if (MATRIX_AT(WP, b, c) != 0 && totalWP[b] != 0)
+                    {
+                        *ll += x * log(MATRIX_AT(WP, b, c) / totalWP[b]) - ctx->logGamma[x];
+                    }
                 }
             }
 
@@ -180,9 +187,11 @@ void computeQMultinomial(EMContext *ctx, QMethodInput params, double *ll)
                 Q_3D(q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) =
                     !isnan(result) && !isinf(result) ? finalNumerator[c] / tempSum : 0;
             }
+            free(finalNumerator);
         }
         *ll += compute_ll ? ctx->logGamma[ctx->ballots_votes[b]] : 0;
     }
+    free(totalWP);
     // *ll -= TOTAL_BALLOTS * TOTAL_CANDIDATES * log(totalWP);
     freeMatrix(&WP);
 }

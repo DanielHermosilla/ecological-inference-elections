@@ -94,6 +94,7 @@ extern "C"
         uint32_t *candidates_votes; // length C
         uint32_t *group_votes;      // length G
         double total_votes;
+        double *scale_factors; // length B
 
         // Precomputation
         OmegaSet **omegaset;  // length B

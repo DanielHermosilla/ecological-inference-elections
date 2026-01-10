@@ -155,15 +155,14 @@ Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMa
 
 // ---- Run Bootstrapping Algorithm ---- //
 // [[Rcpp::export]]
-Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
-                                 Rcpp::IntegerVector nboot, Rcpp::String em_method, Rcpp::String probability_method,
-                                 Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
-                                 Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold,
-                                 Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose,
-                                 Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method,
-                                 Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter,
-                                 Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
-                                 Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities)
+Rcpp::List bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                        Rcpp::IntegerVector nboot, Rcpp::String em_method, Rcpp::String probability_method,
+                        Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
+                        Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold,
+                        Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size,
+                        Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error,
+                        Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
+                        Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities)
 {
     if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
         Rcpp::stop("Error: X matrix has zero dimensions!");
@@ -183,9 +182,11 @@ Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], miniterations[0],
                                monte_method, compute_ll[0], LP_method, project_every[0]);
 
+    Matrix avgProb = {NULL, 0, 0};
     Matrix sdResult =
         bootstrapA(&XR, &WR, nboot[0], EMAlg.c_str(), probabilityM.c_str(), stopping_threshold[0],
-                   log_stopping_threshold[0], maximum_iterations[0], maximum_seconds[0], verbose[0], &P, &inputParams);
+                   log_stopping_threshold[0], maximum_iterations[0], maximum_seconds[0], verbose[0], &P,
+                   &inputParams, &avgProb);
     if (inputParams.simulationMethod != nullptr)
     {
         free((void *)inputParams.simulationMethod);
@@ -198,9 +199,16 @@ Rcpp::NumericMatrix bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
                 sdResult.data,  // source
                 sdResult.rows * sdResult.cols * sizeof(double));
 
-    freeMatrix(&sdResult);
+    Rcpp::NumericMatrix avg_output(avgProb.rows, avgProb.cols);
 
-    return output;
+    std::memcpy(avg_output.begin(), // where to copy
+                avgProb.data,       // source
+                avgProb.rows * avgProb.cols * sizeof(double));
+
+    freeMatrix(&sdResult);
+    freeMatrix(&avgProb);
+
+    return Rcpp::List::create(Rcpp::_["sd"] = output, Rcpp::_["avg_prob"] = avg_output);
 }
 
 // ---- Run Group Aggregation Algorithm ---- //

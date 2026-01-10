@@ -70,6 +70,7 @@ Matrix standardDeviations(Matrix *bootstrapResults, Matrix *sumMatrix, int total
             MATRIX_AT_PTR(sumMatrix, i, j) /= totalIter;
         }
     }
+    // printMatrix(sumMatrix);
 
     Matrix sdMatrix = createMatrix(sumMatrix->rows, sumMatrix->cols);
 
@@ -118,13 +119,14 @@ Matrix standardDeviations(Matrix *bootstrapResults, Matrix *sumMatrix, int total
  * @param[in, out] finishing_reason The reason that the algorithm has been stopped. It can either be 0, 1, 2, 3,
  * representing a normal convergence, log likelihood decrease, maximum time reached and maximum iterations reached,
  * respectively.
+ * @param[out] avgProbOut Optional pointer to store the average probability matrix from the bootstrap iterations.
  *
  *
- * @return An allocated array of size bootiter * TOTAL_BALLOTS that stores matrices.
+ * @return Matrix with the bootstrap standard deviations for each probability component.
  */
 Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const char *q_method, const char *p_method,
                   const double convergence, const double log_convergence, const int maxIter, const double maxSeconds,
-                  const bool verbose, Matrix *probMatrix, QMethodInput *inputParams)
+                  const bool verbose, Matrix *probMatrix, QMethodInput *inputParams, Matrix *avgProbOut)
 {
 
     // ---- Initial variables
@@ -137,6 +139,12 @@ Matrix bootstrapA(const Matrix *xmat, const Matrix *wmat, int bootiter, const ch
     {
         Matrix infMat = createMatrix(wmat->cols, xmat->rows);
         fillMatrix(&infMat, 9999);
+        if (avgProbOut != NULL)
+        {
+            Matrix avgMat = createMatrix(wmat->cols, xmat->rows);
+            fillMatrix(&avgMat, 9999);
+            *avgProbOut = avgMat;
+        }
         return infMat;
     }
     // ---- Generate the indices for bootstrap ---- //
@@ -225,6 +233,10 @@ sampling:
         // ---...--- //
     }
     Matrix sdReturn = standardDeviations(results, &sumMat, bootiter);
+    if (avgProbOut != NULL)
+    {
+        *avgProbOut = sumMat;
+    }
     if (verbose)
     {
         Rprintf("Bootstrapping finished!\nThe estimated standard deviation matrix (g x c) is:\n");
@@ -232,7 +244,10 @@ sampling:
     }
 
     Free(indices);
-    freeMatrix(&sumMat);
+    if (avgProbOut == NULL)
+    {
+        freeMatrix(&sumMat);
+    }
     for (int i = 0; i < bootiter; i++)
     {
 

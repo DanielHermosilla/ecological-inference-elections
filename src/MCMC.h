@@ -8,7 +8,6 @@ extern "C"
 #endif
 
 #include "globals.h"
-#include "uthash.h"
 #include "utils_hash.h"
 #include "utils_matrix.h"
 

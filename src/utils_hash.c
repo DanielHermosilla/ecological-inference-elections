@@ -21,6 +21,8 @@ SOFTWARE.
 */
 
 #include "utils_hash.h"
+#define STB_DS_IMPLEMENTATION
+#include "stb_ds.h"
 #include <R.h>
 #include <R_ext/Memory.h>
 #include <Rinternals.h>
@@ -85,7 +87,7 @@ MemoizationTable *initMemo(void)
 {
     // ---- Allocates memory for the table
     MemoizationTable *table = (MemoizationTable *)Calloc(1, MemoizationTable);
-    // ---- Initialize the uthash hash table, initially as NULL.
+    // ---- Initialize the hash table, initially as NULL.
     table->hashmap = NULL;
     // ---- Return a pointer towards the hash table.
     return table;
@@ -113,15 +115,13 @@ double getMemoValue(MemoizationTable *table, int a, int b, int c, int d, size_t 
     uint64_t hash = generateHash(a, b, c, d, vector, vector_size);
 
     // Find the entry
-    MemoizationEntry *entry;
-    HASH_FIND(hh, table->hashmap, &hash, sizeof(uint64_t), entry);
-
-    if (entry)
+    MemoizationEntry *entry = hmgetp_null(table->hashmap, hash);
+    if (entry != NULL)
     {
         return entry->value;
     }
 
-    return -1.0; // Not found
+    return INVALID; // Not found
 }
 
 /**
@@ -146,44 +146,29 @@ void setMemoValue(MemoizationTable *table, int a, int b, int c, int d, size_t *v
     uint64_t hash = generateHash(a, b, c, d, vector, vector_size);
 
     // Check if the hash already exists
-    MemoizationEntry *entry;
-    HASH_FIND(hh, table->hashmap, &hash, sizeof(uint64_t), entry);
-
-    if (entry)
+    MemoizationEntry *entry = hmgetp_null(table->hashmap, hash);
+    if (entry != NULL)
     {
         // Update the existing value
         entry->value = value;
         return;
     }
 
-    // Create a new entry
-    entry = Calloc(1, MemoizationEntry);
-    entry->hash = hash;
-    entry->value = value;
-
     // Add to the hash table
-    HASH_ADD(hh, table->hashmap, hash, sizeof(uint64_t), entry);
+    hmput(table->hashmap, hash, value);
 }
 
 void deleteEntry(MemoizationTable *table, int a, int b, int c, int d, size_t *vector, int vector_size)
 {
     uint64_t hash = generateHash(a, b, c, d, vector, vector_size);
 
-    // Find and delete the entry
-    MemoizationEntry *entry;
-    HASH_FIND(hh, table->hashmap, &hash, sizeof(uint64_t), entry);
-
-    if (entry)
-    {
-        HASH_DEL(table->hashmap, entry);
-        Free(entry); // Free the entry memory
-    }
+    hmdel(table->hashmap, hash);
 }
 
 /**
  * @brief Frees the memory from the Hash Table.
  *
- * Given the hash table, it frees the vector, entry and removes the hash table.
+ * Given the hash table, it releases all entries and removes the hash table.
  *
  * @param[in] *table The hash table to be removed
  *
@@ -192,12 +177,10 @@ void deleteEntry(MemoizationTable *table, int a, int b, int c, int d, size_t *ve
  */
 void freeMemo(MemoizationTable *table)
 {
-    MemoizationEntry *entry, *tmp;
-    HASH_ITER(hh, table->hashmap, entry, tmp)
-    {
-        HASH_DEL(table->hashmap, entry); // Remove from the hash table
-        Free(entry);                     // Free the entry
-    }
+    if (table == NULL)
+        return;
+
+    hmfree(table->hashmap);
     Free(table); // Free the table structure itself
 }
 
@@ -214,16 +197,14 @@ unsigned int computeMatrixKey(const IntMatrix *m)
     int total = m->rows * m->cols;
     int *data = (int *)m->data;
 
-    // Constantes primas para mezclar posiciones (estas pueden ajustarse)
+    // Prime constants for mixing row and column indices
     const unsigned int prime_row = 73856093;
     const unsigned int prime_col = 19349663;
 
     for (int i = 0; i < total; i++)
     {
-        // Se obtiene la fila y columna a partir del índice
         int row = i / m->cols;
         int col = i % m->cols;
-        // Combina el valor, la fila y la columna en una única mezcla
         unsigned int value = (unsigned int)data[i] ^ (row * prime_row) ^ (col * prime_col);
         hash = ((hash << 5) + hash) ^ value;
     }
