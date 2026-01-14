@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">fastei</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.0.0.10</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.0.0</span>
       </span>
     </div>
 
@@ -62,7 +62,7 @@
 
     <div id="details">
     <h2>Details</h2>
-    <p>Includes a method (<a href="run_em.html">run_em</a>) to solve the R\(\times\)C Ecological Inference problem for the non-parametric case by using the EM algorithm with different approximation methods for the E-Step. The standard deviation of the estimated probabilities can be computed using bootstrapping (<a href="bootstrap.html">bootstrap</a>).</p>
+    <p>Includes a method (<a href="run_em.html">run_em</a>) to solve the R\(\times\)C Ecological Inference problem for both non-parametric and parametric settings by using the EM algorithm with different approximation methods for the E-Step. The standard deviation of the estimated probabilities can be computed using bootstrapping (<a href="bootstrap.html">bootstrap</a>).</p>
 <p>It also provides a function that generates synthetic election data (<a href="simulate_election.html">simulate_election</a>) and a function that imports real election data (<a href="chile_election_2021.html">chile_election_2021</a>) from the Chilean first-round presidential election of 2021.</p>
 <p>The setting in which the documentation presents the Ecological Inference problem is an election context where for a set of ballot-boxes we observe (i) the votes obtained by each candidate and (ii) the number of voters of each demographic group (for example, these can be defined by age ranges or sex). See <a href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834" class="external-link">Thraves, C.,Ubilla, P. and Hermosilla, D. (2024): <em>"A Fast Ecological Inference Algorithm for the R×C Case"</em>.</a></p>
 <p>The methods to compute the conditional probabilities of the E-Step included in this package are the following:</p><ul><li><p><strong>Markov Chain Monte Carlo</strong> <code>(mcmc)</code>: Performs MCMC to sample vote outcomes for each ballot-box consistent with the observed data. This sample is used to estimate the conditional probability of the <em>E</em>-Step.</p></li>
@@ -94,8 +94,7 @@
     <h2>Author</h2>
     <p><strong>Maintainer</strong>: Daniel Hermosilla <a href="mailto:daniel.hermosilla.r@ug.uchile.cl">daniel.hermosilla.r@ug.uchile.cl</a></p>
 <p>Authors:</p><ul><li><p>Charles Thraves <a href="mailto:ctharves@dii.uchile.cl">ctharves@dii.uchile.cl</a> (<a href="https://orcid.org/0000-0001-7491-7477" class="external-link">ORCID</a>)</p></li>
-<li><p>Pablo Ubilla</p></li>
-</ul><p>Other contributors:</p><ul><li><p>Hanson Troy [contributor, copyright holder]</p></li>
+<li><p>Pablo Ubilla (<a href="https://orcid.org/0009-0003-9048-1767" class="external-link">ORCID</a>)</p></li>
 </ul></div>
 
   </div>

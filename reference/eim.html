@@ -19,7 +19,7 @@ eim object encapsulates the data (votes for candidates and demographic groups) r
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">fastei</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.0.0.10</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.0.0</span>
       </span>
     </div>
 
@@ -64,7 +64,7 @@ eim object encapsulates the data (votes for candidates and demographic groups) r
     </div>
 
     <div id="ref-usage">
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">eim</span><span class="op">(</span>X <span class="op">=</span> <span class="cn">NULL</span>, W <span class="op">=</span> <span class="cn">NULL</span>, json_path <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">eim</span><span class="op">(</span>X <span class="op">=</span> <span class="cn">NULL</span>, W <span class="op">=</span> <span class="cn">NULL</span>, V <span class="op">=</span> <span class="cn">NULL</span>, json_path <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div id="arguments">
@@ -79,8 +79,12 @@ eim object encapsulates the data (votes for candidates and demographic groups) r
 <dd><p>A <code>(b x g)</code> matrix representing group votes per ballot box.</p></dd>
 
 
+<dt id="arg-v">V<a class="anchor" aria-label="anchor" href="#arg-v"></a></dt>
+<dd><p>Optional <code>(b x a)</code> matrix with the attributes for each ballot box. This is only used for parametric models.</p></dd>
+
+
 <dt id="arg-json-path">json_path<a class="anchor" aria-label="anchor" href="#arg-json-path"></a></dt>
-<dd><p>A path to a JSON file containing <code>X</code> and <code>W</code> fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.</p></dd>
+<dd><p>A path to a JSON file containing <code>X</code>, <code>W</code> (and optionally <code>V</code>) fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.</p></dd>
 
 </dl></div>
     <div id="value">
@@ -91,21 +95,26 @@ eim object encapsulates the data (votes for candidates and demographic groups) r
 <dt><code>W</code></dt>
 <dd><p>The group votes matrix <code>(b x g)</code>.</p></dd>
 
+<dt><code>V</code></dt>
+<dd><p>The parametric covariates matrix <code>(b x a)</code>, when provided.</p></dd>
+
 
 </dl></div>
     <div id="details">
     <h2>Details</h2>
     <p>If <code>X</code> and <code>W</code> are directly supplied, they must match the
 dimensions of ballot boxes <code>(b)</code>. Alternatively, if <code>json_path</code> is provided, the function expects
-the JSON file to contain elements named <code>"X"</code> and <code>"W"</code> under the
+the JSON file to contain elements named <code>"X"</code> and <code>"W"</code> (and optionally <code>"V"</code>) under the
 top-level object. This two approaches are <strong>mutually exclusable</strong>, yielding an error otherwise.</p>
+<p>When <code>V</code> is supplied, the object is treated as parametric and includes the <code>V</code> attribute.</p>
 <p>Internally, this function also initializes the corresponding instance within
 the low-level (C-based) API, ensuring the data is correctly registered for
 further processing by the EM algorithm.</p>
     </div>
     <div id="note">
     <h2>Note</h2>
-    <p>A way to generate synthetic data for <code>X</code> and <code>W</code> is by using the <a href="simulate_election.html">simulate_election</a> function. See Example 2 below.</p>
+    <p>A way to generate synthetic data for <code>X</code> and <code>W</code> is by using the <a href="simulate_election.html">simulate_election</a> function. See Example 2 below.
+This constructor can be used for both non-parametric and parametric models (by providing <code>V</code>).</p>
     </div>
     <div id="methods">
     <h2>Methods</h2>

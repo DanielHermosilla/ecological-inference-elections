@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">fastei</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.0.0.10</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.0.0</span>
       </span>
     </div>
 
@@ -106,7 +106,8 @@
     </div>
     <div id="note">
     <h2>Note</h2>
-    <p>Only one parameter is accepted among <code>elect_district</code> and <code>region</code>. If either both parameters are given, it will return an error. If neither of these two inputs is supplied, it will return an eim object with an aggregation corresponding to the whole dataset. To see all electoral districts and regions names, see the function <a href="chile_election_2021.html">chile_election_2021</a>.</p>
+    <p>This function returns a non-parametric <code>eim</code> object (it does not include <code>V</code>).</p>
+<p>Only one parameter is accepted among <code>elect_district</code> and <code>region</code>. If either both parameters are given, it will return an error. If neither of these two inputs is supplied, it will return an eim object with an aggregation corresponding to the whole dataset. To see all electoral districts and regions names, see the function <a href="chile_election_2021.html">chile_election_2021</a>.</p>
     </div>
     <div id="see-also">
     <h2>See also</h2>
@@ -128,6 +129,7 @@
 <span class="r-in"><span>    allow_mismatch <span class="op">=</span> <span class="cn">TRUE</span>,</span></span>
 <span class="r-in"><span>    seed <span class="op">=</span> <span class="fl">123</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Applying a D'Hondt correction for correcting mismatches in W</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="va">agg_result</span><span class="op">$</span><span class="va">group_agg</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 4 8</span>

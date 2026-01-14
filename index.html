@@ -33,7 +33,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="index.html">fastei</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.0.0.10</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.0.0</span>
       </span>
     </div>
 
@@ -78,6 +78,9 @@
 <div class="page-header"><h1 id="methods-for-a-fast-ecological-inference-algorithm-for-the-rxc-case">
 <em>Methods for “A Fast Ecological Inference Algorithm for the RxC case”.</em><a class="anchor" aria-label="anchor" href="#methods-for-a-fast-ecological-inference-algorithm-for-the-rxc-case"></a>
 </h1></div>
+<!-- badges: start -->
+
+<!-- badges: end -->
 <p>The following library includes a method (<code>run_em</code>) to solve the R×C Ecological Inference problem for the non-parametric case by using the EM algorithm with different approximation methods for the E-Step. The standard deviation of the estimated probabilities can be computed using bootstrapping (bootstrap).</p>
 <p>It also provides a function that generates synthetic election data (<code>simulate_election</code>) and a function that imports real election data (<code>chilean_election_2021</code>) from the Chilean first-round presidential election of 2021.</p>
 <p>The setting in which the documentation presents the Ecological Inference problem is an election context where for a set of ballot-boxes we observe (i) the votes obtained by each candidate and (ii) the number of voters of each demographic group (for example, these can be defined by age ranges or sex). See <a href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834" class="external-link">Thraves, C., Ubilla, P., Hermosilla, D. (2024): “A Fast Ecological Inference Algorithm for the R×C Case”.</a>.</p>
@@ -138,13 +141,20 @@
 <h2 data-toc-skip>Developers</h2>
 <ul class="list-unstyled">
 <li>Charles Thraves <br><small class="roles"> Author </small> <a href="https://orcid.org/0000-0001-7491-7477" target="orcid.widget" aria-label="ORCID" class="external-link"><span class="fab fa-orcid orcid" aria-hidden="true"></span></a>  </li>
-<li>Pablo Ubilla <br><small class="roles"> Author </small>   </li>
+<li>Pablo Ubilla <br><small class="roles"> Author </small> <a href="https://orcid.org/0009-0003-9048-1767" target="orcid.widget" aria-label="ORCID" class="external-link"><span class="fab fa-orcid orcid" aria-hidden="true"></span></a>  </li>
 <li>Daniel Hermosilla <br><small class="roles"> Author, maintainer </small>   </li>
-<li><a href="authors.html">More about authors...</a></li>
 </ul>
 </div>
 
-
+<div class="dev-status">
+<h2 data-toc-skip>Dev status</h2>
+<ul class="list-unstyled">
+<li><a href="https://github.com/DanielHermosilla/ecological-inference-elections/actions" class="external-link"><img src="https://img.shields.io/github/actions/workflow/status/DanielHermosilla/ecological-inference-elections/R-CMD-check-ubuntu.yaml?branch=main&amp;label=Ubuntu" alt="R-CMD-check-Ubuntu"></a></li>
+<li><a href="https://github.com/DanielHermosilla/ecological-inference-elections/actions" class="external-link"><img src="https://img.shields.io/github/actions/workflow/status/DanielHermosilla/ecological-inference-elections/R-CMD-check-windows.yaml?branch=main&amp;label=Windows" alt="R-CMD-check-Windows"></a></li>
+<li><a href="https://github.com/DanielHermosilla/ecological-inference-elections/actions" class="external-link"><img src="https://img.shields.io/github/actions/workflow/status/DanielHermosilla/ecological-inference-elections/R-CMD-check-macos.yaml?branch=main&amp;label=macOS" alt="R-CMD-check-macOS"></a></li>
+<li><a href="https://CRAN.R-project.org/package=fastei" class="external-link"><img src="https://www.r-pkg.org/badges/version/fastei" alt="CRAN_Status_Badge"></a></li>
+</ul>
+</div>
 
   </div>
 </div>

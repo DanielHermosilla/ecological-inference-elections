@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">fastei</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.0.0.10</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.0.0</span>
       </span>
     </div>
 
@@ -93,7 +93,7 @@
 
 
 <dt id="arg-json-path">json_path<a class="anchor" aria-label="anchor" href="#arg-json-path"></a></dt>
-<dd><p>A path to a JSON file containing <code>X</code> and <code>W</code> fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.</p></dd>
+<dd><p>A path to a JSON file containing <code>X</code>, <code>W</code> (and optionally <code>V</code>) fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.</p></dd>
 
 
 <dt id="arg-sd-statistic">sd_statistic<a class="anchor" aria-label="anchor" href="#arg-sd-statistic"></a></dt>
@@ -125,7 +125,7 @@ EM algorithm.</p></dd>
 
 
 <dt id="arg-allow-mismatch">allow_mismatch<a class="anchor" aria-label="anchor" href="#arg-allow-mismatch"></a></dt>
-<dd><p>Boolean, if <code>TRUE</code>, allows a mismatch between the voters and votes for each ballot-box, only works if <code>method</code> is <code>"mvn_cdf"</code>, <code>"mvn_pdf"</code>, <code>"mult"</code> and <code>"mcmc"</code>. If <code>FALSE</code>, throws an error if there is a mismatch. By default it is <code>TRUE</code>.</p></dd>
+<dd><p>Boolean, if <code>TRUE</code>, allows a mismatch between the voters and votes for each ballot-box. If <code>FALSE</code>, throws an error if there is a mismatch. By default it is <code>TRUE</code>. See <strong>Notes</strong> in <a href="run_em.html">run_em</a> for more details.</p></dd>
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
@@ -147,9 +147,10 @@ EM algorithm.</p></dd>
 <li><p><strong>group_agg</strong>: Vector with the resulting group aggregation. See <strong>Examples</strong> for more details.</p></li>
 </ul><p>Additionally, it will create the <code>W_agg</code> attribute with the aggregated groups, along with the attributes corresponding to running <a href="run_em.html">run_em</a> with the aggregated groups.</p>
     </div>
-    <div id="details">
-    <h2>Details</h2>
-    <p>Groups need to have an order relation so that adjacent groups can be merged. Groups of consecutive column indices in the matrix W are considered adjacent. For example, consider the following seven groups defined by voters' age ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, even for a fixed number of macro-groups, a Dynamic Program (DP) mechanism is used to find the group aggregation that maximizes the sum of the standard deviation of the macro-groups proportions among ballot boxes for a specific number of macro-groups. If no group aggregation standard deviation statistic meets the threshold condition, <code>NULL</code> is returned.</p>
+    <div id="note">
+    <h2>Note</h2>
+    <p>This function only supports non-parametric models. Parametric objects (with <code>V</code>) are not supported.</p>
+<p>Groups need to have an order relation so that adjacent groups can be merged. Groups of consecutive column indices in the matrix W are considered adjacent. For example, consider the following seven groups defined by voters' age ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, even for a fixed number of macro-groups, a Dynamic Program (DP) mechanism is used to find the group aggregation that maximizes the sum of the standard deviation of the macro-groups proportions among ballot boxes for a specific number of macro-groups. If no group aggregation standard deviation statistic meets the threshold condition, <code>NULL</code> is returned.</p>
 <p>To find the best group aggregation, the function runs the DP iteratively, starting with all groups (this case is trivial since the group aggregation is such that all macro-groups match exactly the original groups). If the standard deviation statistic (<code>sd_statistic</code>) is below the threshold (<code>sd_threshold</code>), it stops. Otherwise, it runs the DP such that the number of macro-groups is one unit less than the original number of macro-groups. If the standard deviation statistic is below the threshold, it stops. This continues until either the algorithm stops, or until no group aggregation obtained by the DP satisfies the threshold condition. If the former holds, then the last group aggregation obtained (before stopping) is returned; while if the latter holds, then no output is returned unless the user sets the input parameter <code>feasible=FALSE</code>, in which case it returns the group aggregation that has the least standard deviation statistic, among the group-aggregations obtained from the DP.</p>
     </div>
     <div id="see-also">
@@ -175,6 +176,7 @@ EM algorithm.</p></dd>
 <span class="r-in"><span>    sd_threshold <span class="op">=</span> <span class="fl">0.015</span>,</span></span>
 <span class="r-in"><span>    seed <span class="op">=</span> <span class="fl">42</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Applying a D'Hondt correction for correcting mismatches in W</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="va">result</span><span class="op">$</span><span class="va">group_agg</span> <span class="co"># c(2 6)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 2 6</span>
@@ -203,6 +205,7 @@ EM algorithm.</p></dd>
 <span class="r-in"><span>    allow_mismatch <span class="op">=</span> <span class="cn">TRUE</span>, sd_threshold <span class="op">=</span> <span class="fl">0.03</span>,</span></span>
 <span class="r-in"><span>    sd_statistic <span class="op">=</span> <span class="st">"average"</span>, seed <span class="op">=</span> <span class="fl">42</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Applying a D'Hondt correction for correcting mismatches in W</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="va">solution</span><span class="op">$</span><span class="va">group_agg</span> <span class="co"># c(3, 4, 5, 6, 8)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 3 4 5 6 8</span>
