@@ -1,5 +1,14 @@
 # *Methods for "A Fast Ecological Inference Algorithm for the RxC case".*
 
+<!-- badges: start -->
+
+[![R-CMD-check-Ubuntu](https://img.shields.io/github/actions/workflow/status/DanielHermosilla/ecological-inference-elections/R-CMD-check-ubuntu.yaml?branch=main&label=Ubuntu)](https://github.com/DanielHermosilla/ecological-inference-elections/actions)
+[![R-CMD-check-Windows](https://img.shields.io/github/actions/workflow/status/DanielHermosilla/ecological-inference-elections/R-CMD-check-windows.yaml?branch=main&label=Windows)](https://github.com/DanielHermosilla/ecological-inference-elections/actions)
+[![R-CMD-check-macOS](https://img.shields.io/github/actions/workflow/status/DanielHermosilla/ecological-inference-elections/R-CMD-check-macos.yaml?branch=main&label=macOS)](https://github.com/DanielHermosilla/ecological-inference-elections/actions)
+[![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/fastei)](https://CRAN.R-project.org/package=fastei)
+
+<!-- badges: end -->
+
 The following library includes a method (`run_em`) to solve the R×C Ecological Inference problem for the non-parametric case by using the EM algorithm with different approximation methods for the E-Step. The standard deviation of the estimated probabilities can be computed using bootstrapping (bootstrap).
 
 It also provides a function that generates synthetic election data (`simulate_election`) and a function that imports real election data (`chilean_election_2021`) from the Chilean first-round presidential election of 2021.
@@ -37,4 +46,3 @@ Aditionally, it is possible to browse the full documentation on the [library web
 ### Installation
 
 It can either be installed from source by running `devtools::install_github("DanielHermosilla/ecological-inference-elections)` or by the CRAN repository `install.packages("fastei")`. Fortran support is required, usually, shipped by R itself. 
-
