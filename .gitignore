@@ -2,6 +2,7 @@
 *
 
 # Allow specific files/directories
+!.github
 !.gitignore
 !README.md
 !src/
