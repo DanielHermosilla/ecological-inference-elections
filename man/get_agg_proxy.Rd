@@ -26,7 +26,7 @@ get_agg_proxy(
 
 \item{W}{A \verb{(b x g)} matrix representing group votes per ballot box.}
 
-\item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.}
+\item{json_path}{A path to a JSON file containing \code{X}, \code{W} (and optionally \code{V}) fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.}
 
 \item{sd_statistic}{String indicates the statistic for the standard deviation \verb{(g x c)} matrix for the stopping condition, i.e., the algorithm stops when the statistic is below the threshold. It can take the value \code{maximum}, in which case computes the maximum over the standard deviation matrix, or \code{average}, in which case computes the average.}
 
@@ -71,7 +71,9 @@ Additionally, it will create the \code{W_agg} attribute with the aggregated grou
 \description{
 This function estimates the voting probabilities (computed using \link{run_em}) aggregating adjacent groups so that the estimated probabilities' standard deviation (computed using \link{bootstrap}) is below a given threshold. See \strong{Details} for more information.
 }
-\details{
+\note{
+This function only supports non-parametric models. Parametric objects (with \code{V}) are not supported.
+
 Groups need to have an order relation so that adjacent groups can be merged. Groups of consecutive column indices in the matrix W are considered adjacent. For example, consider the following seven groups defined by voters' age ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, even for a fixed number of macro-groups, a Dynamic Program (DP) mechanism is used to find the group aggregation that maximizes the sum of the standard deviation of the macro-groups proportions among ballot boxes for a specific number of macro-groups. If no group aggregation standard deviation statistic meets the threshold condition, \code{NULL} is returned.
 
 To find the best group aggregation, the function runs the DP iteratively, starting with all groups (this case is trivial since the group aggregation is such that all macro-groups match exactly the original groups). If the standard deviation statistic (\code{sd_statistic}) is below the threshold (\code{sd_threshold}), it stops. Otherwise, it runs the DP such that the number of macro-groups is one unit less than the original number of macro-groups. If the standard deviation statistic is below the threshold, it stops. This continues until either the algorithm stops, or until no group aggregation obtained by the DP satisfies the threshold condition. If the former holds, then the last group aggregation obtained (before stopping) is returned; while if the latter holds, then no output is returned unless the user sets the input parameter \code{feasible=FALSE}, in which case it returns the group aggregation that has the least standard deviation statistic, among the group-aggregations obtained from the DP.

@@ -25,11 +25,11 @@ SOFTWARE.
 #include "dynamic_program.h"
 #include "exact.h"
 #include "main.h"
+#include "parametric_main.h"
 #include <R.h>
 #include <R_ext/Random.h>
 #include <Rcpp.h>
 #include <Rinternals.h>
-#include <vector>
 
 #ifndef Calloc
 #define Calloc(n, type) ((type *)R_chk_calloc((size_t)(n), sizeof(type)))
@@ -39,12 +39,32 @@ SOFTWARE.
 #define Free(p) R_chk_free((void *)(p))
 #endif
 
-Matrix convertToMatrix(const Rcpp::NumericMatrix &mat)
+// ---- Helper Function: Convert R matrix to C matrix ---- //
+static Matrix convertToMatrix(const Rcpp::NumericMatrix &mat)
 {
-    int rows = mat.nrow(), cols = mat.ncol();
-    double *data = (double *)malloc(rows * cols * sizeof(double)); // Allocate on heap
-    std::memcpy(data, mat.begin(), rows * cols * sizeof(double));  // Copy data from R matrix
-    return {data, rows, cols};                                     // Safe to return
+    int rows = mat.nrow();
+    int cols = mat.ncol();
+    double *data = Calloc(rows * cols, double);
+    if (data == NULL)
+    {
+        Rcpp::stop("Error: Failed to allocate memory for matrix conversion.");
+    }
+    std::memcpy(data, mat.begin(), rows * cols * sizeof(double));
+    return {data, rows, cols};
+}
+
+// ---- Helper Function: Release matrix data ---- //
+static void releaseMatrix(Matrix *mat)
+{
+    if (mat == NULL)
+        return;
+    if (mat->data != NULL)
+    {
+        Free(mat->data);
+        mat->data = NULL;
+    }
+    mat->rows = 0;
+    mat->cols = 0;
 }
 
 // ---- Helper Function: Initialize QMethodInput ---- //
@@ -123,10 +143,14 @@ Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMa
     {
         free((void *)inputParams.simulationMethod);
     }
+    if (inputParams.prob_cond != nullptr)
+    {
+        free((void *)inputParams.prob_cond);
+    }
 
     // ---- Create human-readable stopping reason ---- //
-    std::vector<std::string> stop_reasons = {"Converged", "Maximum time reached", "Maximum iterations reached"};
-    std::string stopping_reason = (finish >= 0 && finish < 3) ? stop_reasons[finish] : "Unknown";
+    const char *stop_reasons[] = {"Converged", "Maximum time reached", "Maximum iterations reached"};
+    const char *stopping_reason = (finish >= 0 && finish < 3) ? stop_reasons[finish] : "Unknown";
 
     Rcpp::NumericMatrix RfinalProbability(Pnew->rows, Pnew->cols, Pnew->data);
 
@@ -146,6 +170,9 @@ Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMa
     expectedOut.attr("dim") = Rcpp::IntegerVector::create(TOTAL_GROUPS, TOTAL_CANDIDATES, TOTAL_BALLOTS);
 
     cleanup(ctx);
+    releaseMatrix(&X);
+    releaseMatrix(&W);
+    releaseMatrix(&P);
 
     return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = logLLarr,
                               Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter,
@@ -191,6 +218,10 @@ Rcpp::List bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatri
     {
         free((void *)inputParams.simulationMethod);
     }
+    if (inputParams.prob_cond != nullptr)
+    {
+        free((void *)inputParams.prob_cond);
+    }
 
     // Convert to R's matrix
     Rcpp::NumericMatrix output(sdResult.rows, sdResult.cols);
@@ -207,8 +238,135 @@ Rcpp::List bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatri
 
     freeMatrix(&sdResult);
     freeMatrix(&avgProb);
+    releaseMatrix(&XR);
+    releaseMatrix(&WR);
+    releaseMatrix(&P);
 
     return Rcpp::List::create(Rcpp::_["sd"] = output, Rcpp::_["avg_prob"] = avg_output);
+}
+
+// ---- Run Parametric EM Algorithm ---- //
+// [[Rcpp::export]]
+Rcpp::List EMAlgorithmParametric(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                                 Rcpp::NumericMatrix attribute_matrix, Rcpp::NumericMatrix beta,
+                                 Rcpp::NumericMatrix alpha, Rcpp::IntegerVector maximum_iterations,
+                                 Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector log_stopping_threshold,
+                                 Rcpp::IntegerVector maximum_newton, Rcpp::LogicalVector verbose,
+                                 Rcpp::String LP_method, Rcpp::LogicalVector project_every)
+{
+    if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
+        Rcpp::stop("Error: X matrix has zero dimensions!");
+
+    if (group_matrix.nrow() == 0 || group_matrix.ncol() == 0)
+        Rcpp::stop("Error: W matrix has zero dimensions!");
+
+    if (attribute_matrix.nrow() == 0 || attribute_matrix.ncol() == 0)
+        Rcpp::stop("Error: V matrix has zero dimensions!");
+
+    Matrix XR = convertToMatrix(candidate_matrix);
+    Matrix WR = convertToMatrix(group_matrix);
+    Matrix VR = convertToMatrix(attribute_matrix);
+    Matrix BetaR = convertToMatrix(beta);
+    Matrix AlphaR = convertToMatrix(alpha);
+    std::string adjust_prob_cond_method = LP_method;
+
+    double elapsed = 0.0;
+    int total_iter = 0;
+    double logLikelihood = 0.0;
+    Matrix *finalProb =
+        EM_Algorithm(&XR, &WR, &VR, &BetaR, &AlphaR, maximum_iterations[0], maximum_seconds[0],
+                     log_stopping_threshold[0], maximum_newton[0], verbose[0], &elapsed, &total_iter, &logLikelihood,
+                     adjust_prob_cond_method.c_str(), project_every[0]);
+
+    // ---- Build the probability array (g x c x b) ---- //
+    int S = VR.rows;
+    int R = finalProb[0].rows;
+    int C = finalProb[0].cols;
+
+    Rcpp::NumericVector probArr(R * C * S);
+    probArr.attr("dim") = Rcpp::IntegerVector::create(R, C, S);
+
+    for (int s = 0; s < S; ++s)
+    {
+        for (int i = 0; i < R; ++i)
+        {
+            for (int j = 0; j < C; ++j)
+            {
+                int idx = i + R * (j + C * s);
+                probArr[idx] = MATRIX_AT(finalProb[s], i, j);
+            }
+        }
+        freeMatrix(&finalProb[s]);
+    }
+    Free(finalProb);
+
+    // ---- Copy out final beta and alpha ---- //
+    Rcpp::NumericMatrix Rbeta(BetaR.rows, BetaR.cols);
+    std::memcpy(Rbeta.begin(), BetaR.data, sizeof(double) * BetaR.rows * BetaR.cols);
+
+    Rcpp::NumericMatrix Ralpha(AlphaR.rows, AlphaR.cols);
+    std::memcpy(Ralpha.begin(), AlphaR.data, sizeof(double) * AlphaR.rows * AlphaR.cols);
+
+    releaseMatrix(&XR);
+    releaseMatrix(&WR);
+    releaseMatrix(&VR);
+    releaseMatrix(&BetaR);
+    releaseMatrix(&AlphaR);
+
+    return Rcpp::List::create(Rcpp::_["prob"] = probArr, Rcpp::_["beta"] = Rbeta, Rcpp::_["alpha"] = Ralpha,
+                              Rcpp::_["time"] = elapsed, Rcpp::_["iter"] = total_iter,
+                              Rcpp::_["logLik"] = logLikelihood);
+}
+
+// ---- Run Parametric Bootstrapping Algorithm ---- //
+// [[Rcpp::export]]
+Rcpp::List bootstrapParametricAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                                  Rcpp::NumericMatrix attribute_matrix, Rcpp::NumericMatrix beta,
+                                  Rcpp::NumericMatrix alpha, Rcpp::IntegerVector maximum_iterations,
+                                  Rcpp::IntegerVector nboot, Rcpp::NumericVector maximum_seconds,
+                                  Rcpp::NumericVector log_stopping_threshold, Rcpp::IntegerVector maximum_newton,
+                                  Rcpp::LogicalVector verbose, Rcpp::String LP_method,
+                                  Rcpp::LogicalVector project_every)
+{
+    if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
+        Rcpp::stop("Error: X matrix has zero dimensions!");
+
+    if (group_matrix.nrow() == 0 || group_matrix.ncol() == 0)
+        Rcpp::stop("Error: W matrix has zero dimensions!");
+
+    if (attribute_matrix.nrow() == 0 || attribute_matrix.ncol() == 0)
+        Rcpp::stop("Error: V matrix has zero dimensions!");
+
+    Matrix XR = convertToMatrix(candidate_matrix);
+    Matrix WR = convertToMatrix(group_matrix);
+    Matrix VR = convertToMatrix(attribute_matrix);
+    Matrix BetaR = convertToMatrix(beta);
+    Matrix AlphaR = convertToMatrix(alpha);
+    std::string adjust_prob_cond_method = LP_method;
+
+    Matrix sdBeta = {NULL, 0, 0};
+    Matrix sdAlpha = {NULL, 0, 0};
+
+    bootstrapParametric(&XR, &WR, &VR, &BetaR, &AlphaR, nboot[0], maximum_iterations[0], maximum_seconds[0],
+                        log_stopping_threshold[0], maximum_newton[0], verbose[0], &sdBeta, &sdAlpha,
+                        adjust_prob_cond_method.c_str(), project_every[0]);
+
+    // ---- Convert outputs to R matrices ---- //
+    Rcpp::NumericMatrix RsdBeta(sdBeta.rows, sdBeta.cols);
+    std::memcpy(RsdBeta.begin(), sdBeta.data, sizeof(double) * sdBeta.rows * sdBeta.cols);
+
+    Rcpp::NumericMatrix RsdAlpha(sdAlpha.rows, sdAlpha.cols);
+    std::memcpy(RsdAlpha.begin(), sdAlpha.data, sizeof(double) * sdAlpha.rows * sdAlpha.cols);
+
+    freeMatrix(&sdBeta);
+    freeMatrix(&sdAlpha);
+    releaseMatrix(&XR);
+    releaseMatrix(&WR);
+    releaseMatrix(&VR);
+    releaseMatrix(&BetaR);
+    releaseMatrix(&AlphaR);
+
+    return Rcpp::List::create(Rcpp::_["sd_beta"] = RsdBeta, Rcpp::_["sd_alpha"] = RsdAlpha);
 }
 
 // ---- Run Group Aggregation Algorithm ---- //
@@ -245,7 +403,7 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
 
     // We'll hold the boundary indices here
     int G = WR.cols;
-    int *cuttingBuffer = new int[G];
+    int *cuttingBuffer = Calloc(G, int);
     int usedCuts = 0; // how many boundaries we actually use
     bool bestResult = false;
 
@@ -257,6 +415,10 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
     if (inputParams.simulationMethod != nullptr)
     {
         free((void *)inputParams.simulationMethod);
+    }
+    if (inputParams.prob_cond != nullptr)
+    {
+        free((void *)inputParams.prob_cond);
     }
     // Convert to R's matrix
     Rcpp::NumericMatrix output(sdResult.rows, sdResult.cols);
@@ -273,8 +435,10 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
 
     // Free native memory
     freeMatrix(&sdResult);
-    // free(cuttingBuffer);
-    delete[] cuttingBuffer;
+    Free(cuttingBuffer);
+    releaseMatrix(&XR);
+    releaseMatrix(&WR);
+    releaseMatrix(&P);
 
     return Rcpp::List::create(Rcpp::_["bootstrap_result"] = output, Rcpp::_["indices"] = result,
                               Rcpp::_["best_result"] = bestResult);
@@ -319,7 +483,7 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
     // For storing the final partition boundaries
     // 'G' can be up to WR.cols. You might want a vector of size G.
     int G = WR.cols;
-    int *boundaries = new int[G - 1];
+    int *boundaries = Calloc(G - 1, int);
     int numCuts = 0;
     Matrix *bestBootstrap = NULL;
 
@@ -337,19 +501,25 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
     {
         free((void *)inputParams.simulationMethod);
     }
+    if (inputParams.prob_cond != nullptr)
+    {
+        free((void *)inputParams.prob_cond);
+    }
 
     if (numCuts == 0) // Case where there's not any match
     {
         freeMatrix(&greedyP);
-        freeMatrix(&XR);
-        freeMatrix(&WR);
+        releaseMatrix(&XR);
+        releaseMatrix(&WR);
+        releaseMatrix(&P);
+        Free(boundaries);
         return Rcpp::List::create(Rcpp::_["indices"] = Rcpp::IntegerVector::create(-1));
     }
 
     // ---- Create human-readable stopping reason ---- //
-    std::vector<std::string> stop_reasons = {"Converged", "Log-likelihood decrease", "Maximum time reached",
-                                             "Maximum iterations reached"};
-    std::string stopping_reason = (finishReason >= 0 && finishReason < 4) ? stop_reasons[finishReason] : "Unknown";
+    const char *stop_reasons[] = {"Converged", "Log-likelihood decrease", "Maximum time reached",
+                                  "Maximum iterations reached"};
+    const char *stopping_reason = (finishReason >= 0 && finishReason < 4) ? stop_reasons[finishReason] : "Unknown";
 
     Rcpp::NumericMatrix probabilities(greedyP.rows, greedyP.cols);
 
@@ -378,13 +548,14 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
     expectedOut.attr("dim") = Rcpp::IntegerVector::create(greedyP.rows, greedyP.cols, WR.rows);
 
     // condProb.attr("dim") = Rcpp::IntegerVector::create(WR.rows, greedyP.rows, XR.rows); // (b, A, c)
-    free(bestQ);
-    free(bestExpected);
+    Free(bestQ);
+    Free(bestExpected);
     freeMatrix(&greedyP);
     freeMatrix(bestBootstrap);
     Free(bestBootstrap);
-    freeMatrix(&XR);
-    freeMatrix(&WR);
+    releaseMatrix(&XR);
+    releaseMatrix(&WR);
+    releaseMatrix(&P);
 
     // Convert to R's integer vector
     Rcpp::IntegerVector result(numCuts);
@@ -393,7 +564,7 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
         result[i] = boundaries[i];
     }
 
-    delete[] boundaries;
+    Free(boundaries);
 
     return Rcpp::List::create(Rcpp::_["probabilities"] = probabilities, Rcpp::_["log_likelihood"] = bestLogLL,
                               Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = bestTime,

@@ -9,6 +9,7 @@ run_em(
   object = NULL,
   X = NULL,
   W = NULL,
+  V = NULL,
   json_path = NULL,
   method = "mult",
   initial_prob = "group_proportional",
@@ -29,6 +30,9 @@ run_em(
   mvncdf_samples = 5000,
   adjust_prob_cond_method = "project_lp",
   adjust_prob_cond_every = FALSE,
+  maxnewton = 1,
+  beta = NULL,
+  alpha = NULL,
   scale_factor = 1,
   symmetric = FALSE,
   ...
@@ -41,7 +45,9 @@ run_em(
 
 \item{W}{A \verb{(b x g)} matrix representing group votes per ballot box.}
 
-\item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.}
+\item{V}{Optional \verb{(b x a)} matrix with the attributes for each ballot box. This is only used for parametric models.}
+
+\item{json_path}{A path to a JSON file containing \code{X}, \code{W} (and optionally \code{V}) fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.}
 
 \item{method}{An optional string specifying the method used for estimating the E-step. Valid
 options are:
@@ -52,6 +58,8 @@ options are:
 \item \code{mcmc}: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the E-step.
 \item \code{exact}: Solves the E-step using the Total Probability Law.
 }
+
+When \code{V} is supplied (parametric mode), only \code{mult} is supported and \code{symmetric} is not available.
 
 For a detailed description of each method, see \link{fastei-package} and \strong{References}.}
 
@@ -112,6 +120,12 @@ samples for the \code{mvn_cdf} method. The default value is \code{5000}. This ar
 
 \item{adjust_prob_cond_every}{An optional boolean indicating whether to adjust the conditional probability on every iteration (if \code{TRUE}), or only at the conditional probabilities obtained at the end of the EM algorithm (if \code{FALSE}, this is the default). This parameter applies only if \code{adjust_prob_conditional_method} is \code{lp} or \code{project_lp}.}
 
+\item{maxnewton}{Maximum number of Newton iterations used in the parametric M-step. Default is \code{1}.}
+
+\item{beta}{Optional \verb{g x (c-1)} matrix of initial group coefficients used in parametric mode. Ignored in non-parametric mode.}
+
+\item{alpha}{Optional \verb{(c-1) x a} matrix of initial attribute coefficients used in parametric mode. Ignored in non-parametric mode.}
+
 \item{scale_factor}{An optional numeric value used to scale down the \code{X} and \code{W} matrices before executing the EM algorithm. This scaling can help improve performance when dealing with large vote counts. For example if \code{scale_factor = 2} all elements of \code{X} and \code{W} are divided by two and rounded. The default value is \code{1}, which means no scaling is applied. In case the scaling results in mismatch between \code{W} and \code{X}, ensure that \code{allow_mismatch = TRUE}.}
 
 \item{symmetric}{A boolean indicating whether to perform a symmetric estimation. If \code{TRUE}, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. The final probabilities are obtained by averaging the expected outcomes from both runs. This approach can provide a more balanced estimation in certain scenarios. The default value is \code{FALSE}.}
@@ -153,6 +167,7 @@ Under this argument, the conditional probabilities will be obtained by dividing 
 }
 \description{
 Executes the Expectation-Maximization (EM) algorithm indicating the approximation method to use in the E-step.
+It supports both non-parametric and parametric models; the parametric mode is enabled by providing \code{V}.
 Certain methods may require additional arguments, which can be passed through \code{...} (see \link{fastei-package} for more details).
 }
 \note{

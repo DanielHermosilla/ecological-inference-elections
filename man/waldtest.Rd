@@ -50,13 +50,9 @@ Each entry in the pvals matrix is the p-value from Wald test between the corresp
 entries of the two estimated probability matrices.
 }
 \description{
-This function compares two \code{eim} objects (or sets of matrices that can be converted to such objects) by computing a Wald test on each component
-of their estimated probability matrices. The Wald test is applied using bootstrap-derived standard deviations, and the result is a matrix
-of p-values corresponding to each group-candidate combination.
+Performs a matrix-wise Wald test for two eim objects
 }
 \details{
-It uses Wald test to analyze if there is a significant difference between the estimated probabilities between a treatment and a control set. The test is performed independently for each component of the probability matrix.
-
 The user must provide either of the following (but not both):
 \itemize{
 \item Two \code{eim} objects via \code{object1} and \code{object2}, or
@@ -69,6 +65,15 @@ The Wald test is computed using the formula:
 z_{ij} = \frac{p_{1,ij}-p_{2,ij}}{\sqrt{s_{1,ij}^2+s_{2,ij}^2}}
 }
 In this expression, \eqn{s_{1,ij}^2} and \eqn{s_{2,ij}^2} represent the bootstrap sample variances for the treatment and control sets, respectively, while \eqn{p_{1,ij}} and \eqn{p_{2,ij}} are the corresponding estimated probability matrices obtained via the EM algorithm.
+}
+\note{
+This function only supports non-parametric models. Parametric objects (with \code{V}) are not supported.
+
+This function compares two \code{eim} objects (or sets of matrices that can be converted to such objects) by computing a Wald test on each component
+of their estimated probability matrices. The Wald test is applied using bootstrap-derived standard deviations, and the result is a matrix
+of p-values corresponding to each group-candidate combination.
+
+It uses Wald test to analyze if there is a significant difference between the estimated probabilities between a treatment and a control set. The test is performed independently for each component of the probability matrix.
 }
 \examples{
 sim1 <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 123)

@@ -10,6 +10,7 @@
     object_provided <- "object" %in% names(args) || "object1" %in% names(args)
     x_provided <- "X" %in% names(args) || "X1" %in% names(args)
     w_provided <- "W" %in% names(args) || "W1" %in% names(args)
+    v_provided <- "V" %in% names(args) || "V1" %in% names(args)
     xw_provided <- x_provided || w_provided
     json_provided <- "json_path" %in% names(args)
 
@@ -24,6 +25,18 @@
             "(2)\t`X` and `W`\n",
             "(3)\ta `json_path`"
         )
+    }
+
+    if (v_provided && !is.null(args$V) && !is.matrix(args$V)) {
+        stop("Invalid 'V'. It has to be a matrix.")
+    }
+
+    if ("alpha" %in% names(args) && !is.null(args$alpha) && !is.matrix(args$alpha)) {
+        stop("Invalid 'alpha'. It has to be a matrix.")
+    }
+
+    if ("beta" %in% names(args) && !is.null(args$beta) && !is.matrix(args$beta)) {
+        stop("Invalid 'beta'. It has to be a matrix.")
     }
 
     # Mismatch argument
@@ -50,6 +63,12 @@
     if ("maxiter" %in% names(args)) {
         if (!is.numeric(args$maxiter) || as.integer(args$maxiter) != args$maxiter || args$maxiter < 1) { # Infinite are valid, skip this case
             stop("Invalid 'maxiter'. Must be a positive integer.")
+        }
+    }
+
+    if ("maxnewton" %in% names(args)) {
+        if (!is.numeric(args$maxnewton) || as.integer(args$maxnewton) != args$maxnewton || args$maxnewton < 1) {
+            stop("Invalid 'maxnewton'. Must be a positive integer.")
         }
     }
 
@@ -183,7 +202,7 @@
 #' @param W A matrix representing group votes per ballot box.
 #' @return Stops execution if validation fails.
 #' @noRd
-.validate_eim <- function(X, W) {
+.validate_eim <- function(X, W, V = NULL) {
     # Ensure X and W are provided
     if (is.null(X) || is.null(W)) {
         stop("Either provide X and W matrices, or a valid JSON path containing them.")
@@ -213,6 +232,24 @@
         # stop("Group matrix 'W' must have at least 2 columns.")
     }
 
+    if (!is.null(V)) {
+        if (!is.matrix(V)) {
+            stop("'V' must be a matrix.")
+        }
+        if (nrow(V) != nrow(X)) {
+            stop(
+                "Mismatch in the number of ballot boxes: 'V' has ", nrow(V),
+                " rows, but 'X' has ", nrow(X), " rows."
+            )
+        }
+        if (ncol(V) < 1) {
+            stop("Attribute matrix 'V' must have at least 1 column.")
+        }
+        if (any(is.na(V))) {
+            stop("Matrix 'V' cannot contain missing values (NA).")
+        }
+    }
+
     # Check for missing values
     if (any(is.na(X)) || any(is.na(W))) {
         stop("Matrices 'X' and 'W' cannot contain missing values (NA).")
@@ -226,7 +263,7 @@
 #' Validate the 'eim' object JSON path
 #'
 #' @param json_path A path to a JSON file containing `"X"` and `"W"`.
-#' @return A list with the `"X"` and `"W"` matrix. Stops execution if validation fails.
+#' @return A list with the `"X"` and `"W"` matrix (and `"V"` if provided). Stops execution if validation fails.
 #' @noRd
 .validate_json_eim <- function(json_path) {
     if (!file.exists(json_path)) {
@@ -247,10 +284,16 @@
         stop("'X' and 'W' cannot be NULL in the JSON file")
     }
 
-    list(
+    result <- list(
         X = as.matrix(data$X),
         W = as.matrix(data$W)
     )
+
+    if ("V" %in% names(data) && !is.null(data$V)) {
+        result$V <- as.matrix(data$V)
+    }
+
+    result
 }
 
 #' Internal function!

@@ -622,7 +622,7 @@ void projectQ(EMContext *ctx, QMethodInput inputParams)
                     Q_3D(ctx->q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES) > 1)
                 {
                     int status;
-                    status = LPW(ctx, b);
+                    status = LPW_ctx(ctx, b);
                 }
             }
         }
@@ -734,7 +734,7 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
                 projectQ(ctx, *inputParams);
             else if (strcmp(inputParams->prob_cond, "lp") == 0)
                 for (int b = 0; b < TOTAL_BALLOTS; b++)
-                    LPW(ctx, b);
+                    LPW_ctx(ctx, b);
         }
         // ---...--- //
 
@@ -813,7 +813,7 @@ results:
     else if (strcmp(inputParams->prob_cond, "lp") == 0)
     {
         for (int b = 0; b < TOTAL_BALLOTS; b++)
-            LPW(ctx, b);
+            LPW_ctx(ctx, b);
         getP(ctx); // M-Step
     }
     getPredictedVotes(ctx); // Compute the predicted votes for each ballot box

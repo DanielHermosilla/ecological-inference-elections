@@ -10,8 +10,10 @@ extern "C"
 #include "globals.h"
 
     // ---...--- //
-    int LP_NW(EMContext *ctx, int b);
-    int LPW(EMContext *ctx, int b);
+    int LP_NW(const Matrix *X, const Matrix *W, Matrix *q_bgc, int b);
+    int LPW(const Matrix *X, const Matrix *W, Matrix *q_bgc, int b);
+    int LP_NW_ctx(EMContext *ctx, int b);
+    int LPW_ctx(EMContext *ctx, int b);
 
 #ifdef __cplusplus
 }

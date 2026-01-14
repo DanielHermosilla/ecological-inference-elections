@@ -5,20 +5,23 @@
 \alias{eim()}
 \title{S3 Object for the Expectation-Maximization Algorithm}
 \usage{
-eim(X = NULL, W = NULL, json_path = NULL)
+eim(X = NULL, W = NULL, V = NULL, json_path = NULL)
 }
 \arguments{
 \item{X}{A \verb{(b x c)} matrix representing candidate votes per ballot box.}
 
 \item{W}{A \verb{(b x g)} matrix representing group votes per ballot box.}
 
-\item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.}
+\item{V}{Optional \verb{(b x a)} matrix with the attributes for each ballot box. This is only used for parametric models.}
+
+\item{json_path}{A path to a JSON file containing \code{X}, \code{W} (and optionally \code{V}) fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.}
 }
 \value{
 A list of class \code{eim} containing:
 \describe{
 \item{\code{X}}{The candidate votes matrix \code{(b x c)}.}
 \item{\code{W}}{The group votes matrix \code{(b x g)}.}
+\item{\code{V}}{The parametric covariates matrix \code{(b x a)}, when provided.}
 }
 }
 \description{
@@ -29,8 +32,10 @@ This constructor creates an \code{eim} S3 object, either by using matrices
 \details{
 If \code{X} and \code{W} are directly supplied, they must match the
 dimensions of ballot boxes \code{(b)}. Alternatively, if \code{json_path} is provided, the function expects
-the JSON file to contain elements named \code{"X"} and \code{"W"} under the
+the JSON file to contain elements named \code{"X"} and \code{"W"} (and optionally \code{"V"}) under the
 top-level object. This two approaches are \strong{mutually exclusable}, yielding an error otherwise.
+
+When \code{V} is supplied, the object is treated as parametric and includes the \code{V} attribute.
 
 Internally, this function also initializes the corresponding instance within
 the low-level (C-based) API, ensuring the data is correctly registered for
@@ -38,6 +43,7 @@ further processing by the EM algorithm.
 }
 \note{
 A way to generate synthetic data for \code{X} and \code{W} is by using the \link{simulate_election} function. See Example 2 below.
+This constructor can be used for both non-parametric and parametric models (by providing \code{V}).
 }
 \section{Methods}{
 

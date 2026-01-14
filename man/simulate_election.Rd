@@ -12,7 +12,10 @@ simulate_election(
   lambda = 0.5,
   seed = NULL,
   group_proportions = rep(1/num_groups, num_groups),
-  prob = NULL
+  prob = NULL,
+  parametric = FALSE,
+  num_attributes = 2,
+  num_districts = 1
 )
 }
 \arguments{
@@ -39,18 +42,35 @@ Default value is set to \code{0.5}. See \strong{Shuffling Mechanish} for more de
 
 \item{prob}{Optional. A user-supplied probability matrix of dimension \verb{(g x c)}.
 If provided, this matrix is used as the underlying voting probability distribution. If not supplied, each row is sampled from a Dirichlet distribution with each parameter set to one.}
+
+\item{parametric}{Boolean. If \code{TRUE}, simulates a parametric multinomial model using ballot-box attributes \code{V} and returns \code{alpha} and \code{beta} parameters.}
+
+\item{num_attributes}{Number of attributes (\code{a}) used to build the parametric covariates matrix \code{V} when \code{parametric = TRUE}.}
+
+\item{num_districts}{Number of districts used to assign ballot boxes when \code{parametric = TRUE}.}
 }
 \value{
-An eim object with three attributes:
+An eim object. For the non-parametric case it contains:
 \describe{
 \item{\code{X}}{A \code{(b x c)} matrix with candidates' votes for each ballot box.}
 \item{\code{W}}{A \code{(b x g)} matrix with voters' groups for each ballot-box.}
 \item{\code{real_prob}}{A \code{(g x c)} matrix with the probability that a voter from each group votes for each candidate. If prob is provided, it would equal such probability.}
 \item{\code{outcome}}{A \code{(b x g x c)} array with the number of votes for each candidate in each ballot box, broken down by group.}
 }
+
+When \code{parametric = TRUE}, it returns:
+\describe{
+\item{\code{X}}{A \code{(b x c)} matrix with candidates' votes for each ballot box.}
+\item{\code{W}}{A \code{(b x g)} matrix with voters' groups for each ballot-box.}
+\item{\code{V}}{A \code{(b x a)} matrix with ballot-box attributes.}
+\item{\code{prob}}{A list of \code{(g x c)} matrices with district-level probabilities.}
+\item{\code{alpha}}{A \code{((c-1) x a)} matrix of true attribute parameters.}
+\item{\code{beta}}{A \code{(g x (c-1))} matrix of true group parameters.}
+}
 }
 \description{
 This function simulates an election by creating matrices representing candidate votes \code{(X)} and voters' demographic group \code{(W)} across a specified number of ballot-boxes. It either (i) receives as input or (ii) generates a probability matrix \code{(prob)}, indicating how likely each demographic group is to vote for each candidate.
+It supports both non-parametric and parametric simulations; set \code{parametric = TRUE} to generate \code{V}, \code{alpha}, and \code{beta}.
 
 By default, the number of voters per ballot box \code{(ballot_voters)} is set to a vector of 100 with
 length \code{num_ballots}. You can optionally override this by providing a custom vector.

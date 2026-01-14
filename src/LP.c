@@ -3,11 +3,20 @@
 #include "globals.h"
 #include <R.h>
 #include <R_ext/BLAS.h>
+#include <R_ext/Memory.h>
 #include <R_ext/RS.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifndef Calloc
+#define Calloc(n, type) ((type *)R_chk_calloc((size_t)(n), sizeof(type)))
+#endif
+
+#ifndef Free
+#define Free(p) R_chk_free((void *)(p))
+#endif
 
 // ---- BLAS helpers ----
 static inline void row_scale(int n, double *row, double alpha)
@@ -27,7 +36,7 @@ static inline void row_copy(int n, const double *src, double *dst)
 }
 static void *xcalloc(size_t n, size_t sz)
 {
-    void *p = calloc(n, sz);
+    void *p = Calloc(n * sz, char);
     if (!p)
         error("Allocation error");
     return p;
@@ -35,6 +44,42 @@ static void *xcalloc(size_t n, size_t sz)
 static inline int idxRC(int r, int ld, int c)
 {
     return r * ld + c;
+}
+
+// ---- Inputs for LP solver ----
+typedef struct
+{
+    const Matrix *X;
+    const Matrix *W;
+    Matrix *q_bgc;
+    double *q;
+    int G;
+    int C;
+    bool x_is_cb;
+} LPSolverInput;
+
+static inline double lp_get_x(const LPSolverInput *input, int b, int c)
+{
+    if (input->x_is_cb)
+        return MATRIX_AT_PTR(input->X, c, b);
+    return MATRIX_AT_PTR(input->X, b, c);
+}
+static inline double lp_get_w(const LPSolverInput *input, int b, int g)
+{
+    return MATRIX_AT_PTR(input->W, b, g);
+}
+static inline double lp_get_q(const LPSolverInput *input, int b, int g, int c)
+{
+    if (input->q_bgc != NULL)
+        return MATRIX_AT(input->q_bgc[b], g, c);
+    return Q_3D(input->q, b, g, c, input->G, input->C);
+}
+static inline void lp_set_q(const LPSolverInput *input, int b, int g, int c, double value)
+{
+    if (input->q_bgc != NULL)
+        MATRIX_AT(input->q_bgc[b], g, c) = value;
+    else
+        Q_3D(input->q, b, g, c, input->G, input->C) = value;
 }
 
 // ---- Simplex tab ----
@@ -259,24 +304,24 @@ static int simplex_solve_dense_equalities(double *A, double *b, const double *c,
     double art = phase1_artificial_value(&P1);
     if (rc == 1 || art > 1e-7)
     {
-        free(P1.T);
-        free(P1.basis);
+        Free(P1.T);
+        Free(P1.basis);
         return 1;
     }
     SimplexTab P2 = {0};
     build_phase2_from_phase1(&P1, c, &P2);
-    free(P1.T);
-    free(P1.basis);
+    Free(P1.T);
+    Free(P1.basis);
     rc = simplex_solve_tab(&P2);
     if (rc == 1)
     {
-        free(P2.T);
-        free(P2.basis);
+        Free(P2.T);
+        Free(P2.basis);
         return 2;
     }
     extract_solution(&P2, x);
-    free(P2.T);
-    free(P2.basis);
+    Free(P2.T);
+    Free(P2.basis);
     return 0;
 }
 
@@ -335,20 +380,46 @@ static inline int row_cand(const Layout *L, int c)
 }
 
 // ---- Solve per ballot ----
-static int solve_ballot_simplex(EMContext *ctx, int b, int mode)
+static LPSolverInput make_lp_input_ctx(EMContext *ctx)
 {
-    int G = ctx->G, C = ctx->C;
+    LPSolverInput input = {0};
+    input.X = &ctx->X;
+    input.W = &ctx->W;
+    input.q_bgc = NULL;
+    input.q = ctx->q;
+    input.G = ctx->G;
+    input.C = ctx->C;
+    input.x_is_cb = true;
+    return input;
+}
+
+static LPSolverInput make_lp_input_matrix(const Matrix *X, const Matrix *W, Matrix *q_bgc)
+{
+    LPSolverInput input = {0};
+    input.X = X;
+    input.W = W;
+    input.q_bgc = q_bgc;
+    input.q = NULL;
+    input.G = W->cols;
+    input.C = X->cols;
+    input.x_is_cb = false;
+    return input;
+}
+
+static int solve_ballot_simplex(const LPSolverInput *input, int b, int mode)
+{
+    int G = input->G, C = input->C;
     Layout L = mk_layout(G, C);
     double sum_w = 0, sum_x = 0;
     for (int g = 0; g < G; ++g)
-        sum_w += MATRIX_AT(ctx->W, b, g);
+        sum_w += lp_get_w(input, b, g);
     for (int c = 0; c < C; ++c)
-        sum_x += MATRIX_AT(ctx->X, c, b);
+        sum_x += lp_get_x(input, b, c);
     double rel = (fmax(fabs(sum_w), fabs(sum_x)) > 0) ? fabs(sum_w - sum_x) / fmax(fabs(sum_w), fabs(sum_x)) : 0;
     double alpha = (rel > 1e-12 && sum_w > 0) ? (sum_x / sum_w) : 1.0;
     double *Weff = (double *)xcalloc(G, sizeof(double));
     for (int g = 0; g < G; ++g)
-        Weff[g] = MATRIX_AT(ctx->W, b, g) * alpha;
+        Weff[g] = lp_get_w(input, b, g) * alpha;
 
     double *A = (double *)xcalloc((size_t)L.nRows * (size_t)L.nVars, sizeof(double));
     double *rhs = (double *)xcalloc(L.nRows, sizeof(double));
@@ -362,7 +433,7 @@ static int solve_ballot_simplex(EMContext *ctx, int b, int mode)
         double w = Weff[g];
         for (int c = 0; c < C; ++c)
         {
-            double t = Q_3D(ctx->q, b, g, c, TOTAL_GROUPS, TOTAL_CANDIDATES);
+            double t = lp_get_q(input, b, g, c);
             double coef = (mode ? w : 1.0);
             int r1 = row_abs1(&L, g, c), r2 = row_abs2(&L, g, c);
             A[idxRC(r1, L.nVars, col_y(&L, g, c))] = 1.0;
@@ -385,7 +456,7 @@ static int solve_ballot_simplex(EMContext *ctx, int b, int mode)
     for (int c = 0; c < C; ++c)
     {
         int r = row_cand(&L, c);
-        double xcb = MATRIX_AT(ctx->X, c, b);
+        double xcb = lp_get_x(input, b, c);
         for (int g = 0; g < G; ++g)
             A[idxRC(r, L.nVars, col_q(&L, g, c))] = Weff[g];
         rhs[r] = xcb;
@@ -397,7 +468,7 @@ static int solve_ballot_simplex(EMContext *ctx, int b, int mode)
     {
         for (int g = 0; g < G; ++g)
             for (int c = 0; c < C; ++c)
-                Q_3D(ctx->q, b, g, c, G, C) = 0.0;
+                lp_set_q(input, b, g, c, 0.0);
     }
     else
     {
@@ -407,22 +478,35 @@ static int solve_ballot_simplex(EMContext *ctx, int b, int mode)
                 double q = x[col_q(&L, g, c)];
                 if (q < 0 && q > -1e-12)
                     q = 0;
-                Q_3D(ctx->q, b, g, c, G, C) = q;
+                lp_set_q(input, b, g, c, q);
             }
     }
-    free(Weff);
-    free(A);
-    free(rhs);
-    free(obj);
-    free(x);
+    Free(Weff);
+    Free(A);
+    Free(rhs);
+    Free(obj);
+    Free(x);
     return (code ? -100 : 0);
 }
 
-int LP_NW(EMContext *ctx, int b)
+int LP_NW(const Matrix *X, const Matrix *W, Matrix *q_bgc, int b)
 {
-    return solve_ballot_simplex(ctx, b, 1);
+    LPSolverInput input = make_lp_input_matrix(X, W, q_bgc);
+    return solve_ballot_simplex(&input, b, 1);
 }
-int LPW(EMContext *ctx, int b)
+int LPW(const Matrix *X, const Matrix *W, Matrix *q_bgc, int b)
 {
-    return solve_ballot_simplex(ctx, b, 0);
+    LPSolverInput input = make_lp_input_matrix(X, W, q_bgc);
+    return solve_ballot_simplex(&input, b, 0);
+}
+
+int LP_NW_ctx(EMContext *ctx, int b)
+{
+    LPSolverInput input = make_lp_input_ctx(ctx);
+    return solve_ballot_simplex(&input, b, 1);
+}
+int LPW_ctx(EMContext *ctx, int b)
+{
+    LPSolverInput input = make_lp_input_ctx(ctx);
+    return solve_ballot_simplex(&input, b, 0);
 }

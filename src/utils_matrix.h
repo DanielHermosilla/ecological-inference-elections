@@ -532,6 +532,18 @@ extern "C"
 
     IntMatrix copMatrixI(IntMatrix *original);
 
+    /**
+     * @brief Solves a linear system H v = -g using LAPACK.
+     *
+     * Given a square matrix H and a vector g, it solves for v in H v = -g.
+     *
+     * @param[in] D Dimension of the system.
+     * @param[in,out] H Square matrix of size D x D (column-major).
+     * @param[in] g Vector of length D.
+     * @param[out] v Solution vector of length D.
+     */
+    void solve_linear_system(int D, double *H, double *g, double *v);
+
     /*
      * @brief Frees the memory allocated for an IntMatrix.
      */

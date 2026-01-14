@@ -115,6 +115,32 @@ Rcpp::List bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatri
                         Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
                         Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities);
 
+/**
+ * @brief Runs the parametric EM algorithm.
+ *
+ * Given X, W, V, alpha and beta, it estimates the parametric multinomial model parameters
+ * and returns the ballot-box probabilities.
+ */
+Rcpp::List EMAlgorithmParametric(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                                 Rcpp::NumericMatrix attribute_matrix, Rcpp::NumericMatrix beta,
+                                 Rcpp::NumericMatrix alpha, Rcpp::IntegerVector maximum_iterations,
+                                 Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector log_stopping_threshold,
+                                 Rcpp::IntegerVector maximum_newton, Rcpp::LogicalVector verbose,
+                                 Rcpp::String LP_method, Rcpp::LogicalVector project_every);
+
+/**
+ * @brief Runs the parametric bootstrapping routine.
+ *
+ * It estimates the standard deviations for beta and alpha across bootstrap samples.
+ */
+Rcpp::List bootstrapParametricAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                                  Rcpp::NumericMatrix attribute_matrix, Rcpp::NumericMatrix beta,
+                                  Rcpp::NumericMatrix alpha, Rcpp::IntegerVector maximum_iterations,
+                                  Rcpp::IntegerVector nboot, Rcpp::NumericVector maximum_seconds,
+                                  Rcpp::NumericVector log_stopping_threshold, Rcpp::IntegerVector maximum_newton,
+                                  Rcpp::LogicalVector verbose, Rcpp::String LP_method,
+                                  Rcpp::LogicalVector project_every);
+
 /*
  * Returns a list with an heuristic-optimal bootstrapped matrix with an ideal group aggregation.
  *

@@ -9,10 +9,14 @@ bootstrap(
   object = NULL,
   X = NULL,
   W = NULL,
+  V = NULL,
   json_path = NULL,
   nboot = 100,
   allow_mismatch = TRUE,
   seed = NULL,
+  maxnewton = 1,
+  beta = NULL,
+  alpha = NULL,
   ...
 )
 }
@@ -23,7 +27,9 @@ bootstrap(
 
 \item{W}{A \verb{(b x g)} matrix representing group votes per ballot box.}
 
-\item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.}
+\item{V}{Optional \verb{(b x a)} matrix with the attributes for each ballot box. This is only used for parametric models.}
+
+\item{json_path}{A path to a JSON file containing \code{X}, \code{W} (and optionally \code{V}) fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.}
 
 \item{nboot}{Integer specifying how many times to run the
 EM algorithm.}
@@ -32,13 +38,22 @@ EM algorithm.}
 
 \item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = "random"} or \code{method} is either \code{"mcmc"} or \code{"mvn_cdf"}. Aditionally, it sets the random draws of the ballot boxes.}
 
+\item{maxnewton}{Maximum number of Newton iterations used in the parametric M-step. Default is \code{1}.}
+
+\item{beta}{Optional \verb{g x (c-1)} matrix of initial group coefficients used in parametric mode. Ignored in non-parametric mode.}
+
+\item{alpha}{Optional \verb{(c-1) x a} matrix of initial attribute coefficients used in parametric mode. Ignored in non-parametric mode.}
+
 \item{...}{Additional arguments passed to the \link{run_em} function that will execute the EM algorithm.}
 }
 \value{
 Returns an \code{eim} object with the \code{sd} field containing the estimated standard deviations of the probabilities and the \code{avg_prob} field with the average bootstrapped probability matrix. If an \code{eim} object is provided, its attributes (see \link{run_em}) are retained in the returned object.
+
+For parametric models, it returns \code{sd_beta} and \code{sd_alpha} instead of \code{sd} and \code{avg_prob}.
 }
 \description{
 This function computes the Expected-Maximization (EM) algorithm "\code{nboot}" times. It then computes the standard deviation from the \code{nboot} estimated probability matrices on each component.
+It supports both non-parametric and parametric models; the parametric mode is enabled by providing \code{V} and only supports \code{method = "mult"}.
 }
 \note{
 This function can be executed using one of three mutually exclusive approaches:

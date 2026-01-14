@@ -6,6 +6,9 @@
 #'
 #' Additionally, ballot boxes where the number of votes does not match the number of registered voters (i.e., those where `MISMATCH == TRUE`) can be excluded from the dataset by setting `remove_mismatch = TRUE`.
 #'
+#' @note
+#' This function returns a non-parametric `eim` object (it does not include `V`).
+#'
 #' @param elect_district A string indicating the name of the electoral district to extract (e.g., "NIEBLA"). See **Note**.
 #'
 #' @param region A string indicating the name of the region to extract (e.g, "DE TARAPACA"). See **Note**.

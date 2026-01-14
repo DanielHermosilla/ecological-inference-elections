@@ -19,6 +19,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 #include "bootstrap.h"
+#include "parametric_main.h"
 #include <R.h>
 #include <R_ext/Memory.h>
 #include <R_ext/Utils.h> // for R_CheckUserInterrupt()
@@ -55,6 +56,32 @@ void iterMat(const Matrix *originalX, const Matrix *originalW, Matrix *newX, Mat
         for (int c = 0; c < originalX->rows; c++)
         { // --- For each candidate given a ballot box
             MATRIX_AT_PTR(newX, c, b) = MATRIX_AT_PTR(originalX, c, sampledIndex);
+        }
+    }
+}
+
+void iterMatParametric(const Matrix *originalX, const Matrix *originalW, const Matrix *originalV, Matrix *newX,
+                       Matrix *newW, Matrix *newV, const int *indexArr, int indexStart)
+{
+    // The amount of ballot boxes
+    int ballotBoxes = originalW->rows;
+    for (int b = 0; b < ballotBoxes; b++)
+    {
+        int sampledIndex = indexArr[indexStart + b];
+        // For the 'w' matrix
+        for (int g = 0; g < originalW->cols; g++)
+        { // --- For each group given a ballot box
+            MATRIX_AT_PTR(newW, b, g) = MATRIX_AT_PTR(originalW, sampledIndex, g);
+        }
+        // For the 'x' matrix
+        for (int c = 0; c < originalX->cols; c++)
+        { // --- For each candidate given a ballot box
+            MATRIX_AT_PTR(newX, b, c) = MATRIX_AT_PTR(originalX, sampledIndex, c);
+        }
+        // For the 'v' matrix
+        for (int a = 0; a < originalV->cols; a++)
+        { // --- For each attribute given a ballot box
+            MATRIX_AT_PTR(newV, b, a) = MATRIX_AT_PTR(originalV, sampledIndex, a);
         }
     }
 }
@@ -99,6 +126,139 @@ Matrix standardDeviations(Matrix *bootstrapResults, Matrix *sumMatrix, int total
         }
     }
     return sdMatrix;
+}
+
+void bootstrapParametric(const Matrix *X, const Matrix *W, const Matrix *V, Matrix *beta, Matrix *alpha, int bootiter,
+                         const int maxiter, const double maxtime, const double ll_threshold, const int maxnewton,
+                         const bool verbose, Matrix *sdBeta, Matrix *sdAlpha,
+                         const char *adjust_prob_cond_method, bool adjust_prob_cond_every)
+{
+    // ---- Initial variables
+    int bdim = W->rows;
+    int samples = bdim * bootiter;
+
+    // ---- Border case
+    if (bdim == 1)
+    {
+        Matrix infBetas = createMatrix(beta->rows, beta->cols);
+        Matrix infAlpha = createMatrix(alpha->rows, alpha->cols);
+        fillMatrix(&infBetas, 9999);
+        fillMatrix(&infAlpha, 9999);
+        *sdBeta = infBetas;
+        *sdAlpha = infAlpha;
+        return;
+    }
+
+    // ---- Generate the indices for bootstrap ---- //
+    int *indices = Calloc(bdim * bootiter, int);
+    // For each bootstrap replicate i
+sampling:
+    for (int i = 0; i < bdim * bootiter; i++)
+    {
+        indices[i] = (int)(unif_rand() * bdim);
+    }
+    // Check that every index is not the same
+    for (int i = 1; i < bdim * bootiter; i++)
+    {
+        if (indices[i] != indices[i - 1])
+            break;
+        if (i == bdim * bootiter - 1)
+        {
+            goto sampling;
+        }
+    }
+    // We want to avoid the case where the same ballot box is drawn FOR EACH placement
+    // This has a probability of 1/b^b. Maybe this calculation could be avoided at 6 > ballot boxes,
+    // since then it becomes practically 0
+    // ---...--- //
+
+    // ---- Execute the bootstrap algorithm ---- //
+    Matrix sumMatBeta = createMatrix(beta->rows, beta->cols);
+    Matrix *resultsBeta = Calloc(bootiter, Matrix);
+    Matrix sumMatAlpha = createMatrix(alpha->rows, alpha->cols);
+    Matrix *resultsAlpha = Calloc(bootiter, Matrix);
+
+    for (int i = 0; i < bootiter; i++)
+    {
+        if (verbose && bootiter > 20 && (i % (bootiter / 20) == 0)) // Print every 5% (20 intervals)
+        {
+            double progress = (double)i / bootiter * 100;
+            Rprintf("%.0f%% of iterations completed.\n", progress);
+        }
+        // ---- Declare variables for the current iteration
+        Matrix iterX = createMatrix(X->rows, X->cols);
+        Matrix iterW = createMatrix(W->rows, W->cols);
+        Matrix iterV = createMatrix(V->rows, V->cols);
+        Matrix BetaR = copMatrix(beta);
+        Matrix AlphaR = copMatrix(alpha);
+
+        iterMatParametric(X, W, V, &iterX, &iterW, &iterV, indices, i * bdim);
+
+        // Declare EM variables, they're not used in this case...
+        // It could be useful to yield a mean if the user wants to (logLL mean?)
+        double elapsed = 0.0;
+        int total_iter = 0;
+        double log_likelihood = 0.0;
+        Matrix *finalProb =
+            EM_Algorithm(&iterX, &iterW, &iterV, &BetaR, &AlphaR, maxiter, maxtime, ll_threshold, maxnewton, false,
+                         &elapsed, &total_iter, &log_likelihood, adjust_prob_cond_method, adjust_prob_cond_every);
+
+        // Sum each value so later we can get the mean
+        for (int g = 0; g < BetaR.rows; g++)
+        {
+            for (int c = 0; c < BetaR.cols; c++)
+            {
+                MATRIX_AT(sumMatBeta, g, c) += MATRIX_AT(BetaR, g, c);
+            }
+        }
+        resultsBeta[i] = BetaR;
+
+        for (int c = 0; c < AlphaR.rows; c++)
+        {
+            for (int a = 0; a < AlphaR.cols; a++)
+            {
+                MATRIX_AT(sumMatAlpha, c, a) += MATRIX_AT(AlphaR, c, a);
+            }
+        }
+        resultsAlpha[i] = AlphaR;
+
+        // ---- Release loop allocated variables ---- //
+        if (finalProb != NULL)
+        {
+            for (int b = 0; b < iterV.rows; b++)
+            {
+                freeMatrix(&finalProb[b]);
+            }
+            Free(finalProb);
+        }
+        freeMatrix(&iterX);
+        freeMatrix(&iterW);
+        freeMatrix(&iterV);
+        // ---...--- //
+    }
+
+    *sdBeta = standardDeviations(resultsBeta, &sumMatBeta, bootiter);
+    *sdAlpha = standardDeviations(resultsAlpha, &sumMatAlpha, bootiter);
+
+    if (verbose)
+    {
+        Rprintf("Bootstrapping finished!\nThe estimated standard deviation matrix for beta is:\n");
+        printMatrix(sdBeta);
+        Rprintf("The estimated standard deviation matrix for alpha is:\n");
+        printMatrix(sdAlpha);
+    }
+
+    Free(indices);
+    freeMatrix(&sumMatBeta);
+    freeMatrix(&sumMatAlpha);
+
+    for (int i = 0; i < bootiter; i++)
+    {
+        freeMatrix(&resultsBeta[i]);
+        freeMatrix(&resultsAlpha[i]);
+    }
+    Free(resultsBeta);
+    Free(resultsAlpha);
 }
 /**
  *  Returns an array of col-major matrices with bootstrapped matrices.

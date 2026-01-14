@@ -1488,3 +1488,23 @@ void printMatrixInt(IntMatrix *matrix)
         Rprintf(" |\n");
     }
 }
+
+void solve_linear_system(int D, double *H, double *g, double *v)
+{
+    for (int i = 0; i < D; i++)
+        v[i] = -g[i];
+
+    BLAS_INT N = (BLAS_INT)D;
+    BLAS_INT NRHS = 1;
+    BLAS_INT LDA = (BLAS_INT)D;
+    BLAS_INT LDB = (BLAS_INT)D;
+    BLAS_INT info;
+    BLAS_INT *ipiv = (BLAS_INT *)Calloc(D, BLAS_INT);
+
+    F77_CALL(dgesv)(&N, &NRHS, H, &LDA, ipiv, v, &LDB, &info);
+
+    if (info != 0)
+        error("DGESV failed with info = %d", (int)info);
+
+    Free(ipiv);
+}

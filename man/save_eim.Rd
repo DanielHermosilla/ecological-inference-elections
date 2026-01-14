@@ -34,6 +34,9 @@ otherwise, it yields an error.
 }
 }
 }
+\note{
+This function supports both non-parametric and parametric models. CSV export is not supported for parametric probabilities.
+}
 \examples{
 \donttest{
 model <- eim(X = matrix(1:9, 3, 3), W = matrix(1:9, 3, 3))
