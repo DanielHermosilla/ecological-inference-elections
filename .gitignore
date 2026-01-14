@@ -3,6 +3,7 @@
 
 # Allow specific files/directories
 !.github
+!.github/**
 !.gitignore
 !README.md
 !src/
@@ -28,4 +29,3 @@ doc/*
 src/**/*.o
 src/**/*.so
 src/**/*.json
-
