@@ -43,7 +43,7 @@ Default value is set to \code{0.5}. See \strong{Shuffling Mechanish} for more de
 \item{prob}{Optional. A user-supplied probability matrix of dimension \verb{(g x c)}.
 If provided, this matrix is used as the underlying voting probability distribution. If not supplied, each row is sampled from a Dirichlet distribution with each parameter set to one.}
 
-\item{parametric}{Boolean. If \code{TRUE}, simulates a parametric multinomial model using ballot-box attributes \code{V} and returns \code{alpha} and \code{beta} parameters.}
+\item{parametric}{Boolean. If \code{TRUE}, simulates a parametric multinomial model using ballot-box attributes \code{V} and returns \code{real_alpha} and \code{real_beta} parameters.}
 
 \item{num_attributes}{Number of attributes (\code{a}) used to build the parametric covariates matrix \code{V} when \code{parametric = TRUE}.}
 
@@ -63,14 +63,14 @@ When \code{parametric = TRUE}, it returns:
 \item{\code{X}}{A \code{(b x c)} matrix with candidates' votes for each ballot box.}
 \item{\code{W}}{A \code{(b x g)} matrix with voters' groups for each ballot-box.}
 \item{\code{V}}{A \code{(b x a)} matrix with ballot-box attributes.}
-\item{\code{prob}}{A list of \code{(g x c)} matrices with district-level probabilities.}
-\item{\code{alpha}}{A \code{((c-1) x a)} matrix of true attribute parameters.}
-\item{\code{beta}}{A \code{(g x (c-1))} matrix of true group parameters.}
+\item{\code{real_prob}}{A \code{(g x c x b)} array with ballot-box probabilities.}
+\item{\code{real_alpha}}{A \code{((c-1) x a)} matrix of true attribute parameters.}
+\item{\code{real_beta}}{A \code{(g x (c-1))} matrix of true group parameters.}
 }
 }
 \description{
 This function simulates an election by creating matrices representing candidate votes \code{(X)} and voters' demographic group \code{(W)} across a specified number of ballot-boxes. It either (i) receives as input or (ii) generates a probability matrix \code{(prob)}, indicating how likely each demographic group is to vote for each candidate.
-It supports both non-parametric and parametric simulations; set \code{parametric = TRUE} to generate \code{V}, \code{alpha}, and \code{beta}.
+It supports both non-parametric and parametric simulations; set \code{parametric = TRUE} to generate \code{V}, \code{real_alpha}, and \code{real_beta}.
 
 By default, the number of voters per ballot box \code{(ballot_voters)} is set to a vector of 100 with
 length \code{num_ballots}. You can optionally override this by providing a custom vector.

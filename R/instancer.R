@@ -2,7 +2,7 @@
 #'
 #' @description
 #' This function simulates an election by creating matrices representing candidate votes `(X)` and voters' demographic group `(W)` across a specified number of ballot-boxes. It either (i) receives as input or (ii) generates a probability matrix `(prob)`, indicating how likely each demographic group is to vote for each candidate.
-#' It supports both non-parametric and parametric simulations; set `parametric = TRUE` to generate `V`, `alpha`, and `beta`.
+#' It supports both non-parametric and parametric simulations; set `parametric = TRUE` to generate `V`, `real_alpha`, and `real_beta`.
 #'
 #' By default, the number of voters per ballot box `(ballot_voters)` is set to a vector of 100 with
 #' length `num_ballots`. You can optionally override this by providing a custom vector.
@@ -46,7 +46,7 @@
 #'   If provided, this matrix is used as the underlying voting probability distribution. If not supplied, each row is sampled from a Dirichlet distribution with each parameter set to one.
 #'
 #' @param parametric
-#'   Boolean. If `TRUE`, simulates a parametric multinomial model using ballot-box attributes `V` and returns `alpha` and `beta` parameters.
+#'   Boolean. If `TRUE`, simulates a parametric multinomial model using ballot-box attributes `V` and returns `real_alpha` and `real_beta` parameters.
 #'
 #' @param num_attributes
 #'   Number of attributes (`a`) used to build the parametric covariates matrix `V` when `parametric = TRUE`.
@@ -81,9 +81,9 @@
 #'   \item{\code{X}}{A \code{(b x c)} matrix with candidates' votes for each ballot box.}
 #'   \item{\code{W}}{A \code{(b x g)} matrix with voters' groups for each ballot-box.}
 #'   \item{\code{V}}{A \code{(b x a)} matrix with ballot-box attributes.}
-#'   \item{\code{prob}}{A list of \code{(g x c)} matrices with district-level probabilities.}
-#'   \item{\code{alpha}}{A \code{((c-1) x a)} matrix of true attribute parameters.}
-#'   \item{\code{beta}}{A \code{(g x (c-1))} matrix of true group parameters.}
+#'   \item{\code{real_prob}}{A \code{(g x c x b)} array with ballot-box probabilities.}
+#'   \item{\code{real_alpha}}{A \code{((c-1) x a)} matrix of true attribute parameters.}
+#'   \item{\code{real_beta}}{A \code{(g x (c-1))} matrix of true group parameters.}
 #' }
 #'
 #' @references
@@ -273,19 +273,19 @@ simulate_election <- function(num_ballots,
             }
         }
 
-        p_bgc <- vector("list", num_ballots)
+        real_prob <- array(0, dim = c(num_groups, num_candidates, num_ballots))
         for (b in seq_len(num_ballots)) {
             d <- which(e_bd[b, ] == 1L)
-            p_bgc[[b]] <- p_dgc[d, , ]
+            real_prob[, , b] <- p_dgc[d, , ]
         }
 
         toReturn <- list(
             W = W,
             X = X,
             V = v_ba,
-            prob = p_bgc,
-            alpha = alpha,
-            beta = beta
+            real_prob = real_prob,
+            real_alpha = alpha,
+            real_beta = beta
         )
 
         class(toReturn) <- "eim"

@@ -308,9 +308,17 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #' @return
 #' The function returns an `eim` object with the function arguments and the following attributes:
 #' \describe{
-#'   \item{prob}{The estimated probability matrix `(g x c)`.}
-#' 	 \item{cond_prob}{A `(g x c x b)` 3d-array with the probability that a at each ballot-box a voter of each group voted for each candidate, given the observed outcome at the particular ballot-box.}
-#' 	 \item{expected_outcome}{A `(g x c x b)` 3d-array with the expected votes cast for each ballot box.}
+#'   \item{prob}{
+#'     If `V` is `NULL` (non-parametric), the estimated global probability matrix `(g x c)`.
+#'     If `V` is supplied (parametric), a `(g x c x b)` 3d-array of probabilities for each ballot-box.
+#'   }
+#' 	 \item{cond_prob}{
+#'     A `(g x c x b)` 3d-array with the probability that at each ballot-box a voter of each group voted for each candidate,
+#'     given the observed outcome at the particular ballot-box.
+#'   }
+#' 	 \item{expected_outcome}{
+#'     A `(g x c x b)` 3d-array with the expected votes cast for each ballot-box.
+#'   }
 #'   \item{logLik}{The log-likelihood value from the last iteration.}
 #'   \item{iterations}{The total number of iterations performed by the EM algorithm.}
 #'   \item{time}{The total execution time of the algorithm in seconds.}
@@ -507,6 +515,18 @@ run_em <- function(object = NULL,
 
         object$prob <- resulting_values$prob
         dimnames(object$prob) <- list(
+            colnames(W),
+            colnames(object$X),
+            rownames(object$X)
+        )
+        object$cond_prob <- resulting_values$cond_prob
+        dimnames(object$cond_prob) <- list(
+            colnames(W),
+            colnames(object$X),
+            rownames(object$X)
+        )
+        object$expected_outcome <- resulting_values$expected_outcome
+        dimnames(object$expected_outcome) <- list(
             colnames(W),
             colnames(object$X),
             rownames(object$X)

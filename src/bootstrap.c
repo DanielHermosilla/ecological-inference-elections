@@ -201,7 +201,8 @@ sampling:
         double log_likelihood = 0.0;
         Matrix *finalProb =
             EM_Algorithm(&iterX, &iterW, &iterV, &BetaR, &AlphaR, maxiter, maxtime, ll_threshold, maxnewton, false,
-                         &elapsed, &total_iter, &log_likelihood, adjust_prob_cond_method, adjust_prob_cond_every);
+                         &elapsed, &total_iter, &log_likelihood, NULL, NULL,
+                         adjust_prob_cond_method, adjust_prob_cond_every);
 
         // Sum each value so later we can get the mean
         for (int g = 0; g < BetaR.rows; g++)

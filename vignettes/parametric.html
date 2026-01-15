@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Charles Thraves, Pablo Ubilla, Daniel Hermosilla" />
+
+<meta name="date" content="2026-01-14" />
+
+<title>Using the parametric approach</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Using the parametric approach</h1>
+<h4 class="author">Charles Thraves, Pablo Ubilla, Daniel Hermosilla</h4>
+<h4 class="date">2026-01-14</h4>
+
+
+
+<p>In addition to the non-parametric approach presented in the main
+vignette (see <code>demonstration.Rmd</code>), <code>fastei</code> also
+supports a parametric approach that incorporates electoral-unit–level
+covariates. This approach follows the same general strategy of
+maximizing the log-likelihood via an EM algorithm, with the M-step
+carried out through a multinomial formulation.</p>
+<p>The parametric specification requires computing a Hessian matrix,
+which can be computationally costly; therefore, an approximation is used
+in practice. In addition, parameter updates within each M-step are
+obtained via a Newton–Raphson procedure. Empirically, performing a
+single Newton step (i.e., <code>maxnewton = 1</code>) is typically
+sufficient to achieve convergence.</p>
+<p>The main difference from the non-parametric approach is that the
+probability matrix is defined at the electoral-unit level rather than as
+a single global probability matrix. This enables the inclusion of
+electoral-unit covariates, which may better capture and explain
+variation in voting behavior across units. Consequently, convergence of
+the EM algorithm is assessed solely through increases in the
+log-likelihood.</p>
+<p>Under this model, probabilities are computed using a multinomial
+softmax. Specifically, letting <span class="math inline">\(p_{bgc}\)</span> denote the probability associated
+with electoral unit <span class="math inline">\(b\)</span>, group <span class="math inline">\(g\)</span>, and candidate <span class="math inline">\(c\)</span>, we define:</p>
+<p><span class="math display">\[
+p_{bgc}=
+\frac{\exp\!\big(\beta_{gc} + (V\alpha^{T})_{bc}\big)}
+{1+\sum_{j=1}^{C-1}\exp\!\big(\beta_{gj} + (V\alpha^{T})_{bj}\big)}.
+\]</span></p>
+<p>Thus, the initial probabilities depend on the parameters
+<code>alpha</code> and <code>beta</code>, which are set to zero by
+default if not provided.</p>
+<div id="simulating-a-parametric-election" class="section level2">
+<h2>Simulating a parametric election</h2>
+<p>An election can be simulated using the function
+<code>simulate_election()</code>. When employing the parametric
+approach, it is necessary to specify both the number of covariates
+(<code>num_attributes</code>) and the number of districts
+(<code>num_districts</code>). In practice, a district may represent a
+collection of ballot boxes that share the same covariate values. In the
+example below, we simulate an election with three candidates, two
+demographic groups, and 20 covariates.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(fastei)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>election <span class="ot">&lt;-</span> <span class="fu">simulate_election</span>(</span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>    <span class="at">num_ballots =</span> <span class="dv">100</span>,</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>    <span class="at">num_candidates =</span> <span class="dv">3</span>,</span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>    <span class="at">num_groups =</span> <span class="dv">2</span>,</span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>    <span class="at">parametric =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a>    <span class="at">num_attributes =</span> <span class="dv">20</span>,</span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>    <span class="at">num_districts =</span> <span class="dv">10</span>,</span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a>    <span class="at">seed =</span> <span class="dv">42</span></span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a>)</span></code></pre></div>
+<p>Note that the parametric setting must be explicitly enabled by
+specifying parametric = TRUE.</p>
+<p>The results of the simulation can be inspected by printing the
+resulting object. The simulated election is returned as an eim
+object.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>election</span></code></pre></div>
+<pre><code>## eim ecological inference model
+## Candidates&#39; vote matrix (X) [b x c]:
+##      [,1] [,2] [,3]
+## [1,]   82    3   15
+## [2,]   82    2   16
+## [3,]   82    0   18
+## [4,]   85    3   12
+## [5,]   41   44   15
+## .
+## .
+## .
+## Group-level voter matrix (W) [b x g]:
+##      [,1] [,2]
+## [1,]   73   27
+## [2,]   70   30
+## [3,]   73   27
+## [4,]   76   24
+## [5,]   68   32
+## .
+## .
+## .
+## Attribute matrix (V) [b x a]:
+##           [,1]      [,2]       [,3]       [,4]       [,5]       [,6]      [,7]        [,8]       [,9]     [,10]     [,11]     [,12]     [,13]     [,14]     [,15]     [,16]      [,17]      [,18]     [,19]
+## [1,] 0.1233006 0.7853494 0.04989215 0.73170760 0.44456953 0.97933430 0.3937769 0.002378107 0.09091831 0.5763365 0.6525101 0.3220339 0.4700924 0.5247906 0.5132395 0.5815542 0.48275690 0.54551435 0.9213298
+## [2,] 0.3110496 0.4533034 0.18735671 0.31526080 0.06038559 0.49690343 0.1419089 0.160429915 0.79859664 0.0736678 0.2795735 0.7582701 0.3650141 0.6568109 0.6307262 0.2401496 0.97917358 0.44745733 0.3626018
+## [3,] 0.9457392 0.1357424 0.98265941 0.38645401 0.32750602 0.09307467 0.2798067 0.399272951 0.35978525 0.1646274 0.9799076 0.1044129 0.2801246 0.2295194 0.4187716 0.7218879 0.81151679 0.08388484 0.8551350
+## [4,] 0.5000251 0.8852210 0.32827407 0.33244599 0.87842905 0.21177366 0.5648222 0.675319577 0.04048758 0.7398908 0.6438641 0.7102779 0.5997159 0.7212260 0.8792659 0.1459287 0.54291282 0.93013369 0.3009062
+## [5,] 0.1352305 0.3367135 0.17099639 0.08977797 0.93060489 0.93050075 0.9351395 0.480372016 0.04108634 0.4757110 0.5825784 0.9664774 0.8185696 0.4907504 0.1079871 0.1528388 0.07236709 0.01644819 0.4656624
+##          [,20]
+## [1,] 0.3968551
+## [2,] 0.6969568
+## [3,] 0.6593197
+## [4,] 0.4073507
+## [5,] 0.3069202
+## .
+## .
+## .</code></pre>
+</div>
+<div id="running-the-model" class="section level2">
+<h2>Running the model</h2>
+<p>The model is estimated using the same function as in the
+non-parametric case. A minimal example is shown below:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>result <span class="ot">&lt;-</span> <span class="fu">run_em</span>(election)</span></code></pre></div>
+<p>The quality of the estimated solution can be assessed by computing
+the mean absolute error (MAE):</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>mae <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>(result<span class="sc">$</span>prob <span class="sc">-</span> result<span class="sc">$</span>real_prob))</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>mae</span></code></pre></div>
+<pre><code>## [1] 0.01356109</code></pre>
+<p>If a global probability matrix—analogous to that obtained in the
+non-parametric approach—is desired, it can be computed as a weighted
+average using the group sizes contained in <code>W</code>. Formally, the
+global probability for group (<span class="math inline">\(g\)</span>)
+and candidate (<span class="math inline">\(c\)</span>) is defined as</p>
+<p><span class="math display">\[P_{gc} = \frac{\sum_b W_{bg},
+p_{gcb}}{\sum_b W_{bg}}\]</span></p>
+<p>The following code snippet implements this aggregation:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>global_prob <span class="ot">&lt;-</span> <span class="cf">function</span>(W, prob) {</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>    G <span class="ot">&lt;-</span> <span class="fu">dim</span>(prob)[<span class="dv">1</span>]</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>    C <span class="ot">&lt;-</span> <span class="fu">dim</span>(prob)[<span class="dv">2</span>]</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>    P <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="cn">NA_real_</span>, G, C)</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>    <span class="cf">for</span> (g <span class="cf">in</span> <span class="fu">seq_len</span>(G)) {</span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>        w <span class="ot">&lt;-</span> W[, g]</span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>        P[g, ] <span class="ot">&lt;-</span> <span class="fu">colSums</span>(<span class="fu">t</span>(prob[g, , ]) <span class="sc">*</span> w) <span class="sc">/</span> <span class="fu">sum</span>(w)</span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>    }</span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>    <span class="fu">return</span>(P)</span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>}</span></code></pre></div>
+<p>Using this function, the estimated global probability matrix can be
+obtained as follows:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>estimated_global_probability <span class="ot">&lt;-</span> <span class="fu">global_prob</span>(result<span class="sc">$</span>W, result<span class="sc">$</span>prob)</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>estimated_global_probability</span></code></pre></div>
+<pre><code>##           [,1]       [,2]      [,3]
+## [1,] 0.6225445 0.16127307 0.2161825
+## [2,] 0.5684556 0.06672677 0.3648177</code></pre>
+<p>The MAE for the global probabilities is then computed by comparing
+the estimated matrix with the true global probabilities:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>real_global_probability <span class="ot">&lt;-</span> <span class="fu">global_prob</span>(election<span class="sc">$</span>W, election<span class="sc">$</span>real_prob)</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a></span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>parametric_global_mae <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>(estimated_global_probability <span class="sc">-</span> real_global_probability))</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>parametric_global_mae</span></code></pre></div>
+<pre><code>## [1] 0.007670176</code></pre>
+<p>Finally, the contribution of covariates to estimation accuracy can be
+evaluated by comparing the parametric model with the non-parametric
+approach. This is achieved by removing the covariate matrix V and
+re-estimating the model:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>non_parametric_election <span class="ot">&lt;-</span> election</span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>non_parametric_election<span class="sc">$</span>V <span class="ot">&lt;-</span> <span class="cn">NULL</span></span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>non_parametric_result <span class="ot">&lt;-</span> <span class="fu">run_em</span>(non_parametric_election)</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a></span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>non_parametric_mae <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>(non_parametric_result<span class="sc">$</span>prob <span class="sc">-</span> real_global_probability))</span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a></span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>improvement <span class="ot">&lt;-</span> (non_parametric_mae <span class="sc">-</span> parametric_global_mae) <span class="sc">/</span></span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>    non_parametric_mae <span class="sc">*</span> <span class="dv">100</span></span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a>improvement</span></code></pre></div>
+<pre><code>## [1] 9.298436</code></pre>
+<p>The resulting value represents the percentage reduction in MAE
+achieved by incorporating covariates, relative to the non-parametric
+baseline.</p>
+</div>
+<div id="reducing-dimensionality-with-pca" class="section level2">
+<h2>Reducing dimensionality with PCA</h2>
+<p>When working with a large number of covariates, it may be
+advantageous to reduce dimensionality using Principal Component Analysis
+(PCA). Dimensionality reduction can improve both computational
+efficiency and model interpretability. The function <code>PCA</code>
+allows the covariate matrix <code>V</code> to be transformed prior to
+running the EM algorithm.</p>
+<p>Dimensionality can be reduced either by explicitly specifying the
+number of principal components to retain via the argument
+<code>components</code>, or by providing a threshold for the proportion
+of explained variance using <code>sd_threshold</code>. The example below
+illustrates how PCA can be applied to the covariate matrix
+<code>V</code> in the simulated election:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a>PCA_election <span class="ot">&lt;-</span> <span class="fu">PCA</span>(election, <span class="at">components =</span> <span class="dv">2</span>)</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a><span class="fu">dim</span>(PCA_election<span class="sc">$</span>V)</span></code></pre></div>
+<pre><code>## [1] 100   2</code></pre>
+<p>As expected, the resulting covariate matrix contains only two
+columns, corresponding to the two retained principal components. The EM
+algorithm can then be run on this modified election object:</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a>pca_result <span class="ot">&lt;-</span> <span class="fu">run_em</span>(PCA_election)</span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a>pca_global_probability <span class="ot">&lt;-</span> <span class="fu">global_prob</span>(pca_result<span class="sc">$</span>W, pca_result<span class="sc">$</span>prob)</span>
+<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a>pca_global_mae <span class="ot">&lt;-</span> <span class="fu">mean</span>(<span class="fu">abs</span>(pca_global_probability <span class="sc">-</span> real_global_probability))</span></code></pre></div>
+<p>In some cases, reducing the number of covariates can lead to improved
+estimation accuracy. This can be evaluated by comparing the PCA-based
+model with the non-parametric baseline:</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a>pca_improvement <span class="ot">&lt;-</span> (non_parametric_mae <span class="sc">-</span> pca_global_mae) <span class="sc">/</span></span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a>    non_parametric_mae <span class="sc">*</span> <span class="dv">100</span></span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a>pca_improvement</span></code></pre></div>
+<pre><code>## [1] 48.14994</code></pre>
+<p>The resulting value represents the percentage reduction in MAE
+achieved by applying PCA relative to the non-parametric approach.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

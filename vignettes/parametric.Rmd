@@ -1,0 +1,139 @@
+---
+title: "Using the parametric approach"
+author: "Charles Thraves, Pablo Ubilla, Daniel Hermosilla"
+date: "`r Sys.Date()`"
+
+vignette: >
+  %\VignetteIndexEntry{Using the parametric approach}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+
+output:
+  rmarkdown::html_vignette:
+    toc: false
+    number_sections: false
+---
+In addition to the non-parametric approach presented in the main vignette (see `demonstration.Rmd`), `fastei` also supports a parametric approach that incorporates electoral-unit–level covariates. This approach follows the same general strategy of maximizing the log-likelihood via an EM algorithm, with the M-step carried out through a multinomial formulation.
+
+The parametric specification requires computing a Hessian matrix, which can be computationally costly; therefore, an approximation is used in practice. In addition, parameter updates within each M-step are obtained via a Newton–Raphson procedure. Empirically, performing a single Newton step (i.e., `maxnewton = 1`) is typically sufficient to achieve convergence.
+
+The main difference from the non-parametric approach is that the probability matrix is defined at the electoral-unit level rather than as a single global probability matrix. This enables the inclusion of electoral-unit covariates, which may better capture and explain variation in voting behavior across units. Consequently, convergence of the EM algorithm is assessed solely through increases in the log-likelihood.
+
+Under this model, probabilities are computed using a multinomial softmax. Specifically, letting $p_{bgc}$ denote the probability associated with electoral unit $b$, group $g$, and candidate $c$, we define:
+
+$$
+p_{bgc}=
+\frac{\exp\!\big(\beta_{gc} + (V\alpha^{T})_{bc}\big)}
+{1+\sum_{j=1}^{C-1}\exp\!\big(\beta_{gj} + (V\alpha^{T})_{bj}\big)}.
+$$
+
+Thus, the initial probabilities depend on the parameters `alpha` and `beta`, which are set to zero by default if not provided.
+
+## Simulating a parametric election
+
+An election can be simulated using the function `simulate_election()`. When employing the parametric approach, it is necessary to specify both the number of covariates (`num_attributes`) and the number of districts (`num_districts`). In practice, a district may represent a collection of ballot boxes that share the same covariate values. In the example below, we simulate an election with three candidates, two demographic groups, and 20 covariates.
+
+```{r}
+library(fastei)
+
+election <- simulate_election(
+    num_ballots = 100,
+    num_candidates = 3,
+    num_groups = 2,
+    parametric = TRUE,
+    num_attributes = 20,
+    num_districts = 10,
+    seed = 42
+)
+```
+
+Note that the parametric setting must be explicitly enabled by specifying parametric = TRUE.
+
+The results of the simulation can be inspected by printing the resulting object. The simulated election is returned as an eim object.
+
+```{r}
+election
+```
+
+## Running the model
+
+The model is estimated using the same function as in the non-parametric case. A minimal example is shown below:
+
+```{r}
+result <- run_em(election)
+```
+The quality of the estimated solution can be assessed by computing the mean absolute error (MAE):
+```{r}
+mae <- mean(abs(result$prob - result$real_prob))
+mae
+```
+
+If a global probability matrix—analogous to that obtained in the non-parametric approach—is desired, it can be computed as a weighted average using the group sizes contained in `W`. Formally, the global probability for group ($g$) and candidate ($c$) is defined as
+
+$$P_{gc} = \frac{\sum_b W_{bg}, p_{gcb}}{\sum_b W_{bg}}$$
+
+The following code snippet implements this aggregation:
+```{r}
+global_prob <- function(W, prob) {
+    G <- dim(prob)[1]
+    C <- dim(prob)[2]
+    P <- matrix(NA_real_, G, C)
+    for (g in seq_len(G)) {
+        w <- W[, g]
+        P[g, ] <- colSums(t(prob[g, , ]) * w) / sum(w)
+    }
+    return(P)
+}
+```
+
+Using this function, the estimated global probability matrix can be obtained as follows:
+```{r}
+estimated_global_probability <- global_prob(result$W, result$prob)
+estimated_global_probability
+```
+The MAE for the global probabilities is then computed by comparing the estimated matrix with the true global probabilities:
+```{r}
+real_global_probability <- global_prob(election$W, election$real_prob)
+
+parametric_global_mae <- mean(abs(estimated_global_probability - real_global_probability))
+parametric_global_mae
+```
+Finally, the contribution of covariates to estimation accuracy can be evaluated by comparing the parametric model with the non-parametric approach. This is achieved by removing the covariate matrix V and re-estimating the model:
+
+```{r}
+non_parametric_election <- election
+non_parametric_election$V <- NULL
+non_parametric_result <- run_em(non_parametric_election)
+
+non_parametric_mae <- mean(abs(non_parametric_result$prob - real_global_probability))
+
+improvement <- (non_parametric_mae - parametric_global_mae) /
+    non_parametric_mae * 100
+improvement
+```
+The resulting value represents the percentage reduction in MAE achieved by incorporating covariates, relative to the non-parametric baseline.
+
+## Reducing dimensionality with PCA
+
+When working with a large number of covariates, it may be advantageous to reduce dimensionality using Principal Component Analysis (PCA). Dimensionality reduction can improve both computational efficiency and model interpretability. The function `PCA` allows the covariate matrix `V` to be transformed prior to running the EM algorithm.
+
+Dimensionality can be reduced either by explicitly specifying the number of principal components to retain via the argument `components`, or by providing a threshold for the proportion of explained variance using `sd_threshold`. The example below illustrates how PCA can be applied to the covariate matrix `V` in the simulated election:
+
+```{r}
+PCA_election <- PCA(election, components = 2)
+dim(PCA_election$V)
+```
+As expected, the resulting covariate matrix contains only two columns, corresponding to the two retained principal components. The EM algorithm can then be run on this modified election object:
+
+```{r}
+pca_result <- run_em(PCA_election)
+pca_global_probability <- global_prob(pca_result$W, pca_result$prob)
+pca_global_mae <- mean(abs(pca_global_probability - real_global_probability))
+```
+In some cases, reducing the number of covariates can lead to improved estimation accuracy. This can be evaluated by comparing the PCA-based model with the non-parametric baseline:
+```{r}
+pca_improvement <- (non_parametric_mae - pca_global_mae) /
+    non_parametric_mae * 100
+pca_improvement
+```
+The resulting value represents the percentage reduction in MAE achieved by applying PCA relative to the non-parametric approach.

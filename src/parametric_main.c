@@ -134,6 +134,41 @@ void free_EMBuffers(EMBuffers *buf)
     Free(buf->vvec);
 }
 
+// ---- Copy helpers for returning results ----
+static Matrix *alloc_matrix_array(int B, int rows, int cols)
+{
+    Matrix *arr = (Matrix *)Calloc(B, Matrix);
+    for (int b = 0; b < B; ++b)
+    {
+        arr[b] = createMatrix(rows, cols);
+    }
+    return arr;
+}
+
+static void copy_matrix_array(Matrix *dest, const Matrix *src, int B)
+{
+    for (int b = 0; b < B; ++b)
+    {
+        size_t n = (size_t)src[b].rows * (size_t)src[b].cols;
+        memcpy(dest[b].data, src[b].data, n * sizeof(double));
+    }
+}
+
+static void compute_expected_outcome(const Matrix *W, Matrix *q_bgc, Matrix *expected, int B, int G, int C)
+{
+    for (int b = 0; b < B; ++b)
+    {
+        for (int g = 0; g < G; ++g)
+        {
+            double w = MATRIX_AT_PTR(W, b, g);
+            for (int c = 0; c < C; ++c)
+            {
+                MATRIX_AT(expected[b], g, c) = w * MATRIX_AT(q_bgc[b], g, c);
+            }
+        }
+    }
+}
+
 static bool hasMismatch(const Matrix *X, const Matrix *W)
 {
     int B = X->rows;
@@ -829,6 +864,7 @@ void M_step(Matrix *X, Matrix *W, Matrix *V, EMBuffers *buf, const double tol, c
 Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alpha, const int maxiter,
                      const double maxtime, const double ll_threshold, const int maxnewton, const bool verbose,
                      double *out_elapsed, int *total_iterations, double *logLikelihood,
+                     Matrix **out_q, Matrix **out_expected,
                      const char *adjust_prob_cond_method, bool adjust_prob_cond_every)
 {
     int B = V->rows;
@@ -916,6 +952,19 @@ Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alph
     }
 
     clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
+
+    if (out_q != NULL)
+    {
+        Matrix *q_out = alloc_matrix_array(B, G, buf.C);
+        copy_matrix_array(q_out, buf.q_bgc, B);
+        *out_q = q_out;
+    }
+    if (out_expected != NULL)
+    {
+        Matrix *expected_out = alloc_matrix_array(B, G, buf.C);
+        compute_expected_outcome(W, buf.q_bgc, expected_out, B, G, buf.C);
+        *out_expected = expected_out;
+    }
 
     // Compute elapsed seconds
     double sec = (double)(t1.tv_sec - t0.tv_sec);

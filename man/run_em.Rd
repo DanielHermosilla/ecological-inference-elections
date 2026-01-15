@@ -135,9 +135,17 @@ samples for the \code{mvn_cdf} method. The default value is \code{5000}. This ar
 \value{
 The function returns an \code{eim} object with the function arguments and the following attributes:
 \describe{
-\item{prob}{The estimated probability matrix \verb{(g x c)}.}
-\item{cond_prob}{A \verb{(g x c x b)} 3d-array with the probability that a at each ballot-box a voter of each group voted for each candidate, given the observed outcome at the particular ballot-box.}
-\item{expected_outcome}{A \verb{(g x c x b)} 3d-array with the expected votes cast for each ballot box.}
+\item{prob}{
+If \code{V} is \code{NULL} (non-parametric), the estimated global probability matrix \verb{(g x c)}.
+If \code{V} is supplied (parametric), a \verb{(g x c x b)} 3d-array of probabilities for each ballot-box.
+}
+\item{cond_prob}{
+A \verb{(g x c x b)} 3d-array with the probability that at each ballot-box a voter of each group voted for each candidate,
+given the observed outcome at the particular ballot-box.
+}
+\item{expected_outcome}{
+A \verb{(g x c x b)} 3d-array with the expected votes cast for each ballot-box.
+}
 \item{logLik}{The log-likelihood value from the last iteration.}
 \item{iterations}{The total number of iterations performed by the EM algorithm.}
 \item{time}{The total execution time of the algorithm in seconds.}

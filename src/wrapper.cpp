@@ -273,10 +273,12 @@ Rcpp::List EMAlgorithmParametric(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
     double elapsed = 0.0;
     int total_iter = 0;
     double logLikelihood = 0.0;
+    Matrix *condProbMat = NULL;
+    Matrix *expectedMat = NULL;
     Matrix *finalProb =
         EM_Algorithm(&XR, &WR, &VR, &BetaR, &AlphaR, maximum_iterations[0], maximum_seconds[0],
                      log_stopping_threshold[0], maximum_newton[0], verbose[0], &elapsed, &total_iter, &logLikelihood,
-                     adjust_prob_cond_method.c_str(), project_every[0]);
+                     &condProbMat, &expectedMat, adjust_prob_cond_method.c_str(), project_every[0]);
 
     // ---- Build the probability array (g x c x b) ---- //
     int S = VR.rows;
@@ -286,6 +288,12 @@ Rcpp::List EMAlgorithmParametric(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
     Rcpp::NumericVector probArr(R * C * S);
     probArr.attr("dim") = Rcpp::IntegerVector::create(R, C, S);
 
+    Rcpp::NumericVector condProb(R * C * S);
+    condProb.attr("dim") = Rcpp::IntegerVector::create(R, C, S);
+
+    Rcpp::NumericVector expectedOut(R * C * S);
+    expectedOut.attr("dim") = Rcpp::IntegerVector::create(R, C, S);
+
     for (int s = 0; s < S; ++s)
     {
         for (int i = 0; i < R; ++i)
@@ -294,11 +302,23 @@ Rcpp::List EMAlgorithmParametric(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
             {
                 int idx = i + R * (j + C * s);
                 probArr[idx] = MATRIX_AT(finalProb[s], i, j);
+                if (condProbMat != NULL)
+                    condProb[idx] = MATRIX_AT(condProbMat[s], i, j);
+                if (expectedMat != NULL)
+                    expectedOut[idx] = MATRIX_AT(expectedMat[s], i, j);
             }
         }
         freeMatrix(&finalProb[s]);
+        if (condProbMat != NULL)
+            freeMatrix(&condProbMat[s]);
+        if (expectedMat != NULL)
+            freeMatrix(&expectedMat[s]);
     }
     Free(finalProb);
+    if (condProbMat != NULL)
+        Free(condProbMat);
+    if (expectedMat != NULL)
+        Free(expectedMat);
 
     // ---- Copy out final beta and alpha ---- //
     Rcpp::NumericMatrix Rbeta(BetaR.rows, BetaR.cols);
@@ -313,9 +333,10 @@ Rcpp::List EMAlgorithmParametric(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
     releaseMatrix(&BetaR);
     releaseMatrix(&AlphaR);
 
-    return Rcpp::List::create(Rcpp::_["prob"] = probArr, Rcpp::_["beta"] = Rbeta, Rcpp::_["alpha"] = Ralpha,
-                              Rcpp::_["time"] = elapsed, Rcpp::_["iter"] = total_iter,
-                              Rcpp::_["logLik"] = logLikelihood);
+    return Rcpp::List::create(Rcpp::_["prob"] = probArr, Rcpp::_["cond_prob"] = condProb,
+                              Rcpp::_["expected_outcome"] = expectedOut, Rcpp::_["beta"] = Rbeta,
+                              Rcpp::_["alpha"] = Ralpha, Rcpp::_["time"] = elapsed,
+                              Rcpp::_["iter"] = total_iter, Rcpp::_["logLik"] = logLikelihood);
 }
 
 // ---- Run Parametric Bootstrapping Algorithm ---- //
