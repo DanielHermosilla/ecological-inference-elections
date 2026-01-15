@@ -4,6 +4,7 @@
 # Allow specific files/directories
 !tests
 !tests/*
+!tests/testthat/*
 !.github
 !.github/**
 !.gitignore
