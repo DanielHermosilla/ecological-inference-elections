@@ -20,7 +20,7 @@ otherwise, it yields an error."><!-- mathjax --><script src="https://cdnjs.cloud
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">fastei</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.0.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.0</span>
       </span>
     </div>
 
@@ -36,6 +36,9 @@ otherwise, it yields an error."><!-- mathjax --><script src="https://cdnjs.cloud
   </a>
   <ul class="dropdown-menu" role="menu"><li>
       <a href="../articles/demonstration.html">Demonstration of the package usage</a>
+    </li>
+    <li>
+      <a href="../articles/parametric.html">Using the parametric approach</a>
     </li>
   </ul></li>
       </ul><ul class="nav navbar-nav navbar-right"><li>
@@ -121,15 +124,15 @@ otherwise, it yields an error.</p>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Save as RDS</span></span></span>
 <span class="r-in"><span><span class="fu">save_eim</span><span class="op">(</span><span class="va">model</span>, filename <span class="op">=</span> <span class="va">out_rds</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Results saved as RDS: /var/folders/kg/_zd3ll1x7zz9vkxv49rq_m9m0000gn/T//RtmpfuG3Em/model_results.rds</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Results saved as RDS: /var/folders/kg/_zd3ll1x7zz9vkxv49rq_m9m0000gn/T//Rtmp1lhNIL/model_results.rds</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Save as JSON</span></span></span>
 <span class="r-in"><span><span class="fu">save_eim</span><span class="op">(</span><span class="va">model</span>, filename <span class="op">=</span> <span class="va">out_json</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Results saved as JSON: /var/folders/kg/_zd3ll1x7zz9vkxv49rq_m9m0000gn/T//RtmpfuG3Em/model_results.json</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Results saved as JSON: /var/folders/kg/_zd3ll1x7zz9vkxv49rq_m9m0000gn/T//Rtmp1lhNIL/model_results.json</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Save as CSV</span></span></span>
 <span class="r-in"><span><span class="fu">save_eim</span><span class="op">(</span><span class="va">model</span>, filename <span class="op">=</span> <span class="va">out_csv</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Probability matrix saved as CSV: /var/folders/kg/_zd3ll1x7zz9vkxv49rq_m9m0000gn/T//RtmpfuG3Em/model_results.csv</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Probability matrix saved as CSV: /var/folders/kg/_zd3ll1x7zz9vkxv49rq_m9m0000gn/T//Rtmp1lhNIL/model_results.csv</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Remove the files</span></span></span>
 <span class="r-in"><span><span class="va">files</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">out_rds</span>, <span class="va">out_json</span>, <span class="va">out_csv</span><span class="op">)</span></span></span>

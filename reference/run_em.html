@@ -19,7 +19,7 @@ Certain methods may require additional arguments, which can be passed through ..
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">fastei</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.0.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.0</span>
       </span>
     </div>
 
@@ -35,6 +35,9 @@ Certain methods may require additional arguments, which can be passed through ..
   </a>
   <ul class="dropdown-menu" role="menu"><li>
       <a href="../articles/demonstration.html">Demonstration of the package usage</a>
+    </li>
+    <li>
+      <a href="../articles/parametric.html">Using the parametric approach</a>
     </li>
   </ul></li>
       </ul><ul class="nav navbar-nav navbar-right"><li>
@@ -251,13 +254,15 @@ samples for the <code>mvn_cdf</code> method. The default value is <code>5000</co
     <div id="value">
     <h2>Value</h2>
     <p>The function returns an <code>eim</code> object with the function arguments and the following attributes:</p><dl><dt>prob</dt>
-<dd><p>The estimated probability matrix <code>(g x c)</code>.</p></dd>
+<dd><p>If <code>V</code> is <code>NULL</code> (non-parametric), the estimated global probability matrix <code>(g x c)</code>.
+If <code>V</code> is supplied (parametric), a <code>(g x c x b)</code> 3d-array of probabilities for each ballot-box.</p></dd>
 
 <dt>cond_prob</dt>
-<dd><p>A <code>(g x c x b)</code> 3d-array with the probability that a at each ballot-box a voter of each group voted for each candidate, given the observed outcome at the particular ballot-box.</p></dd>
+<dd><p>A <code>(g x c x b)</code> 3d-array with the probability that at each ballot-box a voter of each group voted for each candidate,
+given the observed outcome at the particular ballot-box.</p></dd>
 
 <dt>expected_outcome</dt>
-<dd><p>A <code>(g x c x b)</code> 3d-array with the expected votes cast for each ballot box.</p></dd>
+<dd><p>A <code>(g x c x b)</code> 3d-array with the expected votes cast for each ballot-box.</p></dd>
 
 <dt>logLik</dt>
 <dd><p>The log-likelihood value from the last iteration.</p></dd>
