@@ -2,6 +2,8 @@
 *
 
 # Allow specific files/directories
+!tests
+!tests/*
 !.github
 !.github/**
 !.gitignore
