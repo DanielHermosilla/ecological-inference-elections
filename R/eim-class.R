@@ -1036,12 +1036,12 @@ bootstrap <- function(object = NULL,
 #'
 #' @examples
 #' sim <- simulate_election(
-#'     num_ballots = 10,
+#'     num_ballots = 50,
 #'     num_candidates = 3,
 #'     num_groups = 2,
 #'     ballot_voters = 40,
 #'     parametric = TRUE,
-#'     num_attributes = 3,
+#'     num_attributes = 10,
 #'     num_districts = 2,
 #'     seed = 1
 #' )

@@ -180,11 +180,114 @@ summary.eim <- function(object, ...) {
     final_list
 }
 
-#' Returns the object estimated probability
+#' @title Plot estimated probabilities
+#' @description
+#'   Plots the estimated probabilities as pie charts using `ggplot2`, one per row of the probability matrix.
+#'   Each slice displays its percentage label. For the parametric case, it does a weighted average over groups to retrieve the global probabilities.
+#'
+#' @param x An "eim" object.
+#' @param title Title for the plot.
+#' @param legend_title Title for the legend.
+#' @param color_scale A vector of colors or a palette for the candidates.
+#' @param min_pct Minimum percentage required to display a label.
+#' @param ... Additional arguments that are ignored.
+#'
+#' @return Returns a `ggplot2` object representing the pie charts.
+#'
+#' @examples
+#' \donttest{
+#' sim <- simulate_election(
+#'     num_ballots = 100,
+#'     num_candidates = 4,
+#'     num_groups = 5,
+#'     ballot_voters = 40,
+#'     parametric = TRUE,
+#'     num_attributes = 2,
+#'     num_districts = 2,
+#'     seed = 42
+#' )
+#' fit <- run_em(sim, maxiter = 5)
+#'
+#' plot(fit, title = "Estimated probabilities", legend_title = "Candidates", min_pct = 7)
+#' }
+#' @export
+plot.eim <- function(x,
+                     title = "Estimated probabilities",
+                     legend_title = "Candidates",
+                     color_scale = NULL,
+                     min_pct = 3,
+                     ...) {
+    if (!requireNamespace("ggplot2", quietly = TRUE)) {
+        stop("plot.eim: package 'ggplot2' is required for plotting.")
+    }
+    object <- x
+    prob <- object$prob
+
+    # Case it's parametric
+    if (is.array(prob) && length(dim(prob)) == 3) {
+        W <- as.matrix(object$W)
+        G <- dim(prob)[1]
+        C <- dim(prob)[2]
+        P <- matrix(0, nrow = G, ncol = C)
+        for (g in seq_len(G)) {
+            P[g, ] <- colSums(t(prob[g, , ]) * W[, g]) / sum(W[, g])
+        }
+        dimnames(P) <- dimnames(prob)[1:2]
+    } else {
+        P <- as.matrix(prob)
+    }
+
+    row_names <- rownames(P)
+    col_names <- colnames(P)
+    if (is.null(row_names)) row_names <- paste0("Row ", seq_len(nrow(P)))
+    if (is.null(col_names)) col_names <- paste0("Col ", seq_len(ncol(P)))
+
+    if (is.function(color_scale)) {
+        colors <- color_scale(ncol(P))
+    } else {
+        colors <- color_scale
+    }
+    if (is.null(colors)) {
+        colors <- grDevices::colorRampPalette(c("#4575B4", "#F7F7F7", "#D73027"))(ncol(P))
+    } else if (length(colors) < ncol(P)) {
+        colors <- grDevices::colorRampPalette(colors)(ncol(P))
+    }
+
+    df <- expand.grid(row = row_names, col = col_names, stringsAsFactors = FALSE)
+    df$value <- as.vector(P)
+    df$row <- factor(df$row, levels = row_names)
+    df$col <- factor(df$col, levels = col_names)
+    df$label <- ifelse(100 * df$value >= min_pct, sprintf("%.1f%%", 100 * df$value), "")
+
+    plot_obj <- ggplot2::ggplot(df, ggplot2::aes(x = 0.5, y = value, fill = col)) +
+        ggplot2::geom_col(width = 1, color = NA) +
+        ggplot2::coord_polar(theta = "y", clip = "off") +
+        ggplot2::scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
+        ggplot2::facet_wrap(~row, strip.position = "top") +
+        ggplot2::geom_text(
+            ggplot2::aes(label = label),
+            position = ggplot2::position_stack(vjust = 0.5),
+            size = 3
+        ) +
+        ggplot2::scale_fill_manual(values = colors, name = legend_title) +
+        ggplot2::labs(title = title) +
+        ggplot2::theme_void() +
+        ggplot2::theme(
+            plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+            strip.background = ggplot2::element_blank(),
+            strip.text = ggplot2::element_text(face = "bold"),
+            legend.position = "right"
+        )
+
+    print(plot_obj)
+    invisible(plot_obj)
+}
+
+#' Returns the object estimated probability. In case it is a parametric model, it returns the global probabilities weighted by W.
 #'
 #' @param object An "eim" object.
 #' @param ... Additional arguments that are ignored.
-#' @return The probability matrix or array
+#' @return The global probability matrix
 #' @noRd
 #' @export
 as.matrix.eim <- function(x, ...) {
@@ -194,7 +297,22 @@ as.matrix.eim <- function(x, ...) {
             "Probability matrix not available. Run 'run_em()'."
         ))
     }
-    return(object$prob)
+    prob <- object$prob
+
+    # Return the global probabilities in case of parametric model, weighted by W
+    if (is.array(prob) && length(dim(prob)) == 3) {
+        W <- as.matrix(object$W)
+        G <- dim(prob)[1]
+        C <- dim(prob)[2]
+        P <- matrix(0, nrow = G, ncol = C)
+        for (g in seq_len(G)) {
+            P[g, ] <- colSums(t(prob[g, , ]) * W[, g]) / sum(W[, g])
+        }
+        dimnames(P) <- dimnames(prob)[1:2]
+    } else {
+        P <- as.matrix(prob)
+    }
+    return(P)
 }
 
 #' @title Extract log-likelihood
