@@ -81,7 +81,7 @@ test_that("parametric run_em rejects non-mult methods", {
     sim <- simulate_election(
         num_ballots = 6,
         num_candidates = 3,
-        num_groups = 2
+        num_groups = 2,
         num_covariates = 2,
         num_districts = 2,
         seed = 203
