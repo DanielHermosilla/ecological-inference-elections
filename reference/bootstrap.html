@@ -33,10 +33,10 @@ It supports both non-parametric and parametric models; the parametric mode is en
     <span class="caret"></span>
   </a>
   <ul class="dropdown-menu" role="menu"><li>
-      <a href="../articles/demonstration.html">Demonstration of the package usage</a>
+      <a href="../articles/covariates.html">Using the covariate approach</a>
     </li>
     <li>
-      <a href="../articles/parametric.html">Using the parametric approach</a>
+      <a href="../articles/demonstration.html">Demonstration of the package usage</a>
     </li>
   </ul></li>
       </ul><ul class="nav navbar-nav navbar-right"><li>
@@ -75,8 +75,6 @@ It supports both non-parametric and parametric models; the parametric mode is en
 <span>  allow_mismatch <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  maxnewton <span class="op">=</span> <span class="fl">1</span>,</span>
-<span>  beta <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  alpha <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -119,15 +117,7 @@ EM algorithm.</p></dd>
 
 
 <dt id="arg-maxnewton">maxnewton<a class="anchor" aria-label="anchor" href="#arg-maxnewton"></a></dt>
-<dd><p>Maximum number of Newton iterations used in the parametric M-step. Default is <code>1</code>.</p></dd>
-
-
-<dt id="arg-beta">beta<a class="anchor" aria-label="anchor" href="#arg-beta"></a></dt>
-<dd><p>Optional <code>g x (c-1)</code> matrix of initial group coefficients used in parametric mode. Ignored in non-parametric mode.</p></dd>
-
-
-<dt id="arg-alpha">alpha<a class="anchor" aria-label="anchor" href="#arg-alpha"></a></dt>
-<dd><p>Optional <code>(c-1) x a</code> matrix of initial attribute coefficients used in parametric mode. Ignored in non-parametric mode.</p></dd>
+<dd><p>Maximum number of Newton iterations used in the parametric M-step. Default is 1. Ignored if no covariates are provided (i.e., <code>V = NULL</code>).</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

@@ -35,10 +35,10 @@ otherwise, it yields an error."><!-- mathjax --><script src="https://cdnjs.cloud
     <span class="caret"></span>
   </a>
   <ul class="dropdown-menu" role="menu"><li>
-      <a href="../articles/demonstration.html">Demonstration of the package usage</a>
+      <a href="../articles/covariates.html">Using the covariate approach</a>
     </li>
     <li>
-      <a href="../articles/parametric.html">Using the parametric approach</a>
+      <a href="../articles/demonstration.html">Demonstration of the package usage</a>
     </li>
   </ul></li>
       </ul><ul class="nav navbar-nav navbar-right"><li>
@@ -98,12 +98,13 @@ otherwise, it yields an error.</p>
 <ul><li><p>If the file extension is <strong>RDS</strong>, the entire object is saved using <code><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">saveRDS()</a></code>.</p></li>
 <li><p>If the file extension is <strong>JSON</strong>, all available attributes of the object are stored in JSON format.</p></li>
 <li><p>If the file extension is <strong>CSV</strong>:</p><ul><li><p>If the object contains a <code>prob</code> field, only that field is saved as a CSV.</p></li>
+<li><p>For parametric probabilities, the 3D array is flattened into a 2D matrix with rows for each ballot-box/group pair.</p></li>
 <li><p>Otherwise, returns an error.</p></li>
 </ul></li>
 </ul></div>
     <div id="note">
     <h2>Note</h2>
-    <p>This function supports both non-parametric and parametric models. CSV export is not supported for parametric probabilities.</p>
+    <p>This function supports both non-parametric and parametric models. For parametric probabilities, the CSV output is a flattened matrix where rows correspond to ballot-box and group pairs.</p>
     </div>
     <div id="see-also">
     <h2>See also</h2>
@@ -124,15 +125,15 @@ otherwise, it yields an error.</p>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Save as RDS</span></span></span>
 <span class="r-in"><span><span class="fu">save_eim</span><span class="op">(</span><span class="va">model</span>, filename <span class="op">=</span> <span class="va">out_rds</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Results saved as RDS: /var/folders/kg/_zd3ll1x7zz9vkxv49rq_m9m0000gn/T//RtmpAajVeT/model_results.rds</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Results saved as RDS: /var/folders/kg/_zd3ll1x7zz9vkxv49rq_m9m0000gn/T//RtmpGb5wpZ/model_results.rds</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Save as JSON</span></span></span>
 <span class="r-in"><span><span class="fu">save_eim</span><span class="op">(</span><span class="va">model</span>, filename <span class="op">=</span> <span class="va">out_json</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Results saved as JSON: /var/folders/kg/_zd3ll1x7zz9vkxv49rq_m9m0000gn/T//RtmpAajVeT/model_results.json</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Results saved as JSON: /var/folders/kg/_zd3ll1x7zz9vkxv49rq_m9m0000gn/T//RtmpGb5wpZ/model_results.json</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Save as CSV</span></span></span>
 <span class="r-in"><span><span class="fu">save_eim</span><span class="op">(</span><span class="va">model</span>, filename <span class="op">=</span> <span class="va">out_csv</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Probability matrix saved as CSV: /var/folders/kg/_zd3ll1x7zz9vkxv49rq_m9m0000gn/T//RtmpAajVeT/model_results.csv</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Probability matrix saved as CSV: /var/folders/kg/_zd3ll1x7zz9vkxv49rq_m9m0000gn/T//RtmpGb5wpZ/model_results.csv</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Remove the files</span></span></span>
 <span class="r-in"><span><span class="va">files</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">out_rds</span>, <span class="va">out_json</span>, <span class="va">out_csv</span><span class="op">)</span></span></span>

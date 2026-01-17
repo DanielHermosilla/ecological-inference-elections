@@ -33,10 +33,10 @@ Each slice displays its percentage label. For the parametric case, it does a wei
     <span class="caret"></span>
   </a>
   <ul class="dropdown-menu" role="menu"><li>
-      <a href="../articles/demonstration.html">Demonstration of the package usage</a>
+      <a href="../articles/covariates.html">Using the covariate approach</a>
     </li>
     <li>
-      <a href="../articles/parametric.html">Using the parametric approach</a>
+      <a href="../articles/demonstration.html">Demonstration of the package usage</a>
     </li>
   </ul></li>
       </ul><ul class="nav navbar-nav navbar-right"><li>
@@ -72,6 +72,7 @@ Each slice displays its percentage label. For the parametric case, it does a wei
 <span>  legend_title <span class="op">=</span> <span class="st">"Candidates"</span>,</span>
 <span>  color_scale <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  min_pct <span class="op">=</span> <span class="fl">3</span>,</span>
+<span>  pies_per_row <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -100,6 +101,11 @@ Each slice displays its percentage label. For the parametric case, it does a wei
 <dd><p>Minimum percentage required to display a label.</p></dd>
 
 
+<dt id="arg-pies-per-row">pies_per_row<a class="anchor" aria-label="anchor" href="#arg-pies-per-row"></a></dt>
+<dd><p>Number of pie charts to display per row. Defaults to <code>ceiling(sqrt(G))</code>,
+where <code>G</code> is the number of groups.</p></dd>
+
+
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
 <dd><p>Additional arguments that are ignored.</p></dd>
 
@@ -118,7 +124,7 @@ Each slice displays its percentage label. For the parametric case, it does a wei
 <span class="r-in"><span>    num_groups <span class="op">=</span> <span class="fl">5</span>,</span></span>
 <span class="r-in"><span>    ballot_voters <span class="op">=</span> <span class="fl">40</span>,</span></span>
 <span class="r-in"><span>    parametric <span class="op">=</span> <span class="cn">TRUE</span>,</span></span>
-<span class="r-in"><span>    num_attributes <span class="op">=</span> <span class="fl">2</span>,</span></span>
+<span class="r-in"><span>    num_covariates <span class="op">=</span> <span class="fl">2</span>,</span></span>
 <span class="r-in"><span>    num_districts <span class="op">=</span> <span class="fl">2</span>,</span></span>
 <span class="r-in"><span>    seed <span class="op">=</span> <span class="fl">42</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>

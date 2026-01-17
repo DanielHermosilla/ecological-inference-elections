@@ -5,13 +5,13 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Using the parametric approach • fastei</title>
+<title>Using the covariate approach • fastei</title>
 <!-- jquery --><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script><!-- Bootstrap --><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/css/bootstrap.min.css" integrity="sha256-bZLfwXAP04zRMK2BjiO8iu9pf4FbLqX6zitd+tIvLhE=" crossorigin="anonymous">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/js/bootstrap.min.js" integrity="sha256-nuL8/2cJ5NDSSwnKD8VqreErSWHtnEP9E7AySL+1ev4=" crossorigin="anonymous"></script><!-- bootstrap-toc --><link rel="stylesheet" href="../bootstrap-toc.css">
 <script src="../bootstrap-toc.js"></script><!-- Font Awesome icons --><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css" integrity="sha256-mmgLkCYLUQbXn0B1SRqzHar6dCnv9oZFPEC1g1cwlkk=" crossorigin="anonymous">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/v4-shims.min.css" integrity="sha256-wZjR52fzng1pJHwx4aV2AO3yyTOXrcDW7jBpJtTwVxw=" crossorigin="anonymous">
 <!-- clipboard.js --><script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script><!-- headroom.js --><script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/headroom.min.js" integrity="sha256-AsUX4SJE1+yuDu5+mAVzJbuYNPHj/WroHuZ8Ir/CkE0=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/jQuery.headroom.min.js" integrity="sha256-ZX/yNShbjqsohH1k95liqY9Gd8uOiE1S4vZc+9KQ1K4=" crossorigin="anonymous"></script><!-- pkgdown --><link href="../pkgdown.css" rel="stylesheet">
-<script src="../pkgdown.js"></script><meta property="og:title" content="Using the parametric approach">
+<script src="../pkgdown.js"></script><meta property="og:title" content="Using the covariate approach">
 <!-- mathjax --><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js" integrity="sha256-nvJJv9wWKEm88qvoQl9ekL2J+k/RWIsaSScxxlsrv8k=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/config/TeX-AMS-MML_HTMLorMML.js" integrity="sha256-84DKXVJXs0/F8OTMzX4UR909+jtl4G7SPypPavF+GfA=" crossorigin="anonymous"></script><!--[if lt IE 9]>
 <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
 <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
@@ -49,10 +49,10 @@
   </a>
   <ul class="dropdown-menu" role="menu">
 <li>
-      <a href="../articles/demonstration.html">Demonstration of the package usage</a>
+      <a href="../articles/covariates.html">Using the covariate approach</a>
     </li>
     <li>
-      <a href="../articles/parametric.html">Using the parametric approach</a>
+      <a href="../articles/demonstration.html">Demonstration of the package usage</a>
     </li>
   </ul>
 </li>
@@ -77,26 +77,26 @@
       </header><div class="row">
   <div class="col-md-9 contents">
     <div class="page-header toc-ignore">
-      <h1 data-toc-skip>Using the parametric approach</h1>
+      <h1 data-toc-skip>Using the covariate approach</h1>
                         <h4 data-toc-skip class="author">Charles
 Thraves, Pablo Ubilla, Daniel Hermosilla</h4>
             
-            <h4 data-toc-skip class="date">2026-01-15</h4>
+            <h4 data-toc-skip class="date">2026-01-16</h4>
       
-      <small class="dont-index">Source: <a href="https://github.com/DanielHermosilla/ecological-inference-elections/blob/HEAD/vignettes/parametric.Rmd" class="external-link"><code>vignettes/parametric.Rmd</code></a></small>
-      <div class="hidden name"><code>parametric.Rmd</code></div>
+      <small class="dont-index">Source: <a href="https://github.com/DanielHermosilla/ecological-inference-elections/blob/HEAD/vignettes/covariates.Rmd" class="external-link"><code>vignettes/covariates.Rmd</code></a></small>
+      <div class="hidden name"><code>covariates.Rmd</code></div>
 
     </div>
 
     
     
-<p>In addition to the non-parametric approach presented in the main
+<p>In addition to the non-covariate approach presented in the main
 vignette (see <code>demonstration.Rmd</code>), <code>fastei</code> also
-supports a parametric approach that incorporates electoral-unit–level
+supports a covariate approach that incorporates electoral-unit–level
 covariates. This approach follows the same general strategy of
 maximizing the log-likelihood via an EM algorithm, with the M-step
 carried out through a multinomial formulation.</p>
-<p>The parametric specification requires computing a Hessian matrix,
+<p>The covariate specification requires computing a Hessian matrix,
 which can be computationally costly; therefore, an approximation is used
 in practice. In addition, parameter updates within each M-step are
 obtained via a Newton–Raphson procedure. Empirically, performing a
@@ -131,9 +131,9 @@ default if not provided.</p>
 <h2 id="simulating-a-parametric-election">Simulating a parametric election<a class="anchor" aria-label="anchor" href="#simulating-a-parametric-election"></a>
 </h2>
 <p>An election can be simulated using the function
-<code><a href="../reference/simulate_election.html">simulate_election()</a></code>. When employing the parametric
-approach, it is necessary to specify both the number of covariates
-(<code>num_attributes</code>) and the number of districts
+<code><a href="../reference/simulate_election.html">simulate_election()</a></code>. When employing the covariate approach,
+it is necessary to specify both the number of covariates
+(<code>num_covariates</code>) and the number of districts
 (<code>num_districts</code>). In practice, a district may represent a
 collection of ballot boxes that share the same covariate values. In the
 example below, we simulate an election with three candidates, two
@@ -145,16 +145,16 @@ demographic groups, and 20 covariates.</p>
 <span>    num_ballots <span class="op">=</span> <span class="fl">100</span>,</span>
 <span>    num_candidates <span class="op">=</span> <span class="fl">3</span>,</span>
 <span>    num_groups <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>    parametric <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>    num_attributes <span class="op">=</span> <span class="fl">20</span>,</span>
+<span>    num_covariates <span class="op">=</span> <span class="fl">20</span>,</span>
 <span>    num_districts <span class="op">=</span> <span class="fl">10</span>,</span>
 <span>    seed <span class="op">=</span> <span class="fl">42</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p>Note that the parametric setting must be explicitly enabled by
-specifying parametric = TRUE.</p>
+<p>Note that the covariate setting must be explicitly enabled by
+specifying <code>num_covariates</code> and <code>num_districts</code>
+distinctly from zero.</p>
 <p>The results of the simulation can be inspected by printing the
-resulting object. The simulated election is returned as an eim
-object.</p>
+resulting object. The simulated election is returned as an
+<code>eim</code> object.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">election</span></span></code></pre></div>
 <pre><code><span><span class="co">## eim ecological inference model</span></span>
@@ -205,7 +205,7 @@ object.</p>
 <h2 id="running-the-model">Running the model<a class="anchor" aria-label="anchor" href="#running-the-model"></a>
 </h2>
 <p>The model is estimated using the same function as in the
-non-parametric case. A minimal example is shown below:</p>
+non-covariate case. A minimal example is shown below:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_em.html">run_em</a></span><span class="op">(</span><span class="va">election</span><span class="op">)</span></span></code></pre></div>
 <p>The quality of the estimated solution can be assessed by computing
@@ -223,7 +223,9 @@ and candidate
 (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>c</mi><annotation encoding="application/x-tex">c</annotation></semantics></math>)
 is defined as</p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>P</mi><mrow><mi>g</mi><mi>c</mi></mrow></msub><mo>=</mo><mfrac><mrow><munder><mo>∑</mo><mi>b</mi></munder><msub><mi>W</mi><mrow><mi>b</mi><mi>g</mi></mrow></msub><mo>,</mo><msub><mi>p</mi><mrow><mi>g</mi><mi>c</mi><mi>b</mi></mrow></msub></mrow><mrow><munder><mo>∑</mo><mi>b</mi></munder><msub><mi>W</mi><mrow><mi>b</mi><mi>g</mi></mrow></msub></mrow></mfrac></mrow><annotation encoding="application/x-tex">P_{gc} = \frac{\sum_b W_{bg}, p_{gcb}}{\sum_b W_{bg}}</annotation></semantics></math></p>
-<p>The following code snippet implements this aggregation:</p>
+<p>The following code snippet implements this aggregation (note that we
+could also get the global matrix by using the <code><a href="https://rdrr.io/r/base/matrix.html" class="external-link">as.matrix()</a></code>
+function):</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">global_prob</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">W</span>, <span class="va">prob</span><span class="op">)</span> <span class="op">{</span></span>
 <span>    <span class="va">G</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">prob</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
@@ -252,7 +254,7 @@ the estimated matrix with the true global probabilities:</p>
 <span><span class="va">parametric_global_mae</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] 0.007670176</span></span></code></pre>
 <p>Finally, the contribution of covariates to estimation accuracy can be
-evaluated by comparing the parametric model with the non-parametric
+evaluated by comparing the covariate model with the non-covariate
 approach. This is achieved by removing the covariate matrix V and
 re-estimating the model:</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
