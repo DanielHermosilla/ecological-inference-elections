@@ -2,7 +2,7 @@
 #'
 #' Package that implements the methods of [Thraves, C.,Ubilla, P. and Hermosilla, D. (2024): *"A Fast Ecological Inference Algorithm for the R×C Case"*.](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834)
 #'
-#' Includes a method ([run_em]) to solve the R\eqn{\times}C Ecological Inference problem for both non-parametric and parametric settings by using the EM algorithm with different approximation methods for the E-Step. The standard deviation of the estimated probabilities can be computed using bootstrapping ([bootstrap]).
+#' Includes a method ([run_em]) to solve the R\eqn{\times}C ecological inference problem using the EM algorithm with different approximation methods for the E-step. Covariates are supported but not required. Standard errors of the estimated probabilities can be computed via bootstrapping ([bootstrap]).
 #'
 #' It also provides a function that generates synthetic election data ([simulate_election]) and a function that imports real election data ([chile_election_2021]) from the Chilean first-round presidential election of 2021.
 #'

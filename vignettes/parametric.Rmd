@@ -31,7 +31,7 @@ Thus, the initial probabilities depend on the parameters `alpha` and `beta`, whi
 
 ## Simulating a parametric election
 
-An election can be simulated using the function `simulate_election()`. When employing the parametric approach, it is necessary to specify both the number of covariates (`num_attributes`) and the number of districts (`num_districts`). In practice, a district may represent a collection of ballot boxes that share the same covariate values. In the example below, we simulate an election with three candidates, two demographic groups, and 20 covariates.
+An election can be simulated using the function `simulate_election()`. When employing the parametric approach, it is necessary to specify both the number of covariates (`num_covariates`) and the number of districts (`num_districts`). In practice, a district may represent a collection of ballot boxes that share the same covariate values. In the example below, we simulate an election with three candidates, two demographic groups, and 20 covariates.
 
 ```{r}
 library(fastei)
@@ -40,16 +40,15 @@ election <- simulate_election(
     num_ballots = 100,
     num_candidates = 3,
     num_groups = 2,
-    parametric = TRUE,
-    num_attributes = 20,
+    num_covariates = 20,
     num_districts = 10,
     seed = 42
 )
 ```
 
-Note that the parametric setting must be explicitly enabled by specifying parametric = TRUE.
+Note that the covariate setting must be explicitly enabled by specifying `num_covariates` and `num_districts` distinctly from zero.
 
-The results of the simulation can be inspected by printing the resulting object. The simulated election is returned as an eim object.
+The results of the simulation can be inspected by printing the resulting object. The simulated election is returned as an `eim` object.
 
 ```{r}
 election

@@ -6,9 +6,6 @@
 #'
 #' Additionally, ballot boxes where the number of votes does not match the number of registered voters (i.e., those where `MISMATCH == TRUE`) can be excluded from the dataset by setting `remove_mismatch = TRUE`.
 #'
-#' @note
-#' This function returns a non-parametric `eim` object (it does not include `V`).
-#'
 #' @param elect_district A string indicating the name of the electoral district to extract (e.g., "NIEBLA"). See **Note**.
 #'
 #' @param region A string indicating the name of the region to extract (e.g, "DE TARAPACA"). See **Note**.
@@ -27,7 +24,9 @@
 #' This object can be passed to functions like [`run_em`] or [`get_agg_proxy`] for estimation and group aggregation. See **Example**.
 #'
 #' @note
-#' Only one parameter is accepted among `elect_district` and `region`. If either both parameters are given, it will return an error. If neither of these two inputs is supplied, it will return an eim object with an aggregation corresponding to the whole dataset. To see all electoral districts and regions names, see the function [chile_election_2021].
+#' This function returns an `eim` object with no covariates, i.e., `V=NULL`.
+#'
+#' Only one parameter is accepted among `elect_district` and `region`. If either both parameters are given, it will return an error. If neither of these two inputs is supplied, it will return an `eim` object with an aggregation corresponding to the whole dataset. To see all electoral districts and regions names, see the function [chile_election_2021].
 #'
 #' @examples
 #' # Load data and create an eim object for the electoral district of "NIEBLA"

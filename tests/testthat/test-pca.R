@@ -5,7 +5,7 @@ test_that("PCA reduces V with a fixed number of components", {
         num_groups = 2,
         ballot_voters = 40,
         parametric = TRUE,
-        num_attributes = 3,
+        num_covariates = 3,
         num_districts = 2,
         seed = 220
     )
@@ -27,7 +27,7 @@ test_that("PCA selects components using sd_threshold", {
         num_groups = 2,
         ballot_voters = 40,
         parametric = TRUE,
-        num_attributes = 4,
+        num_covariates = 4,
         num_districts = 2,
         seed = 221
     )
@@ -63,7 +63,7 @@ test_that("PCA validates parametric inputs", {
         num_groups = 2,
         ballot_voters = 30,
         parametric = TRUE,
-        num_attributes = 3,
+        num_covariates = 3,
         num_districts = 2,
         seed = 223
     )

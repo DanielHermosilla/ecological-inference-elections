@@ -4,8 +4,7 @@ test_that("simulate_election returns parametric data", {
         num_candidates = 3,
         num_groups = 2,
         ballot_voters = 50,
-        parametric = TRUE,
-        num_attributes = 2,
+        num_covariates = 2,
         num_districts = 2,
         seed = 200
     )
@@ -25,8 +24,7 @@ test_that("run_em works in parametric mode", {
         num_candidates = 3,
         num_groups = 2,
         ballot_voters = 40,
-        parametric = TRUE,
-        num_attributes = 2,
+        num_covariates = 2,
         num_districts = 2,
         seed = 201
     )
@@ -35,8 +33,8 @@ test_that("run_em works in parametric mode", {
     fit <- run_em(
         object = model,
         method = "mult",
-        beta = sim$real_beta,
-        alpha = sim$real_alpha,
+        beta_init = sim$real_beta,
+        alpha_init = sim$real_alpha,
         maxiter = 3,
         maxtime = 2,
         maxnewton = 1
@@ -56,7 +54,7 @@ test_that("bootstrap works in parametric mode", {
         num_groups = 2,
         ballot_voters = 40,
         parametric = TRUE,
-        num_attributes = 2,
+        num_covariates = 2,
         num_districts = 2,
         seed = 202
     )
@@ -87,7 +85,7 @@ test_that("parametric run_em rejects non-mult methods", {
         num_groups = 2,
         ballot_voters = 40,
         parametric = TRUE,
-        num_attributes = 2,
+        num_covariates = 2,
         num_districts = 2,
         seed = 203
     )

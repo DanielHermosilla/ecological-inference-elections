@@ -14,8 +14,8 @@ simulate_election(
   group_proportions = rep(1/num_groups, num_groups),
   prob = NULL,
   parametric = FALSE,
-  num_attributes = 2,
-  num_districts = 1
+  num_covariates = 0,
+  num_districts = 0
 )
 }
 \arguments{
@@ -43,9 +43,7 @@ Default value is set to \code{0.5}. See \strong{Shuffling Mechanish} for more de
 \item{prob}{Optional. A user-supplied probability matrix of dimension \verb{(g x c)}.
 If provided, this matrix is used as the underlying voting probability distribution. If not supplied, each row is sampled from a Dirichlet distribution with each parameter set to one.}
 
-\item{parametric}{Boolean. If \code{TRUE}, simulates a parametric multinomial model using ballot-box attributes \code{V} and returns \code{real_alpha} and \code{real_beta} parameters.}
-
-\item{num_attributes}{Number of attributes (\code{a}) used to build the parametric covariates matrix \code{V} when \code{parametric = TRUE}.}
+\item{num_covariates}{Number of covariates (\code{a}) used to build the parametric covariates matrix \code{V}.}
 
 \item{num_districts}{Number of districts used to assign ballot boxes when \code{parametric = TRUE}.}
 }
@@ -70,7 +68,7 @@ When \code{parametric = TRUE}, it returns:
 }
 \description{
 This function simulates an election by creating matrices representing candidate votes \code{(X)} and voters' demographic group \code{(W)} across a specified number of ballot-boxes. It either (i) receives as input or (ii) generates a probability matrix \code{(prob)}, indicating how likely each demographic group is to vote for each candidate.
-It supports both non-parametric and parametric simulations; set \code{parametric = TRUE} to generate \code{V}, \code{real_alpha}, and \code{real_beta}.
+It supports both non-parametric and parametric simulations; set \code{num_covariates} and \code{num_districts} greater than zero to generate \code{V}, \code{real_alpha}, and \code{real_beta}.
 
 By default, the number of voters per ballot box \code{(ballot_voters)} is set to a vector of 100 with
 length \code{num_ballots}. You can optionally override this by providing a custom vector.

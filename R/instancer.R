@@ -2,7 +2,7 @@
 #'
 #' @description
 #' This function simulates an election by creating matrices representing candidate votes `(X)` and voters' demographic group `(W)` across a specified number of ballot-boxes. It either (i) receives as input or (ii) generates a probability matrix `(prob)`, indicating how likely each demographic group is to vote for each candidate.
-#' It supports both non-parametric and parametric simulations; set `parametric = TRUE` to generate `V`, `real_alpha`, and `real_beta`.
+#' It supports both non-parametric and parametric simulations; set `num_covariates` and `num_districts` greater than zero to generate `V`, `real_alpha`, and `real_beta`.
 #'
 #' By default, the number of voters per ballot box `(ballot_voters)` is set to a vector of 100 with
 #' length `num_ballots`. You can optionally override this by providing a custom vector.
@@ -45,11 +45,8 @@
 #'   Optional. A user-supplied probability matrix of dimension `(g x c)`.
 #'   If provided, this matrix is used as the underlying voting probability distribution. If not supplied, each row is sampled from a Dirichlet distribution with each parameter set to one.
 #'
-#' @param parametric
-#'   Boolean. If `TRUE`, simulates a parametric multinomial model using ballot-box attributes `V` and returns `real_alpha` and `real_beta` parameters.
-#'
-#' @param num_attributes
-#'   Number of attributes (`a`) used to build the parametric covariates matrix `V` when `parametric = TRUE`.
+#' @param num_covariates
+#'   Number of covariates (`a`) used to build the parametric covariates matrix `V`.
 #'
 #' @param num_districts
 #'   Number of districts used to assign ballot boxes when `parametric = TRUE`.
@@ -142,11 +139,17 @@ simulate_election <- function(num_ballots,
                               group_proportions = rep(1 / num_groups, num_groups),
                               prob = NULL,
                               parametric = FALSE,
-                              num_attributes = 2,
-                              num_districts = 1) {
+                              num_covariates = 0,
+                              num_districts = 0) {
     # If user provides a seed, override the current global seed
     if (!is.null(seed)) {
         set.seed(seed)
+    }
+
+    # If the user gives num_covariates and num_districts > 0, set parametric to TRUE
+    parametric <- ifelse(num_covariates > 0 && num_districts > 0, TRUE, FALSE)
+    if (num_covariates > 0 && num_districts == 0 || num_districts > 0 && num_covariates == 0) {
+        stop("`num_covariates` and `num_districts` must both be greater than 0 to enable parametric mode.")
     }
 
     if (parametric) {
@@ -155,12 +158,6 @@ simulate_election <- function(num_ballots,
         }
         if (length(ballot_voters) == num_ballots && length(unique(ballot_voters)) != 1) {
             stop("`ballot_voters` must be constant across ballot boxes in parametric mode.")
-        }
-        if (num_attributes < 1) {
-            stop("`num_attributes` must be at least 1 in parametric mode.")
-        }
-        if (num_districts < 1) {
-            stop("`num_districts` must be at least 1 in parametric mode.")
         }
     } else {
         # Validate length of ballot_voters
@@ -188,9 +185,9 @@ simulate_election <- function(num_ballots,
         num_voters <- ballot_voters[1]
 
         alpha <- matrix(
-            rnorm((num_candidates - 1) * num_attributes),
+            rnorm((num_candidates - 1) * num_covariates),
             nrow = num_candidates - 1,
-            ncol = num_attributes
+            ncol = num_covariates
         )
         beta <- matrix(
             rnorm(num_groups * (num_candidates - 1)),
@@ -210,9 +207,9 @@ simulate_election <- function(num_ballots,
         e_bd <- random_one_in_each_row(num_ballots, num_districts)
 
         v_da <- matrix(
-            runif(num_districts * num_attributes, min = 0, max = 1),
+            runif(num_districts * num_covariates, min = 0, max = 1),
             nrow = num_districts,
-            ncol = num_attributes
+            ncol = num_covariates
         )
         v_ba <- e_bd %*% v_da
 

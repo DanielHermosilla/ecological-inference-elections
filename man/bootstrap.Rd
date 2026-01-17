@@ -15,8 +15,6 @@ bootstrap(
   allow_mismatch = TRUE,
   seed = NULL,
   maxnewton = 1,
-  beta = NULL,
-  alpha = NULL,
   ...
 )
 }
@@ -38,11 +36,7 @@ EM algorithm.}
 
 \item{seed}{An optional integer indicating the random seed for the randomized algorithms. This argument is only applicable if \code{initial_prob = "random"} or \code{method} is either \code{"mcmc"} or \code{"mvn_cdf"}. Aditionally, it sets the random draws of the ballot boxes.}
 
-\item{maxnewton}{Maximum number of Newton iterations used in the parametric M-step. Default is \code{1}.}
-
-\item{beta}{Optional \verb{g x (c-1)} matrix of initial group coefficients used in parametric mode. Ignored in non-parametric mode.}
-
-\item{alpha}{Optional \verb{(c-1) x a} matrix of initial attribute coefficients used in parametric mode. Ignored in non-parametric mode.}
+\item{maxnewton}{Maximum number of Newton iterations used in the parametric M-step. Default is 1. Ignored if no covariates are provided (i.e., \code{V = NULL}).}
 
 \item{...}{Additional arguments passed to the \link{run_em} function that will execute the EM algorithm.}
 }

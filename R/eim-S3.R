@@ -202,7 +202,7 @@ summary.eim <- function(object, ...) {
 #'     num_groups = 5,
 #'     ballot_voters = 40,
 #'     parametric = TRUE,
-#'     num_attributes = 2,
+#'     num_covariates = 2,
 #'     num_districts = 2,
 #'     seed = 42
 #' )

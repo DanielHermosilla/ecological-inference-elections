@@ -48,6 +48,7 @@ library(jsonlite)
 #'   \item \code{\link{save_eim}} - Saves the object to a file.
 #'   \item \code{\link{get_agg_proxy}} - Estimates an ideal group aggregation given their standard deviations.
 #'   \item \code{\link{get_agg_opt}} - Estimates an ideal group aggregation among all combinations, given the log-likelihood.
+#' 	 \item \code{\link{plot.eim}} - Plots the probability matrix.
 #'   \item \code{print.eim} - Print info about the object.
 #'   \item \code{summary.eim} - Summarize the object.
 #'   \item \code{as.matrix.eim} - Returns the probability matrix.
@@ -198,7 +199,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'
 #' @description
 #' Executes the Expectation-Maximization (EM) algorithm indicating the approximation method to use in the E-step.
-#' It supports both non-parametric and parametric models; the parametric mode is enabled by providing `V`.
+#' It supports both non-covariate and covariate models; the covariate mode is enabled by providing `V`.
 #' Certain methods may require additional arguments, which can be passed through `...` (see [fastei-package] for more details).
 #'
 #' @param object An object of class `eim`, which can be created using the [eim] function. This parameter should not be used if either (i) `X` and `W` matrices or (ii) `json_path` is supplied. See **Note**.
@@ -213,7 +214,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #' - `mcmc`: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the E-step.
 #' - `exact`: Solves the E-step using the Total Probability Law.
 #'
-#' When `V` is supplied (parametric mode), only `mult` is supported and `symmetric` is not available.
+#' When `V` is supplied (covariate mode), only `mult` is supported.
 #'
 #' For a detailed description of each method, see [fastei-package] and **References**.
 #'
@@ -223,6 +224,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #' - `proportional`: Assigns probabilities to each group based on the proportion of candidates votes.
 #' - `group_proportional`: Computes the probability matrix by taking into account both group and candidate proportions. This is the default method.
 #' - `random`: Use randomized values to fill the probability matrix.
+#' This argument is ignored if `V` is supplied (covariate mode), as the initial probabilities are computed with `alpha_init` and `beta_init`.
 #'
 #' @param allow_mismatch Boolean, if `TRUE`, allows a mismatch between the voters and votes for each ballot-box. If `FALSE`, throws an error if there is a mismatch. By default it is `TRUE`. See **Notes** for more details.
 #'
@@ -242,11 +244,11 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'
 #' @param compute_ll An optional boolean indicating whether to compute the log-likelihood at each iteration. The default value is `TRUE`.
 #'
-#' @param beta Optional `g x (c-1)` matrix of initial group coefficients used in parametric mode. Ignored in non-parametric mode.
+#' @param beta_init Optional `g x (c-1)` matrix of initial group coefficients. Ignored if no covariates are provided (i.e., `V = NULL`).
 #'
-#' @param alpha Optional `(c-1) x a` matrix of initial attribute coefficients used in parametric mode. Ignored in non-parametric mode.
+#' @param alpha_init Optional `(c-1) x a` matrix of initial attribute coefficients used for initialization. Ignored if no covariates are provided (`V = NULL`).
 #'
-#' @param maxnewton Maximum number of Newton iterations used in the parametric M-step. Default is `1`.
+#' @param maxnewton Maximum number of Newton iterations used in the parametric M-step. Default is 1. Ignored if no covariates are provided (i.e., `V = NULL`).
 #'
 #' @param adjust_prob_cond_method An optional string indicating the method to adjust the conditional probability so that for each candidate, the sum product of voters and conditional probabilities across groups equals the votes obtained by the candidate. It can take values: `""` if no adjusting is made, `"lp"` if the adjustment is based on a linear programming that penalizes with L1-norm, `"project_lp"` if the adjustment is performed using projection and linear programming (this is the default)
 #'
@@ -309,8 +311,8 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #' The function returns an `eim` object with the function arguments and the following attributes:
 #' \describe{
 #'   \item{prob}{
-#'     If `V` is `NULL` (non-parametric), the estimated global probability matrix `(g x c)`.
-#'     If `V` is supplied (parametric), a `(g x c x b)` 3d-array of probabilities for each ballot-box.
+#'     If `V` is `NULL` (non-covariate), the estimated global probability matrix `(g x c)`.
+#'     If `V` is supplied (covariates), a `(g x c x b)` 3d-array of probabilities for each ballot-box.
 #'   }
 #' 	 \item{cond_prob}{
 #'     A `(g x c x b)` 3d-array with the probability that at each ballot-box a voter of each group voted for each candidate,
@@ -409,8 +411,8 @@ run_em <- function(object = NULL,
                    adjust_prob_cond_method = "project_lp",
                    adjust_prob_cond_every = FALSE,
                    maxnewton = 1,
-                   beta = NULL,
-                   alpha = NULL,
+                   beta_init = NULL,
+                   alpha_init = NULL,
                    scale_factor = 1,
                    symmetric = FALSE,
                    ...) {
@@ -474,9 +476,6 @@ run_em <- function(object = NULL,
         if (method != "mult") {
             stop("run_em: Parametric mode only supports method = \"mult\".")
         }
-        if (symmetric) {
-            stop("run_em: Symmetric estimation is not supported in parametric mode.")
-        }
 
         W <- if (is.null(object$W_agg)) object$W else object$W_agg
         V <- object$V
@@ -484,11 +483,15 @@ run_em <- function(object = NULL,
         num_groups <- ncol(W)
         num_attributes <- ncol(V)
 
-        if (is.null(beta)) {
+        if (is.null(beta_init)) {
             beta <- matrix(0, nrow = num_groups, ncol = num_candidates - 1)
+        } else {
+            beta <- beta_init
         }
-        if (is.null(alpha)) {
+        if (is.null(alpha_init)) {
             alpha <- matrix(0, nrow = num_candidates - 1, ncol = num_attributes)
+        } else {
+            alpha <- alpha_init
         }
 
         if (!is.matrix(beta) || nrow(beta) != num_groups || ncol(beta) != num_candidates - 1) {
@@ -555,6 +558,53 @@ run_em <- function(object = NULL,
         object$maxnewton <- maxnewton
         object$adjust_prob_cond_method <- adjust_prob_cond_method
         object$adjust_prob_cond_every <- adjust_prob_cond_every
+
+        if (symmetric) {
+            # --- Second run with X/W swapped and symmetric = FALSE ---
+            base_call_sym <- base_call
+            base_call_sym$symmetric <- FALSE
+            base_call_sym$X <- object$W
+            base_call_sym$W <- object$X
+            base_call_sym$V <- object$V
+            base_call_sym$json_path <- NULL
+            base_call_sym$object <- NULL
+            base_call_sym$scale_factor <- 1
+            base_call_sym$beta_init <- NULL
+            base_call_sym$alpha_init <- NULL
+
+            inverse <- eval(base_call_sym, parent.frame())
+
+            object$cond_prob_inv <- inverse$cond_prob
+            object$prob_inv <- inverse$prob
+
+            object$time <- object$time + inverse$time
+            object$iterations <- object$iterations + inverse$iterations
+
+            A2 <- aperm(inverse$expected_outcome, c(2, 1, 3)) # G x C x B
+            object$expected_outcome <- 0.5 * (object$expected_outcome + A2)
+            dimnames(object$expected_outcome) <- list(
+                colnames(W),
+                colnames(object$X),
+                rownames(object$X)
+            )
+
+            W_sym <- if (is.null(object$W_agg)) object$W else object$W_agg
+            E_bgc <- aperm(object$expected_outcome, c(3, 1, 2)) # B x G x C
+            Q_bgc <- sweep(E_bgc, c(1, 2), W_sym, "/")
+            object$cond_prob <- aperm(Q_bgc, c(2, 3, 1)) # G x C x B
+            dimnames(object$cond_prob) <- list(
+                colnames(W_sym),
+                colnames(object$X),
+                rownames(object$X)
+            )
+
+            object$prob <- object$cond_prob
+            dimnames(object$prob) <- list(
+                colnames(W_sym),
+                colnames(object$X),
+                rownames(object$X)
+            )
+        }
 
         return(invisible(object))
     }
@@ -704,7 +754,6 @@ run_em <- function(object = NULL,
 #'
 #' @inherit run_em note
 #'
-#'
 #' @seealso The [eim] object and [run_em] implementation.
 #'
 #' @return
@@ -774,8 +823,6 @@ bootstrap <- function(object = NULL,
                       allow_mismatch = TRUE,
                       seed = NULL,
                       maxnewton = 1,
-                      beta = NULL,
-                      alpha = NULL,
                       ...) {
     # Retrieve the default values from run_em() as a list
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
@@ -841,18 +888,18 @@ bootstrap <- function(object = NULL,
         num_groups <- ncol(W)
         num_attributes <- ncol(V)
 
-        if (is.null(beta)) {
+        if (is.null(all_params$init_beta)) {
             beta <- matrix(0, nrow = num_groups, ncol = num_candidates - 1)
         }
-        if (is.null(alpha)) {
+        if (is.null(all_params$init_alpha)) {
             alpha <- matrix(0, nrow = num_candidates - 1, ncol = num_attributes)
         }
 
         if (!is.matrix(beta) || nrow(beta) != num_groups || ncol(beta) != num_candidates - 1) {
-            stop("bootstrap: 'beta' must be a matrix with dimensions (g x (c-1)).")
+            stop("bootstrap: 'init_beta' must be a matrix with dimensions (g x (c-1)).")
         }
         if (!is.matrix(alpha) || nrow(alpha) != num_candidates - 1 || ncol(alpha) != num_attributes) {
-            stop("bootstrap: 'alpha' must be a matrix with dimensions ((c-1) x a).")
+            stop("bootstrap: 'init_alpha' must be a matrix with dimensions ((c-1) x a).")
         }
 
         maxiter <- if (!is.null(all_params$maxiter)) all_params$maxiter else 1000
@@ -1041,7 +1088,7 @@ bootstrap <- function(object = NULL,
 #'     num_groups = 2,
 #'     ballot_voters = 40,
 #'     parametric = TRUE,
-#'     num_attributes = 10,
+#'     num_covariates = 10,
 #'     num_districts = 2,
 #'     seed = 1
 #' )
@@ -1623,8 +1670,6 @@ get_agg_opt <- function(object = NULL,
 
 #' Performs a matrix-wise Wald test for two eim objects
 #'
-#' @note
-#' This function only supports non-parametric models. Parametric objects (with `V`) are not supported.
 #'
 #' This function compares two `eim` objects (or sets of matrices that can be converted to such objects) by computing a Wald test on each component
 #' of their estimated probability matrices. The Wald test is applied using bootstrap-derived standard deviations, and the result is a matrix
@@ -1651,6 +1696,9 @@ get_agg_opt <- function(object = NULL,
 #'
 #' Each entry in the pvals matrix is the p-value from Wald test between the corresponding
 #' entries of the two estimated probability matrices.
+#'
+#' @note
+#' This function does not support covariate models (i.e., `eim` objects with non-NULL `V` attributes).
 #'
 #' @details
 #' The user must provide either of the following (but not both):
@@ -1788,7 +1836,7 @@ waldtest <- function(object1 = NULL,
 #' otherwise, it yields an error.
 #'
 #' @note
-#' This function supports both non-parametric and parametric models. CSV export is not supported for parametric probabilities.
+#' This function supports both non-parametric and parametric models. For parametric probabilities, the CSV output is a flattened matrix where rows correspond to ballot-box and group pairs.
 #'
 #' @param object An `eim` object.
 #' @param filename A character string specifying the file path, including the desired file extension (`.rds`, `.json`, or `.csv`).
@@ -1801,6 +1849,7 @@ waldtest <- function(object1 = NULL,
 #' - If the file extension is **JSON**, all available attributes of the object are stored in JSON format.
 #' - If the file extension is **CSV**:
 #'   - If the object contains a `prob` field, only that field is saved as a CSV.
+#'   - For parametric probabilities, the 3D array is flattened into a 2D matrix with rows for each ballot-box/group pair.
 #'   - Otherwise, returns an error.
 #'
 #' @return The function does not return anything explicitly but saves the object to the specified file.
@@ -1890,7 +1939,27 @@ save_eim <- function(object, filename, ...) {
     } else if (file_ext == "csv") {
         if (!is.null(object$prob)) {
             if (is.array(object$prob) && length(dim(object$prob)) == 3) {
-                stop("save_eim: CSV export is not supported for parametric probabilities.")
+                B <- dim(object$prob)[3]
+                G <- dim(object$prob)[1]
+                C <- dim(object$prob)[2]
+                p_bgc <- aperm(object$prob, c(3, 1, 2)) # B x G x C
+                flat <- matrix(0, nrow = B * G, ncol = C)
+                row_labels <- character(B * G)
+                idx <- 1
+                ballot_names <- if (!is.null(rownames(object$X))) rownames(object$X) else paste0("B", seq_len(B))
+                group_names <- if (!is.null(colnames(object$W))) colnames(object$W) else paste0("G", seq_len(G))
+                for (b in seq_len(B)) {
+                    for (g in seq_len(G)) {
+                        flat[idx, ] <- p_bgc[b, g, ]
+                        row_labels[idx] <- paste0(ballot_names[b], "::", group_names[g])
+                        idx <- idx + 1
+                    }
+                }
+                colnames(flat) <- colnames(object$X)
+                rownames(flat) <- row_labels
+                write.csv(flat, filename, row.names = TRUE)
+                message("Probability matrix saved as CSV: ", filename)
+                return(invisible(NULL))
             }
             write.csv(as.matrix(object$prob), filename, row.names = TRUE)
             message("Probability matrix saved as CSV: ", filename)

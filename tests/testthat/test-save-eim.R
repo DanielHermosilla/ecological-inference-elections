@@ -41,14 +41,14 @@ test_that("save_eim writes JSON, RDS, and CSV for non-parametric models", {
     expect_equal(ncol(csv_data), ncol(fit$prob) + 1)
 })
 
-test_that("save_eim rejects CSV export for parametric probabilities", {
+test_that("save_eim writes CSV for parametric probabilities", {
     sim <- simulate_election(
         num_ballots = 4,
         num_candidates = 3,
         num_groups = 2,
         ballot_voters = 20,
         parametric = TRUE,
-        num_attributes = 2,
+        num_covariates = 2,
         num_districts = 2,
         seed = 201
     )
@@ -66,8 +66,10 @@ test_that("save_eim rejects CSV export for parametric probabilities", {
     )
 
     out_csv <- tempfile(fileext = ".csv")
-    expect_error(
-        save_eim(fit, out_csv),
-        "CSV export is not supported"
-    )
+    save_eim(fit, out_csv)
+    expect_true(file.exists(out_csv))
+
+    csv_data <- read.csv(out_csv)
+    expect_equal(nrow(csv_data), nrow(sim$X) * ncol(sim$W))
+    expect_equal(ncol(csv_data), ncol(sim$X) + 1)
 })

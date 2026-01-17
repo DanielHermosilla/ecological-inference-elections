@@ -30,12 +30,13 @@ otherwise, it yields an error.
 \item If the file extension is \strong{CSV}:
 \itemize{
 \item If the object contains a \code{prob} field, only that field is saved as a CSV.
+\item For parametric probabilities, the 3D array is flattened into a 2D matrix with rows for each ballot-box/group pair.
 \item Otherwise, returns an error.
 }
 }
 }
 \note{
-This function supports both non-parametric and parametric models. CSV export is not supported for parametric probabilities.
+This function supports both non-parametric and parametric models. For parametric probabilities, the CSV output is a flattened matrix where rows correspond to ballot-box and group pairs.
 }
 \examples{
 \donttest{
