@@ -47,7 +47,6 @@ test_that("save_eim writes CSV for parametric probabilities", {
         num_candidates = 3,
         num_groups = 2,
         ballot_voters = 20,
-        parametric = TRUE,
         num_covariates = 2,
         num_districts = 2,
         seed = 201

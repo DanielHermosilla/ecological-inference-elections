@@ -4,7 +4,6 @@ test_that("run_em returns parametric probabilities and parameters", {
         num_candidates = 3,
         num_groups = 2,
         ballot_voters = 40,
-        parametric = TRUE,
         num_covariates = 2,
         num_districts = 2,
         seed = 170
@@ -50,7 +49,6 @@ test_that("parametric run_em approximates simulated probabilities", {
         num_candidates = 3,
         num_groups = 2,
         ballot_voters = 50,
-        parametric = TRUE,
         num_covariates = 2,
         num_districts = 2,
         seed = 171

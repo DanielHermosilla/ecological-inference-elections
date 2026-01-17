@@ -57,7 +57,6 @@ while others are ommited due to its straightfoward implementantion. The availabl
 \item \code{\link{save_eim}} - Saves the object to a file.
 \item \code{\link{get_agg_proxy}} - Estimates an ideal group aggregation given their standard deviations.
 \item \code{\link{get_agg_opt}} - Estimates an ideal group aggregation among all combinations, given the log-likelihood.
-\item \code{\link{plot.eim}} - Plots the probability matrix.
 \item \code{print.eim} - Print info about the object.
 \item \code{summary.eim} - Summarize the object.
 \item \code{as.matrix.eim} - Returns the probability matrix.

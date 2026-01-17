@@ -46,10 +46,10 @@
 #'   If provided, this matrix is used as the underlying voting probability distribution. If not supplied, each row is sampled from a Dirichlet distribution with each parameter set to one.
 #'
 #' @param num_covariates
-#'   Number of covariates (`a`) used to build the parametric covariates matrix `V`.
+#'   Optional. Number of covariates (`a`) used to build the parametric covariates matrix `V`.
 #'
 #' @param num_districts
-#'   Number of districts used to assign ballot boxes when `parametric = TRUE`.
+#'   Number of districts used to assign ballot boxes, when `num_covariates` isn't zero.
 #'
 #' @section Shuffling Mechanism:
 #' Without loss of generality, consider an order relation of groups and ballot-boxes. The shuffling step is controlled by the `lambda` parameter and operates as follows:
@@ -73,7 +73,7 @@
 #' 	 \item{\code{outcome}}{A \code{(b x g x c)} array with the number of votes for each candidate in each ballot box, broken down by group.}
 #' }
 #'
-#' When `parametric = TRUE`, it returns:
+#' When `num_attributes` and `num_districts` are not zero, it returns:
 #' \describe{
 #'   \item{\code{X}}{A \code{(b x c)} matrix with candidates' votes for each ballot box.}
 #'   \item{\code{W}}{A \code{(b x g)} matrix with voters' groups for each ballot-box.}

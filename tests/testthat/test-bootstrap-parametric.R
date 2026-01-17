@@ -4,7 +4,6 @@ test_that("parametric bootstrap returns beta and alpha deviations", {
         num_candidates = 3,
         num_groups = 2,
         ballot_voters = 40,
-        parametric = TRUE,
         num_covariates = 2,
         num_districts = 2,
         seed = 160
