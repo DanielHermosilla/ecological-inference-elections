@@ -13,7 +13,6 @@ simulate_election(
   seed = NULL,
   group_proportions = rep(1/num_groups, num_groups),
   prob = NULL,
-  parametric = FALSE,
   num_covariates = 0,
   num_districts = 0
 )
@@ -43,9 +42,9 @@ Default value is set to \code{0.5}. See \strong{Shuffling Mechanish} for more de
 \item{prob}{Optional. A user-supplied probability matrix of dimension \verb{(g x c)}.
 If provided, this matrix is used as the underlying voting probability distribution. If not supplied, each row is sampled from a Dirichlet distribution with each parameter set to one.}
 
-\item{num_covariates}{Number of covariates (\code{a}) used to build the parametric covariates matrix \code{V}.}
+\item{num_covariates}{Optional. Number of covariates (\code{a}) used to build the parametric covariates matrix \code{V}.}
 
-\item{num_districts}{Number of districts used to assign ballot boxes when \code{parametric = TRUE}.}
+\item{num_districts}{Number of districts used to assign ballot boxes, when \code{num_covariates} isn't zero.}
 }
 \value{
 An eim object. For the non-parametric case it contains:
@@ -56,7 +55,7 @@ An eim object. For the non-parametric case it contains:
 \item{\code{outcome}}{A \code{(b x g x c)} array with the number of votes for each candidate in each ballot box, broken down by group.}
 }
 
-When \code{parametric = TRUE}, it returns:
+When \code{num_attributes} and \code{num_districts} are not zero, it returns:
 \describe{
 \item{\code{X}}{A \code{(b x c)} matrix with candidates' votes for each ballot box.}
 \item{\code{W}}{A \code{(b x g)} matrix with voters' groups for each ballot-box.}

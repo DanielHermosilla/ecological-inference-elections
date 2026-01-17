@@ -1087,7 +1087,6 @@ bootstrap <- function(object = NULL,
 #'     num_candidates = 3,
 #'     num_groups = 2,
 #'     ballot_voters = 40,
-#'     parametric = TRUE,
 #'     num_covariates = 10,
 #'     num_districts = 2,
 #'     seed = 1
