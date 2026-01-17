@@ -10,6 +10,7 @@
   legend_title = "Candidates",
   color_scale = NULL,
   min_pct = 3,
+  pies_per_row = NULL,
   ...
 )
 }
@@ -23,6 +24,9 @@
 \item{color_scale}{A vector of colors or a palette for the candidates.}
 
 \item{min_pct}{Minimum percentage required to display a label.}
+
+\item{pies_per_row}{Number of pie charts to display per row. Defaults to \code{ceiling(sqrt(G))},
+where \code{G} is the number of groups.}
 
 \item{...}{Additional arguments that are ignored.}
 }

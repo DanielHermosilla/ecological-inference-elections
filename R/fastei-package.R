@@ -40,6 +40,6 @@
 #' @useDynLib fastei, .registration = TRUE
 #' @import Rcpp
 #' @importFrom Rcpp evalCpp
-#' @importFrom stats pt rgamma rmultinom pnorm
+#' @importFrom stats pt rgamma rmultinom pnorm rnorm runif
 #' @importFrom utils modifyList tail write.csv
 NULL

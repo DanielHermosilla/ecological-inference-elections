@@ -1,10 +1,10 @@
 ---
-title: "Using the parametric approach"
+title: "Using the covariate approach"
 author: "Charles Thraves, Pablo Ubilla, Daniel Hermosilla"
 date: "`r Sys.Date()`"
 
 vignette: >
-  %\VignetteIndexEntry{Using the parametric approach}
+  %\VignetteIndexEntry{Using the covariate approach}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 
@@ -13,9 +13,9 @@ output:
     toc: false
     number_sections: false
 ---
-In addition to the non-parametric approach presented in the main vignette (see `demonstration.Rmd`), `fastei` also supports a parametric approach that incorporates electoral-unit–level covariates. This approach follows the same general strategy of maximizing the log-likelihood via an EM algorithm, with the M-step carried out through a multinomial formulation.
+In addition to the non-covariate approach presented in the main vignette (see `demonstration.Rmd`), `fastei` also supports a covariate approach that incorporates electoral-unit–level covariates. This approach follows the same general strategy of maximizing the log-likelihood via an EM algorithm, with the M-step carried out through a multinomial formulation.
 
-The parametric specification requires computing a Hessian matrix, which can be computationally costly; therefore, an approximation is used in practice. In addition, parameter updates within each M-step are obtained via a Newton–Raphson procedure. Empirically, performing a single Newton step (i.e., `maxnewton = 1`) is typically sufficient to achieve convergence.
+The covariate specification requires computing a Hessian matrix, which can be computationally costly; therefore, an approximation is used in practice. In addition, parameter updates within each M-step are obtained via a Newton–Raphson procedure. Empirically, performing a single Newton step (i.e., `maxnewton = 1`) is typically sufficient to achieve convergence.
 
 The main difference from the non-parametric approach is that the probability matrix is defined at the electoral-unit level rather than as a single global probability matrix. This enables the inclusion of electoral-unit covariates, which may better capture and explain variation in voting behavior across units. Consequently, convergence of the EM algorithm is assessed solely through increases in the log-likelihood.
 
@@ -31,7 +31,7 @@ Thus, the initial probabilities depend on the parameters `alpha` and `beta`, whi
 
 ## Simulating a parametric election
 
-An election can be simulated using the function `simulate_election()`. When employing the parametric approach, it is necessary to specify both the number of covariates (`num_covariates`) and the number of districts (`num_districts`). In practice, a district may represent a collection of ballot boxes that share the same covariate values. In the example below, we simulate an election with three candidates, two demographic groups, and 20 covariates.
+An election can be simulated using the function `simulate_election()`. When employing the covariate approach, it is necessary to specify both the number of covariates (`num_covariates`) and the number of districts (`num_districts`). In practice, a district may represent a collection of ballot boxes that share the same covariate values. In the example below, we simulate an election with three candidates, two demographic groups, and 20 covariates.
 
 ```{r}
 library(fastei)
@@ -56,7 +56,7 @@ election
 
 ## Running the model
 
-The model is estimated using the same function as in the non-parametric case. A minimal example is shown below:
+The model is estimated using the same function as in the non-covariate case. A minimal example is shown below:
 
 ```{r}
 result <- run_em(election)
@@ -71,7 +71,7 @@ If a global probability matrix—analogous to that obtained in the non-parametri
 
 $$P_{gc} = \frac{\sum_b W_{bg}, p_{gcb}}{\sum_b W_{bg}}$$
 
-The following code snippet implements this aggregation:
+The following code snippet implements this aggregation (note that we could also get the global matrix by using the `as.matrix()` function):
 ```{r}
 global_prob <- function(W, prob) {
     G <- dim(prob)[1]
@@ -97,7 +97,7 @@ real_global_probability <- global_prob(election$W, election$real_prob)
 parametric_global_mae <- mean(abs(estimated_global_probability - real_global_probability))
 parametric_global_mae
 ```
-Finally, the contribution of covariates to estimation accuracy can be evaluated by comparing the parametric model with the non-parametric approach. This is achieved by removing the covariate matrix V and re-estimating the model:
+Finally, the contribution of covariates to estimation accuracy can be evaluated by comparing the covariate model with the non-covariate approach. This is achieved by removing the covariate matrix V and re-estimating the model:
 
 ```{r}
 non_parametric_election <- election

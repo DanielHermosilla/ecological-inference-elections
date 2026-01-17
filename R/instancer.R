@@ -138,7 +138,6 @@ simulate_election <- function(num_ballots,
                               seed = NULL,
                               group_proportions = rep(1 / num_groups, num_groups),
                               prob = NULL,
-                              parametric = FALSE,
                               num_covariates = 0,
                               num_districts = 0) {
     # If user provides a seed, override the current global seed

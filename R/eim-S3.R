@@ -190,6 +190,8 @@ summary.eim <- function(object, ...) {
 #' @param legend_title Title for the legend.
 #' @param color_scale A vector of colors or a palette for the candidates.
 #' @param min_pct Minimum percentage required to display a label.
+#' @param pies_per_row Number of pie charts to display per row. Defaults to `ceiling(sqrt(G))`,
+#'   where `G` is the number of groups.
 #' @param ... Additional arguments that are ignored.
 #'
 #' @return Returns a `ggplot2` object representing the pie charts.
@@ -216,6 +218,7 @@ plot.eim <- function(x,
                      legend_title = "Candidates",
                      color_scale = NULL,
                      min_pct = 3,
+                     pies_per_row = NULL,
                      ...) {
     if (!requireNamespace("ggplot2", quietly = TRUE)) {
         stop("plot.eim: package 'ggplot2' is required for plotting.")
@@ -223,10 +226,12 @@ plot.eim <- function(x,
     object <- x
     prob <- object$prob
 
+    W_use <- if (!is.null(object$W_agg)) object$W_agg else object$W
+    G <- ncol(W_use)
+
     # Case it's parametric
     if (is.array(prob) && length(dim(prob)) == 3) {
-        W <- as.matrix(object$W)
-        G <- dim(prob)[1]
+        W <- as.matrix(W_use)
         C <- dim(prob)[2]
         P <- matrix(0, nrow = G, ncol = C)
         for (g in seq_len(G)) {
@@ -259,11 +264,16 @@ plot.eim <- function(x,
     df$col <- factor(df$col, levels = col_names)
     df$label <- ifelse(100 * df$value >= min_pct, sprintf("%.1f%%", 100 * df$value), "")
 
+    if (is.null(pies_per_row)) {
+        pies_per_row <- ceiling(sqrt(G))
+    }
+    pies_per_row <- max(1L, as.integer(pies_per_row))
+
     plot_obj <- ggplot2::ggplot(df, ggplot2::aes(x = 0.5, y = value, fill = col)) +
         ggplot2::geom_col(width = 1, color = NA) +
         ggplot2::coord_polar(theta = "y", clip = "off") +
         ggplot2::scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
-        ggplot2::facet_wrap(~row, strip.position = "top") +
+        ggplot2::facet_wrap(~row, strip.position = "top", ncol = pies_per_row) +
         ggplot2::geom_text(
             ggplot2::aes(label = label),
             position = ggplot2::position_stack(vjust = 0.5),

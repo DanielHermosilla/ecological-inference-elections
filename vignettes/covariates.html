@@ -12,9 +12,9 @@
 
 <meta name="author" content="Charles Thraves, Pablo Ubilla, Daniel Hermosilla" />
 
-<meta name="date" content="2026-01-14" />
+<meta name="date" content="2026-01-16" />
 
-<title>Using the parametric approach</title>
+<title>Using the covariate approach</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -339,19 +339,19 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 
 
-<h1 class="title toc-ignore">Using the parametric approach</h1>
+<h1 class="title toc-ignore">Using the covariate approach</h1>
 <h4 class="author">Charles Thraves, Pablo Ubilla, Daniel Hermosilla</h4>
-<h4 class="date">2026-01-14</h4>
+<h4 class="date">2026-01-16</h4>
 
 
 
-<p>In addition to the non-parametric approach presented in the main
+<p>In addition to the non-covariate approach presented in the main
 vignette (see <code>demonstration.Rmd</code>), <code>fastei</code> also
-supports a parametric approach that incorporates electoral-unit–level
+supports a covariate approach that incorporates electoral-unit–level
 covariates. This approach follows the same general strategy of
 maximizing the log-likelihood via an EM algorithm, with the M-step
 carried out through a multinomial formulation.</p>
-<p>The parametric specification requires computing a Hessian matrix,
+<p>The covariate specification requires computing a Hessian matrix,
 which can be computationally costly; therefore, an approximation is used
 in practice. In addition, parameter updates within each M-step are
 obtained via a Newton–Raphson procedure. Empirically, performing a
@@ -378,9 +378,9 @@ default if not provided.</p>
 <div id="simulating-a-parametric-election" class="section level2">
 <h2>Simulating a parametric election</h2>
 <p>An election can be simulated using the function
-<code>simulate_election()</code>. When employing the parametric
-approach, it is necessary to specify both the number of covariates
-(<code>num_attributes</code>) and the number of districts
+<code>simulate_election()</code>. When employing the covariate approach,
+it is necessary to specify both the number of covariates
+(<code>num_covariates</code>) and the number of districts
 (<code>num_districts</code>). In practice, a district may represent a
 collection of ballot boxes that share the same covariate values. In the
 example below, we simulate an election with three candidates, two
@@ -391,16 +391,16 @@ demographic groups, and 20 covariates.</p>
 <span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>    <span class="at">num_ballots =</span> <span class="dv">100</span>,</span>
 <span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>    <span class="at">num_candidates =</span> <span class="dv">3</span>,</span>
 <span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>    <span class="at">num_groups =</span> <span class="dv">2</span>,</span>
-<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>    <span class="at">parametric =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a>    <span class="at">num_attributes =</span> <span class="dv">20</span>,</span>
-<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>    <span class="at">num_districts =</span> <span class="dv">10</span>,</span>
-<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a>    <span class="at">seed =</span> <span class="dv">42</span></span>
-<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a>)</span></code></pre></div>
-<p>Note that the parametric setting must be explicitly enabled by
-specifying parametric = TRUE.</p>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>    <span class="at">num_covariates =</span> <span class="dv">20</span>,</span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a>    <span class="at">num_districts =</span> <span class="dv">10</span>,</span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>    <span class="at">seed =</span> <span class="dv">42</span></span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a>)</span></code></pre></div>
+<p>Note that the covariate setting must be explicitly enabled by
+specifying <code>num_covariates</code> and <code>num_districts</code>
+distinctly from zero.</p>
 <p>The results of the simulation can be inspected by printing the
-resulting object. The simulated election is returned as an eim
-object.</p>
+resulting object. The simulated election is returned as an
+<code>eim</code> object.</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>election</span></code></pre></div>
 <pre><code>## eim ecological inference model
 ## Candidates&#39; vote matrix (X) [b x c]:
@@ -443,7 +443,7 @@ object.</p>
 <div id="running-the-model" class="section level2">
 <h2>Running the model</h2>
 <p>The model is estimated using the same function as in the
-non-parametric case. A minimal example is shown below:</p>
+non-covariate case. A minimal example is shown below:</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>result <span class="ot">&lt;-</span> <span class="fu">run_em</span>(election)</span></code></pre></div>
 <p>The quality of the estimated solution can be assessed by computing
 the mean absolute error (MAE):</p>
@@ -457,7 +457,9 @@ global probability for group (<span class="math inline">\(g\)</span>)
 and candidate (<span class="math inline">\(c\)</span>) is defined as</p>
 <p><span class="math display">\[P_{gc} = \frac{\sum_b W_{bg},
 p_{gcb}}{\sum_b W_{bg}}\]</span></p>
-<p>The following code snippet implements this aggregation:</p>
+<p>The following code snippet implements this aggregation (note that we
+could also get the global matrix by using the <code>as.matrix()</code>
+function):</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>global_prob <span class="ot">&lt;-</span> <span class="cf">function</span>(W, prob) {</span>
 <span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>    G <span class="ot">&lt;-</span> <span class="fu">dim</span>(prob)[<span class="dv">1</span>]</span>
 <span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>    C <span class="ot">&lt;-</span> <span class="fu">dim</span>(prob)[<span class="dv">2</span>]</span>
@@ -483,7 +485,7 @@ the estimated matrix with the true global probabilities:</p>
 <span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>parametric_global_mae</span></code></pre></div>
 <pre><code>## [1] 0.007670176</code></pre>
 <p>Finally, the contribution of covariates to estimation accuracy can be
-evaluated by comparing the parametric model with the non-parametric
+evaluated by comparing the covariate model with the non-covariate
 approach. This is achieved by removing the covariate matrix V and
 re-estimating the model:</p>
 <div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>non_parametric_election <span class="ot">&lt;-</span> election</span>
