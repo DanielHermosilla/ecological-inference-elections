@@ -5,6 +5,14 @@ EMAlgorithmFull <- function(candidate_matrix, group_matrix, em_method, probabili
     .Call(`_fastei_EMAlgorithmFull`, candidate_matrix, group_matrix, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, initial_probabilities)
 }
 
+EMAlgorithmMixture <- function(candidate_matrix, group_matrix, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, initial_probabilities, mixture_h) {
+    .Call(`_fastei_EMAlgorithmMixture`, candidate_matrix, group_matrix, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, initial_probabilities, mixture_h)
+}
+
+EMAlgorithmRowMixture <- function(candidate_matrix, group_matrix, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, initial_probabilities, row_mixture_h) {
+    .Call(`_fastei_EMAlgorithmRowMixture`, candidate_matrix, group_matrix, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, initial_probabilities, row_mixture_h)
+}
+
 bootstrapAlg <- function(candidate_matrix, group_matrix, nboot, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, initial_probabilities) {
     .Call(`_fastei_bootstrapAlg`, candidate_matrix, group_matrix, nboot, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, initial_probabilities)
 }

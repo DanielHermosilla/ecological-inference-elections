@@ -71,6 +71,26 @@ Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMa
                            Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error,
                            Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
                            Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities);
+
+Rcpp::List EMAlgorithmMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                              Rcpp::String em_method, Rcpp::String probability_method,
+                              Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
+                              Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold,
+                              Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size,
+                              Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error,
+                              Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
+                              Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities,
+                              Rcpp::IntegerVector mixture_h);
+Rcpp::List EMAlgorithmRowMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                                 Rcpp::String em_method, Rcpp::String probability_method,
+                                 Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
+                                 Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold,
+                                 Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose,
+                                 Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method,
+                                 Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter,
+                                 Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
+                                 Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities,
+                                 Rcpp::IntegerVector row_mixture_h);
 /**
  *  Returns an array of col-major matrices with bootstrapped matrices.
  *

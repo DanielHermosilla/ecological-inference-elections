@@ -30,6 +30,11 @@ SOFTWARE.
 #include <R_ext/Random.h>
 #include <Rcpp.h>
 #include <Rinternals.h>
+#include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <numeric>
+#include <vector>
 
 #ifndef Calloc
 #define Calloc(n, type) ((type *)R_chk_calloc((size_t)(n), sizeof(type)))
@@ -178,6 +183,243 @@ Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMa
                               Rcpp::_["total_iterations"] = totalIter, Rcpp::_["total_time"] = timeIter,
                               Rcpp::_["stopping_reason"] = stopping_reason, Rcpp::_["finish_id"] = finish,
                               Rcpp::_["q"] = condProb, Rcpp::_["expected_outcome"] = expectedOut);
+}
+
+// ---- Run Finite-Mixture EM (non-parametric only) ---- //
+// [[Rcpp::export]]
+Rcpp::List EMAlgorithmMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                              Rcpp::String em_method, Rcpp::String probability_method,
+                              Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
+                              Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold,
+                              Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size,
+                              Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error,
+                              Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
+                              Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities,
+                              Rcpp::IntegerVector mixture_h)
+{
+    int K = (mixture_h.size() > 0) ? mixture_h[0] : 1;
+    if (K < 1)
+    {
+        Rcpp::stop("EMAlgorithmMixture: 'mixture_h' must be a positive integer.");
+    }
+
+    std::string probabilityM = probability_method;
+    std::string EMAlg = em_method;
+
+    Matrix X;
+    Matrix W;
+    Matrix P = convertToMatrix(initial_probabilities);
+    RsetParameters(candidate_matrix, group_matrix, &X, &W);
+
+    QMethodInput inputParams =
+        initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], miniterations[0],
+                               monte_method, compute_ll[0], LP_method, project_every[0]);
+
+    EMMixtureResult *res =
+        EMAlgoritmMixture(&X, &W, probabilityM.c_str(), EMAlg.c_str(), stopping_threshold[0],
+                          log_stopping_threshold[0], maximum_iterations[0], maximum_seconds[0], verbose[0], &P,
+                          &inputParams, K);
+
+    if (inputParams.simulationMethod != nullptr)
+    {
+        free((void *)inputParams.simulationMethod);
+    }
+    if (inputParams.prob_cond != nullptr)
+    {
+        free((void *)inputParams.prob_cond);
+    }
+
+    if (res == NULL)
+    {
+        releaseMatrix(&X);
+        releaseMatrix(&W);
+        releaseMatrix(&P);
+        Rcpp::stop("EMAlgorithmMixture: backend returned NULL.");
+    }
+
+    const char *stop_reasons[] = {"Converged", "Maximum time reached", "Maximum iterations reached"};
+    const char *stopping_reason =
+        (res->finish_id >= 0 && res->finish_id < 3) ? stop_reasons[res->finish_id] : "Unknown";
+
+    const bool do_ll = (compute_ll.size() > 0) ? static_cast<bool>(compute_ll[0]) : true;
+    const double out_ll = do_ll ? res->log_likelihood : NA_REAL;
+
+    int C = candidate_matrix.nrow();
+    int B = candidate_matrix.ncol();
+    int G = group_matrix.ncol();
+    int outK = res->mixture_h;
+
+    Rcpp::NumericMatrix RfinalProbability(res->probabilities.rows, res->probabilities.cols);
+    std::memcpy(RfinalProbability.begin(), res->probabilities.data,
+                (size_t)res->probabilities.rows * (size_t)res->probabilities.cols * sizeof(double));
+
+    std::size_t N = std::size_t(B) * G * C;
+    Rcpp::NumericVector condProb(N);
+    for (std::size_t i = 0; i < N; ++i)
+    {
+        condProb[i] = res->q[i];
+    }
+    Rcpp::NumericVector expectedOut(N);
+    for (std::size_t i = 0; i < N; ++i)
+    {
+        expectedOut[i] = res->predicted_votes[i];
+    }
+    condProb.attr("dim") = Rcpp::IntegerVector::create(G, C, B);
+    expectedOut.attr("dim") = Rcpp::IntegerVector::create(G, C, B);
+
+    Rcpp::NumericVector phi(outK);
+    for (int k = 0; k < outK; ++k)
+    {
+        phi[k] = res->phi[k];
+    }
+
+    Rcpp::NumericMatrix responsibilities(B, outK);
+    std::memcpy(responsibilities.begin(), res->responsibilities.data, (size_t)B * (size_t)outK * sizeof(double));
+
+    Rcpp::NumericVector component_prob((R_xlen_t)G * C * outK);
+    for (std::size_t i = 0; i < (std::size_t)G * (std::size_t)C * (std::size_t)outK; ++i)
+    {
+        component_prob[i] = res->component_prob[i];
+    }
+    component_prob.attr("dim") = Rcpp::IntegerVector::create(G, C, outK);
+
+    int iter = res->total_iterations;
+    double elapsed = res->total_time;
+    int finish = res->finish_id;
+
+    cleanupMixtureResult(res);
+    releaseMatrix(&X);
+    releaseMatrix(&W);
+    releaseMatrix(&P);
+
+    return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = out_ll,
+                              Rcpp::_["total_iterations"] = iter, Rcpp::_["total_time"] = elapsed,
+                              Rcpp::_["stopping_reason"] = stopping_reason, Rcpp::_["finish_id"] = finish,
+                              Rcpp::_["q"] = condProb, Rcpp::_["expected_outcome"] = expectedOut,
+                              Rcpp::_["phi"] = phi, Rcpp::_["responsibilities"] = responsibilities,
+                              Rcpp::_["component_prob"] = component_prob);
+}
+
+// ---- Run Row-Level Finite-Mixture EM (non-parametric only) ---- //
+// [[Rcpp::export]]
+Rcpp::List EMAlgorithmRowMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                                 Rcpp::String em_method, Rcpp::String probability_method,
+                                 Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
+                                 Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold,
+                                 Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose,
+                                 Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method,
+                                 Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter,
+                                 Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
+                                 Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities,
+                                 Rcpp::IntegerVector row_mixture_h)
+{
+    int H = (row_mixture_h.size() > 0) ? row_mixture_h[0] : 1;
+    if (H < 1)
+    {
+        Rcpp::stop("EMAlgorithmRowMixture: 'row_mixture_h' must be a positive integer.");
+    }
+
+    std::string probabilityM = probability_method;
+    std::string EMAlg = em_method;
+
+    Matrix X;
+    Matrix W;
+    Matrix P = convertToMatrix(initial_probabilities);
+    RsetParameters(candidate_matrix, group_matrix, &X, &W);
+
+    QMethodInput inputParams =
+        initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], miniterations[0],
+                               monte_method, compute_ll[0], LP_method, project_every[0]);
+
+    EMMixtureResult *res =
+        EMAlgoritmRowMixture(&X, &W, probabilityM.c_str(), EMAlg.c_str(), stopping_threshold[0],
+                             log_stopping_threshold[0], maximum_iterations[0], maximum_seconds[0], verbose[0], &P,
+                             &inputParams, H);
+
+    if (inputParams.simulationMethod != nullptr)
+    {
+        free((void *)inputParams.simulationMethod);
+    }
+    if (inputParams.prob_cond != nullptr)
+    {
+        free((void *)inputParams.prob_cond);
+    }
+
+    if (res == NULL)
+    {
+        releaseMatrix(&X);
+        releaseMatrix(&W);
+        releaseMatrix(&P);
+        Rcpp::stop("EMAlgorithmRowMixture: backend returned NULL.");
+    }
+
+    const char *stop_reasons[] = {"Converged", "Maximum time reached", "Maximum iterations reached"};
+    const char *stopping_reason =
+        (res->finish_id >= 0 && res->finish_id < 3) ? stop_reasons[res->finish_id] : "Unknown";
+
+    const bool do_ll = (compute_ll.size() > 0) ? static_cast<bool>(compute_ll[0]) : true;
+    const double out_ll = do_ll ? res->log_likelihood : NA_REAL;
+
+    int C = candidate_matrix.nrow();
+    int B = candidate_matrix.ncol();
+    int G = group_matrix.ncol();
+    int outH = res->mixture_h;
+    int assignment_count = res->responsibilities.cols;
+
+    Rcpp::NumericMatrix RfinalProbability(res->probabilities.rows, res->probabilities.cols);
+    std::memcpy(RfinalProbability.begin(), res->probabilities.data,
+                (size_t)res->probabilities.rows * (size_t)res->probabilities.cols * sizeof(double));
+
+    std::size_t N = std::size_t(B) * G * C;
+    Rcpp::NumericVector condProb(N);
+    for (std::size_t i = 0; i < N; ++i)
+    {
+        condProb[i] = res->q[i];
+    }
+    Rcpp::NumericVector expectedOut(N);
+    for (std::size_t i = 0; i < N; ++i)
+    {
+        expectedOut[i] = res->predicted_votes[i];
+    }
+    condProb.attr("dim") = Rcpp::IntegerVector::create(G, C, B);
+    expectedOut.attr("dim") = Rcpp::IntegerVector::create(G, C, B);
+
+    Rcpp::NumericMatrix phi(G, outH);
+    for (int g = 0; g < G; ++g)
+    {
+        for (int h = 0; h < outH; ++h)
+        {
+            phi(g, h) = res->phi[(size_t)g * (size_t)outH + (size_t)h];
+        }
+    }
+
+    Rcpp::NumericMatrix responsibilities(B, assignment_count);
+    std::memcpy(responsibilities.begin(), res->responsibilities.data,
+                (size_t)B * (size_t)assignment_count * sizeof(double));
+
+    Rcpp::NumericVector component_prob((R_xlen_t)G * C * outH);
+    for (std::size_t i = 0; i < (std::size_t)G * (std::size_t)C * (std::size_t)outH; ++i)
+    {
+        component_prob[i] = res->component_prob[i];
+    }
+    component_prob.attr("dim") = Rcpp::IntegerVector::create(G, C, outH);
+
+    int iter = res->total_iterations;
+    double elapsed = res->total_time;
+    int finish = res->finish_id;
+
+    cleanupMixtureResult(res);
+    releaseMatrix(&X);
+    releaseMatrix(&W);
+    releaseMatrix(&P);
+
+    return Rcpp::List::create(Rcpp::_["result"] = RfinalProbability, Rcpp::_["log_likelihood"] = out_ll,
+                              Rcpp::_["total_iterations"] = iter, Rcpp::_["total_time"] = elapsed,
+                              Rcpp::_["stopping_reason"] = stopping_reason, Rcpp::_["finish_id"] = finish,
+                              Rcpp::_["q"] = condProb, Rcpp::_["expected_outcome"] = expectedOut,
+                              Rcpp::_["phi"] = phi, Rcpp::_["responsibilities"] = responsibilities,
+                              Rcpp::_["component_prob"] = component_prob,
+                              Rcpp::_["assignment_count"] = assignment_count);
 }
 
 // ---- Run Bootstrapping Algorithm ---- //

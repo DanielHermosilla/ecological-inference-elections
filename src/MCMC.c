@@ -31,6 +31,7 @@ SOFTWARE.
 #include <Rmath.h>
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 #ifndef Calloc
@@ -556,12 +557,17 @@ void computeQHitAndRun(EMContext *ctx, QMethodInput params, double *ll)
     double *q = ctx->q;
     Matrix *probabilities = &ctx->probabilities;
     // ---...--- //
+    if (ctx->ballot_loglik != NULL)
+    {
+        memset(ctx->ballot_loglik, 0, (size_t)TOTAL_BALLOTS * sizeof(double));
+    }
 
     // ---- Use a static assignment since the workload is even between threads ----
 
     *ll = 0;
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     { // --- For each ballot box
+        double ll_b = 0.0;
         OmegaSet *currentSet = ctx->omegaset[b];
         double *multiplicationValues = (currentSet->size <= 10000) ? (double[10000]){1}                // Stack
                                                                    : Calloc(currentSet->size, double); // Heap
@@ -614,21 +620,43 @@ void computeQHitAndRun(EMContext *ctx, QMethodInput params, double *ll)
             } // --- End candidate loop
         } // --- End group loop
 
-        // ---- Calculate the log-likelihood ---- //
-        double sum_exp_num = 0.0;
-        double v = 0;
-        for (int i = 0; i < currentSet->size; i++)
-        { // --- For each sample
-            v = exp(multiplicationValues[i]);
-            sum_exp_num += v;
+        if (params.computeLL)
+        {
+            // ---- First part of the log-likelihood ---- //
+            double sum_exp_num = 0.0;
+            for (int i = 0; i < currentSet->size; i++)
+            { // --- For each sample
+                sum_exp_num += exp(multiplicationValues[i]);
+            }
+            for (int i = 0; i < currentSet->size; i++)
+            { // --- For each sample
+                double val = exp(multiplicationValues[i]) / sum_exp_num;
+                ll_b -= val * log(currentSet->counts[i] * val);
+                ll_b += ctx->Qconstant[b][i] * val;
+            }
+
+            // ---- Second part of the log-likelihood (ballot-level q log p) ---- //
+            for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+            {
+                int w_bg = MATRIX_AT_PTR(intW, b, g);
+                if (w_bg == 0)
+                    continue;
+                double firstTerm = 0.0;
+                for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+                {
+                    double q_bgc = Q_3D(q, b, g, c, (int)TOTAL_GROUPS, (int)TOTAL_CANDIDATES);
+                    double p_gc = MATRIX_AT_PTR(probabilities, g, c);
+                    firstTerm += (p_gc == 0.0 || q_bgc == 0.0) ? 0.0 : q_bgc * log(p_gc);
+                }
+                ll_b += firstTerm * w_bg;
+            }
+
+            if (ctx->ballot_loglik != NULL)
+            {
+                ctx->ballot_loglik[b] = ll_b;
+            }
+            *ll += ll_b;
         }
-        for (int i = 0; i < currentSet->size && params.computeLL; i++)
-        { // --- For each sample
-            double val = exp(multiplicationValues[i]) / sum_exp_num;
-            *ll -= val * log(currentSet->counts[i] * val);
-            *ll += ctx->Qconstant[b][i] * val; // New term
-        }
-        // ---...--- //
 
         // ---- Free allocated memory ---- //
         if (currentSet->size > 10000)
@@ -636,5 +664,4 @@ void computeQHitAndRun(EMContext *ctx, QMethodInput params, double *ll)
         // ---...--- //
     } // --- End ballot box loop
 
-    *ll += params.computeLL ? computeQ(ctx) : 0;
 }

@@ -14,11 +14,31 @@ extern "C"
 #include "multinomial.h"
 #include "multivariate-cdf.h"
 #include "multivariate-pdf.h"
+#include "saddlepoint.h"
 #include "utils_matrix.h"
+
+    typedef struct
+    {
+        Matrix probabilities;    // G x C
+        double *q;               // B x G x C (flattened with Q_3D indexing)
+        double *predicted_votes; // B x G x C
+        double *phi;             // K
+        Matrix responsibilities; // B x K
+        double *component_prob;  // G x C x K
+        int mixture_h;
+        int total_iterations;
+        double total_time;
+        double log_likelihood;
+        int finish_id;
+    } EMMixtureResult;
 
     // ---...--- //
     //
     EMContext *createEMContext(Matrix *X, Matrix *W, const char *method, QMethodInput params);
+    void getInitialP(EMContext *ctx, const char *p_method, Matrix *probMatrix);
+    QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams);
+    void normalizeProbabilityRows(Matrix *P);
+    void projectQ(EMContext *ctx, QMethodInput inputParams);
     /**
      * @brief Implements the whole EM algorithm.
      *
@@ -57,6 +77,15 @@ extern "C"
                           double *time, int *iterTotal, double *logLLarr, int *finishing_reason, Matrix *probMatrix,
                           QMethodInput *inputParams);
 
+    EMMixtureResult *EMAlgoritmMixture(Matrix *X, Matrix *W, const char *p_method, const char *q_method,
+                                       const double convergence, const double LLconvergence, const int maxIter,
+                                       const double maxSeconds, const bool verbose, Matrix *probMatrix,
+                                       QMethodInput *inputParams, int mixture_h);
+    EMMixtureResult *EMAlgoritmRowMixture(Matrix *X, Matrix *W, const char *p_method, const char *q_method,
+                                          const double convergence, const double LLconvergence, const int maxIter,
+                                          const double maxSeconds, const bool verbose, Matrix *probMatrix,
+                                          QMethodInput *inputParams, int row_mixture_h);
+
     bool hasMismatch(Matrix *X, Matrix *W);
 
     Matrix precomputeNorm(double *scale_factors, Matrix *X, Matrix *W);
@@ -76,6 +105,7 @@ extern "C"
      *
      */
     void cleanup(EMContext *ctx);
+    void cleanupMixtureResult(EMMixtureResult *res);
 #ifdef __cplusplus
 }
 #endif

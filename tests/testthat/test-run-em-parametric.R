@@ -37,6 +37,8 @@ test_that("run_em returns parametric probabilities and parameters", {
 
     expect_prob_array(fit$prob)
     expect_prob_array(fit$cond_prob)
+    expect_true(is.numeric(fit$HET))
+    expect_equal(length(fit$HET), 1)
 
     expect_equal(dimnames(fit$prob)[[1]], colnames(sim$W))
     expect_equal(dimnames(fit$prob)[[2]], colnames(sim$X))

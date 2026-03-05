@@ -475,6 +475,10 @@ static void getMainParameters(EMContext *ctx, int b, const Matrix probabilitiesR
 void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
 {
     *ll = 0.0;
+    if (ctx->ballot_loglik != NULL)
+    {
+        memset(ctx->ballot_loglik, 0, (size_t)ctx->B * sizeof(double));
+    }
 
     Matrix *X = &ctx->X;
     double *q = ctx->q;
@@ -605,7 +609,14 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
     {
         double finalLL = 0.0;
         for (uint32_t b = 0; b < (uint32_t)B; b++)
-            finalLL += (logArray[b] != 0.0) ? log(logArray[b]) : 0.0;
+        {
+            double ll_b = (logArray[b] != 0.0) ? log(logArray[b]) : 0.0;
+            if (ctx->ballot_loglik != NULL)
+            {
+                ctx->ballot_loglik[b] = ll_b;
+            }
+            finalLL += ll_b;
+        }
         *ll = finalLL;
         Free(logArray);
     }

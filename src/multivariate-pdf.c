@@ -30,6 +30,7 @@ SOFTWARE.
 #include <Rmath.h>
 #include <math.h>
 #include <stdint.h>
+#include <string.h>
 #include <unistd.h>
 
 #ifndef Calloc
@@ -127,6 +128,29 @@ static inline void getRow_into(const Matrix *M, int row, double *out)
         out[c] = MATRIX_AT_PTR(M, row, c);
 }
 
+static inline double log_sum_exp_vec(const double *x, int n)
+{
+    double max_x = -INFINITY;
+    for (int i = 0; i < n; ++i)
+    {
+        if (isfinite(x[i]) && x[i] > max_x)
+            max_x = x[i];
+    }
+    if (!isfinite(max_x))
+        return -INFINITY;
+
+    double sum_exp = 0.0;
+    for (int i = 0; i < n; ++i)
+    {
+        if (isfinite(x[i]))
+            sum_exp += exp(x[i] - max_x);
+    }
+    if (!(sum_exp > 0.0) || !isfinite(sum_exp))
+        return -INFINITY;
+
+    return max_x + log(sum_exp);
+}
+
 /**
  * @brief Computes the `q` values for a given ballot box.
  *
@@ -142,8 +166,8 @@ static inline void getRow_into(const Matrix *M, int row, double *out)
  *
  * @return Writes into ctx->q a (B x G x C) tensor of q values
  */
-void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, const Matrix *probabilitiesReduced,
-                        double *ll, QMethodInput params, Arena *A)
+static void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, const Matrix *probabilitiesReduced,
+                               double *ll, QMethodInput params, Arena *A)
 {
     const int G = (int)ctx->G;
     const int C = (int)ctx->C;
@@ -153,25 +177,9 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
     // ---- Fill muR and sigma for this ballot ---- //
     getAverageConditional(ctx, b, probabilitiesReduced, &A->muR, A->sigma);
 
-    // ---- Normalization constant for log-likelihood ---- //
-    double normalizeConstant = 1.0;
-    if (params.computeLL)
-    {
-        if (C == 2)
-        {
-            // For C=2, we use the inverse later. Determinant can be computed if needed.
-            normalizeConstant = 1.0; // neutral factor
-        }
-        else
-        {
-            // For C > 2, sigma[g] stores the Cholesky factor L, so determinant = (prod diag(L))^2
-            double det = 1.0;
-            for (int c = 0; c < n; ++c)
-                det *= MATRIX_AT_PTR(A->sigma[0], c, c);
-            det = 1.0 / (det * det);
-            normalizeConstant = R_pow(R_pow_di(M_2_PI, n) * det, 0.5);
-        }
-    }
+    // ---- Ballot-level log-normalization for ll_b ---- //
+    // We add this to logden (never multiply logs).
+    double log_normalize = 0.0;
 
     // ---- Feature vector (candidate results) ---- //
     getColumn_into(X, b, A->feature);
@@ -179,6 +187,20 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
     // ---- Sigma preparation depending on C ---- //
     if (C == 2)
     {
+        if (params.computeLL)
+        {
+            // In C==2, sigma is scalar variance before inversion.
+            double var0 = MATRIX_AT_PTR(A->sigma[0], 0, 0);
+            if (isfinite(var0) && var0 > 0.0)
+            {
+                log_normalize = -0.5 * M_LN_2PI - 0.5 * log(var0);
+            }
+            else
+            {
+                log_normalize = 0.0;
+            }
+        }
+
         // Inverse Sigma directly for Mahalanobis original implementation
         for (int g = 0; g < G; ++g)
         {
@@ -191,6 +213,34 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
         for (int g = 0; g < G; ++g)
         {
             choleskyMat(A->sigma[g]); // store L (lower) in A->sigma[g]
+        }
+
+        if (params.computeLL)
+        {
+            // After choleskyMat, sigma[0] stores L with Sigma = L L^T.
+            // log |Sigma|^{1/2} = sum_i log(L_ii), so
+            // log normalizer = -0.5*n*log(2*pi) - log|Sigma|^{1/2}.
+            double log_det_sqrt = 0.0;
+            int bad_diag = 0;
+            for (int c = 0; c < n; ++c)
+            {
+                double lii = MATRIX_AT_PTR(A->sigma[0], c, c);
+                if (!isfinite(lii) || lii <= 0.0)
+                {
+                    bad_diag = 1;
+                    break;
+                }
+                log_det_sqrt += log(lii);
+            }
+
+            if (bad_diag)
+            {
+                log_normalize = 0.0;
+            }
+            else
+            {
+                log_normalize = -0.5 * (double)n * M_LN_2PI - log_det_sqrt;
+            }
         }
     }
 
@@ -212,8 +262,8 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
         {
             // Current implementation with Cholesky
             double *Sdiag_g = A->diag_Sinv ? &A->diag_Sinv[g * (size_t)n] : NULL;
-            double baseline = getMahanalobisDist2(A->sigma[g], A->diff, A->y, A->z, A->ec, Sdiag_g, n, /*need_z*/ true,
-                                                  /*need_diag*/ true);
+            double baseline = getMahanalobisDist2(A->sigma[g], A->diff, A->y, A->z, A->ec, Sdiag_g, n,
+                                                  /*need_z*/ true, /*need_diag*/ true);
 
             // Last candidate = baseline
             dst[n] = baseline;
@@ -223,6 +273,7 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
                 dst[c] = baseline - 2.0 * A->z[c] + diagcc;
             }
         }
+
     }
 
     // ---- Build q’s directly into ctx->q (always in log-space) ---- //
@@ -231,51 +282,22 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
         double *ma = &A->maha[(size_t)g * (size_t)C];
 
         double logw[C];
-        double logw_max = -INFINITY;
 
         // --- Numerators in log-space ---
         for (int c = 0; c < C; ++c)
         {
             double prior = MATRIX_AT_PTR(probabilities, g, c);
-            double logP = (prior > 0.0) ? log(prior) : -INFINITY;
-            logw[c] = -0.5 * ma[c] + logP; // exp(-0.5*ma[c]) * prior
-            if (isfinite(logw[c]) && logw[c] > logw_max)
-                logw_max = logw[c];
+            double logP = (prior > 0.0 && isfinite(prior)) ? log(prior) : -INFINITY;
+            double m = ma[c];
+            logw[c] = (isfinite(m) && isfinite(logP)) ? (-0.5 * m + logP) : -INFINITY;
         }
 
-        // --- Softmax with shift ---
-        // double den = 0.0;
-        // for (int c = 0; c < C; ++c)
-        // {
-        //     double val = isfinite(logw[c]) ? exp(logw[c] - logw_max) : 0.0;
-        //     A->QC[c] = val;
-        //     den += val;
-        // }
-        //
-        // // --- Log-likelihood contribution ---
-        // if (g == 0 && params.computeLL && den > 0.0 && isfinite(logw_max))
-        // {
-        //     double logden = logw_max + log(den);
-        //     *ll += logden * log(normalizeConstant);
-        // }
-        //
-        // // --- Normalize and store q ---
-        // for (int c = 0; c < C; ++c)
-        // {
-        //     double qgc = (den > 0.0) ? (A->QC[c] / den) : 0.0;
-        //     Q_3D(ctx->q, b, g, c, G, C) = qgc;
-        // }
-        // --- Softmax with shift ---
-        double den = 0.0;
-        for (int c = 0; c < C; ++c)
-        {
-            double val = (isfinite(logw[c]) && isfinite(logw_max)) ? exp(logw[c] - logw_max) : 0.0;
-            A->QC[c] = val;
-            den += val;
-        }
+        // Numerically stable normalization in log-space.
+        double logden = log_sum_exp_vec(logw, C);
+        double ll_logden = logden;
 
-        // --- Fallback si den == 0: usar priors y renormalizar ---
-        if (!(den > 0.0) || !isfinite(den))
+        // Fallback if logden is invalid: use priors (or uniform as last resort).
+        if (!isfinite(logden))
         {
             double s = 0.0;
             for (int c = 0; c < C; ++c)
@@ -289,29 +311,53 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
             if (s > 0.0)
             {
                 for (int c = 0; c < C; ++c)
-                    Q_3D(ctx->q, b, g, c, G, C) = A->QC[c] / s;
+                    A->QC[c] = A->QC[c] / s;
+                ll_logden = log(s);
             }
             else
             {
                 double uni = 1.0 / (double)C;
                 for (int c = 0; c < C; ++c)
-                    Q_3D(ctx->q, b, g, c, G, C) = uni;
+                    A->QC[c] = uni;
+                ll_logden = 0.0;
             }
-
-            continue;
         }
-
-        // --- Log-likelihood contribution (ahora sí den existe) ---
-        if (g == 0 && params.computeLL && den > 0.0 && isfinite(logw_max))
+        else
         {
-            double logden = logw_max + log(den);
-            *ll += logden * log(normalizeConstant);
+            for (int c = 0; c < C; ++c)
+            {
+                A->QC[c] = isfinite(logw[c]) ? exp(logw[c] - logden) : 0.0;
+            }
         }
 
-        // --- Normalize and store q (normal path) ---
+        if (g == 0 && params.computeLL)
+        {
+            double ll_term = ll_logden + log_normalize;
+            if (!isfinite(ll_term))
+            {
+                ll_term = log(1e-300);
+            }
+            *ll += ll_term;
+        }
+
+        // Final normalization guard and store q.
+        double qsum = 0.0;
         for (int c = 0; c < C; ++c)
         {
-            Q_3D(ctx->q, b, g, c, G, C) = A->QC[c] / den;
+            double qgc = (isfinite(A->QC[c]) && A->QC[c] > 0.0) ? A->QC[c] : 0.0;
+            A->QC[c] = qgc;
+            qsum += qgc;
+        }
+        if (!(qsum > 0.0) || !isfinite(qsum))
+        {
+            double uni = 1.0 / (double)C;
+            for (int c = 0; c < C; ++c)
+                Q_3D(ctx->q, b, g, c, G, C) = uni;
+        }
+        else
+        {
+            for (int c = 0; c < C; ++c)
+                Q_3D(ctx->q, b, g, c, G, C) = A->QC[c] / qsum;
         }
     }
 }
@@ -330,6 +376,10 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
 void computeQMultivariatePDF(EMContext *ctx, QMethodInput params, double *ll)
 {
     *ll = 0.0;
+    if (ctx->ballot_loglik != NULL)
+    {
+        memset(ctx->ballot_loglik, 0, (size_t)ctx->B * sizeof(double));
+    }
 
     Matrix *probabilities = &ctx->probabilities;
     Matrix probabilitiesReduced = removeLastColumn(probabilities);
@@ -339,7 +389,16 @@ void computeQMultivariatePDF(EMContext *ctx, QMethodInput params, double *ll)
 
     for (uint32_t b = 0; b < ctx->B; ++b)
     {
-        computeQforABallot(ctx, b, probabilities, &probabilitiesReduced, ll, params, &A);
+        double ll_b = 0.0;
+        computeQforABallot(ctx, b, probabilities, &probabilitiesReduced, &ll_b, params, &A);
+        if (params.computeLL)
+        {
+            if (ctx->ballot_loglik != NULL)
+            {
+                ctx->ballot_loglik[b] = ll_b;
+            }
+            *ll += ll_b;
+        }
     }
 
     // ---- Free the arena ---- //
@@ -347,5 +406,7 @@ void computeQMultivariatePDF(EMContext *ctx, QMethodInput params, double *ll)
     freeMatrix(&probabilitiesReduced);
 
     if (isnan(*ll) || isinf(*ll))
+    {
         *ll = 0.0;
+    }
 }

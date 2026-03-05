@@ -170,7 +170,13 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
             "adjust_prob_cond_every",
             "prob_inv",
             "cond_prob_inv",
-            "expected_outcome_inv"
+            "expected_outcome_inv",
+            "LL_ind",
+            "LL_rev_ind",
+            "dLL",
+            "dLL_rev",
+            "symmetric_weights",
+            "symmetric_weight_method"
         )
         extra_params <- matrices[names(matrices) %in% allowed_params] # TODO: Validate them
     }
@@ -234,9 +240,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #' @param H Positive integer indicating the number of latent profiles at the group
 #'   level (row-level mixture). If `H = 1` (default), row-level mixture is disabled.
 #'   If `H > 1`, the non-parametric EM uses a row-level finite-mixture backend in C.
-#'   If both `H > 1` and `mixture > 1`, the row-level backend is used with `H`.
-#'   If `H` is larger than the number of available groups `G`, it is automatically
-#'   truncated to `H = G`.
+#'   If `H > 1`, then `K` is implied by `H` and `mixture` is forced to `H`.
 #'
 #' @param HET Optional non-negative numeric threshold (in percentage points) used to
 #'   adaptively increase the number of mixture components. If supplied, the model computes
@@ -244,7 +248,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'   where `z_hat` is `expected_outcome` and
 #'   `z_tilde[g,c,b] = W[b,g] * sum_k p[g,c,k] * r[b,k]`,
 #'   with `r[b,k]` the posterior responsibility of ballot-box `b` for component `k`.
-#'   If `H > 1`, the adaptive search is run over `H = 1, ..., min(7, G)` and the
+#'   If `H > 1`, the adaptive search is run over `H = 1, ..., 7` and the
 #'   returned `K` tracks the selected row-level profile count (`K = H` in that path).
 #'   Otherwise, the adaptive search is run over `K = 1, ..., 7` (with `H = 1`).
 #'   While `HET >= alpha` (with `alpha = HET`), the model is re-estimated with the next
@@ -309,7 +313,9 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'
 #' @param scale_factor An optional numeric value used to scale down the `X` and `W` matrices before executing the EM algorithm. This scaling can help improve performance when dealing with large vote counts. For example if `scale_factor = 2` all elements of `X` and `W` are divided by two and rounded. The default value is `1`, which means no scaling is applied. In case the scaling results in mismatch between `W` and `X`, ensure that `allow_mismatch = TRUE`.
 #'
-#' @param symmetric A boolean indicating whether to perform a symmetric estimation. If `TRUE`, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. The final probabilities are obtained by averaging the expected outcomes from both runs. This approach can provide a more balanced estimation in certain scenarios. The default value is `FALSE`.
+#' @param symmetric A boolean indicating whether to perform a symmetric estimation. If `TRUE`, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. The final probabilities are obtained by combining the expected outcomes from both runs (equal average by default; see `symmetric_weight_method`). This approach can provide a more balanced estimation in certain scenarios. The default value is `FALSE`.
+#'
+#' @param symmetric_weight_method Character string indicating how to combine both directions when `symmetric = TRUE`. Valid values are `"average"` (default, equal weights `0.5/0.5`) and `"delta_ll"` (weights proportional to `dLL = LL - LL_ind` and `dLL_rev = LL_rev - LL_rev_ind`).
 #'
 #' @param ... Added for compability
 #'
@@ -376,6 +382,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #' 		\item{prob_inv}{The estimated probability matrix `(c x g)`, obtained by swapping `X` and `W`.}
 #' 		\item{cond_prob_inv}{A `(c x g x b)` 3d-array with the probability that at each ballot-box a voter of each candidate voted for each group, given the observed outcome at the particular ballot-box.}
 #' }
+#' If `symmetric_weight_method = "delta_ll"` and the model is non-parametric with a single profile (`K = H = 1`), the object also includes `LL_ind`, `LL_rev_ind`, `dLL`, `dLL_rev`, and `symmetric_weights`.
 #' Under this argument, the conditional probabilities will be obtained by dividing new expected outcomes by `W`. The probabilities will be calculated by performing an M-step.
 #'
 #' @examples
@@ -448,6 +455,7 @@ run_em <- function(object = NULL,
                    alpha_init = NULL,
                    scale_factor = 1,
                    symmetric = FALSE,
+                   symmetric_weight_method = "average",
                    ...) {
     base_call <- match.call()
     # Debug toggle: if `mixture` is explicitly passed (even as 1), route through mixture backend.
@@ -595,17 +603,16 @@ run_em <- function(object = NULL,
     W_effective <- if (is.null(object$W_agg)) object$W else object$W_agg
     G_effective <- ncol(W_effective)
 
-    # Row-level mixture has precedence when H > 1.
-    # If both H and mixture are > 1, estimation is still done by the H-backend.
-    if (H > 1L && mixture > 1L && H != mixture) {
-        warning(
-            "run_em: Both `H` and `mixture` are > 1. Using row-level mixture with `H`; `mixture` is ignored in the backend path."
-        )
-    }
-
-    if (is.finite(G_effective) && H > G_effective) {
-        warning(sprintf("run_em: `H` (%d) is larger than the number of groups G (%d). Using H = G.", H, G_effective))
-        H <- as.integer(G_effective)
+    # Row-level mixture implies K = H.
+    if (H > 1L) {
+        if (mixture != H) {
+            warning(sprintf(
+                "run_em: `H > 1` implies `K = H`. Setting `mixture` from %d to %d.",
+                mixture,
+                H
+            ))
+        }
+        mixture <- as.integer(H)
     }
 
     object$method <- method
@@ -737,7 +744,7 @@ run_em <- function(object = NULL,
         search_over_H <- H > 1L
 
         if (search_over_H) {
-            H_limit <- as.integer(min(K_max, G_effective))
+            H_limit <- as.integer(K_max)
             H_current <- 1L
             repeat {
                 base_call_het <- base_call
@@ -746,7 +753,7 @@ run_em <- function(object = NULL,
                 base_call_het$W <- NULL
                 base_call_het$V <- NULL
                 base_call_het$json_path <- NULL
-                base_call_het$mixture <- 1L
+                base_call_het$mixture <- H_current
                 base_call_het$H <- H_current
                 base_call_het$HET <- NULL
 
@@ -755,7 +762,7 @@ run_em <- function(object = NULL,
                 het_value <- compute_HET_metric(fit_het)
                 fit_het$HET <- het_value
                 fit_het$K <- as.integer(H_current)
-                fit_het$mixture <- 1L
+                fit_het$mixture <- as.integer(H_current)
                 fit_het$H <- as.integer(H_current)
 
                 if (is.finite(het_value) && het_value < best_het) {
@@ -899,7 +906,7 @@ run_em <- function(object = NULL,
         object$time <- resulting_values$total_time
         object$message <- resulting_values$stopping_reason
         object$status <- as.integer(resulting_values$finish_id)
-        object$mixture <- as.integer(mixture)
+        object$mixture <- as.integer(H_group)
         object$K <- as.integer(H_group)
         object$H <- as.integer(H_group)
 
@@ -1140,11 +1147,160 @@ run_em <- function(object = NULL,
     inverse <- eval(base_call_sym, parent_env)
     object$cond_prob_inv <- inverse$cond_prob
     object$prob_inv <- inverse$prob
+    object$expected_outcome_inv <- inverse$expected_outcome
     object$time <- object$time + inverse$time
     object$iterations <- object$iterations + inverse$iterations
 
+    normalize_prob_rows <- function(prob_matrix) {
+        prob_matrix[!is.finite(prob_matrix) | prob_matrix < 0] <- 0
+        rs <- rowSums(prob_matrix)
+        valid <- is.finite(rs) & rs > 0
+        if (any(valid)) {
+            prob_matrix[valid, ] <- sweep(prob_matrix[valid, , drop = FALSE], 1, rs[valid], "/")
+        }
+        if (any(!valid)) {
+            prob_matrix[!valid, ] <- rep(1 / ncol(prob_matrix), ncol(prob_matrix))
+        }
+        prob_matrix
+    }
+
+    normalize_cube_last_dim <- function(arr3) {
+        B <- dim(arr3)[1]
+        R <- dim(arr3)[2]
+        K <- dim(arr3)[3]
+        for (b in seq_len(B)) {
+            for (r in seq_len(R)) {
+                row_vals <- arr3[b, r, ]
+                row_vals[!is.finite(row_vals) | row_vals < 0] <- 0
+                row_sum <- sum(row_vals)
+                if (is.finite(row_sum) && row_sum > 0) {
+                    arr3[b, r, ] <- row_vals / row_sum
+                } else {
+                    arr3[b, r, ] <- rep(1 / K, K)
+                }
+            }
+        }
+        arr3
+    }
+
+    mstep_from_q <- function(q_array, W_matrix) {
+        q_bgc <- aperm(q_array, c(3, 1, 2))
+        weighted <- sweep(q_bgc, c(1, 2), W_matrix, "*")
+        num <- apply(weighted, c(2, 3), sum)
+        den <- colSums(W_matrix)
+        prob <- sweep(num, 1, den, "/")
+        normalize_prob_rows(prob)
+    }
+
+    em_loglik_from_prob <- function(X_matrix, W_matrix, prob_matrix, method_name) {
+        if (!is.matrix(prob_matrix)) {
+            return(NA_real_)
+        }
+        if (ncol(X_matrix) != ncol(prob_matrix) || ncol(W_matrix) != nrow(prob_matrix)) {
+            return(NA_real_)
+        }
+        ll_result <- EMAlgorithmFull(
+            t(X_matrix),
+            W_matrix,
+            as.character(method_name),
+            "custom",
+            as.integer(0),
+            as.double(0),
+            as.double(0),
+            as.double(-Inf),
+            as.logical(TRUE),
+            as.logical(FALSE),
+            as.integer(3000),
+            as.integer(1000),
+            "genz",
+            as.double(1e-3),
+            as.integer(5000),
+            as.integer(0),
+            "",
+            as.logical(FALSE),
+            prob_matrix
+        )
+        as.numeric(ll_result$log_likelihood)
+    }
+
+    weight_method <- "average"
+    if (!is.null(all_params) && !is.null(all_params$symmetric_weight_method)) {
+        weight_method <- as.character(all_params$symmetric_weight_method)
+    }
+    em_method <- "mult"
+    if (!is.null(all_params) && !is.null(all_params$method)) {
+        em_method <- as.character(all_params$method)
+    }
+
+    weight_original <- 0.5
+    weight_reverse <- 0.5
+    expected_orig <- object$expected_outcome
     A2 <- aperm(inverse$expected_outcome, c(2, 1, 3))
-    object$expected_outcome <- 0.5 * (object$expected_outcome + A2)
+
+    single_profile <- (is.null(object$K) || as.integer(object$K) == 1L) &&
+        (is.null(object$H) || as.integer(object$H) == 1L)
+    can_use_delta <- identical(weight_method, "delta_ll") &&
+        !include_V &&
+        single_profile &&
+        is.matrix(object$X) &&
+        is.matrix(W_sym) &&
+        is.matrix(object$W) &&
+        is.matrix(object$prob) &&
+        is.matrix(inverse$prob) &&
+        nrow(object$X) == nrow(W_sym) &&
+        nrow(object$W) == nrow(object$X) &&
+        ncol(W_sym) == ncol(object$W) &&
+        identical(dim(expected_orig), dim(A2))
+
+    if (can_use_delta) {
+        q_orig_bgc <- aperm(object$cond_prob, c(3, 1, 2))
+        z_from_orig_bgc <- sweep(q_orig_bgc, c(1, 2), W_sym, "*")
+        q_rev_ind_bcg <- sweep(aperm(z_from_orig_bgc, c(1, 3, 2)), c(1, 2), object$X, "/")
+        q_rev_ind_bcg <- normalize_cube_last_dim(q_rev_ind_bcg)
+        q_rev_ind <- aperm(q_rev_ind_bcg, c(2, 3, 1))
+        p_rev_ind <- mstep_from_q(q_rev_ind, object$X)
+
+        q_rev_bcg <- aperm(inverse$cond_prob, c(3, 1, 2))
+        z_from_rev_bgc <- aperm(sweep(q_rev_bcg, c(1, 2), object$X, "*"), c(1, 3, 2))
+        q_ind_bgc <- sweep(z_from_rev_bgc, c(1, 2), W_sym, "/")
+        q_ind_bgc <- normalize_cube_last_dim(q_ind_bgc)
+        q_ind <- aperm(q_ind_bgc, c(2, 3, 1))
+        p_ind <- mstep_from_q(q_ind, W_sym)
+
+        LL <- suppressWarnings(as.numeric(object$logLik))
+        if (!is.finite(LL)) {
+            LL <- em_loglik_from_prob(object$X, W_sym, object$prob, em_method)
+        }
+        LL_rev <- suppressWarnings(as.numeric(inverse$logLik))
+        if (!is.finite(LL_rev)) {
+            LL_rev <- em_loglik_from_prob(object$W, object$X, inverse$prob, em_method)
+        }
+
+        LL_ind <- em_loglik_from_prob(object$X, W_sym, p_ind, em_method)
+        LL_rev_ind <- em_loglik_from_prob(object$W, object$X, p_rev_ind, em_method)
+
+        dLL <- LL - LL_ind
+        dLL_rev <- LL_rev - LL_rev_ind
+
+        dLL_pos <- max(0, dLL)
+        dLL_rev_pos <- max(0, dLL_rev)
+        den_dLL <- dLL_pos + dLL_rev_pos
+        if (is.finite(den_dLL) && den_dLL > 0) {
+            weight_original <- dLL_pos / den_dLL
+            weight_reverse <- dLL_rev_pos / den_dLL
+        }
+
+        object$LL_ind <- LL_ind
+        object$LL_rev_ind <- LL_rev_ind
+        object$dLL <- dLL
+        object$dLL_rev <- dLL_rev
+        object$symmetric_weight_method <- "delta_ll"
+    } else {
+        object$symmetric_weight_method <- "average"
+    }
+    object$symmetric_weights <- c(original = weight_original, reverse = weight_reverse)
+
+    object$expected_outcome <- weight_original * expected_orig + weight_reverse * A2
     dimnames(object$expected_outcome) <- list(
         colnames(W_sym),
         colnames(object$X),

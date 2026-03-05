@@ -30,6 +30,7 @@ SOFTWARE.
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #ifndef Calloc
@@ -745,6 +746,10 @@ void computeQExact(EMContext *ctx, QMethodInput params, double *ll)
     }
 
     double ll_sum = 0.0;
+    if (ctx->ballot_loglik != NULL)
+    {
+        memset(ctx->ballot_loglik, 0, (size_t)TOTAL_BALLOTS * sizeof(double));
+    }
 
     // ---------- Parallelize over b with owner-computes ----------
     // Each thread creates, uses, and frees its own memo table.
@@ -786,7 +791,12 @@ void computeQExact(EMContext *ctx, QMethodInput params, double *ll)
         // Optional: add to LL
         if (params.computeLL)
         {
-            ll_sum += exactLL_one_b(memo_b, b);
+            double ll_b = exactLL_one_b(memo_b, b);
+            if (ctx->ballot_loglik != NULL)
+            {
+                ctx->ballot_loglik[b] = ll_b;
+            }
+            ll_sum += ll_b;
         }
 
         freeMemo(memo_b);

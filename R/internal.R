@@ -47,10 +47,44 @@
     }
 
     # Method argument
-    valid_methods <- c("mcmc", "exact", "mvn_cdf", "mvn_pdf", "mult", "metropolis")
+    valid_methods <- c("mcmc", "exact", "mvn_cdf", "mvn_pdf", "saddlepoint", "mult", "metropolis")
     if ("method" %in% names(args) &&
         (!is.character(args$method) || length(args$method) != 1 || !(args$method %in% valid_methods))) {
         stop("Invalid 'method'. Must be one of: ", paste(valid_methods, collapse = ", "))
+    }
+
+    valid_symmetric_weight_methods <- c("average", "delta_ll")
+    if ("symmetric_weight_method" %in% names(args) &&
+        (!is.character(args$symmetric_weight_method) ||
+            length(args$symmetric_weight_method) != 1 ||
+            !(args$symmetric_weight_method %in% valid_symmetric_weight_methods))) {
+        stop(
+            "Invalid 'symmetric_weight_method'. Must be one of: ",
+            paste(valid_symmetric_weight_methods, collapse = ", ")
+        )
+    }
+
+    if ("mixture" %in% names(args) && !is.null(args$mixture)) {
+        if (!is.numeric(args$mixture) || length(args$mixture) != 1 ||
+            !is.finite(args$mixture) || as.integer(args$mixture) != args$mixture ||
+            args$mixture < 1) {
+            stop("run_em: Invalid 'mixture'. Must be a positive integer.")
+        }
+    }
+
+    if ("H" %in% names(args) && !is.null(args$H)) {
+        if (!is.numeric(args$H) || length(args$H) != 1 ||
+            !is.finite(args$H) || as.integer(args$H) != args$H ||
+            args$H < 1) {
+            stop("run_em: Invalid 'H'. Must be a positive integer.")
+        }
+    }
+
+    if ("HET" %in% names(args) && !is.null(args$HET)) {
+        if (!is.numeric(args$HET) || length(args$HET) != 1 ||
+            !is.finite(args$HET) || args$HET < 0) {
+            stop("run_em: Invalid 'HET'. Must be a non-negative numeric value.")
+        }
     }
 
     # Initial prob argument

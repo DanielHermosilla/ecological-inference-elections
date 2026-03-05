@@ -81,6 +81,7 @@ EMContext *createEMContext(Matrix *X, Matrix *W, const char *method, QMethodInpu
     ctx->intW = copMatrixDI(W);
     ctx->probabilities = createMatrix(ctx->G, ctx->C);
     ctx->q = (double *)Calloc(ctx->B * ctx->C * ctx->G, double);
+    ctx->ballot_loglik = (double *)Calloc(ctx->B, double);
     ctx->iteration = 0;
 
     ctx->ballots_votes = Calloc(ctx->B, uint16_t);
@@ -461,8 +462,8 @@ void getInitialP(EMContext *ctx, const char *p_method, Matrix *probMatrix)
  *
  * Given that different `Q` methods receive different parameters, a modularized approach is given towards each method
  *
- * @input[in] q_method A char with the q_method. Currently it supports "exact", "mcmc", "mult", "mvn_cdf", "metropolis",
- * and "mvn_pdf"
+ * @input[in] q_method A char with the q_method. Currently it supports "exact", "mcmc", "mult", "mvn_cdf",
+ * "mvn_pdf" and "saddlepoint"
  * @input[in] inputParams A QMethodInput struct, that should be defined in a main function, with the parameters for the
  * distinct methods
  *
@@ -487,6 +488,10 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
     {
         config.computeQ = computeQMultivariatePDF;
     }
+    else if (strcmp(q_method, "saddlepoint") == 0)
+    {
+        config.computeQ = computeQSaddlepoint;
+    }
     else if (strcmp(q_method, "exact") == 0)
     {
         config.computeQ = computeQExact;
@@ -498,7 +503,7 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
     else
     {
         error("Compute: An invalid method was provided: `%s`\nThe supported methods are: `exact`, `mcmc`"
-              ", `mult`, `mvn_cdf` and `mvn_pdf`.\n",
+              ", `mult`, `mvn_cdf`, `mvn_pdf` and `saddlepoint`.\n",
               q_method);
     }
 
@@ -550,6 +555,40 @@ void getP(EMContext *ctx)
         }
     }
     // ---...--- //
+}
+
+void normalizeProbabilityRows(Matrix *P)
+{
+    const double eps = 1e-12;
+    for (int g = 0; g < P->rows; ++g)
+    {
+        double row_sum = 0.0;
+        for (int c = 0; c < P->cols; ++c)
+        {
+            double v = MATRIX_AT_PTR(P, g, c);
+            if (!isfinite(v) || v < eps)
+            {
+                v = eps;
+            }
+            MATRIX_AT_PTR(P, g, c) = v;
+            row_sum += v;
+        }
+        if (!isfinite(row_sum) || row_sum <= 0.0)
+        {
+            row_sum = (double)P->cols;
+            for (int c = 0; c < P->cols; ++c)
+            {
+                MATRIX_AT_PTR(P, g, c) = 1.0 / row_sum;
+            }
+        }
+        else
+        {
+            for (int c = 0; c < P->cols; ++c)
+            {
+                MATRIX_AT_PTR(P, g, c) /= row_sum;
+            }
+        }
+    }
 }
 
 bool hasMismatch(Matrix *X, Matrix *W)
@@ -896,6 +935,11 @@ void cleanup(EMContext *ctx)
     {
         Free(ctx->q);
         ctx->q = NULL;
+    }
+    if (ctx->ballot_loglik != NULL)
+    {
+        Free(ctx->ballot_loglik);
+        ctx->ballot_loglik = NULL;
     }
     if (ctx->cdf_seeds != NULL)
     {

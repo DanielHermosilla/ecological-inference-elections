@@ -13,6 +13,9 @@ run_em(
   json_path = NULL,
   method = "mult",
   initial_prob = "group_proportional",
+  mixture = 1,
+  H = 1,
+  HET = NULL,
   allow_mismatch = TRUE,
   maxiter = 1000,
   miniter = 0,
@@ -35,6 +38,7 @@ run_em(
   alpha_init = NULL,
   scale_factor = 1,
   symmetric = FALSE,
+  symmetric_weight_method = "average",
   ...
 )
 }
@@ -55,6 +59,7 @@ options are:
 \item \code{mult}: The default method, using a single sum of Multinomial distributions.
 \item \code{mvn_cdf}: Uses a Multivariate Normal CDF distribution to approximate the conditional probability.
 \item \code{mvn_pdf}: Uses a Multivariate Normal PDF distribution to approximate the conditional probability.
+\item \code{saddlepoint}: Uses a saddlepoint approximation of the PMF to estimate the conditional probability.
 \item \code{mcmc}: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the E-step.
 \item \code{exact}: Solves the E-step using the Total Probability Law.
 }
@@ -72,6 +77,30 @@ probability. Accepted values are:
 \item \code{random}: Use randomized values to fill the probability matrix.
 This argument is ignored if \code{V} is supplied (covariate mode), as the initial probabilities are computed with \code{alpha_init} and \code{beta_init}.
 }}
+
+\item{mixture}{Positive integer indicating the number of latent voting profiles.
+If \code{mixture = 1} (default), the standard EM is used. If \code{mixture > 1},
+a finite-mixture EM extension is applied with that number of components.}
+
+\item{H}{Positive integer indicating the number of latent profiles at the group
+level (row-level mixture). If \code{H = 1} (default), row-level mixture is disabled.
+If \code{H > 1}, the non-parametric EM uses a row-level finite-mixture backend in C.
+If \code{H > 1}, then \code{K} is implied by \code{H} and \code{mixture} is forced to \code{H}.}
+
+\item{HET}{Optional non-negative numeric threshold (in percentage points) used to
+adaptively increase the number of mixture components. If supplied, the model computes
+\code{HET = 50 * sum(|z_hat - z_tilde|) / sum_b I_b},
+where \code{z_hat} is \code{expected_outcome} and
+\code{z_tilde[g,c,b] = W[b,g] * sum_k p[g,c,k] * r[b,k]},
+with \code{r[b,k]} the posterior responsibility of ballot-box \code{b} for component \code{k}.
+If \code{H > 1}, the adaptive search is run over \code{H = 1, ..., 7} and the
+returned \code{K} tracks the selected row-level profile count (\code{K = H} in that path).
+Otherwise, the adaptive search is run over \code{K = 1, ..., 7} (with \code{H = 1}).
+While \code{HET >= alpha} (with \code{alpha = HET}), the model is re-estimated with the next
+value in the selected sequence. If no value up to 7 satisfies the threshold, the fit
+with the smallest observed \code{HET} is returned. If \code{HET = 0}, all values from 1 to 7 are
+always evaluated and the fit with minimum observed \code{HET} is returned.
+The returned object always includes the final \code{K}, \code{H}, and achieved \code{HET}.}
 
 \item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{TRUE}. See \strong{Notes} for more details.}
 
@@ -129,7 +158,9 @@ samples for the \code{mvn_cdf} method. The default value is \code{5000}. This ar
 
 \item{scale_factor}{An optional numeric value used to scale down the \code{X} and \code{W} matrices before executing the EM algorithm. This scaling can help improve performance when dealing with large vote counts. For example if \code{scale_factor = 2} all elements of \code{X} and \code{W} are divided by two and rounded. The default value is \code{1}, which means no scaling is applied. In case the scaling results in mismatch between \code{W} and \code{X}, ensure that \code{allow_mismatch = TRUE}.}
 
-\item{symmetric}{A boolean indicating whether to perform a symmetric estimation. If \code{TRUE}, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. The final probabilities are obtained by averaging the expected outcomes from both runs. This approach can provide a more balanced estimation in certain scenarios. The default value is \code{FALSE}.}
+\item{symmetric}{A boolean indicating whether to perform a symmetric estimation. If \code{TRUE}, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. The final probabilities are obtained by combining the expected outcomes from both runs (equal average by default; see \code{symmetric_weight_method}). This approach can provide a more balanced estimation in certain scenarios. The default value is \code{FALSE}.}
+
+\item{symmetric_weight_method}{Character string indicating how to combine both directions when \code{symmetric = TRUE}. Valid values are \code{"average"} (default, equal weights \code{0.5/0.5}) and \code{"delta_ll"} (weights proportional to \code{dLL = LL - LL_ind} and \code{dLL_rev = LL_rev - LL_rev_ind}).}
 
 \item{...}{Added for compability}
 }
@@ -150,6 +181,9 @@ A \verb{(g x c x b)} 3d-array with the expected votes cast for each ballot-box.
 \item{logLik}{The log-likelihood value from the last iteration.}
 \item{iterations}{The total number of iterations performed by the EM algorithm.}
 \item{time}{The total execution time of the algorithm in seconds.}
+\item{K}{The final number of latent profiles used by the fitted model.}
+\item{H}{The final number of row-level latent profiles used by the fitted model.}
+\item{HET}{The final heterogeneity metric achieved by the fitted model.}
 \item{status}{
 The final status ID of the algorithm upon completion:
 \itemize{
@@ -172,6 +206,7 @@ Furthermore, if \code{symmetric = TRUE}, the following additional attributes are
 \item{prob_inv}{The estimated probability matrix \verb{(c x g)}, obtained by swapping \code{X} and \code{W}.}
 \item{cond_prob_inv}{A \verb{(c x g x b)} 3d-array with the probability that at each ballot-box a voter of each candidate voted for each group, given the observed outcome at the particular ballot-box.}
 }
+If \code{symmetric_weight_method = "delta_ll"} and the model is non-parametric with a single profile (\code{K = H = 1}), the object also includes \code{LL_ind}, \code{LL_rev_ind}, \code{dLL}, \code{dLL_rev}, and \code{symmetric_weights}.
 Under this argument, the conditional probabilities will be obtained by dividing new expected outcomes by \code{W}. The probabilities will be calculated by performing an M-step.
 }
 \description{

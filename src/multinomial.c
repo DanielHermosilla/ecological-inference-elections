@@ -29,6 +29,7 @@ SOFTWARE.
 #include <Rinternals.h>
 #include <Rmath.h>
 #include <stdint.h>
+#include <string.h>
 
 #ifndef Calloc
 #define Calloc(n, type) ((type *)R_chk_calloc((size_t)(n), sizeof(type)))
@@ -111,6 +112,10 @@ void computeQMultinomial(EMContext *ctx, QMethodInput params, double *ll)
     Matrix *probabilities = &ctx->probabilities;
     double *q = ctx->q;
     bool compute_ll = params.computeLL;
+    if (ctx->ballot_loglik != NULL)
+    {
+        memset(ctx->ballot_loglik, 0, (size_t)TOTAL_BALLOTS * sizeof(double));
+    }
     // -- Summatory calculation for g --
     // This is a simple matrix calculation, to be computed once.
     Matrix WP = createMatrix((int)TOTAL_BALLOTS, (int)TOTAL_CANDIDATES);
@@ -146,6 +151,7 @@ void computeQMultinomial(EMContext *ctx, QMethodInput params, double *ll)
 
     for (int b = 0; b < (int)TOTAL_BALLOTS; b++)
     { // --- For each ballot box
+        double ll_b = 0.0;
         for (int g = 0; g < (int)TOTAL_GROUPS; g++)
         { // --- For each group given a ballot box
             // ---- Create temporal variables ----
@@ -172,10 +178,11 @@ void computeQMultinomial(EMContext *ctx, QMethodInput params, double *ll)
                     if (x > 0 && (MATRIX_AT(WP, b, c) == 0 || totalWP[b] == 0))
                     {
                         *ll = -INFINITY;
+                        ll_b = -INFINITY;
                     }
                     else if (MATRIX_AT(WP, b, c) != 0 && totalWP[b] != 0)
                     {
-                        *ll += x * log(MATRIX_AT(WP, b, c) / totalWP[b]) - ctx->logGamma[x];
+                        ll_b += x * log(MATRIX_AT(WP, b, c) / totalWP[b]) - ctx->logGamma[x];
                     }
                 }
             }
@@ -189,7 +196,15 @@ void computeQMultinomial(EMContext *ctx, QMethodInput params, double *ll)
             }
             free(finalNumerator);
         }
-        *ll += compute_ll ? ctx->logGamma[ctx->ballots_votes[b]] : 0;
+        if (compute_ll)
+        {
+            ll_b += ctx->logGamma[ctx->ballots_votes[b]];
+            if (ctx->ballot_loglik != NULL)
+            {
+                ctx->ballot_loglik[b] = ll_b;
+            }
+            *ll += ll_b;
+        }
     }
     free(totalWP);
     // *ll -= TOTAL_BALLOTS * TOTAL_CANDIDATES * log(totalWP);

@@ -78,6 +78,7 @@ extern "C"
         Matrix probabilities; // G×C
         double *q;            // B×G×C
         double *predicted_votes;
+        double *ballot_loglik; // length B, per-ballot log-likelihood contribution
         int iteration;
 
         Matrix Wnorm;
