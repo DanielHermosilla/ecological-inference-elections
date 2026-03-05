@@ -155,6 +155,8 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
             "status",
             "time",
             "method",
+            "HET",
+            "AE",
             "W_agg",
             "beta",
             "alpha",
@@ -256,6 +258,14 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'   with the smallest observed `HET` is returned. If `HET = 0`, all values from 1 to 7 are
 #'   always evaluated and the fit with minimum observed `HET` is returned.
 #'   The returned object always includes the final `K`, `H`, and achieved `HET`.
+#'
+#' @param AE Optional non-negative numeric selector to activate adaptive search
+#'   using an absolute-error criterion inspired by `mae_inverse`. For each fit, it computes
+#'   `AE = tau = sum(|X - W %*% p|)`. If `H > 1`, the adaptive search is run over
+#'   `H = 1, ..., 7` (with `K = H`); otherwise it is run over `K = 1, ..., 7` (with `H = 1`).
+#'   When supplied, all candidate values in the selected sequence are evaluated and
+#'   the fit with minimum observed `AE` is returned. This argument is mutually exclusive
+#'   with `HET`.
 #'
 #' @param allow_mismatch Boolean, if `TRUE`, allows a mismatch between the voters and votes for each ballot-box. If `FALSE`, throws an error if there is a mismatch. By default it is `TRUE`. See **Notes** for more details.
 #'
@@ -360,6 +370,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'   \item{K}{The final number of latent profiles used by the fitted model.}
 #'   \item{H}{The final number of row-level latent profiles used by the fitted model.}
 #'   \item{HET}{The final heterogeneity metric achieved by the fitted model.}
+#'   \item{AE}{The final absolute-error metric achieved by the fitted model.}
 #'   \item{status}{
 #'     The final status ID of the algorithm upon completion:
 #'     \itemize{
@@ -433,6 +444,7 @@ run_em <- function(object = NULL,
                    mixture = 1,
                    H = 1,
                    HET = NULL,
+                   AE = NULL,
                    allow_mismatch = TRUE,
                    maxiter = 1000,
                    miniter = 0,
@@ -458,6 +470,7 @@ run_em <- function(object = NULL,
                    symmetric_weight_method = "average",
                    ...) {
     base_call <- match.call()
+    caller_env <- parent.frame()
     # Debug toggle: if `mixture` is explicitly passed (even as 1), route through mixture backend.
     mixture_explicit <- "mixture" %in% names(as.list(base_call))
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
@@ -476,6 +489,9 @@ run_em <- function(object = NULL,
     H <- as.integer(H)
     if (!is.null(HET)) {
         HET <- as.numeric(HET)
+    }
+    if (!is.null(AE)) {
+        AE <- as.numeric(AE)
     }
     if (!is.null(V)) {
         object$V <- V
@@ -570,6 +586,40 @@ run_em <- function(object = NULL,
         het
     }
 
+    compute_AE_metric <- function(fit_object) {
+        W_fit <- if (is.null(fit_object$W_agg)) fit_object$W else fit_object$W_agg
+        X_fit <- fit_object$X
+        if (is.null(W_fit) || is.null(X_fit)) {
+            return(NA_real_)
+        }
+
+        prob_forward <- fit_object$prob
+        if (is.array(prob_forward) && length(dim(prob_forward)) == 3) {
+            G <- dim(prob_forward)[1]
+            C <- dim(prob_forward)[2]
+            prob_mat <- matrix(0, nrow = G, ncol = C)
+            for (g in seq_len(G)) {
+                den_g <- sum(W_fit[, g])
+                if (is.finite(den_g) && den_g > 0) {
+                    prob_mat[g, ] <- colSums(t(prob_forward[g, , ]) * W_fit[, g]) / den_g
+                } else {
+                    prob_mat[g, ] <- rep(1 / C, C)
+                }
+            }
+            prob_forward <- prob_mat
+        }
+        if (!is.matrix(prob_forward)) {
+            return(NA_real_)
+        }
+
+        x_hat <- as.matrix(W_fit) %*% prob_forward
+        tau <- sum(abs(as.matrix(X_fit) - x_hat))
+        if (!is.finite(tau)) {
+            return(NA_real_)
+        }
+        tau
+    }
+
     is_parametric <- !is.null(object$V)
 
     # Note: Mismatch restricted methods are checked inside .validate_compute
@@ -626,6 +676,9 @@ run_em <- function(object = NULL,
         }
         if (!is.null(HET)) {
             stop("run_em: `HET` is currently supported only for non-parametric models (`V = NULL`).")
+        }
+        if (!is.null(AE)) {
+            stop("run_em: `AE` is currently supported only for non-parametric models (`V = NULL`).")
         }
         if (H > 1) {
             stop("run_em: `H > 1` is currently supported only for non-parametric models (`V = NULL`).")
@@ -732,60 +785,74 @@ run_em <- function(object = NULL,
         }
 
         object$HET <- compute_HET_metric(object)
+        object$AE <- compute_AE_metric(object)
         return(invisible(object))
     }
 
-    if (!is.null(HET)) {
+    adaptive_search_metric <- function(metric_name, threshold) {
+        metric_fun <- switch(metric_name,
+            HET = compute_HET_metric,
+            AE = compute_AE_metric,
+            stop("run_em: Unsupported adaptive metric.")
+        )
+
         K_max <- 7L
         best_fit <- NULL
-        best_het <- Inf
+        best_metric <- Inf
         last_fit <- NULL
-        search_best_only <- isTRUE(all.equal(HET, 0))
+        search_best_only <- isTRUE(all.equal(threshold, 0)) || identical(metric_name, "AE")
         search_over_H <- H > 1L
 
         if (search_over_H) {
             H_limit <- as.integer(K_max)
             H_current <- 1L
             repeat {
-                base_call_het <- base_call
-                base_call_het$object <- object
-                base_call_het$X <- NULL
-                base_call_het$W <- NULL
-                base_call_het$V <- NULL
-                base_call_het$json_path <- NULL
-                base_call_het$mixture <- H_current
-                base_call_het$H <- H_current
-                base_call_het$HET <- NULL
+                base_call_metric <- base_call
+                base_call_metric$object <- object
+                base_call_metric$X <- NULL
+                base_call_metric$W <- NULL
+                base_call_metric$V <- NULL
+                base_call_metric$json_path <- NULL
+                base_call_metric$mixture <- H_current
+                base_call_metric$H <- H_current
+                base_call_metric$HET <- NULL
+                base_call_metric$AE <- NULL
 
-                fit_het <- eval(base_call_het, parent.frame())
-                last_fit <- fit_het
-                het_value <- compute_HET_metric(fit_het)
-                fit_het$HET <- het_value
-                fit_het$K <- as.integer(H_current)
-                fit_het$mixture <- as.integer(H_current)
-                fit_het$H <- as.integer(H_current)
+                fit_metric <- eval(base_call_metric, caller_env)
+                last_fit <- fit_metric
+                metric_value <- metric_fun(fit_metric)
+                fit_metric[[metric_name]] <- metric_value
+                fit_metric$K <- as.integer(H_current)
+                fit_metric$mixture <- as.integer(H_current)
+                fit_metric$H <- as.integer(H_current)
 
-                if (is.finite(het_value) && het_value < best_het) {
-                    best_het <- het_value
-                    best_fit <- fit_het
+                if (is.finite(metric_value) && metric_value < best_metric) {
+                    best_metric <- metric_value
+                    best_fit <- fit_metric
                 }
 
-                if (!search_best_only && is.finite(het_value) && het_value < HET) {
-                    return(invisible(fit_het))
+                if (!search_best_only && is.finite(metric_value) && metric_value < threshold) {
+                    return(fit_metric)
                 }
 
                 if (H_current >= H_limit) {
                     if (!is.null(best_fit)) {
                         if (!search_best_only) {
                             warning(sprintf(
-                                "run_em: No H <= %d satisfied the HET threshold. Returning the fit with minimum HET.",
-                                H_limit
+                                "run_em: No H <= %d satisfied the %s threshold. Returning the fit with minimum %s.",
+                                H_limit,
+                                metric_name,
+                                metric_name
                             ))
                         }
-                        return(invisible(best_fit))
+                        return(best_fit)
                     }
-                    warning(sprintf("run_em: No finite HET found for H <= %d. Returning the last fitted model.", H_limit))
-                    return(invisible(last_fit))
+                    warning(sprintf(
+                        "run_em: No finite %s found for H <= %d. Returning the last fitted model.",
+                        metric_name,
+                        H_limit
+                    ))
+                    return(last_fit)
                 }
 
                 H_current <- H_current + 1L
@@ -793,47 +860,64 @@ run_em <- function(object = NULL,
         } else {
             K_current <- 1L
             repeat {
-                base_call_het <- base_call
-                base_call_het$object <- object
-                base_call_het$X <- NULL
-                base_call_het$W <- NULL
-                base_call_het$V <- NULL
-                base_call_het$json_path <- NULL
-                base_call_het$mixture <- K_current
-                base_call_het$H <- 1L
-                base_call_het$HET <- NULL
+                base_call_metric <- base_call
+                base_call_metric$object <- object
+                base_call_metric$X <- NULL
+                base_call_metric$W <- NULL
+                base_call_metric$V <- NULL
+                base_call_metric$json_path <- NULL
+                base_call_metric$mixture <- K_current
+                base_call_metric$H <- 1L
+                base_call_metric$HET <- NULL
+                base_call_metric$AE <- NULL
 
-                fit_het <- eval(base_call_het, parent.frame())
-                last_fit <- fit_het
-                het_value <- compute_HET_metric(fit_het)
-                fit_het$HET <- het_value
-                fit_het$K <- as.integer(K_current)
-                fit_het$mixture <- as.integer(K_current)
-                fit_het$H <- 1L
+                fit_metric <- eval(base_call_metric, caller_env)
+                last_fit <- fit_metric
+                metric_value <- metric_fun(fit_metric)
+                fit_metric[[metric_name]] <- metric_value
+                fit_metric$K <- as.integer(K_current)
+                fit_metric$mixture <- as.integer(K_current)
+                fit_metric$H <- 1L
 
-                if (is.finite(het_value) && het_value < best_het) {
-                    best_het <- het_value
-                    best_fit <- fit_het
+                if (is.finite(metric_value) && metric_value < best_metric) {
+                    best_metric <- metric_value
+                    best_fit <- fit_metric
                 }
 
-                if (!search_best_only && is.finite(het_value) && het_value < HET) {
-                    return(invisible(fit_het))
+                if (!search_best_only && is.finite(metric_value) && metric_value < threshold) {
+                    return(fit_metric)
                 }
 
                 if (K_current >= K_max) {
                     if (!is.null(best_fit)) {
                         if (!search_best_only) {
-                            warning("run_em: No K <= 7 satisfied the HET threshold. Returning the fit with minimum HET.")
+                            warning(sprintf(
+                                "run_em: No K <= %d satisfied the %s threshold. Returning the fit with minimum %s.",
+                                K_max,
+                                metric_name,
+                                metric_name
+                            ))
                         }
-                        return(invisible(best_fit))
+                        return(best_fit)
                     }
-                    warning("run_em: No finite HET found for K <= 7. Returning the last fitted model.")
-                    return(invisible(last_fit))
+                    warning(sprintf(
+                        "run_em: No finite %s found for K <= %d. Returning the last fitted model.",
+                        metric_name,
+                        K_max
+                    ))
+                    return(last_fit)
                 }
 
                 K_current <- K_current + 1L
             }
         }
+    }
+
+    if (!is.null(HET)) {
+        return(invisible(adaptive_search_metric("HET", HET)))
+    }
+    if (!is.null(AE)) {
+        return(invisible(adaptive_search_metric("AE", AE)))
     }
 
     # Default values
@@ -945,6 +1029,7 @@ run_em <- function(object = NULL,
         }
 
         object$HET <- compute_HET_metric(object)
+        object$AE <- compute_AE_metric(object)
         return(invisible(object))
     }
 
@@ -1028,6 +1113,7 @@ run_em <- function(object = NULL,
         }
 
         object$HET <- compute_HET_metric(object)
+        object$AE <- compute_AE_metric(object)
         return(invisible(object))
     }
 
@@ -1104,6 +1190,7 @@ run_em <- function(object = NULL,
     }
 
     object$HET <- compute_HET_metric(object)
+    object$AE <- compute_AE_metric(object)
     invisible(object) # Updates the object.
 }
 

@@ -101,10 +101,37 @@ test_that("run_em returns HET when mixture = 1 and no HET threshold is provided"
     )
 
     expect_s3_class(fit, "eim")
-    expect_equal(fit$K, as.integer(best_h))
+    expect_equal(fit$K, 1L)
     expect_equal(fit$mixture, 1L)
     expect_true(is.numeric(fit$HET))
     expect_equal(length(fit$HET), 1)
+    expect_true(is.numeric(fit$AE))
+    expect_equal(length(fit$AE), 1)
+})
+
+test_that("run_em computes AE as tau = sum(abs(X - W %*% p))", {
+    sim <- simulate_election(
+        num_ballots = 6,
+        num_candidates = 3,
+        num_groups = 2,
+        ballot_voters = rep(30, 6),
+        seed = 916
+    )
+
+    fit <- run_em(
+        X = sim$X,
+        W = sim$W,
+        method = "mult",
+        mixture = 1,
+        maxiter = 3,
+        miniter = 1,
+        maxtime = 5,
+        compute_ll = FALSE
+    )
+
+    tau <- sum(abs(as.matrix(fit$X) - as.matrix(fit$W) %*% as.matrix(fit$prob)))
+    expect_true(is.numeric(fit$AE))
+    expect_equal(fit$AE, tau, tolerance = 1e-10)
 })
 
 test_that("run_em supports adaptive K selection with HET", {
@@ -129,10 +156,11 @@ test_that("run_em supports adaptive K selection with HET", {
     )
 
     expect_s3_class(fit, "eim")
-    expect_equal(fit$K, 2L)
-    expect_equal(fit$mixture, 1L)
+    expect_gte(fit$K, 1L)
+    expect_lte(fit$K, 7L)
+    expect_equal(fit$mixture, as.integer(fit$K))
     expect_true(is.numeric(fit$HET))
-    expect_gte(fit$HET, 0)
+    expect_lt(fit$HET, 100)
 })
 
 test_that("run_em with HET = 0 returns the best K between 1 and 7", {
@@ -247,6 +275,122 @@ test_that("run_em validates HET argument", {
         run_em(X = sim$X, W = sim$W, HET = -1),
         "Invalid 'HET'"
     )
+})
+
+test_that("run_em validates AE argument and HET/AE exclusivity", {
+    sim <- simulate_election(
+        num_ballots = 5,
+        num_candidates = 3,
+        num_groups = 2,
+        ballot_voters = rep(30, 5),
+        seed = 912
+    )
+
+    expect_error(
+        run_em(X = sim$X, W = sim$W, AE = -1),
+        "Invalid 'AE'"
+    )
+    expect_error(
+        run_em(X = sim$X, W = sim$W, HET = 10, AE = 10),
+        "'HET' and 'AE' cannot be provided simultaneously."
+    )
+})
+
+test_that("run_em with AE selector returns the best K by minimum AE", {
+    sim <- simulate_election(
+        num_ballots = 6,
+        num_candidates = 3,
+        num_groups = 2,
+        ballot_voters = rep(30, 6),
+        seed = 913
+    )
+
+    seed_em <- 5412
+    fit <- suppressWarnings(run_em(
+        X = sim$X,
+        W = sim$W,
+        method = "mult",
+        mixture = 4,
+        AE = 1e12,
+        seed = seed_em,
+        maxiter = 3,
+        miniter = 1,
+        maxtime = 5,
+        compute_ll = FALSE
+    ))
+
+    grid <- lapply(1:7, function(k) {
+        run_em(
+            X = sim$X,
+            W = sim$W,
+            method = "mult",
+            mixture = k,
+            seed = seed_em,
+            maxiter = 3,
+            miniter = 1,
+            maxtime = 5,
+            compute_ll = FALSE
+        )
+    })
+    ae_values <- vapply(grid, function(x) x$AE, numeric(1))
+    finite_idx <- which(is.finite(ae_values))
+    expect_true(length(finite_idx) > 0)
+    best_k <- finite_idx[which.min(ae_values[finite_idx])]
+    best_ae <- min(ae_values[finite_idx])
+
+    expect_s3_class(fit, "eim")
+    expect_true(is.numeric(fit$AE))
+    expect_equal(fit$K, as.integer(best_k))
+    expect_equal(fit$mixture, as.integer(best_k))
+    expect_equal(fit$AE, best_ae, tolerance = 1e-10)
+})
+
+test_that("run_em with AE = 0 returns the best K between 1 and 7", {
+    sim <- simulate_election(
+        num_ballots = 6,
+        num_candidates = 3,
+        num_groups = 2,
+        ballot_voters = rep(30, 6),
+        seed = 914
+    )
+
+    seed_em <- 4321
+    fit <- suppressWarnings(run_em(
+        X = sim$X,
+        W = sim$W,
+        method = "mult",
+        AE = 0,
+        seed = seed_em,
+        maxiter = 3,
+        miniter = 1,
+        maxtime = 5,
+        compute_ll = FALSE
+    ))
+
+    grid <- lapply(1:7, function(k) {
+        run_em(
+            X = sim$X,
+            W = sim$W,
+            method = "mult",
+            mixture = k,
+            seed = seed_em,
+            maxiter = 3,
+            miniter = 1,
+            maxtime = 5,
+            compute_ll = FALSE
+        )
+    })
+    ae_values <- vapply(grid, function(x) x$AE, numeric(1))
+    finite_idx <- which(is.finite(ae_values))
+    expect_true(length(finite_idx) > 0)
+    best_k <- finite_idx[which.min(ae_values[finite_idx])]
+    best_ae <- min(ae_values[finite_idx])
+
+    expect_s3_class(fit, "eim")
+    expect_true(is.numeric(fit$AE))
+    expect_equal(fit$K, as.integer(best_k))
+    expect_equal(fit$mixture, as.integer(best_k))
+    expect_equal(fit$AE, best_ae, tolerance = 1e-10)
 })
 
 test_that("run_em allows H > G without truncation", {

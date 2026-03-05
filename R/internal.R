@@ -87,6 +87,18 @@
         }
     }
 
+    if ("AE" %in% names(args) && !is.null(args$AE)) {
+        if (!is.numeric(args$AE) || length(args$AE) != 1 ||
+            !is.finite(args$AE) || args$AE < 0) {
+            stop("run_em: Invalid 'AE'. Must be a non-negative numeric value.")
+        }
+    }
+
+    if ("HET" %in% names(args) && !is.null(args$HET) &&
+        "AE" %in% names(args) && !is.null(args$AE)) {
+        stop("run_em: 'HET' and 'AE' cannot be provided simultaneously.")
+    }
+
     # Initial prob argument
     # valid_p_methods <- c("group_proportional", "proportional", "uniform", "random", "mult", "mcmc", "mvn_cdf", "mvn_pdf", "exact")
     # if ("initial_prob" %in% names(args) && (!is.matrix(args$initial_prob) ||

@@ -16,6 +16,7 @@ run_em(
   mixture = 1,
   H = 1,
   HET = NULL,
+  AE = NULL,
   allow_mismatch = TRUE,
   maxiter = 1000,
   miniter = 0,
@@ -102,6 +103,14 @@ with the smallest observed \code{HET} is returned. If \code{HET = 0}, all values
 always evaluated and the fit with minimum observed \code{HET} is returned.
 The returned object always includes the final \code{K}, \code{H}, and achieved \code{HET}.}
 
+\item{AE}{Optional non-negative numeric selector to activate adaptive search
+using an absolute-error criterion inspired by \code{mae_inverse}. For each fit, it computes
+\code{AE = tau = sum(abs(X - W \%*\% p))}. If \code{H > 1}, the adaptive search is run over
+\code{H = 1, ..., 7} (\code{K = H}); otherwise it is run over \code{K = 1, ..., 7} (\code{H = 1}).
+When supplied, all candidate values in the selected sequence are evaluated and
+the fit with minimum observed \code{AE} is returned. This argument is mutually exclusive
+with \code{HET}.}
+
 \item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{TRUE}. See \strong{Notes} for more details.}
 
 \item{maxiter}{An optional integer indicating the maximum number of EM iterations.
@@ -184,6 +193,7 @@ A \verb{(g x c x b)} 3d-array with the expected votes cast for each ballot-box.
 \item{K}{The final number of latent profiles used by the fitted model.}
 \item{H}{The final number of row-level latent profiles used by the fitted model.}
 \item{HET}{The final heterogeneity metric achieved by the fitted model.}
+\item{AE}{The final absolute-error metric achieved by the fitted model.}
 \item{status}{
 The final status ID of the algorithm upon completion:
 \itemize{
