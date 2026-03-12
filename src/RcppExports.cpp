@@ -39,6 +39,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// EMLogLikFromProb
+double EMLogLikFromProb(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix, Rcpp::NumericMatrix probability_matrix, Rcpp::String em_method, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method, Rcpp::LogicalVector project_every);
+RcppExport SEXP _fastei_EMLogLikFromProb(SEXP candidate_matrixSEXP, SEXP group_matrixSEXP, SEXP probability_matrixSEXP, SEXP em_methodSEXP, SEXP step_sizeSEXP, SEXP samplesSEXP, SEXP monte_methodSEXP, SEXP monte_errorSEXP, SEXP monte_iterSEXP, SEXP miniterationsSEXP, SEXP LP_methodSEXP, SEXP project_everySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type candidate_matrix(candidate_matrixSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type group_matrix(group_matrixSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type probability_matrix(probability_matrixSEXP);
+    Rcpp::traits::input_parameter< Rcpp::String >::type em_method(em_methodSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type step_size(step_sizeSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type samples(samplesSEXP);
+    Rcpp::traits::input_parameter< Rcpp::String >::type monte_method(monte_methodSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type monte_error(monte_errorSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type monte_iter(monte_iterSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type miniterations(miniterationsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::String >::type LP_method(LP_methodSEXP);
+    Rcpp::traits::input_parameter< Rcpp::LogicalVector >::type project_every(project_everySEXP);
+    rcpp_result_gen = Rcpp::wrap(EMLogLikFromProb(candidate_matrix, group_matrix, probability_matrix, em_method, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every));
+    return rcpp_result_gen;
+END_RCPP
+}
 // EMAlgorithmMixture
 Rcpp::List EMAlgorithmMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix, Rcpp::String em_method, Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold, Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method, Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities, Rcpp::IntegerVector mixture_h);
 RcppExport SEXP _fastei_EMAlgorithmMixture(SEXP candidate_matrixSEXP, SEXP group_matrixSEXP, SEXP em_methodSEXP, SEXP probability_methodSEXP, SEXP maximum_iterationsSEXP, SEXP maximum_secondsSEXP, SEXP stopping_thresholdSEXP, SEXP log_stopping_thresholdSEXP, SEXP compute_llSEXP, SEXP verboseSEXP, SEXP step_sizeSEXP, SEXP samplesSEXP, SEXP monte_methodSEXP, SEXP monte_errorSEXP, SEXP monte_iterSEXP, SEXP miniterationsSEXP, SEXP LP_methodSEXP, SEXP project_everySEXP, SEXP initial_probabilitiesSEXP, SEXP mixture_hSEXP) {
@@ -241,6 +263,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_fastei_EMAlgorithmFull", (DL_FUNC) &_fastei_EMAlgorithmFull, 19},
+    {"_fastei_EMLogLikFromProb", (DL_FUNC) &_fastei_EMLogLikFromProb, 12},
     {"_fastei_EMAlgorithmMixture", (DL_FUNC) &_fastei_EMAlgorithmMixture, 20},
     {"_fastei_EMAlgorithmRowMixture", (DL_FUNC) &_fastei_EMAlgorithmRowMixture, 20},
     {"_fastei_bootstrapAlg", (DL_FUNC) &_fastei_bootstrapAlg, 20},

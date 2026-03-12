@@ -109,8 +109,9 @@ extern "C"
 
     typedef struct
     {
-        void (*computeQ)(EMContext *ctx, QMethodInput, double *ll); // Function pointer for computing q
-        QMethodInput params;                                        // Holds method-specific parameters
+        void (*computeQ)(EMContext *ctx, QMethodInput, double *ll);   // Function pointer for computing q
+        double (*computeLogLik)(EMContext *ctx, QMethodInput params); // Function pointer for LL at fixed p
+        QMethodInput params;                                          // Holds method-specific parameters
     } QMethodConfig;
 
     extern uint32_t TOTAL_VOTES;

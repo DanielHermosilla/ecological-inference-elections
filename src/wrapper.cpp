@@ -185,6 +185,43 @@ Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMa
                               Rcpp::_["q"] = condProb, Rcpp::_["expected_outcome"] = expectedOut);
 }
 
+// [[Rcpp::export]]
+double EMLogLikFromProb(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                        Rcpp::NumericMatrix probability_matrix, Rcpp::String em_method,
+                        Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method,
+                        Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter,
+                        Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
+                        Rcpp::LogicalVector project_every)
+{
+    std::string EMAlg = em_method;
+
+    Matrix X;
+    Matrix W;
+    Matrix P = convertToMatrix(probability_matrix);
+    RsetParameters(candidate_matrix, group_matrix, &X, &W);
+
+    QMethodInput inputParams = initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0],
+                                                      miniterations[0], monte_method, true, LP_method,
+                                                      project_every[0]);
+
+    double ll = computeLogLikForProbability(&X, &W, &P, EMAlg.c_str(), &inputParams);
+
+    if (inputParams.simulationMethod != nullptr)
+    {
+        free((void *)inputParams.simulationMethod);
+    }
+    if (inputParams.prob_cond != nullptr)
+    {
+        free((void *)inputParams.prob_cond);
+    }
+
+    releaseMatrix(&X);
+    releaseMatrix(&W);
+    releaseMatrix(&P);
+
+    return ll;
+}
+
 // ---- Run Finite-Mixture EM (non-parametric only) ---- //
 // [[Rcpp::export]]
 Rcpp::List EMAlgorithmMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,

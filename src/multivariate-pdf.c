@@ -410,3 +410,11 @@ void computeQMultivariatePDF(EMContext *ctx, QMethodInput params, double *ll)
         *ll = 0.0;
     }
 }
+
+double computeLogLikMultivariatePDF(EMContext *ctx, QMethodInput params)
+{
+    double ll = 0.0;
+    params.computeLL = true;
+    computeQMultivariatePDF(ctx, params, &ll);
+    return ll;
+}

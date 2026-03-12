@@ -475,18 +475,22 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
     QMethodConfig config = {NULL}; // Initialize everything to NULL/0
 
     config.computeQ = computeQMultinomial;
+    config.computeLogLik = computeLogLikMultinomial;
 
     if (strcmp(q_method, "mult") == 0)
     {
         config.computeQ = computeQMultinomial;
+        config.computeLogLik = computeLogLikMultinomial;
     }
     else if (strcmp(q_method, "mcmc") == 0)
     {
         config.computeQ = computeQHitAndRun;
+        config.computeLogLik = computeLogLikHitAndRun;
     }
     else if (strcmp(q_method, "mvn_pdf") == 0)
     {
         config.computeQ = computeQMultivariatePDF;
+        config.computeLogLik = computeLogLikMultivariatePDF;
     }
     else if (strcmp(q_method, "saddlepoint") == 0)
     {
@@ -495,10 +499,12 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
     else if (strcmp(q_method, "exact") == 0)
     {
         config.computeQ = computeQExact;
+        config.computeLogLik = computeLogLikExact;
     }
     else if (strcmp(q_method, "mvn_cdf") == 0)
     {
         config.computeQ = computeQMultivariateCDF;
+        config.computeLogLik = computeLogLikMultivariateCDF;
     }
     else
     {
@@ -510,6 +516,32 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
     // Directly store the input parameters
     config.params = inputParams;
     return config;
+}
+
+double computeLogLikForProbability(Matrix *X, Matrix *W, Matrix *probMatrix, const char *q_method,
+                                   QMethodInput *inputParams)
+{
+    if (inputParams == NULL)
+    {
+        error("computeLogLikForProbability: `inputParams` must not be NULL.");
+    }
+
+    QMethodInput llParams = *inputParams;
+    llParams.computeLL = true;
+
+    EMContext *ctx = createEMContext(X, W, q_method, llParams);
+    getInitialP(ctx, "custom", probMatrix);
+
+    QMethodConfig config = getQMethodConfig(q_method, llParams);
+    if (config.computeLogLik == NULL)
+    {
+        cleanup(ctx);
+        error("computeLogLikForProbability: Unsupported method `%s`.", q_method);
+    }
+
+    double ll = config.computeLogLik(ctx, config.params);
+    cleanup(ctx);
+    return ll;
 }
 
 /*

@@ -72,6 +72,16 @@ Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMa
                            Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
                            Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities);
 
+/**
+ * @brief Computes the E-step approximation log-likelihood for a fixed probability matrix.
+ */
+double EMLogLikFromProb(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                        Rcpp::NumericMatrix probability_matrix, Rcpp::String em_method,
+                        Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method,
+                        Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter,
+                        Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
+                        Rcpp::LogicalVector project_every);
+
 Rcpp::List EMAlgorithmMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
                               Rcpp::String em_method, Rcpp::String probability_method,
                               Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,

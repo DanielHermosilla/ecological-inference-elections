@@ -88,6 +88,9 @@ extern "C"
 
     bool hasMismatch(Matrix *X, Matrix *W);
 
+    double computeLogLikForProbability(Matrix *X, Matrix *W, Matrix *probMatrix, const char *q_method,
+                                       QMethodInput *inputParams);
+
     Matrix precomputeNorm(double *scale_factors, Matrix *X, Matrix *W);
 
     void precomputeScaleFactors(double *scale_factors, Matrix *X, Matrix *W);
