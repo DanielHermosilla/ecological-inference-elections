@@ -25,6 +25,9 @@ extern "C"
         double *phi;             // K
         Matrix responsibilities; // B x K
         double *component_prob;  // G x C x K
+        Matrix probabilities_inv;    // C x G when symmetric EM_weight is used
+        double *q_inv;               // B x C x G
+        double *predicted_votes_inv; // B x C x G
         int mixture_h;
         int total_iterations;
         double total_time;

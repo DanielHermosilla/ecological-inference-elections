@@ -9,8 +9,8 @@ EMLogLikFromProb <- function(candidate_matrix, group_matrix, probability_matrix,
     .Call(`_fastei_EMLogLikFromProb`, candidate_matrix, group_matrix, probability_matrix, em_method, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every)
 }
 
-EMAlgorithmMixture <- function(candidate_matrix, group_matrix, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, initial_probabilities, mixture_h) {
-    .Call(`_fastei_EMAlgorithmMixture`, candidate_matrix, group_matrix, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, initial_probabilities, mixture_h)
+EMAlgorithmMixture <- function(candidate_matrix, group_matrix, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, initial_probabilities, mixture_h, symmetric, symmetric_weight_method) {
+    .Call(`_fastei_EMAlgorithmMixture`, candidate_matrix, group_matrix, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, initial_probabilities, mixture_h, symmetric, symmetric_weight_method)
 }
 
 EMAlgorithmRowMixture <- function(candidate_matrix, group_matrix, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, initial_probabilities, row_mixture_h) {

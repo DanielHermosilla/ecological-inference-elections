@@ -62,8 +62,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // EMAlgorithmMixture
-Rcpp::List EMAlgorithmMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix, Rcpp::String em_method, Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold, Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method, Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities, Rcpp::IntegerVector mixture_h);
-RcppExport SEXP _fastei_EMAlgorithmMixture(SEXP candidate_matrixSEXP, SEXP group_matrixSEXP, SEXP em_methodSEXP, SEXP probability_methodSEXP, SEXP maximum_iterationsSEXP, SEXP maximum_secondsSEXP, SEXP stopping_thresholdSEXP, SEXP log_stopping_thresholdSEXP, SEXP compute_llSEXP, SEXP verboseSEXP, SEXP step_sizeSEXP, SEXP samplesSEXP, SEXP monte_methodSEXP, SEXP monte_errorSEXP, SEXP monte_iterSEXP, SEXP miniterationsSEXP, SEXP LP_methodSEXP, SEXP project_everySEXP, SEXP initial_probabilitiesSEXP, SEXP mixture_hSEXP) {
+Rcpp::List EMAlgorithmMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix, Rcpp::String em_method, Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold, Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method, Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities, Rcpp::IntegerVector mixture_h, Rcpp::LogicalVector symmetric, Rcpp::String symmetric_weight_method);
+RcppExport SEXP _fastei_EMAlgorithmMixture(SEXP candidate_matrixSEXP, SEXP group_matrixSEXP, SEXP em_methodSEXP, SEXP probability_methodSEXP, SEXP maximum_iterationsSEXP, SEXP maximum_secondsSEXP, SEXP stopping_thresholdSEXP, SEXP log_stopping_thresholdSEXP, SEXP compute_llSEXP, SEXP verboseSEXP, SEXP step_sizeSEXP, SEXP samplesSEXP, SEXP monte_methodSEXP, SEXP monte_errorSEXP, SEXP monte_iterSEXP, SEXP miniterationsSEXP, SEXP LP_methodSEXP, SEXP project_everySEXP, SEXP initial_probabilitiesSEXP, SEXP mixture_hSEXP, SEXP symmetricSEXP, SEXP symmetric_weight_methodSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -87,7 +87,9 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::LogicalVector >::type project_every(project_everySEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type initial_probabilities(initial_probabilitiesSEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type mixture_h(mixture_hSEXP);
-    rcpp_result_gen = Rcpp::wrap(EMAlgorithmMixture(candidate_matrix, group_matrix, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, initial_probabilities, mixture_h));
+    Rcpp::traits::input_parameter< Rcpp::LogicalVector >::type symmetric(symmetricSEXP);
+    Rcpp::traits::input_parameter< Rcpp::String >::type symmetric_weight_method(symmetric_weight_methodSEXP);
+    rcpp_result_gen = Rcpp::wrap(EMAlgorithmMixture(candidate_matrix, group_matrix, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, initial_probabilities, mixture_h, symmetric, symmetric_weight_method));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -264,7 +266,7 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_fastei_EMAlgorithmFull", (DL_FUNC) &_fastei_EMAlgorithmFull, 19},
     {"_fastei_EMLogLikFromProb", (DL_FUNC) &_fastei_EMLogLikFromProb, 12},
-    {"_fastei_EMAlgorithmMixture", (DL_FUNC) &_fastei_EMAlgorithmMixture, 20},
+    {"_fastei_EMAlgorithmMixture", (DL_FUNC) &_fastei_EMAlgorithmMixture, 22},
     {"_fastei_EMAlgorithmRowMixture", (DL_FUNC) &_fastei_EMAlgorithmRowMixture, 20},
     {"_fastei_bootstrapAlg", (DL_FUNC) &_fastei_bootstrapAlg, 20},
     {"_fastei_EMAlgorithmParametric", (DL_FUNC) &_fastei_EMAlgorithmParametric, 12},

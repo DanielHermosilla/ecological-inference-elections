@@ -155,6 +155,809 @@ static void canonicalize_mixture_labels(EMContext **components, double *phi, int
     Free(phi_sorted);
 }
 
+static void setGlobalsFromCtx(const EMContext *ctx)
+{
+    TOTAL_BALLOTS = ctx->B;
+    TOTAL_CANDIDATES = ctx->C;
+    TOTAL_GROUPS = ctx->G;
+    TOTAL_VOTES = (uint32_t)ctx->total_votes;
+}
+
+static bool shouldRunSymmetricMixtureEMWeight(const QMethodInput *inputParams, int mixture_h)
+{
+    return inputParams != NULL && mixture_h > 1 && inputParams->symmetric &&
+           inputParams->symmetric_weight_method != NULL &&
+           strcmp(inputParams->symmetric_weight_method, "EM_weight") == 0;
+}
+
+static void buildReverseMatrices(const Matrix *x_forward, const Matrix *w_forward, Matrix *out_x_reverse,
+                                 Matrix *out_w_reverse)
+{
+    const int B = x_forward->cols;
+    const int G = w_forward->cols;
+    const int C = x_forward->rows;
+
+    *out_x_reverse = createMatrix(G, B);
+    *out_w_reverse = createMatrix(B, C);
+
+    for (int b = 0; b < B; ++b)
+    {
+        for (int g = 0; g < G; ++g)
+            MATRIX_AT_PTR(out_x_reverse, g, b) = MATRIX_AT_PTR(w_forward, b, g);
+        for (int c = 0; c < C; ++c)
+            MATRIX_AT_PTR(out_w_reverse, b, c) = MATRIX_AT_PTR(x_forward, c, b);
+    }
+}
+
+static Matrix buildReverseCustomInitialProb(const Matrix *forward_prob, const EMContext *ctx_forward)
+{
+    const int G = (int)ctx_forward->G;
+    const int C = (int)ctx_forward->C;
+    Matrix reverse_prob = createMatrix(C, G);
+    double *den = Calloc(G, double);
+
+    for (int g = 0; g < G; ++g)
+    {
+        double row_sum = 0.0;
+        for (int c = 0; c < C; ++c)
+            row_sum += MATRIX_AT_PTR(forward_prob, g, c) * ctx_forward->candidates_votes[c];
+        den[g] = row_sum;
+    }
+
+    for (int c = 0; c < C; ++c)
+    {
+        double row_sum = 0.0;
+        for (int g = 0; g < G; ++g)
+        {
+            double num = MATRIX_AT_PTR(forward_prob, g, c) * ctx_forward->candidates_votes[c];
+            double value = den[g] > 0.0 ? num / den[g] : 0.0;
+            MATRIX_AT(reverse_prob, c, g) = value;
+            row_sum += value;
+        }
+
+        if (!isfinite(row_sum) || row_sum <= 0.0)
+        {
+            const double uniform = 1.0 / (double)G;
+            for (int g = 0; g < G; ++g)
+                MATRIX_AT(reverse_prob, c, g) = uniform;
+        }
+        else
+        {
+            for (int g = 0; g < G; ++g)
+                MATRIX_AT(reverse_prob, c, g) /= row_sum;
+        }
+    }
+
+    Free(den);
+    return reverse_prob;
+}
+
+static void copyBaseProbabilitiesAndJitter(EMContext **components, int K)
+{
+    if (K <= 0)
+        return;
+
+    normalizeProbabilityRows(&components[0]->probabilities);
+    for (int k = 1; k < K; ++k)
+    {
+        memcpy(components[k]->probabilities.data, components[0]->probabilities.data,
+               (size_t)components[0]->G * (size_t)components[0]->C * sizeof(double));
+    }
+
+    GetRNGstate();
+    for (int k = 1; k < K; ++k)
+    {
+        for (int g = 0; g < components[k]->G; ++g)
+        {
+            for (int c = 0; c < components[k]->C; ++c)
+            {
+                double jit = 0.9 + 0.2 * unif_rand();
+                MATRIX_AT(components[k]->probabilities, g, c) *= jit;
+            }
+        }
+        normalizeProbabilityRows(&components[k]->probabilities);
+    }
+    PutRNGstate();
+}
+
+static void applyProbabilityConditionMixture(EMContext *ctx, const QMethodInput *inputParams)
+{
+    if (ctx == NULL || inputParams == NULL || !inputParams->prob_cond_every || inputParams->prob_cond == NULL ||
+        strlen(inputParams->prob_cond) == 0)
+        return;
+
+    setGlobalsFromCtx(ctx);
+    if (strcmp(inputParams->prob_cond, "project_lp") == 0)
+    {
+        projectQ(ctx, *inputParams);
+    }
+    else if (strcmp(inputParams->prob_cond, "lp") == 0)
+    {
+        for (int b = 0; b < (int)ctx->B; ++b)
+            LPW_ctx(ctx, b);
+    }
+}
+
+static void computeMixtureScores(EMContext **components, int mixture_h, QMethodConfig config, QMethodInput mix_params,
+                                 const QMethodInput *inputParams, Matrix *score)
+{
+    const double eps = 1e-12;
+    const int B = score->rows;
+
+    for (int k = 0; k < mixture_h; ++k)
+    {
+        EMContext *ctxk = components[k];
+        double ll_dummy = 0.0;
+        setGlobalsFromCtx(ctxk);
+        config.computeQ(ctxk, mix_params, &ll_dummy);
+        applyProbabilityConditionMixture(ctxk, inputParams);
+
+        for (int b = 0; b < B; ++b)
+        {
+            double d_bk = ctxk->ballot_loglik[b];
+            if (!isfinite(d_bk))
+                d_bk = log(eps);
+            MATRIX_AT_PTR(score, b, k) = d_bk;
+        }
+    }
+}
+
+static double updateMixtureResponsibilities(const Matrix *score, const double *phi, Matrix *responsibilities,
+                                            double *d_row, double eps, bool verbose, int iter)
+{
+    const int B = score->rows;
+    const int K = score->cols;
+    double final_ll = 0.0;
+    int fallback_underflow_count = 0;
+    int fallback_phi_prior_count = 0;
+    int fallback_uniform_count = 0;
+
+    for (int b = 0; b < B; ++b)
+    {
+        for (int k = 0; k < K; ++k)
+            d_row[k] = MATRIX_AT_PTR(score, b, k);
+
+        double ll_b = log_sum_exp_weighted_phi(d_row, phi, K);
+        final_ll += isfinite(ll_b) ? ll_b : log(eps);
+
+        double den = 0.0;
+        for (int k = 0; k < K; ++k)
+        {
+            double phi_k = (isfinite(phi[k]) && phi[k] > eps) ? phi[k] : eps;
+            double e = 0.0;
+            if (isfinite(ll_b) && isfinite(d_row[k]))
+                e = exp(d_row[k] + log(phi_k) - ll_b);
+            MATRIX_AT_PTR(responsibilities, b, k) = e;
+            den += e;
+        }
+
+        if (!isfinite(den) || den <= 0.0)
+        {
+            fallback_underflow_count++;
+            double phi_sum = 0.0;
+            for (int k = 0; k < K; ++k)
+            {
+                if (isfinite(phi[k]) && phi[k] > 0.0)
+                    phi_sum += phi[k];
+            }
+
+            if (phi_sum > 0.0 && isfinite(phi_sum))
+            {
+                fallback_phi_prior_count++;
+                for (int k = 0; k < K; ++k)
+                {
+                    double v = (isfinite(phi[k]) && phi[k] > 0.0) ? (phi[k] / phi_sum) : 0.0;
+                    MATRIX_AT_PTR(responsibilities, b, k) = v;
+                }
+            }
+            else
+            {
+                fallback_uniform_count++;
+                den = (double)K;
+                for (int k = 0; k < K; ++k)
+                    MATRIX_AT_PTR(responsibilities, b, k) = 1.0 / den;
+            }
+        }
+        else
+        {
+            for (int k = 0; k < K; ++k)
+                MATRIX_AT_PTR(responsibilities, b, k) /= den;
+        }
+    }
+
+    if (verbose && fallback_underflow_count > 0)
+    {
+        Rprintf("[debug] Iteration %d: responsibility fallback on %d ballots (phi-prior=%d, uniform=%d)\n", iter,
+                fallback_underflow_count, fallback_phi_prior_count, fallback_uniform_count);
+    }
+
+    return final_ll;
+}
+
+static void snapshotMixtureParameters(EMContext **components, const double *phi, int mixture_h,
+                                      double *prev_component_prob, double *prev_phi_params)
+{
+    const int G = components[0]->G;
+    const int C = components[0]->C;
+
+    for (int k = 0; k < mixture_h; ++k)
+    {
+        prev_phi_params[k] = phi[k];
+        for (int c = 0; c < C; ++c)
+        {
+            for (int g = 0; g < G; ++g)
+            {
+                prev_component_prob[(size_t)g + (size_t)G * ((size_t)c + (size_t)C * (size_t)k)] =
+                    MATRIX_AT(components[k]->probabilities, g, c);
+            }
+        }
+    }
+}
+
+static void updateMixtureComponentProbabilities(EMContext **components, const Matrix *responsibilities, int mixture_h,
+                                                double *row_counts, double eps)
+{
+    const int B = components[0]->B;
+    const int G = components[0]->G;
+    const int C = components[0]->C;
+
+    for (int k = 0; k < mixture_h; ++k)
+    {
+        EMContext *ctxk = components[k];
+        for (int g = 0; g < G; ++g)
+        {
+            memset(row_counts, 0, (size_t)C * sizeof(double));
+            double den = 0.0;
+            for (int b = 0; b < B; ++b)
+            {
+                double w = MATRIX_AT_PTR(responsibilities, b, k) * MATRIX_AT(ctxk->W, b, g);
+                if (w <= 0.0)
+                    continue;
+                den += w;
+                for (int c = 0; c < C; ++c)
+                    row_counts[c] += w * Q_3D(ctxk->q, b, g, c, G, C);
+            }
+            if (den <= eps)
+                continue;
+
+            double row_sum = 0.0;
+            for (int c = 0; c < C; ++c)
+            {
+                double v = row_counts[c] / den;
+                if (!isfinite(v) || v < eps)
+                    v = eps;
+                row_counts[c] = v;
+                row_sum += v;
+            }
+
+            if (!isfinite(row_sum) || row_sum <= 0.0)
+            {
+                const double uniform = 1.0 / (double)C;
+                for (int c = 0; c < C; ++c)
+                    row_counts[c] = uniform;
+            }
+            else
+            {
+                for (int c = 0; c < C; ++c)
+                    row_counts[c] /= row_sum;
+            }
+
+            for (int c = 0; c < C; ++c)
+                MATRIX_AT(ctxk->probabilities, g, c) = row_counts[c];
+        }
+    }
+}
+
+static void updateMixturePhi(const Matrix *responsibilities, double *phi, double *phi_new, int mixture_h, double eps)
+{
+    const int B = responsibilities->rows;
+    double phi_sum = 0.0;
+
+    for (int k = 0; k < mixture_h; ++k)
+    {
+        double s = 0.0;
+        for (int b = 0; b < B; ++b)
+            s += MATRIX_AT_PTR(responsibilities, b, k);
+        phi_new[k] = s / (double)B;
+        if (!isfinite(phi_new[k]) || phi_new[k] < eps)
+            phi_new[k] = eps;
+        phi_sum += phi_new[k];
+    }
+
+    if (!isfinite(phi_sum) || phi_sum <= 0.0)
+    {
+        const double uniform = 1.0 / (double)mixture_h;
+        for (int k = 0; k < mixture_h; ++k)
+            phi[k] = uniform;
+    }
+    else
+    {
+        for (int k = 0; k < mixture_h; ++k)
+            phi[k] = phi_new[k] / phi_sum;
+    }
+}
+
+static double computeMixtureParameterDelta(EMContext **components, const double *phi, int mixture_h,
+                                           const double *prev_component_prob, const double *prev_phi_params)
+{
+    const int G = components[0]->G;
+    const int C = components[0]->C;
+    double delta = 0.0;
+
+    for (int k = 0; k < mixture_h; ++k)
+    {
+        for (int c = 0; c < C; ++c)
+        {
+            for (int g = 0; g < G; ++g)
+            {
+                double oldv = prev_component_prob[(size_t)g + (size_t)G * ((size_t)c + (size_t)C * (size_t)k)];
+                double newv = MATRIX_AT(components[k]->probabilities, g, c);
+                double d = fabs(newv - oldv);
+                if (d > delta)
+                    delta = d;
+            }
+        }
+        double dphi = fabs(phi[k] - prev_phi_params[k]);
+        if (dphi > delta)
+            delta = dphi;
+    }
+
+    return delta;
+}
+
+static void normalizeContextQRows(EMContext *ctx)
+{
+    const int B = (int)ctx->B;
+    const int G = (int)ctx->G;
+    const int C = (int)ctx->C;
+
+    for (int b = 0; b < B; ++b)
+    {
+        for (int g = 0; g < G; ++g)
+        {
+            double sum = 0.0;
+            for (int c = 0; c < C; ++c)
+            {
+                double v = Q_3D(ctx->q, b, g, c, G, C);
+                if (!isfinite(v) || v < 0.0)
+                    v = 0.0;
+                Q_3D(ctx->q, b, g, c, G, C) = v;
+                sum += v;
+            }
+
+            if (!isfinite(sum) || sum <= 0.0)
+            {
+                const double uniform = 1.0 / (double)C;
+                for (int c = 0; c < C; ++c)
+                    Q_3D(ctx->q, b, g, c, G, C) = uniform;
+            }
+            else
+            {
+                for (int c = 0; c < C; ++c)
+                    Q_3D(ctx->q, b, g, c, G, C) /= sum;
+            }
+        }
+    }
+}
+
+static void symmetrizeMixtureComponentQ(EMContext **components_forward, const Matrix *responsibilities_forward,
+                                        EMContext **components_reverse, const Matrix *responsibilities_reverse,
+                                        int mixture_h)
+{
+    const double eps = 1e-12;
+    EMContext *ctx_forward = components_forward[0];
+    EMContext *ctx_reverse = components_reverse[0];
+    const int B = (int)ctx_forward->B;
+    const int G = (int)ctx_forward->G;
+    const int C = (int)ctx_forward->C;
+
+    double *resp_forward = (double *)Calloc((size_t)mixture_h, double);
+    double *resp_reverse = (double *)Calloc((size_t)mixture_h, double);
+    double *q_prev_forward = (double *)Calloc((size_t)mixture_h, double);
+    double *q_prev_reverse = (double *)Calloc((size_t)mixture_h, double);
+    double *q_proj_forward = (double *)Calloc((size_t)mixture_h, double);
+    double *q_proj_reverse = (double *)Calloc((size_t)mixture_h, double);
+
+    for (int b = 0; b < B; ++b)
+    {
+        double norm2_forward = 0.0;
+        double norm2_reverse = 0.0;
+        for (int k = 0; k < mixture_h; ++k)
+        {
+            double rf = MATRIX_AT_PTR(responsibilities_forward, b, k);
+            double rr = MATRIX_AT_PTR(responsibilities_reverse, b, k);
+            resp_forward[k] = (isfinite(rf) && rf > 0.0) ? rf : 0.0;
+            resp_reverse[k] = (isfinite(rr) && rr > 0.0) ? rr : 0.0;
+            norm2_forward += resp_forward[k] * resp_forward[k];
+            norm2_reverse += resp_reverse[k] * resp_reverse[k];
+        }
+
+        for (int g = 0; g < G; ++g)
+        {
+            const double w_bg = MATRIX_AT(ctx_forward->W, b, g);
+            for (int c = 0; c < C; ++c)
+            {
+                const double x_bc = MATRIX_AT(ctx_forward->X, c, b);
+                double z_forward = 0.0;
+                double z_reverse = 0.0;
+
+                for (int k = 0; k < mixture_h; ++k)
+                {
+                    q_prev_forward[k] = Q_3D(components_forward[k]->q, b, g, c, G, C);
+                    q_prev_reverse[k] =
+                        Q_3D(components_reverse[k]->q, b, c, g, ctx_reverse->G, ctx_reverse->C);
+                    z_forward += resp_forward[k] * q_prev_forward[k];
+                    z_reverse += resp_reverse[k] * q_prev_reverse[k];
+                }
+
+                z_forward *= w_bg;
+                z_reverse *= x_bc;
+                const double z_sym = 0.5 * (z_forward + z_reverse);
+
+                bool negative_forward = false;
+                if (w_bg > 0.0 && norm2_forward > eps)
+                {
+                    double delta = (z_sym - z_forward) / (w_bg * norm2_forward);
+                    for (int k = 0; k < mixture_h; ++k)
+                    {
+                        q_proj_forward[k] = q_prev_forward[k] + delta * resp_forward[k];
+                        if (!isfinite(q_proj_forward[k]) || q_proj_forward[k] < 0.0)
+                            negative_forward = true;
+                    }
+                }
+                else
+                {
+                    for (int k = 0; k < mixture_h; ++k)
+                        q_proj_forward[k] = q_prev_forward[k];
+                }
+
+                if (negative_forward && w_bg > 0.0)
+                {
+                    if (LP_symmetric_mixture_cell_repair(q_prev_forward, resp_forward, mixture_h, w_bg, z_sym,
+                                                         q_proj_forward) != 0)
+                    {
+                        for (int k = 0; k < mixture_h; ++k)
+                            q_proj_forward[k] =
+                                (isfinite(q_proj_forward[k]) && q_proj_forward[k] > 0.0) ? q_proj_forward[k] : 0.0;
+                    }
+                }
+
+                bool negative_reverse = false;
+                if (x_bc > 0.0 && norm2_reverse > eps)
+                {
+                    double delta = (z_sym - z_reverse) / (x_bc * norm2_reverse);
+                    for (int k = 0; k < mixture_h; ++k)
+                    {
+                        q_proj_reverse[k] = q_prev_reverse[k] + delta * resp_reverse[k];
+                        if (!isfinite(q_proj_reverse[k]) || q_proj_reverse[k] < 0.0)
+                            negative_reverse = true;
+                    }
+                }
+                else
+                {
+                    for (int k = 0; k < mixture_h; ++k)
+                        q_proj_reverse[k] = q_prev_reverse[k];
+                }
+
+                if (negative_reverse && x_bc > 0.0)
+                {
+                    if (LP_symmetric_mixture_cell_repair(q_prev_reverse, resp_reverse, mixture_h, x_bc, z_sym,
+                                                         q_proj_reverse) != 0)
+                    {
+                        for (int k = 0; k < mixture_h; ++k)
+                            q_proj_reverse[k] =
+                                (isfinite(q_proj_reverse[k]) && q_proj_reverse[k] > 0.0) ? q_proj_reverse[k] : 0.0;
+                    }
+                }
+
+                for (int k = 0; k < mixture_h; ++k)
+                {
+                    Q_3D(components_forward[k]->q, b, g, c, G, C) = q_proj_forward[k];
+                    Q_3D(components_reverse[k]->q, b, c, g, ctx_reverse->G, ctx_reverse->C) = q_proj_reverse[k];
+                }
+            }
+        }
+    }
+
+    for (int k = 0; k < mixture_h; ++k)
+    {
+        normalizeContextQRows(components_forward[k]);
+        normalizeContextQRows(components_reverse[k]);
+    }
+
+    Free(resp_forward);
+    Free(resp_reverse);
+    Free(q_prev_forward);
+    Free(q_prev_reverse);
+    Free(q_proj_forward);
+    Free(q_proj_reverse);
+}
+
+static void aggregateMixtureOutputs(EMContext **components, const Matrix *responsibilities, int mixture_h,
+                                    double **q_mix_out, double **expected_mix_out, Matrix *final_prob_out)
+{
+    const int B = components[0]->B;
+    const int G = components[0]->G;
+    const int C = components[0]->C;
+    size_t N = (size_t)B * (size_t)G * (size_t)C;
+    double *q_mix = (double *)Calloc(N, double);
+    double *expected_mix = (double *)Calloc(N, double);
+    Matrix final_prob = createMatrix(G, C);
+
+    for (int b = 0; b < B; ++b)
+    {
+        for (int g = 0; g < G; ++g)
+        {
+            double wbg = MATRIX_AT(components[0]->W, b, g);
+            for (int c = 0; c < C; ++c)
+            {
+                double qv = 0.0;
+                for (int k = 0; k < mixture_h; ++k)
+                    qv += MATRIX_AT_PTR(responsibilities, b, k) * Q_3D(components[k]->q, b, g, c, G, C);
+                Q_3D(q_mix, b, g, c, G, C) = qv;
+                Q_3D(expected_mix, b, g, c, G, C) = wbg * qv;
+            }
+        }
+    }
+
+    for (int g = 0; g < G; ++g)
+    {
+        double den = 0.0;
+        for (int b = 0; b < B; ++b)
+            den += MATRIX_AT(components[0]->W, b, g);
+        if (!isfinite(den) || den <= 0.0)
+            den = 1.0;
+
+        for (int c = 0; c < C; ++c)
+        {
+            double num = 0.0;
+            for (int b = 0; b < B; ++b)
+                num += Q_3D(expected_mix, b, g, c, G, C);
+            MATRIX_AT(final_prob, g, c) = num / den;
+        }
+    }
+
+    *q_mix_out = q_mix;
+    *expected_mix_out = expected_mix;
+    *final_prob_out = final_prob;
+}
+
+static double *flattenMixtureComponentProbabilities(EMContext **components, int mixture_h)
+{
+    const int G = components[0]->G;
+    const int C = components[0]->C;
+    double *component_prob = (double *)Calloc((size_t)G * (size_t)C * (size_t)mixture_h, double);
+
+    for (int k = 0; k < mixture_h; ++k)
+    {
+        for (int c = 0; c < C; ++c)
+        {
+            for (int g = 0; g < G; ++g)
+            {
+                component_prob[(size_t)g + (size_t)G * ((size_t)c + (size_t)C * (size_t)k)] =
+                    MATRIX_AT(components[k]->probabilities, g, c);
+            }
+        }
+    }
+
+    return component_prob;
+}
+
+static EMMixtureResult *EMAlgoritmMixtureSymmetric(Matrix *X, Matrix *W, const char *p_method, const char *q_method,
+                                                   const double convergence, const double LLconvergence,
+                                                   const int maxIter, const double maxSeconds, const bool verbose,
+                                                   Matrix *probMatrix, QMethodInput *inputParams, int mixture_h)
+{
+    (void)LLconvergence;
+    const double eps = 1e-12;
+    struct timespec start;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &start);
+    double elapsed_total = 0.0;
+
+    QMethodInput ctx_params = *inputParams;
+    ctx_params.computeLL = true;
+
+    EMContext **components_forward = (EMContext **)Calloc((size_t)mixture_h, EMContext *);
+    EMContext **components_reverse = (EMContext **)Calloc((size_t)mixture_h, EMContext *);
+    Matrix reverse_x = {NULL, 0, 0};
+    Matrix reverse_w = {NULL, 0, 0};
+    Matrix reverse_prob_custom = {NULL, 0, 0};
+
+    for (int k = 0; k < mixture_h; ++k)
+        components_forward[k] = createEMContext(X, W, q_method, ctx_params);
+
+    buildReverseMatrices(X, W, &reverse_x, &reverse_w);
+    for (int k = 0; k < mixture_h; ++k)
+        components_reverse[k] = createEMContext(&reverse_x, &reverse_w, q_method, ctx_params);
+    freeMatrix(&reverse_x);
+    freeMatrix(&reverse_w);
+
+    setGlobalsFromCtx(components_forward[0]);
+    getInitialP(components_forward[0], p_method, probMatrix);
+    copyBaseProbabilitiesAndJitter(components_forward, mixture_h);
+
+    setGlobalsFromCtx(components_reverse[0]);
+    if (strcmp(p_method, "custom") == 0)
+    {
+        reverse_prob_custom = buildReverseCustomInitialProb(probMatrix, components_forward[0]);
+        getInitialP(components_reverse[0], "custom", &reverse_prob_custom);
+        freeMatrix(&reverse_prob_custom);
+    }
+    else
+    {
+        getInitialP(components_reverse[0], p_method, probMatrix);
+    }
+    copyBaseProbabilitiesAndJitter(components_reverse, mixture_h);
+
+    if (components_forward[0]->B != components_reverse[0]->B || components_forward[0]->G != components_reverse[0]->C ||
+        components_forward[0]->C != components_reverse[0]->G)
+    {
+        error("run_em: Symmetric mixture backend received incompatible forward/reverse dimensions.");
+    }
+
+    const int B = components_forward[0]->B;
+    const int maxC = (components_forward[0]->C > components_reverse[0]->C) ? components_forward[0]->C
+                                                                            : components_reverse[0]->C;
+
+    double *phi_forward = (double *)Calloc((size_t)mixture_h, double);
+    double *phi_new_forward = (double *)Calloc((size_t)mixture_h, double);
+    Matrix responsibilities_forward = createMatrix(B, mixture_h);
+    Matrix score_forward = createMatrix(B, mixture_h);
+    double *prev_component_prob_forward =
+        (double *)Calloc((size_t)components_forward[0]->G * (size_t)components_forward[0]->C * (size_t)mixture_h,
+                         double);
+    double *prev_phi_forward = (double *)Calloc((size_t)mixture_h, double);
+
+    double *phi_reverse = (double *)Calloc((size_t)mixture_h, double);
+    double *phi_new_reverse = (double *)Calloc((size_t)mixture_h, double);
+    Matrix responsibilities_reverse = createMatrix(B, mixture_h);
+    Matrix score_reverse = createMatrix(B, mixture_h);
+    double *prev_component_prob_reverse =
+        (double *)Calloc((size_t)components_reverse[0]->G * (size_t)components_reverse[0]->C * (size_t)mixture_h,
+                         double);
+    double *prev_phi_reverse = (double *)Calloc((size_t)mixture_h, double);
+
+    double *row_counts = (double *)Calloc((size_t)maxC, double);
+    double *d_row = (double *)Calloc((size_t)mixture_h, double);
+
+    for (int k = 0; k < mixture_h; ++k)
+    {
+        phi_forward[k] = 1.0 / (double)mixture_h;
+        phi_reverse[k] = 1.0 / (double)mixture_h;
+    }
+
+    QMethodConfig config = getQMethodConfig(q_method, *inputParams);
+    QMethodInput mix_params = config.params;
+    mix_params.computeLL = true;
+
+    int finish_id = 2;
+    int iter_done = 0;
+    double final_ll = NA_REAL;
+
+    for (int iter = 1; iter <= maxIter; ++iter)
+    {
+        iter_done = iter;
+        snapshotMixtureParameters(components_forward, phi_forward, mixture_h, prev_component_prob_forward,
+                                  prev_phi_forward);
+        snapshotMixtureParameters(components_reverse, phi_reverse, mixture_h, prev_component_prob_reverse,
+                                  prev_phi_reverse);
+
+        computeMixtureScores(components_forward, mixture_h, config, mix_params, inputParams, &score_forward);
+        computeMixtureScores(components_reverse, mixture_h, config, mix_params, inputParams, &score_reverse);
+
+        double ll_forward =
+            updateMixtureResponsibilities(&score_forward, phi_forward, &responsibilities_forward, d_row, eps, verbose,
+                                          iter);
+        double ll_reverse =
+            updateMixtureResponsibilities(&score_reverse, phi_reverse, &responsibilities_reverse, d_row, eps, verbose,
+                                          iter);
+
+        symmetrizeMixtureComponentQ(components_forward, &responsibilities_forward, components_reverse,
+                                    &responsibilities_reverse, mixture_h);
+
+        updateMixtureComponentProbabilities(components_forward, &responsibilities_forward, mixture_h, row_counts, eps);
+        updateMixtureComponentProbabilities(components_reverse, &responsibilities_reverse, mixture_h, row_counts, eps);
+        updateMixturePhi(&responsibilities_forward, phi_forward, phi_new_forward, mixture_h, eps);
+        updateMixturePhi(&responsibilities_reverse, phi_reverse, phi_new_reverse, mixture_h, eps);
+
+        canonicalize_mixture_labels(components_forward, phi_forward, mixture_h);
+        canonicalize_mixture_labels(components_reverse, phi_reverse, mixture_h);
+
+        double delta_forward = computeMixtureParameterDelta(components_forward, phi_forward, mixture_h,
+                                                            prev_component_prob_forward, prev_phi_forward);
+        double delta_reverse = computeMixtureParameterDelta(components_reverse, phi_reverse, mixture_h,
+                                                            prev_component_prob_reverse, prev_phi_reverse);
+        double delta = (delta_forward > delta_reverse) ? delta_forward : delta_reverse;
+        final_ll = 0.5 * (ll_forward + ll_reverse);
+
+        if (verbose)
+        {
+            Rprintf("\n----------\nIteration: %d\nForward log-likelihood: %.10f\nReverse log-likelihood: %.10f\n",
+                    iter, ll_forward, ll_reverse);
+        }
+
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+        elapsed_total = (now.tv_sec - start.tv_sec) + (now.tv_nsec - start.tv_nsec) / 1e9;
+        if (elapsed_total >= maxSeconds)
+        {
+            finish_id = 1;
+            break;
+        }
+        if (iter >= inputParams->miniter && delta < convergence)
+        {
+            finish_id = 0;
+            break;
+        }
+    }
+
+    computeMixtureScores(components_forward, mixture_h, config, mix_params, inputParams, &score_forward);
+    computeMixtureScores(components_reverse, mixture_h, config, mix_params, inputParams, &score_reverse);
+    double ll_forward =
+        updateMixtureResponsibilities(&score_forward, phi_forward, &responsibilities_forward, d_row, eps, false, 0);
+    double ll_reverse =
+        updateMixtureResponsibilities(&score_reverse, phi_reverse, &responsibilities_reverse, d_row, eps, false, 0);
+    final_ll = 0.5 * (ll_forward + ll_reverse);
+
+    symmetrizeMixtureComponentQ(components_forward, &responsibilities_forward, components_reverse,
+                                &responsibilities_reverse, mixture_h);
+
+    double *q_mix = NULL;
+    double *expected_mix = NULL;
+    Matrix final_prob = {NULL, 0, 0};
+    aggregateMixtureOutputs(components_forward, &responsibilities_forward, mixture_h, &q_mix, &expected_mix,
+                            &final_prob);
+
+    double *q_mix_inv = NULL;
+    double *expected_mix_inv = NULL;
+    Matrix final_prob_inv = {NULL, 0, 0};
+    aggregateMixtureOutputs(components_reverse, &responsibilities_reverse, mixture_h, &q_mix_inv, &expected_mix_inv,
+                            &final_prob_inv);
+
+    double *component_prob = flattenMixtureComponentProbabilities(components_forward, mixture_h);
+
+    EMMixtureResult *res = Calloc(1, EMMixtureResult);
+    res->probabilities = final_prob;
+    res->q = q_mix;
+    res->predicted_votes = expected_mix;
+    res->phi = (double *)Calloc((size_t)mixture_h, double);
+    memcpy(res->phi, phi_forward, (size_t)mixture_h * sizeof(double));
+    res->responsibilities = responsibilities_forward;
+    res->component_prob = component_prob;
+    res->probabilities_inv = final_prob_inv;
+    res->q_inv = q_mix_inv;
+    res->predicted_votes_inv = expected_mix_inv;
+    res->mixture_h = mixture_h;
+    res->total_iterations = iter_done;
+    res->total_time = elapsed_total;
+    res->log_likelihood = final_ll;
+    res->finish_id = finish_id;
+
+    freeMatrix(&score_forward);
+    freeMatrix(&score_reverse);
+    freeMatrix(&responsibilities_reverse);
+    Free(phi_forward);
+    Free(phi_new_forward);
+    Free(prev_component_prob_forward);
+    Free(prev_phi_forward);
+    Free(phi_reverse);
+    Free(phi_new_reverse);
+    Free(prev_component_prob_reverse);
+    Free(prev_phi_reverse);
+    Free(row_counts);
+    Free(d_row);
+
+    for (int k = 0; k < mixture_h; ++k)
+    {
+        cleanup(components_forward[k]);
+        cleanup(components_reverse[k]);
+    }
+    Free(components_forward);
+    Free(components_reverse);
+
+    return res;
+}
+
 EMMixtureResult *EMAlgoritmMixture(Matrix *X, Matrix *W, const char *p_method, const char *q_method,
                                    const double convergence, const double LLconvergence, const int maxIter,
                                    const double maxSeconds, const bool verbose, Matrix *probMatrix,
@@ -164,6 +967,12 @@ EMMixtureResult *EMAlgoritmMixture(Matrix *X, Matrix *W, const char *p_method, c
     if (mixture_h < 1)
     {
         error("run_em: Invalid 'mixture'. Must be a positive integer.");
+    }
+
+    if (shouldRunSymmetricMixtureEMWeight(inputParams, mixture_h))
+    {
+        return EMAlgoritmMixtureSymmetric(X, W, p_method, q_method, convergence, LLconvergence, maxIter, maxSeconds,
+                                          verbose, probMatrix, inputParams, mixture_h);
     }
 
     if (mixture_h == 1)
@@ -1357,6 +2166,21 @@ void cleanupMixtureResult(EMMixtureResult *res)
     {
         Free(res->component_prob);
         res->component_prob = NULL;
+    }
+    if (res->probabilities_inv.data != NULL)
+    {
+        freeMatrix(&res->probabilities_inv);
+        res->probabilities_inv.data = NULL;
+    }
+    if (res->q_inv != NULL)
+    {
+        Free(res->q_inv);
+        res->q_inv = NULL;
+    }
+    if (res->predicted_votes_inv != NULL)
+    {
+        Free(res->predicted_votes_inv);
+        res->predicted_votes_inv = NULL;
     }
     Free(res);
 }

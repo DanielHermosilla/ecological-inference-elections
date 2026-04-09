@@ -75,7 +75,8 @@ static void releaseMatrix(Matrix *mat)
 // ---- Helper Function: Initialize QMethodInput ---- //
 QMethodInput initializeQMethodInput(const std::string &EMAlg, int samples, int step_size, int monte_iter,
                                     double monte_error, int miniterations, const std::string &monte_method,
-                                    bool compute_ll, const std::string &LP_method, bool project_every)
+                                    bool compute_ll, const std::string &LP_method, bool project_every, bool symmetric,
+                                    const std::string &symmetric_weight_method)
 {
     QMethodInput inputParams = {0}; // Default initialization
 
@@ -94,6 +95,8 @@ QMethodInput initializeQMethodInput(const std::string &EMAlg, int samples, int s
     inputParams.computeLL = compute_ll;
     inputParams.prob_cond = strdup(LP_method.c_str());
     inputParams.prob_cond_every = project_every; // Weights by default
+    inputParams.symmetric = symmetric;
+    inputParams.symmetric_weight_method = strdup(symmetric_weight_method.c_str());
 
     return inputParams;
 }
@@ -134,7 +137,7 @@ Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMa
 
     QMethodInput inputParams =
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], miniterations[0],
-                               monte_method, compute_ll[0], LP_method, project_every[0]);
+                               monte_method, compute_ll[0], LP_method, project_every[0], false, "average");
 
     EMContext *ctx = EMAlgoritm(&X, &W, probabilityM.c_str(), EMAlg.c_str(), stopping_threshold[0],
                                 log_stopping_threshold[0], maximum_iterations[0], maximum_seconds[0], verbose[0],
@@ -151,6 +154,10 @@ Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMa
     if (inputParams.prob_cond != nullptr)
     {
         free((void *)inputParams.prob_cond);
+    }
+    if (inputParams.symmetric_weight_method != nullptr)
+    {
+        free((void *)inputParams.symmetric_weight_method);
     }
 
     // ---- Create human-readable stopping reason ---- //
@@ -202,7 +209,7 @@ double EMLogLikFromProb(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatri
 
     QMethodInput inputParams = initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0],
                                                       miniterations[0], monte_method, true, LP_method,
-                                                      project_every[0]);
+                                                      project_every[0], false, "average");
 
     double ll = computeLogLikForProbability(&X, &W, &P, EMAlg.c_str(), &inputParams);
 
@@ -213,6 +220,10 @@ double EMLogLikFromProb(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatri
     if (inputParams.prob_cond != nullptr)
     {
         free((void *)inputParams.prob_cond);
+    }
+    if (inputParams.symmetric_weight_method != nullptr)
+    {
+        free((void *)inputParams.symmetric_weight_method);
     }
 
     releaseMatrix(&X);
@@ -232,7 +243,8 @@ Rcpp::List EMAlgorithmMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::Numeri
                               Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error,
                               Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
                               Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities,
-                              Rcpp::IntegerVector mixture_h)
+                              Rcpp::IntegerVector mixture_h, Rcpp::LogicalVector symmetric,
+                              Rcpp::String symmetric_weight_method)
 {
     int K = (mixture_h.size() > 0) ? mixture_h[0] : 1;
     if (K < 1)
@@ -242,6 +254,7 @@ Rcpp::List EMAlgorithmMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::Numeri
 
     std::string probabilityM = probability_method;
     std::string EMAlg = em_method;
+    std::string symmetricWeightMethod = symmetric_weight_method;
 
     Matrix X;
     Matrix W;
@@ -250,7 +263,8 @@ Rcpp::List EMAlgorithmMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::Numeri
 
     QMethodInput inputParams =
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], miniterations[0],
-                               monte_method, compute_ll[0], LP_method, project_every[0]);
+                               monte_method, compute_ll[0], LP_method, project_every[0], symmetric[0],
+                               symmetricWeightMethod);
 
     EMMixtureResult *res =
         EMAlgoritmMixture(&X, &W, probabilityM.c_str(), EMAlg.c_str(), stopping_threshold[0],
@@ -264,6 +278,10 @@ Rcpp::List EMAlgorithmMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::Numeri
     if (inputParams.prob_cond != nullptr)
     {
         free((void *)inputParams.prob_cond);
+    }
+    if (inputParams.symmetric_weight_method != nullptr)
+    {
+        free((void *)inputParams.symmetric_weight_method);
     }
 
     if (res == NULL)
@@ -320,6 +338,30 @@ Rcpp::List EMAlgorithmMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::Numeri
     }
     component_prob.attr("dim") = Rcpp::IntegerVector::create(G, C, outK);
 
+    Rcpp::RObject probInv = R_NilValue;
+    Rcpp::RObject condProbInv = R_NilValue;
+    Rcpp::RObject expectedOutInv = R_NilValue;
+    if (res->probabilities_inv.data != NULL && res->q_inv != NULL && res->predicted_votes_inv != NULL)
+    {
+        Rcpp::NumericMatrix reverseProbability(res->probabilities_inv.rows, res->probabilities_inv.cols);
+        std::memcpy(reverseProbability.begin(), res->probabilities_inv.data,
+                    (size_t)res->probabilities_inv.rows * (size_t)res->probabilities_inv.cols * sizeof(double));
+        probInv = reverseProbability;
+
+        std::size_t Ninv = std::size_t(B) * C * G;
+        Rcpp::NumericVector reverseCondProb(Ninv);
+        Rcpp::NumericVector reverseExpectedOut(Ninv);
+        for (std::size_t i = 0; i < Ninv; ++i)
+        {
+            reverseCondProb[i] = res->q_inv[i];
+            reverseExpectedOut[i] = res->predicted_votes_inv[i];
+        }
+        reverseCondProb.attr("dim") = Rcpp::IntegerVector::create(C, G, B);
+        reverseExpectedOut.attr("dim") = Rcpp::IntegerVector::create(C, G, B);
+        condProbInv = reverseCondProb;
+        expectedOutInv = reverseExpectedOut;
+    }
+
     int iter = res->total_iterations;
     double elapsed = res->total_time;
     int finish = res->finish_id;
@@ -334,7 +376,8 @@ Rcpp::List EMAlgorithmMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::Numeri
                               Rcpp::_["stopping_reason"] = stopping_reason, Rcpp::_["finish_id"] = finish,
                               Rcpp::_["q"] = condProb, Rcpp::_["expected_outcome"] = expectedOut,
                               Rcpp::_["phi"] = phi, Rcpp::_["responsibilities"] = responsibilities,
-                              Rcpp::_["component_prob"] = component_prob);
+                              Rcpp::_["component_prob"] = component_prob, Rcpp::_["prob_inv"] = probInv,
+                              Rcpp::_["q_inv"] = condProbInv, Rcpp::_["expected_outcome_inv"] = expectedOutInv);
 }
 
 // ---- Run Row-Level Finite-Mixture EM (non-parametric only) ---- //
@@ -366,7 +409,7 @@ Rcpp::List EMAlgorithmRowMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
 
     QMethodInput inputParams =
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], miniterations[0],
-                               monte_method, compute_ll[0], LP_method, project_every[0]);
+                               monte_method, compute_ll[0], LP_method, project_every[0], false, "average");
 
     EMMixtureResult *res =
         EMAlgoritmRowMixture(&X, &W, probabilityM.c_str(), EMAlg.c_str(), stopping_threshold[0],
@@ -380,6 +423,10 @@ Rcpp::List EMAlgorithmRowMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
     if (inputParams.prob_cond != nullptr)
     {
         free((void *)inputParams.prob_cond);
+    }
+    if (inputParams.symmetric_weight_method != nullptr)
+    {
+        free((void *)inputParams.symmetric_weight_method);
     }
 
     if (res == NULL)
@@ -486,7 +533,7 @@ Rcpp::List bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatri
 
     QMethodInput inputParams =
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], miniterations[0],
-                               monte_method, compute_ll[0], LP_method, project_every[0]);
+                               monte_method, compute_ll[0], LP_method, project_every[0], false, "average");
 
     Matrix avgProb = {NULL, 0, 0};
     Matrix sdResult =
@@ -500,6 +547,10 @@ Rcpp::List bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatri
     if (inputParams.prob_cond != nullptr)
     {
         free((void *)inputParams.prob_cond);
+    }
+    if (inputParams.symmetric_weight_method != nullptr)
+    {
+        free((void *)inputParams.symmetric_weight_method);
     }
 
     // Convert to R's matrix
@@ -699,7 +750,7 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
 
     QMethodInput inputParams =
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], miniterations[0],
-                               monte_method, compute_ll[0], LP_method, project_every[0]);
+                               monte_method, compute_ll[0], LP_method, project_every[0], false, "average");
 
     // We'll hold the boundary indices here
     int G = WR.cols;
@@ -719,6 +770,10 @@ Rcpp::List groupAgg(Rcpp::String sd_statistic, Rcpp::NumericVector sd_threshold,
     if (inputParams.prob_cond != nullptr)
     {
         free((void *)inputParams.prob_cond);
+    }
+    if (inputParams.symmetric_weight_method != nullptr)
+    {
+        free((void *)inputParams.symmetric_weight_method);
     }
     // Convert to R's matrix
     Rcpp::NumericMatrix output(sdResult.rows, sdResult.cols);
@@ -789,7 +844,7 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
 
     QMethodInput inputParams =
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], miniterations[0],
-                               monte_method, compute_ll[0], LP_method, project_every[0]);
+                               monte_method, compute_ll[0], LP_method, project_every[0], false, "average");
 
     Matrix greedyP =
         aggregateGroupsExhaustive(&XR, &WR, boundaries, &numCuts, set_method.c_str(), nboot[0], sd_threshold[0],
@@ -804,6 +859,10 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
     if (inputParams.prob_cond != nullptr)
     {
         free((void *)inputParams.prob_cond);
+    }
+    if (inputParams.symmetric_weight_method != nullptr)
+    {
+        free((void *)inputParams.symmetric_weight_method);
     }
 
     if (numCuts == 0) // Case where there's not any match

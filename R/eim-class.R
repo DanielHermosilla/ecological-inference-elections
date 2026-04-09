@@ -325,7 +325,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'
 #' @param symmetric A boolean indicating whether to perform a symmetric estimation. If `TRUE`, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. The final probabilities are obtained by combining the expected outcomes from both runs (equal average by default; see `symmetric_weight_method`). This approach can provide a more balanced estimation in certain scenarios. The default value is `FALSE`.
 #'
-#' @param symmetric_weight_method Character string indicating how to combine both directions when `symmetric = TRUE`. Valid values are `"average"` (default, equal weights `0.5/0.5`) and `"delta_ll"` (weights proportional to `dLL = LL - LL_ind` and `dLL_rev = LL_rev - LL_rev_ind`).
+#' @param symmetric_weight_method Character string indicating how to combine both directions when `symmetric = TRUE`. Valid values are `"average"` (default, equal weights `0.5/0.5`), `"delta_ll"` (weights proportional to `dLL = LL - LL_ind` and `dLL_rev = LL_rev - LL_rev_ind`), and `"EM_weight"` (joint EM where forward and reverse finite-mixture E-steps are coupled by averaging expected counts at each iteration; currently supported only when `mixture > 1` and `H = 1`).
 #'
 #' @param ... Added for compability
 #'
@@ -394,6 +394,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #' 		\item{cond_prob_inv}{A `(c x g x b)` 3d-array with the probability that at each ballot-box a voter of each candidate voted for each group, given the observed outcome at the particular ballot-box.}
 #' }
 #' If `symmetric_weight_method = "delta_ll"` and the model is non-parametric with a single profile (`K = H = 1`), the object also includes `LL_ind`, `LL_rev_ind`, `dLL`, `dLL_rev`, and `symmetric_weights`.
+#' If `symmetric_weight_method = "EM_weight"`, the object includes `symmetric_weights = c(original = 0.5, reverse = 0.5)` and the inverse outputs come from the joint reverse run rather than from a post-hoc symmetric helper.
 #' Under this argument, the conditional probabilities will be obtained by dividing new expected outcomes by `W`. The probabilities will be calculated by performing an M-step.
 #'
 #' @examples
@@ -696,6 +697,9 @@ run_em <- function(object = NULL,
         if (method != "mult") {
             stop("run_em: Parametric mode only supports method = \"mult\".")
         }
+        if (isTRUE(symmetric) && identical(symmetric_weight_method, "EM_weight")) {
+            stop("run_em: `symmetric_weight_method = \"EM_weight\"` is currently supported only for non-parametric finite mixtures with `mixture > 1`.")
+        }
         if (mixture > 1) {
             stop("run_em: `mixture > 1` is currently supported only for non-parametric models (`V = NULL`).")
         }
@@ -967,6 +971,14 @@ run_em <- function(object = NULL,
     H_group <- as.integer(H)
     use_mixture <- (K > 1L) || (K == 1L && mixture_explicit)
     use_row_mixture <- H_group > 1
+    if (isTRUE(symmetric) && identical(symmetric_weight_method, "EM_weight") &&
+        (use_row_mixture || K <= 1L || !use_mixture)) {
+        stop("run_em: `symmetric_weight_method = \"EM_weight\"` is currently supported only when `mixture > 1` and `H = 1`.")
+    }
+    use_joint_symmetric_em <- isTRUE(symmetric) &&
+        identical(symmetric_weight_method, "EM_weight") &&
+        !use_row_mixture &&
+        K > 1L
 
     if (use_row_mixture) {
         resulting_values <- EMAlgorithmRowMixture(
@@ -1075,7 +1087,9 @@ run_em <- function(object = NULL,
             adjust_prob_cond_method,
             adjust_prob_cond_every,
             if (is.matrix(initial_prob)) initial_prob else matrix(-1, nrow = 1, ncol = 1),
-            K
+            K,
+            use_joint_symmetric_em,
+            if (use_joint_symmetric_em) "EM_weight" else "average"
         )
 
         object$cond_prob <- resulting_values$q
@@ -1118,7 +1132,24 @@ run_em <- function(object = NULL,
         object$adjust_prob_cond_method <- adjust_prob_cond_method
         object$adjust_prob_cond_every <- adjust_prob_cond_every
 
-        if (symmetric) {
+        if (use_joint_symmetric_em) {
+            object$cond_prob_inv <- resulting_values$q_inv
+            dimnames(object$cond_prob_inv) <- list(
+                colnames(object$X),
+                colnames(W),
+                rownames(object$X)
+            )
+            object$prob_inv <- as.matrix(resulting_values$prob_inv)
+            dimnames(object$prob_inv) <- list(colnames(object$X), colnames(W))
+            object$expected_outcome_inv <- resulting_values$expected_outcome_inv
+            dimnames(object$expected_outcome_inv) <- list(
+                colnames(object$X),
+                colnames(W),
+                rownames(object$X)
+            )
+            object$symmetric_weight_method <- "EM_weight"
+            object$symmetric_weights <- c(original = 0.5, reverse = 0.5)
+        } else if (symmetric) {
             W_sym <- if (is.null(object$W_agg)) object$W else object$W_agg
             object <- .run_em_symmetric_helper(
                 object = object,

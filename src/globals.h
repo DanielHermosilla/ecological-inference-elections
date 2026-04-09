@@ -34,6 +34,8 @@ extern "C"
         const char *simulationMethod; // For "MVN CDF"
         char *prob_cond;
         bool prob_cond_every;
+        bool symmetric;
+        char *symmetric_weight_method;
     } QMethodInput;
 
     // All of the helper functions are made towards double type matrices

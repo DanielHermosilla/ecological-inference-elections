@@ -481,3 +481,64 @@ test_that("run_em supports symmetric finite mixtures", {
     expect_prob_matrix(fit$prob)
     expect_prob_array(fit$cond_prob)
 })
+
+test_that("run_em supports symmetric finite mixtures with EM_weight joint EM", {
+    sim <- simulate_election(
+        num_ballots = 6,
+        num_candidates = 3,
+        num_groups = 2,
+        ballot_voters = rep(35, 6),
+        seed = 904
+    )
+
+    fit <- run_em(
+        X = sim$X,
+        W = sim$W,
+        method = "mult",
+        mixture = 2,
+        symmetric = TRUE,
+        symmetric_weight_method = "EM_weight",
+        maxiter = 4,
+        miniter = 1,
+        maxtime = 5,
+        compute_ll = FALSE
+    )
+
+    expect_s3_class(fit, "eim")
+    expect_equal(fit$mixture, 2L)
+    expect_equal(fit$symmetric_weight_method, "EM_weight")
+    expect_equal(fit$symmetric_weights, c(original = 0.5, reverse = 0.5))
+    expect_equal(dim(fit$cond_prob), c(ncol(sim$W), ncol(sim$X), nrow(sim$X)))
+    expect_equal(dim(fit$cond_prob_inv), c(ncol(sim$X), ncol(sim$W), nrow(sim$X)))
+    expect_equal(dim(fit$prob), c(ncol(sim$W), ncol(sim$X)))
+    expect_equal(dim(fit$prob_inv), c(ncol(sim$X), ncol(sim$W)))
+    expect_prob_matrix(fit$prob)
+    expect_prob_matrix(fit$prob_inv)
+    expect_prob_array(fit$cond_prob)
+    expect_prob_array(fit$cond_prob_inv)
+    expect_true(all(abs(rowSums(fit$responsibilities) - 1) < 1e-6))
+})
+
+test_that("run_em rejects EM_weight outside the finite-mixture symmetric backend", {
+    sim <- simulate_election(
+        num_ballots = 6,
+        num_candidates = 3,
+        num_groups = 2,
+        ballot_voters = rep(35, 6),
+        seed = 905
+    )
+
+    expect_error(
+        run_em(
+            X = sim$X,
+            W = sim$W,
+            method = "mult",
+            symmetric = TRUE,
+            symmetric_weight_method = "EM_weight",
+            maxiter = 4,
+            miniter = 1,
+            maxtime = 5
+        ),
+        "mixture > 1"
+    )
+})

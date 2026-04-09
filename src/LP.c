@@ -510,3 +510,65 @@ int LPW_ctx(EMContext *ctx, int b)
     LPSolverInput input = make_lp_input_ctx(ctx);
     return solve_ballot_simplex(&input, b, 0);
 }
+
+int LP_symmetric_mixture_cell_repair(const double *q_prev, const double *r, int K, double scale, double target_z,
+                                     double *q_out)
+{
+    if (q_prev == NULL || r == NULL || q_out == NULL || K < 1)
+        return -1;
+
+    if (!isfinite(scale) || scale <= 0.0)
+    {
+        for (int k = 0; k < K; ++k)
+            q_out[k] = (isfinite(q_prev[k]) && q_prev[k] >= 0.0) ? q_prev[k] : 0.0;
+        return 0;
+    }
+
+    if (!isfinite(target_z) || target_z < 0.0)
+        return -1;
+
+    const int nVars = 3 * K; // q_hat, d_plus, d_minus
+    const int nRows = K + 1; // K absolute-value rows + 1 coupling row
+    const int off_q = 0;
+    const int off_dp = off_q + K;
+    const int off_dm = off_dp + K;
+    const int row_couple = K;
+
+    double *A = (double *)xcalloc((size_t)nRows * (size_t)nVars, sizeof(double));
+    double *rhs = (double *)xcalloc(nRows, sizeof(double));
+    double *obj = (double *)xcalloc(nVars, sizeof(double));
+    double *x = (double *)xcalloc(nVars, sizeof(double));
+
+    for (int k = 0; k < K; ++k)
+    {
+        A[idxRC(k, nVars, off_q + k)] = 1.0;
+        A[idxRC(k, nVars, off_dp + k)] = -1.0;
+        A[idxRC(k, nVars, off_dm + k)] = 1.0;
+        rhs[k] = (isfinite(q_prev[k]) ? q_prev[k] : 0.0);
+        obj[off_dp + k] = scale;
+        obj[off_dm + k] = scale;
+
+        double rk = (isfinite(r[k]) && r[k] > 0.0) ? r[k] : 0.0;
+        A[idxRC(row_couple, nVars, off_q + k)] = scale * rk;
+    }
+    rhs[row_couple] = target_z;
+
+    int code = simplex_solve_dense_equalities(A, rhs, obj, nRows, nVars, x);
+    if (code == 0)
+    {
+        for (int k = 0; k < K; ++k)
+        {
+            double qk = x[off_q + k];
+            if (qk < 0.0 && qk > -1e-12)
+                qk = 0.0;
+            q_out[k] = qk;
+        }
+    }
+
+    Free(A);
+    Free(rhs);
+    Free(obj);
+    Free(x);
+
+    return (code ? -100 : 0);
+}

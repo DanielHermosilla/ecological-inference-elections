@@ -53,7 +53,7 @@
         stop("Invalid 'method'. Must be one of: ", paste(valid_methods, collapse = ", "))
     }
 
-    valid_symmetric_weight_methods <- c("average", "delta_ll")
+    valid_symmetric_weight_methods <- c("average", "delta_ll", "EM_weight")
     if ("symmetric_weight_method" %in% names(args) &&
         (!is.character(args$symmetric_weight_method) ||
             length(args$symmetric_weight_method) != 1 ||
