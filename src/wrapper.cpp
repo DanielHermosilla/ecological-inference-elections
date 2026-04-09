@@ -131,10 +131,9 @@ Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMa
     Matrix P = convertToMatrix(initial_probabilities);
     RsetParameters(candidate_matrix, group_matrix, &X, &W);
 
-    QMethodInput inputParams =
-        initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], miniterations[0],
-                               monte_method, compute_ll[0], LP_method, project_every[0], symmetric[0],
-                               std::string(symmetric_weight_method));
+    QMethodInput inputParams = initializeQMethodInput(
+        EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], miniterations[0], monte_method, compute_ll[0],
+        LP_method, project_every[0], symmetric[0], std::string(symmetric_weight_method));
 
     EMContext *ctx = EMAlgoritm(&X, &W, probabilityM.c_str(), EMAlg.c_str(), stopping_threshold[0],
                                 log_stopping_threshold[0], maximum_iterations[0], maximum_seconds[0], verbose[0],
@@ -191,10 +190,9 @@ Rcpp::List EMAlgorithmFull(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMa
 
 // [[Rcpp::export]]
 double EMLogLikFromProb(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
-                        Rcpp::NumericMatrix probability_matrix, Rcpp::String em_method,
-                        Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method,
-                        Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter,
-                        Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
+                        Rcpp::NumericMatrix probability_matrix, Rcpp::String em_method, Rcpp::IntegerVector step_size,
+                        Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error,
+                        Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
                         Rcpp::LogicalVector project_every)
 {
     std::string EMAlg = em_method;
@@ -203,9 +201,9 @@ double EMLogLikFromProb(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatri
     Matrix P = convertToMatrix(probability_matrix);
     RsetParameters(candidate_matrix, group_matrix, &X, &W);
 
-    QMethodInput inputParams = initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0],
-                                                      miniterations[0], monte_method, true, LP_method,
-                                                      project_every[0], false, "average");
+    QMethodInput inputParams =
+        initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], miniterations[0],
+                               monte_method, true, LP_method, project_every[0], false, "average");
 
     double ll = computeLogLikForProbability(&X, &W, &P, EMAlg.c_str(), &inputParams);
 
@@ -258,10 +256,9 @@ Rcpp::List bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatri
                                monte_method, compute_ll[0], LP_method, project_every[0], false, "average");
 
     Matrix avgProb = {NULL, 0, 0};
-    Matrix sdResult =
-        bootstrapA(&XR, &WR, nboot[0], EMAlg.c_str(), probabilityM.c_str(), stopping_threshold[0],
-                   log_stopping_threshold[0], maximum_iterations[0], maximum_seconds[0], verbose[0], &P,
-                   &inputParams, &avgProb);
+    Matrix sdResult = bootstrapA(&XR, &WR, nboot[0], EMAlg.c_str(), probabilityM.c_str(), stopping_threshold[0],
+                                 log_stopping_threshold[0], maximum_iterations[0], maximum_seconds[0], verbose[0], &P,
+                                 &inputParams, &avgProb);
     if (inputParams.simulationMethod != nullptr)
     {
         free((void *)inputParams.simulationMethod);
@@ -387,8 +384,8 @@ Rcpp::List EMAlgorithmParametric(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
 
     return Rcpp::List::create(Rcpp::_["prob"] = probArr, Rcpp::_["cond_prob"] = condProb,
                               Rcpp::_["expected_outcome"] = expectedOut, Rcpp::_["beta"] = Rbeta,
-                              Rcpp::_["alpha"] = Ralpha, Rcpp::_["time"] = elapsed,
-                              Rcpp::_["iter"] = total_iter, Rcpp::_["logLik"] = logLikelihood);
+                              Rcpp::_["alpha"] = Ralpha, Rcpp::_["time"] = elapsed, Rcpp::_["iter"] = total_iter,
+                              Rcpp::_["logLik"] = logLikelihood);
 }
 
 // ---- Run Parametric Bootstrapping Algorithm ---- //
