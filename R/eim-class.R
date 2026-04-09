@@ -620,122 +620,10 @@ run_em <- function(object = NULL,
         tau
     }
 
-    normalize_prob_rows_run_em <- function(prob_matrix) {
-        prob_matrix[!is.finite(prob_matrix) | prob_matrix < 0] <- 0
-        row_sums <- rowSums(prob_matrix)
-        valid_rows <- is.finite(row_sums) & row_sums > 0
-        if (any(valid_rows)) {
-            prob_matrix[valid_rows, ] <- sweep(prob_matrix[valid_rows, , drop = FALSE], 1, row_sums[valid_rows], "/")
-        }
-        if (any(!valid_rows)) {
-            prob_matrix[!valid_rows, ] <- rep(1 / ncol(prob_matrix), ncol(prob_matrix))
-        }
-        prob_matrix
-    }
-
     zero_vote_state <- NULL
-    restore_zero_vote_columns <- function(fit_object) {
-        if (is.null(zero_vote_state)) {
-            return(fit_object)
-        }
-
-        original_X <- zero_vote_state$original_X
-        keep_cols <- zero_vote_state$keep_cols
-        total_candidates <- ncol(original_X)
-        candidate_names <- colnames(original_X)
-
-        restore_candidate_second_matrix <- function(mat) {
-            if (is.null(mat) || !is.matrix(mat)) {
-                return(mat)
-            }
-            restored <- matrix(0, nrow = nrow(mat), ncol = total_candidates)
-            restored[, keep_cols] <- mat
-            rownames(restored) <- rownames(mat)
-            colnames(restored) <- candidate_names
-            restored
-        }
-
-        restore_candidate_first_matrix <- function(mat) {
-            if (is.null(mat) || !is.matrix(mat)) {
-                return(mat)
-            }
-            restored <- matrix(0, nrow = total_candidates, ncol = ncol(mat))
-            restored[keep_cols, ] <- mat
-            rownames(restored) <- candidate_names
-            colnames(restored) <- colnames(mat)
-            restored
-        }
-
-        restore_candidate_second_array <- function(arr) {
-            if (is.null(arr) || !is.array(arr) || length(dim(arr)) != 3) {
-                return(arr)
-            }
-            arr_dimnames <- dimnames(arr)
-            restored <- array(0, dim = c(dim(arr)[1], total_candidates, dim(arr)[3]))
-            restored[, keep_cols, ] <- arr
-            dimnames(restored) <- list(arr_dimnames[[1]], candidate_names, arr_dimnames[[3]])
-            restored
-        }
-
-        restore_candidate_first_array <- function(arr) {
-            if (is.null(arr) || !is.array(arr) || length(dim(arr)) != 3) {
-                return(arr)
-            }
-            arr_dimnames <- dimnames(arr)
-            restored <- array(0, dim = c(total_candidates, dim(arr)[2], dim(arr)[3]))
-            restored[keep_cols, , ] <- arr
-            dimnames(restored) <- list(candidate_names, arr_dimnames[[2]], arr_dimnames[[3]])
-            restored
-        }
-
-        fit_object$X <- original_X
-        fit_object$prob <- if (is.array(fit_object$prob) && length(dim(fit_object$prob)) == 3) {
-            restore_candidate_second_array(fit_object$prob)
-        } else {
-            restore_candidate_second_matrix(fit_object$prob)
-        }
-        fit_object$cond_prob <- restore_candidate_second_array(fit_object$cond_prob)
-        fit_object$expected_outcome <- restore_candidate_second_array(fit_object$expected_outcome)
-        fit_object$component_prob <- restore_candidate_second_array(fit_object$component_prob)
-        fit_object$prob_inv <- if (is.array(fit_object$prob_inv) && length(dim(fit_object$prob_inv)) == 3) {
-            restore_candidate_first_array(fit_object$prob_inv)
-        } else {
-            restore_candidate_first_matrix(fit_object$prob_inv)
-        }
-        fit_object$cond_prob_inv <- restore_candidate_first_array(fit_object$cond_prob_inv)
-        fit_object$expected_outcome_inv <- restore_candidate_first_array(fit_object$expected_outcome_inv)
-
-        if (is.matrix(fit_object$initial_prob)) {
-            fit_object$initial_prob <- restore_candidate_second_matrix(fit_object$initial_prob)
-        }
-
-        if (isTRUE(zero_vote_state$can_restore_coefficients) && is.matrix(fit_object$beta)) {
-            coef_keep_cols <- keep_cols[-length(keep_cols)]
-            restored_beta <- matrix(0, nrow = nrow(fit_object$beta), ncol = total_candidates - 1)
-            if (length(coef_keep_cols) > 0 && ncol(fit_object$beta) > 0) {
-                restored_beta[, coef_keep_cols] <- fit_object$beta
-            }
-            rownames(restored_beta) <- rownames(fit_object$beta)
-            colnames(restored_beta) <- candidate_names[-total_candidates]
-            fit_object$beta <- restored_beta
-        }
-
-        if (isTRUE(zero_vote_state$can_restore_coefficients) && is.matrix(fit_object$alpha)) {
-            coef_keep_cols <- keep_cols[-length(keep_cols)]
-            restored_alpha <- matrix(0, nrow = total_candidates - 1, ncol = ncol(fit_object$alpha))
-            if (length(coef_keep_cols) > 0 && nrow(fit_object$alpha) > 0) {
-                restored_alpha[coef_keep_cols, ] <- fit_object$alpha
-            }
-            rownames(restored_alpha) <- candidate_names[-total_candidates]
-            colnames(restored_alpha) <- colnames(fit_object$alpha)
-            fit_object$alpha <- restored_alpha
-        }
-
-        fit_object
-    }
 
     finalize_fit_object <- function(fit_object) {
-        fit_object <- restore_zero_vote_columns(fit_object)
+        fit_object <- .restore_zero_vote_columns(fit_object, zero_vote_state)
         fit_object$HET <- compute_HET_metric(fit_object)
         fit_object$AE <- compute_AE_metric(fit_object)
         invisible(fit_object)
@@ -772,39 +660,20 @@ run_em <- function(object = NULL,
     }
 
     full_candidate_object <- object
-
-    zero_vote_cols <- which(colSums(object$X) == 0)
-    if (length(zero_vote_cols) > 0) {
-        keep_cols <- which(colSums(object$X) > 0)
-        if (length(keep_cols) == 0) {
-            stop("run_em: 'X' must contain at least one candidate with a positive vote total.")
-        }
-
-        zero_vote_state <- list(
-            original_X = object$X,
-            keep_cols = keep_cols,
-            can_restore_coefficients = is_parametric && tail(keep_cols, 1) == ncol(object$X)
-        )
-        object$X <- object$X[, keep_cols, drop = FALSE]
-
-        if (is.matrix(initial_prob)) {
-            initial_prob <- normalize_prob_rows_run_em(initial_prob[, keep_cols, drop = FALSE])
-            all_params$initial_prob <- initial_prob
-        }
-
-        if (is_parametric && zero_vote_state$can_restore_coefficients) {
-            coef_keep_cols <- keep_cols[-length(keep_cols)]
-            if (!is.null(beta_init)) {
-                beta_init <- beta_init[, coef_keep_cols, drop = FALSE]
-            }
-            if (!is.null(alpha_init)) {
-                alpha_init <- alpha_init[coef_keep_cols, , drop = FALSE]
-            }
-        } else if (is_parametric && (!is.null(beta_init) || !is.null(alpha_init))) {
-            beta_init <- NULL
-            alpha_init <- NULL
-        }
-    }
+    zero_vote_info <- .prepare_zero_vote_columns(
+        object = object,
+        initial_prob = initial_prob,
+        beta_init = beta_init,
+        alpha_init = alpha_init,
+        all_params = all_params,
+        is_parametric = is_parametric
+    )
+    object <- zero_vote_info$object
+    initial_prob <- zero_vote_info$initial_prob
+    beta_init <- zero_vote_info$beta_init
+    alpha_init <- zero_vote_info$alpha_init
+    all_params <- zero_vote_info$all_params
+    zero_vote_state <- zero_vote_info$state
 
     W_effective <- if (is.null(object$W_agg)) object$W else object$W_agg
     G_effective <- ncol(W_effective)
