@@ -57,6 +57,19 @@ extern "C"
                           double *time, int *iterTotal, double *logLLarr, int *finishing_reason, Matrix *probMatrix,
                           QMethodInput *inputParams);
 
+    QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams);
+
+    void getInitialP(EMContext *ctx, const char *p_method, Matrix *probMatrix);
+
+    void getP(EMContext *ctx);
+
+    void getPredictedVotes(EMContext *ctx);
+
+    void projectQ(EMContext *ctx, QMethodInput inputParams);
+
+    double computeLogLikForProbability(Matrix *X, Matrix *W, Matrix *probMatrix, const char *q_method,
+                                       QMethodInput *inputParams);
+
     bool hasMismatch(Matrix *X, Matrix *W);
 
     Matrix precomputeNorm(double *scale_factors, Matrix *X, Matrix *W);

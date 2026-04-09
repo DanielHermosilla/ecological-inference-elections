@@ -610,3 +610,11 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
         Free(logArray);
     }
 }
+
+double computeLogLikMultivariateCDF(EMContext *ctx, QMethodInput params)
+{
+    double ll = 0.0;
+    params.computeLL = true;
+    computeQMultivariateCDF(ctx, params, &ll);
+    return ll;
+}

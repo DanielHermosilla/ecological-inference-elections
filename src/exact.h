@@ -59,6 +59,7 @@ extern "C"
     void generateKSets(EMContext *ctx);
 
     double computeExactLoglikelihood(EMContext *ctx);
+    double computeLogLikExact(EMContext *ctx, QMethodInput params);
 
 #ifdef __cplusplus
 }

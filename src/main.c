@@ -21,6 +21,7 @@ SOFTWARE.
 */
 
 #include "main.h"
+#include "main_symmetric.h"
 #include "globals.h"
 #include "utils_matrix.h"
 #include <R.h>
@@ -474,26 +475,32 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
     QMethodConfig config = {NULL}; // Initialize everything to NULL/0
 
     config.computeQ = computeQMultinomial;
+    config.computeLogLik = computeLogLikMultinomial;
 
     if (strcmp(q_method, "mult") == 0)
     {
         config.computeQ = computeQMultinomial;
+        config.computeLogLik = computeLogLikMultinomial;
     }
     else if (strcmp(q_method, "mcmc") == 0)
     {
         config.computeQ = computeQHitAndRun;
+        config.computeLogLik = computeLogLikHitAndRun;
     }
     else if (strcmp(q_method, "mvn_pdf") == 0)
     {
         config.computeQ = computeQMultivariatePDF;
+        config.computeLogLik = computeLogLikMultivariatePDF;
     }
     else if (strcmp(q_method, "exact") == 0)
     {
         config.computeQ = computeQExact;
+        config.computeLogLik = computeLogLikExact;
     }
     else if (strcmp(q_method, "mvn_cdf") == 0)
     {
         config.computeQ = computeQMultivariateCDF;
+        config.computeLogLik = computeLogLikMultivariateCDF;
     }
     else
     {
@@ -505,6 +512,32 @@ QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams)
     // Directly store the input parameters
     config.params = inputParams;
     return config;
+}
+
+double computeLogLikForProbability(Matrix *X, Matrix *W, Matrix *probMatrix, const char *q_method,
+                                   QMethodInput *inputParams)
+{
+    if (inputParams == NULL)
+    {
+        error("computeLogLikForProbability: `inputParams` must not be NULL.");
+    }
+
+    QMethodInput llParams = *inputParams;
+    llParams.computeLL = true;
+
+    EMContext *ctx = createEMContext(X, W, q_method, llParams);
+    getInitialP(ctx, "custom", probMatrix);
+
+    QMethodConfig config = getQMethodConfig(q_method, llParams);
+    if (config.computeLogLik == NULL)
+    {
+        cleanup(ctx);
+        error("computeLogLikForProbability: Unsupported method `%s`.", q_method);
+    }
+
+    double ll = config.computeLogLik(ctx, config.params);
+    cleanup(ctx);
+    return ll;
 }
 
 /*
@@ -716,6 +749,14 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
         // TODO: Free the context
     }
     // ---...--- //
+
+    if (shouldRunSymmetricEMWeight(inputParams))
+    {
+        runSymmetricEMWeight(ctx, p_method, q_method, convergence, LLconvergence, maxIter, maxSeconds, verbose, time,
+                             iterTotal, logLLarr, finishing_reason, probMatrix, inputParams, config);
+        return ctx;
+    }
+
     Matrix oldProbabilities = createMatrix(ctx->G, ctx->C);
     // ---...--- //
     // ---- Execute the EM-iterations ---- //

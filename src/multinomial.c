@@ -195,3 +195,11 @@ void computeQMultinomial(EMContext *ctx, QMethodInput params, double *ll)
     // *ll -= TOTAL_BALLOTS * TOTAL_CANDIDATES * log(totalWP);
     freeMatrix(&WP);
 }
+
+double computeLogLikMultinomial(EMContext *ctx, QMethodInput params)
+{
+    double ll = 0.0;
+    params.computeLL = true;
+    computeQMultinomial(ctx, params, &ll);
+    return ll;
+}

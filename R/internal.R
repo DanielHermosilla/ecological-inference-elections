@@ -53,6 +53,17 @@
         stop("Invalid 'method'. Must be one of: ", paste(valid_methods, collapse = ", "))
     }
 
+    valid_symmetric_weight_methods <- c("average", "delta_ll", "mae_inverse", "joint")
+    if ("symmetric_weight_method" %in% names(args) &&
+        (!is.character(args$symmetric_weight_method) ||
+            length(args$symmetric_weight_method) != 1 ||
+            !(args$symmetric_weight_method %in% valid_symmetric_weight_methods))) {
+        stop(
+            "Invalid 'symmetric_weight_method'. Must be one of: ",
+            paste(valid_symmetric_weight_methods, collapse = ", ")
+        )
+    }
+
     # Initial prob argument
     # valid_p_methods <- c("group_proportional", "proportional", "uniform", "random", "mult", "mcmc", "mvn_cdf", "mvn_pdf", "exact")
     # if ("initial_prob" %in% names(args) && (!is.matrix(args$initial_prob) ||
@@ -294,6 +305,717 @@
     }
 
     result
+}
+
+#' Internal function!
+#'
+#' Normalize each row of a probability matrix so every row sums to one.
+#'
+#' @param prob_matrix Numeric matrix with one probability vector per row.
+#' @return A matrix with finite, non-negative rows normalized to one.
+#' @noRd
+.normalize_prob_rows <- function(prob_matrix) {
+    prob_matrix[!is.finite(prob_matrix) | prob_matrix < 0] <- 0
+    row_sums <- rowSums(prob_matrix)
+    valid_rows <- is.finite(row_sums) & row_sums > 0
+
+    if (any(valid_rows)) {
+        prob_matrix[valid_rows, ] <- sweep(
+            prob_matrix[valid_rows, , drop = FALSE],
+            1,
+            row_sums[valid_rows],
+            "/"
+        )
+    }
+
+    if (any(!valid_rows)) {
+        prob_matrix[!valid_rows, ] <- rep(1 / ncol(prob_matrix), ncol(prob_matrix))
+    }
+
+    prob_matrix
+}
+
+#' Internal function!
+#'
+#' Normalize the last dimension of a 3d-array into valid probability vectors.
+#'
+#' @param arr3 Numeric 3d-array where the last dimension is normalized.
+#' @return A 3d-array with finite, non-negative slices summing to one.
+#' @noRd
+.normalize_cube_last_dim <- function(arr3) {
+    num_ballots <- dim(arr3)[1]
+    num_rows <- dim(arr3)[2]
+    num_cols <- dim(arr3)[3]
+
+    for (ballot in seq_len(num_ballots)) {
+        for (row in seq_len(num_rows)) {
+            values <- arr3[ballot, row, ]
+            values[!is.finite(values) | values < 0] <- 0
+            values_sum <- sum(values)
+
+            if (is.finite(values_sum) && values_sum > 0) {
+                arr3[ballot, row, ] <- values / values_sum
+            } else {
+                arr3[ballot, row, ] <- rep(1 / num_cols, num_cols)
+            }
+        }
+    }
+
+    arr3
+}
+
+#' Internal function!
+#'
+#' Perform the M-step from ballot-box conditional probabilities.
+#'
+#' @param q_array A `(g x c x b)` array with conditional probabilities.
+#' @param W_matrix A `(b x g)` matrix with group totals.
+#' @return A `(g x c)` matrix with updated probabilities.
+#' @noRd
+.mstep_from_q <- function(q_array, W_matrix) {
+    q_bgc <- aperm(q_array, c(3, 1, 2))
+    weighted_q <- sweep(q_bgc, c(1, 2), W_matrix, "*")
+    numerator <- apply(weighted_q, c(2, 3), sum)
+    denominator <- colSums(W_matrix)
+    probabilities <- sweep(numerator, 1, denominator, "/")
+
+    .normalize_prob_rows(probabilities)
+}
+
+#' Internal function!
+#'
+#' Evaluate the log-likelihood of a fixed probability matrix under an EM method.
+#'
+#' @param object An `eim` object providing method-specific controls.
+#' @param X_matrix A candidate-vote matrix.
+#' @param W_matrix A group-vote matrix.
+#' @param prob_matrix A probability matrix to evaluate.
+#' @param method Character string with the non-parametric method name.
+#' @param miniter Minimum number of iterations stored in the temporary object.
+#' @param adjust_prob_cond_method Character string controlling probability adjustment.
+#' @param adjust_prob_cond_every Boolean indicating whether to project at every iteration.
+#' @return A numeric scalar with the evaluated log-likelihood.
+#' @noRd
+.run_em_loglik_from_prob <- function(object,
+                                     X_matrix,
+                                     W_matrix,
+                                     prob_matrix,
+                                     method,
+                                     miniter,
+                                     adjust_prob_cond_method,
+                                     adjust_prob_cond_every) {
+    ll_object <- list(
+        X = as.matrix(X_matrix),
+        W = as.matrix(W_matrix),
+        method = method,
+        mcmc_stepsize = if (!is.null(object$mcmc_stepsize)) object$mcmc_stepsize else 3000,
+        mcmc_samples = if (!is.null(object$mcmc_samples)) object$mcmc_samples else 1000,
+        mvncdf_method = if (!is.null(object$mvncdf_method)) object$mvncdf_method else "genz",
+        mvncdf_error = if (!is.null(object$mvncdf_error)) object$mvncdf_error else 1e-3,
+        mvncdf_samples = if (!is.null(object$mvncdf_samples)) object$mvncdf_samples else 5000,
+        miniter = miniter,
+        adjust_prob_cond_method = adjust_prob_cond_method,
+        adjust_prob_cond_every = adjust_prob_cond_every
+    )
+    class(ll_object) <- "eim"
+
+    as.numeric(logLik(ll_object, prob = prob_matrix, method = method))
+}
+
+#' Internal function!
+#'
+#' Build the standard dimnames used by `run_em()` 3d outputs.
+#'
+#' @param object An `eim` object with candidate and ballot-box names.
+#' @param W_matrix A group matrix providing group names.
+#' @return A list of dimnames ordered as groups, candidates, ballot-boxes.
+#' @noRd
+.run_em_dimnames <- function(object, W_matrix) {
+    list(
+        colnames(W_matrix),
+        colnames(object$X),
+        rownames(object$X)
+    )
+}
+
+#' Internal function!
+#'
+#' Retrieve the group matrix used internally by `run_em()`.
+#'
+#' @param object An `eim` object.
+#' @return `object$W_agg` when available, otherwise `object$W`.
+#' @noRd
+.run_em_working_group_matrix <- function(object) {
+    if (is.null(object$W_agg)) {
+        object$W
+    } else {
+        object$W_agg
+    }
+}
+
+#' Internal function!
+#'
+#' Apply a group aggregation specification to the group matrix of an `eim` object.
+#'
+#' @param object An `eim` object.
+#' @param group_agg A vector describing how to aggregate `W` columns.
+#' @return The updated `eim` object, including `W_agg` and `group_agg` when requested.
+#' @noRd
+.run_em_apply_group_agg <- function(object, group_agg) {
+    if (is.null(group_agg)) {
+        return(object)
+    }
+
+    sizes <- diff(c(0, group_agg))
+    rep_labels <- rep(seq_along(sizes), sizes)
+    groups <- split(seq_len(ncol(object$W)), rep_labels)
+    W_agg <- do.call(
+        cbind,
+        lapply(groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
+    )
+    rownames(W_agg) <- rownames(object$W)
+
+    object$W_agg <- W_agg
+    object$group_agg <- group_agg
+    object
+}
+
+#' Internal function!
+#'
+#' Prepare the input object used by `run_em()` before dispatching the EM routine.
+#'
+#' @param object Optional `eim` object provided by the user.
+#' @param X Candidate-vote matrix.
+#' @param W Group-vote matrix.
+#' @param V Optional attribute matrix for the parametric model.
+#' @param json_path Optional JSON path used to build the object.
+#' @param scale_factor Numeric scaling factor applied to `X` and `W`.
+#' @param method Character string with the selected EM method.
+#' @param allow_mismatch Boolean indicating whether row mismatches are allowed.
+#' @param group_agg Optional aggregation specification for `W`.
+#' @return A prepared `eim` object ready to run EM.
+#' @noRd
+.run_em_prepare_object <- function(object,
+                                   X,
+                                   W,
+                                   V,
+                                   json_path,
+                                   scale_factor,
+                                   method,
+                                   allow_mismatch,
+                                   group_agg) {
+    if (is.null(object)) {
+        object <- eim(X = X, W = W, V = V, json_path = json_path)
+    } else if (!inherits(object, "eim")) {
+        stop("run_em: The object must be initialized with the eim() function.")
+    }
+
+    if (!is.null(V)) {
+        object$V <- V
+    }
+
+    if (scale_factor != 1) {
+        object$X <- round(object$X / scale_factor)
+        object$W <- round(object$W / scale_factor)
+    }
+
+    mismatch_rows <- which(rowSums(object$X) != rowSums(object$W))
+    if (!allow_mismatch && length(mismatch_rows) > 0) {
+        stop(
+            "run_em: Row-wise mismatch in vote totals detected.\n",
+            "Rows with mismatches: ", paste(mismatch_rows, collapse = ", "), "\n",
+            "To allow mismatches, set `allow_mismatch = TRUE`."
+        )
+    }
+
+    if (method == "exact" && length(mismatch_rows) > 0) {
+        .dhondt_correction(object$W, object$X)
+        message("Applying a D'Hondt correction for correcting mismatches in W")
+    }
+
+    object <- .run_em_apply_group_agg(object, group_agg)
+    object$method <- method
+    object
+}
+
+#' Internal function!
+#'
+#' Populate method-specific defaults for non-parametric EM runs.
+#'
+#' @param object An `eim` object.
+#' @param method Character string with the selected EM method.
+#' @param all_params List of evaluated `run_em()` arguments.
+#' @return The updated `eim` object with method-specific defaults.
+#' @noRd
+.run_em_apply_nonparametric_defaults <- function(object, method, all_params) {
+    if (method == "mcmc") {
+        object$mcmc_stepsize <- as.integer(
+            if ("mcmc_stepsize" %in% names(all_params)) all_params$mcmc_stepsize else 3000
+        )
+        object$mcmc_samples <- as.integer(
+            if ("mcmc_samples" %in% names(all_params)) all_params$mcmc_samples else 1000
+        )
+        object$burn_in <- as.integer(
+            if ("burn_in" %in% names(all_params)) all_params$burn_in else 10000
+        )
+    } else if (method == "mvn_cdf") {
+        object$mvncdf_method <- if ("mvncdf_method" %in% names(all_params)) all_params$mvncdf_method else "genz"
+        object$mvncdf_samples <- if ("mvncdf_samples" %in% names(all_params)) all_params$mvncdf_samples else 5000
+        object$mvncdf_error <- if ("mvncdf_error" %in% names(all_params)) all_params$mvncdf_error else 1e-3
+    }
+
+    object
+}
+
+#' Internal function!
+#'
+#' Build the recursive call used for the reverse parametric symmetric run.
+#'
+#' @param base_call Original `run_em()` call.
+#' @param object The forward-run `eim` object.
+#' @return A modified call object for the reverse parametric run.
+#' @noRd
+.run_em_parametric_inverse_call <- function(base_call, object) {
+    base_call_sym <- base_call
+    base_call_sym$symmetric <- FALSE
+    base_call_sym$X <- object$W
+    base_call_sym$W <- object$X
+    base_call_sym$V <- object$V
+    base_call_sym$json_path <- NULL
+    base_call_sym$object <- NULL
+    base_call_sym$scale_factor <- 1
+    base_call_sym$beta_init <- NULL
+    base_call_sym$alpha_init <- NULL
+
+    base_call_sym
+}
+
+#' Internal function!
+#'
+#' Build the recursive call used for the reverse non-parametric symmetric run.
+#'
+#' @param base_call Original `run_em()` call.
+#' @param object The forward-run `eim` object.
+#' @param all_params List of evaluated `run_em()` arguments.
+#' @return A modified call object for the reverse non-parametric run.
+#' @noRd
+.run_em_nonparametric_inverse_call <- function(base_call, object, all_params) {
+    base_call_sym <- base_call
+    base_call_sym$symmetric <- FALSE
+    base_call_sym$X <- object$W
+    base_call_sym$W <- object$X
+    base_call_sym$json_path <- NULL
+    base_call_sym$object <- NULL
+    base_call_sym$scale_factor <- 1
+
+    initial_prob <- all_params$initial_prob
+    if (is.matrix(initial_prob)) {
+        col_totals_x <- colSums(object$X)
+        numerator <- sweep(initial_prob, 2, col_totals_x, "*")
+        denominator <- rowSums(numerator)
+        base_call_sym$initial_prob <- sweep(numerator, 1, denominator, "/")
+        base_call_sym$initial_prob <- t(base_call_sym$initial_prob)
+    }
+
+    base_call_sym
+}
+
+#' Internal function!
+#'
+#' Copy parametric EM results back into an `eim` object.
+#'
+#' @param object An `eim` object.
+#' @param resulting_values Output list returned by `EMAlgorithmParametric`.
+#' @param W_matrix Group matrix used in the fit.
+#' @param V_matrix Attribute matrix used in the fit.
+#' @param control List with the active `run_em()` controls.
+#' @return The updated `eim` object.
+#' @noRd
+.run_em_assign_parametric_results <- function(object, resulting_values, W_matrix, V_matrix, control) {
+    dimnames_3d <- .run_em_dimnames(object, W_matrix)
+
+    object$prob <- resulting_values$prob
+    dimnames(object$prob) <- dimnames_3d
+    object$cond_prob <- resulting_values$cond_prob
+    dimnames(object$cond_prob) <- dimnames_3d
+    object$expected_outcome <- resulting_values$expected_outcome
+    dimnames(object$expected_outcome) <- dimnames_3d
+    object$beta <- resulting_values$beta
+
+    if (!is.null(colnames(W_matrix))) {
+        rownames(object$beta) <- colnames(W_matrix)
+    }
+    if (!is.null(colnames(object$X))) {
+        colnames(object$beta) <- colnames(object$X)[-ncol(object$X)]
+    }
+
+    object$alpha <- resulting_values$alpha
+    if (!is.null(colnames(object$X))) {
+        rownames(object$alpha) <- colnames(object$X)[-ncol(object$X)]
+    }
+    if (!is.null(colnames(V_matrix))) {
+        colnames(object$alpha) <- colnames(V_matrix)
+    }
+
+    object$iterations <- as.numeric(resulting_values$iter)
+    object$logLik <- as.numeric(resulting_values$logLik)
+    object$time <- resulting_values$time
+    object$maxiter <- control$maxiter
+    object$maxtime <- control$maxtime
+    object$ll_threshold <- control$ll_threshold
+    object$maxnewton <- control$maxnewton
+    object$adjust_prob_cond_method <- control$adjust_prob_cond_method
+    object$adjust_prob_cond_every <- control$adjust_prob_cond_every
+
+    object
+}
+
+#' Internal function!
+#'
+#' Combine the forward and reverse parametric runs into a symmetric result.
+#'
+#' @param object The forward-run `eim` object.
+#' @param inverse The reverse-run `eim` object.
+#' @param W_matrix Group matrix used in the forward fit.
+#' @return The symmetric parametric `eim` object.
+#' @noRd
+.run_em_apply_parametric_symmetry <- function(object, inverse, W_matrix) {
+    object$cond_prob_inv <- inverse$cond_prob
+    object$prob_inv <- inverse$prob
+    object$expected_outcome_inv <- inverse$expected_outcome
+    object$time <- object$time + inverse$time
+    object$iterations <- object$iterations + inverse$iterations
+
+    averaged_expected_outcome <- 0.5 * (object$expected_outcome + aperm(inverse$expected_outcome, c(2, 1, 3)))
+    object$expected_outcome <- averaged_expected_outcome
+    dimnames(object$expected_outcome) <- .run_em_dimnames(object, W_matrix)
+
+    W_sym <- .run_em_working_group_matrix(object)
+    cond_prob_bgc <- sweep(aperm(object$expected_outcome, c(3, 1, 2)), c(1, 2), W_sym, "/")
+    object$cond_prob <- aperm(cond_prob_bgc, c(2, 3, 1))
+    dimnames(object$cond_prob) <- .run_em_dimnames(object, W_sym)
+
+    object$prob <- object$cond_prob
+    dimnames(object$prob) <- .run_em_dimnames(object, W_sym)
+    object$symmetric_weight_method <- "average"
+    object$symmetric_weights <- c(original = 0.5, reverse = 0.5)
+
+    object
+}
+
+#' Internal function!
+#'
+#' Copy non-parametric EM results back into an `eim` object.
+#'
+#' @param object An `eim` object.
+#' @param resulting_values Output list returned by `EMAlgorithmFull`.
+#' @param W_matrix Group matrix used in the fit.
+#' @param control List with the active `run_em()` controls.
+#' @return The updated `eim` object.
+#' @noRd
+.run_em_assign_nonparametric_results <- function(object, resulting_values, W_matrix, control) {
+    object$cond_prob <- resulting_values$q
+    dimnames(object$cond_prob) <- .run_em_dimnames(object, W_matrix)
+    object$expected_outcome <- resulting_values$expected_outcome
+    dimnames(object$expected_outcome) <- .run_em_dimnames(object, W_matrix)
+    object$prob <- as.matrix(resulting_values$result)
+    dimnames(object$prob) <- list(colnames(W_matrix), colnames(object$X))
+    object$iterations <- as.numeric(resulting_values$total_iterations)
+
+    if (control$compute_ll) {
+        object$logLik <- as.numeric(resulting_values$log_likelihood[length(resulting_values$log_likelihood)])
+    }
+
+    object$time <- resulting_values$total_time
+    object$message <- resulting_values$stopping_reason
+    object$status <- as.integer(resulting_values$finish_id)
+    object$miniter <- control$miniter
+    object$maxiter <- control$maxiter
+    object$maxtime <- control$maxtime
+    object$param_threshold <- control$param_threshold
+    object$ll_threshold <- control$ll_threshold
+    object$initial_prob <- control$initial_prob
+    object$adjust_prob_cond_method <- control$adjust_prob_cond_method
+    object$adjust_prob_cond_every <- control$adjust_prob_cond_every
+
+    object
+}
+
+#' Internal function!
+#'
+#' Finalize the direct joint symmetric path without storing inverse outputs.
+#'
+#' @param object An `eim` object returned by the joint symmetric run.
+#' @return The updated `eim` object with joint symmetric metadata.
+#' @noRd
+.run_em_finalize_joint <- function(object) {
+    object$cond_prob_inv <- NULL
+    object$prob_inv <- NULL
+    object$expected_outcome_inv <- NULL
+    object$symmetric_weight_method <- "joint"
+    object$symmetric_weights <- c(original = 0.5, reverse = 0.5)
+
+    object
+}
+
+#' Internal function!
+#'
+#' Compute the weights used to combine forward and reverse non-parametric symmetric runs.
+#'
+#' @param object The forward-run `eim` object.
+#' @param inverse The reverse-run `eim` object.
+#' @param W_sym Group matrix used to rebuild symmetric probabilities.
+#' @param control List with the active `run_em()` controls.
+#' @return A list with the updated object and the two symmetric weights.
+#' @noRd
+.run_em_nonparametric_weights <- function(object, inverse, W_sym, control) {
+    weight_original <- 0.5
+    weight_reverse <- 0.5
+
+    if (identical(control$symmetric_weight_method, "delta_ll")) {
+        forward_ll <- suppressWarnings(as.numeric(object$logLik))
+        reverse_ll <- suppressWarnings(as.numeric(inverse$logLik))
+
+        if (is.finite(forward_ll) && is.finite(reverse_ll)) {
+            q_orig_bgc <- aperm(object$cond_prob, c(3, 1, 2))
+            z_from_orig_bgc <- sweep(q_orig_bgc, c(1, 2), W_sym, "*")
+            q_rev_ind_bcg <- sweep(aperm(z_from_orig_bgc, c(1, 3, 2)), c(1, 2), object$X, "/")
+            q_rev_ind <- aperm(.normalize_cube_last_dim(q_rev_ind_bcg), c(2, 3, 1))
+            p_rev_ind <- .mstep_from_q(q_rev_ind, object$X)
+
+            q_rev_bcg <- aperm(inverse$cond_prob, c(3, 1, 2))
+            z_from_rev_bgc <- aperm(sweep(q_rev_bcg, c(1, 2), object$X, "*"), c(1, 3, 2))
+            q_ind_bgc <- sweep(z_from_rev_bgc, c(1, 2), W_sym, "/")
+            q_ind <- aperm(.normalize_cube_last_dim(q_ind_bgc), c(2, 3, 1))
+            p_ind <- .mstep_from_q(q_ind, W_sym)
+
+            LL_ind <- .run_em_loglik_from_prob(
+                object,
+                object$X,
+                W_sym,
+                p_ind,
+                control$method,
+                control$miniter,
+                control$adjust_prob_cond_method,
+                control$adjust_prob_cond_every
+            )
+            LL_rev_ind <- .run_em_loglik_from_prob(
+                object,
+                object$W,
+                object$X,
+                p_rev_ind,
+                control$method,
+                control$miniter,
+                control$adjust_prob_cond_method,
+                control$adjust_prob_cond_every
+            )
+            dLL <- forward_ll - LL_ind
+            dLL_rev <- reverse_ll - LL_rev_ind
+
+            tau <- if (abs(forward_ll) > .Machine$double.eps) max(0, dLL / abs(forward_ll)) else 0
+            tau_rev <- if (abs(reverse_ll) > .Machine$double.eps) max(0, dLL_rev / abs(reverse_ll)) else 0
+            denominator <- tau + tau_rev
+
+            if (is.finite(denominator) && denominator > 0) {
+                weight_original <- tau_rev / denominator
+                weight_reverse <- tau / denominator
+            }
+
+            object$LL_ind <- LL_ind
+            object$LL_rev_ind <- LL_rev_ind
+            object$dLL <- dLL
+            object$dLL_rev <- dLL_rev
+            object$nu <- tau
+            object$nu_rev <- tau_rev
+            object$symmetric_weight_method <- "delta_ll"
+        } else {
+            object$symmetric_weight_method <- "average"
+        }
+    } else if (identical(control$symmetric_weight_method, "mae_inverse")) {
+        prob_forward <- .mstep_from_q(object$cond_prob, W_sym)
+        prob_reverse <- as.matrix(inverse$prob)
+
+        if (!all(dim(prob_reverse) == c(ncol(object$X), ncol(W_sym)))) {
+            prob_reverse <- .mstep_from_q(inverse$cond_prob, object$X)
+        }
+
+        if (all(dim(prob_reverse) == c(ncol(object$X), ncol(W_sym)))) {
+            x_hat_forward <- W_sym %*% prob_forward
+            w_hat_reverse <- object$X %*% prob_reverse
+            tau <- sum(abs(object$X - x_hat_forward))
+            tau_rev <- sum(abs(W_sym - w_hat_reverse))
+            denominator <- tau + tau_rev
+
+            if (is.finite(denominator) && denominator > 0) {
+                weight_original <- tau_rev / denominator
+                weight_reverse <- 1 - weight_original
+            }
+
+            object$err_forward <- tau
+            object$err_inverse <- tau_rev
+            object$symmetric_weight_method <- "mae_inverse"
+        } else {
+            object$symmetric_weight_method <- "average"
+        }
+    } else {
+        object$symmetric_weight_method <- "average"
+    }
+
+    list(
+        object = object,
+        weight_original = weight_original,
+        weight_reverse = weight_reverse
+    )
+}
+
+#' Internal function!
+#'
+#' Combine the forward and reverse non-parametric runs into a symmetric result.
+#'
+#' @param object The forward-run `eim` object.
+#' @param inverse The reverse-run `eim` object.
+#' @param control List with the active `run_em()` controls.
+#' @return The symmetric non-parametric `eim` object.
+#' @noRd
+.run_em_apply_nonparametric_symmetry <- function(object, inverse, control) {
+    object$cond_prob_inv <- inverse$cond_prob
+    object$prob_inv <- inverse$prob
+    object$expected_outcome_inv <- inverse$expected_outcome
+    object$time <- object$time + inverse$time
+    object$iterations <- object$iterations + inverse$iterations
+
+    W_sym <- .run_em_working_group_matrix(object)
+    reverse_expected_outcome <- aperm(inverse$expected_outcome, c(2, 1, 3))
+    weights <- .run_em_nonparametric_weights(object, inverse, W_sym, control)
+    object <- weights$object
+    object$symmetric_weights <- c(
+        original = weights$weight_original,
+        reverse = weights$weight_reverse
+    )
+    object$expected_outcome <- weights$weight_original * object$expected_outcome +
+        weights$weight_reverse * reverse_expected_outcome
+
+    expected_bgc <- aperm(object$expected_outcome, c(3, 1, 2))
+    cond_prob_bgc <- sweep(expected_bgc, c(1, 2), W_sym, "/")
+    object$cond_prob <- aperm(.normalize_cube_last_dim(cond_prob_bgc), c(2, 3, 1))
+
+    numerator <- apply(object$expected_outcome, c(1, 2), sum)
+    denominator <- colSums(W_sym)
+    object$prob <- sweep(numerator, 1, denominator, "/")
+    object$prob <- .normalize_prob_rows(object$prob)
+
+    object
+}
+
+#' Internal function!
+#'
+#' Execute the parametric branch of `run_em()`.
+#'
+#' @param object A prepared `eim` object with `V`.
+#' @param control List with the active `run_em()` controls.
+#' @return An updated `eim` object with parametric EM results.
+#' @noRd
+.run_em_parametric <- function(object, control) {
+    if (control$method != "mult") {
+        stop("run_em: Parametric mode only supports method = \"mult\".")
+    }
+
+    W_matrix <- .run_em_working_group_matrix(object)
+    V_matrix <- object$V
+    num_candidates <- ncol(object$X)
+    num_groups <- ncol(W_matrix)
+    num_attributes <- ncol(V_matrix)
+
+    beta <- if (is.null(control$beta_init)) {
+        matrix(0, nrow = num_groups, ncol = num_candidates - 1)
+    } else {
+        control$beta_init
+    }
+    alpha <- if (is.null(control$alpha_init)) {
+        matrix(0, nrow = num_candidates - 1, ncol = num_attributes)
+    } else {
+        control$alpha_init
+    }
+
+    if (!is.matrix(beta) || nrow(beta) != num_groups || ncol(beta) != num_candidates - 1) {
+        stop("run_em: 'beta' must be a matrix with dimensions (g x (c-1)).")
+    }
+    if (!is.matrix(alpha) || nrow(alpha) != num_candidates - 1 || ncol(alpha) != num_attributes) {
+        stop("run_em: 'alpha' must be a matrix with dimensions ((c-1) x a).")
+    }
+
+    resulting_values <- EMAlgorithmParametric(
+        as.matrix(object$X),
+        as.matrix(W_matrix),
+        as.matrix(V_matrix),
+        as.matrix(beta),
+        as.matrix(alpha),
+        control$maxiter,
+        control$maxtime,
+        control$ll_threshold,
+        control$maxnewton,
+        control$verbose,
+        control$adjust_prob_cond_method,
+        control$adjust_prob_cond_every
+    )
+
+    object <- .run_em_assign_parametric_results(object, resulting_values, W_matrix, V_matrix, control)
+    if (!control$symmetric) {
+        return(object)
+    }
+
+    inverse <- eval(.run_em_parametric_inverse_call(control$base_call, object), control$caller_env)
+    .run_em_apply_parametric_symmetry(object, inverse, W_matrix)
+}
+
+#' Internal function!
+#'
+#' Execute the non-parametric branch of `run_em()`.
+#'
+#' @param object A prepared `eim` object without `V`.
+#' @param control List with the active `run_em()` controls.
+#' @return An updated `eim` object with non-parametric EM results.
+#' @noRd
+.run_em_nonparametric <- function(object, control) {
+    object <- .run_em_apply_nonparametric_defaults(object, control$method, control$all_params)
+    W_matrix <- .run_em_working_group_matrix(object)
+
+    resulting_values <- EMAlgorithmFull(
+        t(object$X),
+        W_matrix,
+        control$method,
+        if (is.character(control$initial_prob)) control$initial_prob else "custom",
+        control$maxiter,
+        control$maxtime,
+        control$param_threshold,
+        control$ll_threshold,
+        control$compute_ll,
+        control$verbose,
+        as.integer(if (!is.null(object$mcmc_stepsize)) object$mcmc_stepsize else 3000),
+        as.integer(if (!is.null(object$mcmc_samples)) object$mcmc_samples else 1000),
+        if (!is.null(object$mvncdf_method)) object$mvncdf_method else "genz",
+        as.numeric(if (!is.null(object$mvncdf_error)) object$mvncdf_error else 1e-3),
+        as.numeric(if (!is.null(object$mvncdf_samples)) object$mvncdf_samples else 5000),
+        control$miniter,
+        control$adjust_prob_cond_method,
+        control$adjust_prob_cond_every,
+        if (is.matrix(control$initial_prob)) control$initial_prob else matrix(-1, nrow = 1, ncol = 1),
+        control$symmetric,
+        control$symmetric_weight_method
+    )
+
+    object <- .run_em_assign_nonparametric_results(object, resulting_values, W_matrix, control)
+    if (control$symmetric && identical(control$symmetric_weight_method, "joint")) {
+        return(.run_em_finalize_joint(object))
+    }
+    if (!control$symmetric) {
+        return(object)
+    }
+
+    inverse_call <- .run_em_nonparametric_inverse_call(control$base_call, object, control$all_params)
+    inverse <- eval(inverse_call, control$caller_env)
+
+    .run_em_apply_nonparametric_symmetry(object, inverse, control)
 }
 
 #' Internal function!

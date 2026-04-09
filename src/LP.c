@@ -510,3 +510,161 @@ int LPW_ctx(EMContext *ctx, int b)
     LPSolverInput input = make_lp_input_ctx(ctx);
     return solve_ballot_simplex(&input, b, 0);
 }
+
+static int solve_ballot_joint_symmetric_simplex(EMContext *ctx_forward, EMContext *ctx_reverse, int b)
+{
+    const int G = (int)ctx_forward->G;
+    const int C = (int)ctx_forward->C;
+    const int nQ = G * C;
+    const int nVars = 6 * nQ;                  // q_f, q_r, d_f+, d_f-, d_r+, d_r-
+    const int nRows = 3 * nQ + 2 * G + 2 * C; // abs_f, abs_r, row/col constraints, coupling
+
+    const int off_qf = 0;
+    const int off_qr = off_qf + nQ;
+    const int off_dfp = off_qr + nQ;
+    const int off_dfm = off_dfp + nQ;
+    const int off_drp = off_dfm + nQ;
+    const int off_drm = off_drp + nQ;
+
+    const int row_abs_f = 0;
+    const int row_abs_r = row_abs_f + nQ;
+    const int row_grp_f = row_abs_r + nQ;
+    const int row_cand_f = row_grp_f + G;
+    const int row_grp_r = row_cand_f + C;
+    const int row_cand_r = row_grp_r + G;
+    const int row_couple = row_cand_r + C;
+
+    double sum_w = 0.0;
+    double sum_x = 0.0;
+    for (int g = 0; g < G; ++g)
+        sum_w += MATRIX_AT(ctx_forward->W, b, g);
+    for (int c = 0; c < C; ++c)
+        sum_x += MATRIX_AT(ctx_forward->X, c, b);
+
+    const double rel = (fmax(fabs(sum_w), fabs(sum_x)) > 0.0) ? fabs(sum_w - sum_x) / fmax(fabs(sum_w), fabs(sum_x))
+                                                               : 0.0;
+    const double alpha = (rel > 1e-12 && sum_w > 0.0) ? (sum_x / sum_w) : 1.0;
+
+    double *Weff = (double *)xcalloc(G, sizeof(double));
+    double *Xeff = (double *)xcalloc(C, sizeof(double));
+    for (int g = 0; g < G; ++g)
+        Weff[g] = MATRIX_AT(ctx_forward->W, b, g) * alpha;
+    for (int c = 0; c < C; ++c)
+        Xeff[c] = MATRIX_AT(ctx_forward->X, c, b);
+
+    double *A = (double *)xcalloc((size_t)nRows * (size_t)nVars, sizeof(double));
+    double *rhs = (double *)xcalloc(nRows, sizeof(double));
+    double *obj = (double *)xcalloc(nVars, sizeof(double));
+    double *x = (double *)xcalloc(nVars, sizeof(double));
+
+    for (int gc = 0; gc < nQ; ++gc)
+    {
+        obj[off_dfp + gc] = 0.5;
+        obj[off_dfm + gc] = 0.5;
+        obj[off_drp + gc] = 0.5;
+        obj[off_drm + gc] = 0.5;
+    }
+
+    for (int g = 0; g < G; ++g)
+    {
+        for (int c = 0; c < C; ++c)
+        {
+            const int gc = g * C + c;
+            const int cg = c * G + g;
+            const double w = Weff[g];
+            const double xb = Xeff[c];
+            const double qf_prev = Q_3D(ctx_forward->q, b, g, c, G, C);
+            const double qr_prev = Q_3D(ctx_reverse->q, b, c, g, ctx_reverse->G, ctx_reverse->C);
+
+            const int rf = row_abs_f + gc;
+            A[idxRC(rf, nVars, off_qf + gc)] = w;
+            A[idxRC(rf, nVars, off_dfp + gc)] = -1.0;
+            A[idxRC(rf, nVars, off_dfm + gc)] = 1.0;
+            rhs[rf] = w * qf_prev;
+
+            const int rr = row_abs_r + cg;
+            A[idxRC(rr, nVars, off_qr + cg)] = xb;
+            A[idxRC(rr, nVars, off_drp + cg)] = -1.0;
+            A[idxRC(rr, nVars, off_drm + cg)] = 1.0;
+            rhs[rr] = xb * qr_prev;
+
+            const int rc = row_couple + gc;
+            A[idxRC(rc, nVars, off_qf + gc)] = w;
+            A[idxRC(rc, nVars, off_qr + cg)] = -xb;
+            rhs[rc] = 0.0;
+        }
+    }
+
+    for (int g = 0; g < G; ++g)
+    {
+        const int r = row_grp_f + g;
+        for (int c = 0; c < C; ++c)
+            A[idxRC(r, nVars, off_qf + g * C + c)] = 1.0;
+        rhs[r] = 1.0;
+    }
+
+    for (int c = 0; c < C; ++c)
+    {
+        const int r = row_cand_f + c;
+        for (int g = 0; g < G; ++g)
+            A[idxRC(r, nVars, off_qf + g * C + c)] = Weff[g];
+        rhs[r] = Xeff[c];
+    }
+
+    for (int g = 0; g < G; ++g)
+    {
+        const int r = row_grp_r + g;
+        for (int c = 0; c < C; ++c)
+            A[idxRC(r, nVars, off_qr + c * G + g)] = Xeff[c];
+        rhs[r] = Weff[g];
+    }
+
+    for (int c = 0; c < C; ++c)
+    {
+        const int r = row_cand_r + c;
+        for (int g = 0; g < G; ++g)
+            A[idxRC(r, nVars, off_qr + c * G + g)] = 1.0;
+        rhs[r] = 1.0;
+    }
+
+    int code = simplex_solve_dense_equalities(A, rhs, obj, nRows, nVars, x);
+    if (code == 0)
+    {
+        for (int g = 0; g < G; ++g)
+        {
+            for (int c = 0; c < C; ++c)
+            {
+                const int gc = g * C + c;
+                const int cg = c * G + g;
+                double qf = x[off_qf + gc];
+                double qr = x[off_qr + cg];
+                if (qf < 0.0 && qf > -1e-12)
+                    qf = 0.0;
+                if (qr < 0.0 && qr > -1e-12)
+                    qr = 0.0;
+                Q_3D(ctx_forward->q, b, g, c, G, C) = qf;
+                Q_3D(ctx_reverse->q, b, c, g, ctx_reverse->G, ctx_reverse->C) = qr;
+            }
+        }
+    }
+
+    Free(Weff);
+    Free(Xeff);
+    Free(A);
+    Free(rhs);
+    Free(obj);
+    Free(x);
+
+    return (code ? -100 : 0);
+}
+
+int LPW_joint_symmetric_ctx(EMContext *ctx_forward, EMContext *ctx_reverse, int b)
+{
+    if (ctx_forward == NULL || ctx_reverse == NULL)
+        return -1;
+    if (ctx_forward->B != ctx_reverse->B || ctx_forward->G != ctx_reverse->C || ctx_forward->C != ctx_reverse->G)
+        return -1;
+    if (b < 0 || b >= (int)ctx_forward->B)
+        return -1;
+    return solve_ballot_joint_symmetric_simplex(ctx_forward, ctx_reverse, b);
+}

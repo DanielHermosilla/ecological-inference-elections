@@ -32,4 +32,13 @@ test_that("S3 methods behave as expected", {
         compute_ll = TRUE
     )
     expect_true(is.numeric(logLik(fit_ll)))
+
+    ll_fixed <- logLik(fit_ll, prob = fit_ll$prob, method = "multinomial")
+    expect_true(is.numeric(ll_fixed))
+    expect_true(is.finite(ll_fixed))
+
+    expect_error(
+        logLik(fit_ll, prob = matrix(1 / 3, nrow = 3, ncol = 3)),
+        "Invalid 'prob' dimensions"
+    )
 })

@@ -638,3 +638,11 @@ void computeQHitAndRun(EMContext *ctx, QMethodInput params, double *ll)
 
     *ll += params.computeLL ? computeQ(ctx) : 0;
 }
+
+double computeLogLikHitAndRun(EMContext *ctx, QMethodInput params)
+{
+    double ll = 0.0;
+    params.computeLL = true;
+    computeQHitAndRun(ctx, params, &ll);
+    return ll;
+}

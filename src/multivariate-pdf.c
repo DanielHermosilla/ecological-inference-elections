@@ -153,26 +153,6 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
     // ---- Fill muR and sigma for this ballot ---- //
     getAverageConditional(ctx, b, probabilitiesReduced, &A->muR, A->sigma);
 
-    // ---- Normalization constant for log-likelihood ---- //
-    double normalizeConstant = 1.0;
-    if (params.computeLL)
-    {
-        if (C == 2)
-        {
-            // For C=2, we use the inverse later. Determinant can be computed if needed.
-            normalizeConstant = 1.0; // neutral factor
-        }
-        else
-        {
-            // For C > 2, sigma[g] stores the Cholesky factor L, so determinant = (prod diag(L))^2
-            double det = 1.0;
-            for (int c = 0; c < n; ++c)
-                det *= MATRIX_AT_PTR(A->sigma[0], c, c);
-            det = 1.0 / (det * det);
-            normalizeConstant = R_pow(R_pow_di(M_2_PI, n) * det, 0.5);
-        }
-    }
-
     // ---- Feature vector (candidate results) ---- //
     getColumn_into(X, b, A->feature);
 
@@ -191,6 +171,42 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
         for (int g = 0; g < G; ++g)
         {
             choleskyMat(A->sigma[g]); // store L (lower) in A->sigma[g]
+        }
+    }
+
+    // ---- Log-normalization constant for log-likelihood ---- //
+    // Uses the same covariance for all groups in this ballot (`sigma[0]`), as in the existing approximation.
+    double logNormalizeConstant = 0.0;
+    if (params.computeLL)
+    {
+        if (C == 2)
+        {
+            // For C=2, sigma is 1x1 and has already been inverted in-place: sigma^{-1} = 1/var.
+            double inv_var = MATRIX_AT_PTR(A->sigma[0], 0, 0);
+            if (inv_var > 0.0 && isfinite(inv_var))
+            {
+                logNormalizeConstant = -0.5 * log(2.0 * M_PI) + 0.5 * log(inv_var);
+            }
+        }
+        else
+        {
+            // For C>2, sigma stores Cholesky L after factorization: |Sigma| = prod(diag(L))^2.
+            double sum_log_diag = 0.0;
+            bool valid_diag = true;
+            for (int c = 0; c < n; ++c)
+            {
+                double d = MATRIX_AT_PTR(A->sigma[0], c, c);
+                if (!(d > 0.0) || !isfinite(d))
+                {
+                    valid_diag = false;
+                    break;
+                }
+                sum_log_diag += log(d);
+            }
+            if (valid_diag)
+            {
+                logNormalizeConstant = -0.5 * ((double)n) * log(2.0 * M_PI) - sum_log_diag;
+            }
         }
     }
 
@@ -305,7 +321,7 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
         if (g == 0 && params.computeLL && den > 0.0 && isfinite(logw_max))
         {
             double logden = logw_max + log(den);
-            *ll += logden * log(normalizeConstant);
+            *ll += logNormalizeConstant + logden;
         }
 
         // --- Normalize and store q (normal path) ---
@@ -348,4 +364,12 @@ void computeQMultivariatePDF(EMContext *ctx, QMethodInput params, double *ll)
 
     if (isnan(*ll) || isinf(*ll))
         *ll = 0.0;
+}
+
+double computeLogLikMultivariatePDF(EMContext *ctx, QMethodInput params)
+{
+    double ll = 0.0;
+    params.computeLL = true;
+    computeQMultivariatePDF(ctx, params, &ll);
+    return ll;
 }

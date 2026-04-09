@@ -797,3 +797,11 @@ void computeQExact(EMContext *ctx, QMethodInput params, double *ll)
 
     freeCandidateArrays(TOTAL_BALLOTS);
 }
+
+double computeLogLikExact(EMContext *ctx, QMethodInput params)
+{
+    double ll = 0.0;
+    params.computeLL = true;
+    computeQExact(ctx, params, &ll);
+    return ll;
+}

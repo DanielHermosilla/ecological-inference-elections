@@ -29,8 +29,9 @@ extern "C"
      *
      * @return A pointer towards the flattened tensor.
      *
-     */
+    */
     void computeQHitAndRun(EMContext *ctx, QMethodInput params, double *ll);
+    double computeLogLikHitAndRun(EMContext *ctx, QMethodInput params);
 
     /*
      * @brief Precomputes the sets used for the simulation.

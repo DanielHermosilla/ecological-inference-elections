@@ -52,7 +52,7 @@ library(jsonlite)
 #'   \item \code{print.eim} - Print info about the object.
 #'   \item \code{summary.eim} - Summarize the object.
 #'   \item \code{as.matrix.eim} - Returns the probability matrix.
-#'   \item \code{logLik.eim} - Returns the final log-likelihood.
+#'   \item \code{logLik.eim} - Returns the final log-likelihood, or evaluates log-likelihood at a fixed probability matrix.
 #' }
 #'
 #' @examples
@@ -170,7 +170,17 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
             "adjust_prob_cond_every",
             "prob_inv",
             "cond_prob_inv",
-            "expected_outcome_inv"
+            "expected_outcome_inv",
+            "LL_ind",
+            "LL_rev_ind",
+            "dLL",
+            "dLL_rev",
+            "nu",
+            "nu_rev",
+            "err_forward",
+            "err_inverse",
+            "symmetric_weights",
+            "symmetric_weight_method"
         )
         extra_params <- matrices[names(matrices) %in% allowed_params] # TODO: Validate them
     }
@@ -282,7 +292,9 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'
 #' @param scale_factor An optional numeric value used to scale down the `X` and `W` matrices before executing the EM algorithm. This scaling can help improve performance when dealing with large vote counts. For example if `scale_factor = 2` all elements of `X` and `W` are divided by two and rounded. The default value is `1`, which means no scaling is applied. In case the scaling results in mismatch between `W` and `X`, ensure that `allow_mismatch = TRUE`.
 #'
-#' @param symmetric A boolean indicating whether to perform a symmetric estimation. If `TRUE`, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. The final probabilities are obtained by averaging the expected outcomes from both runs. This approach can provide a more balanced estimation in certain scenarios. The default value is `FALSE`.
+#' @param symmetric A boolean indicating whether to perform a symmetric estimation. If `TRUE`, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. In the non-parametric case, the final probabilities are obtained by combining both directions using `symmetric_weight_method` (`"joint"` by default). In the parametric case, the current implementation keeps the classic equal average of both runs. The default value is `FALSE`.
+#'
+#' @param symmetric_weight_method Character string indicating how to combine both directions when `symmetric = TRUE` in the non-parametric case. Valid values are `"joint"` (default non-parametric behavior: joint EM where forward/reverse E-steps are averaged each iteration using equal weights), `"average"`, `"delta_ll"` (weights based on the relative likelihood gaps), and `"mae_inverse"` (weights based on reconstruction errors). In the parametric case, symmetric estimation still uses the equal-average scheme and reports `"average"`.
 #'
 #' @param ... Added for compability
 #'
@@ -343,9 +355,11 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'
 #' Furthermore, if `symmetric = TRUE`, the following additional attributes are included:
 #' \describe{
-#' 		\item{prob_inv}{The estimated probability matrix `(c x g)`, obtained by swapping `X` and `W`.}
-#' 		\item{cond_prob_inv}{A `(c x g x b)` 3d-array with the probability that at each ballot-box a voter of each candidate voted for each group, given the observed outcome at the particular ballot-box.}
+#' 		\item{prob_inv}{The estimated probability matrix `(c x g)`, obtained by swapping `X` and `W`, when the symmetric scheme performs an explicit reverse run (for example `"average"`, `"delta_ll"`, `"mae_inverse"`, and the current parametric symmetric path).}
+#' 		\item{cond_prob_inv}{A `(c x g x b)` 3d-array with the probability that at each ballot-box a voter of each candidate voted for each group, given the observed outcome at the particular ballot-box, when the symmetric scheme performs an explicit reverse run.}
 #' }
+#' If `symmetric_weight_method = "delta_ll"` and both `logLik` values are available, the object also includes `LL_ind`, `LL_rev_ind`, `dLL`, `dLL_rev`, `nu`, `nu_rev`, and `symmetric_weights`.
+#' If `symmetric_weight_method = "mae_inverse"`, the object also includes `err_forward`, `err_inverse`, and `symmetric_weights`.
 #' Under this argument, the conditional probabilities will be obtained by dividing new expected outcomes by `W`. The probabilities will be calculated by performing an M-step.
 #'
 #' @examples
@@ -415,6 +429,7 @@ run_em <- function(object = NULL,
                    alpha_init = NULL,
                    scale_factor = 1,
                    symmetric = FALSE,
+                   symmetric_weight_method = "joint",
                    ...) {
     base_call <- match.call()
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
@@ -424,315 +439,47 @@ run_em <- function(object = NULL,
         set.seed(seed)
     }
 
-    if (is.null(object)) {
-        object <- eim(X = X, W = W, V = V, json_path = json_path)
-    } else if (!inherits(object, "eim")) {
-        stop("run_em: The object must be initialized with the eim() function.")
-    }
-    if (!is.null(V)) {
-        object$V <- V
-    }
-
-
-    # Applies a scaling
-    if (scale_factor != 1) {
-        object$X <- round(object$X / all_params$scale_factor)
-        object$W <- round(object$W / all_params$scale_factor)
-    }
-
-    is_parametric <- !is.null(object$V)
-
-    # Note: Mismatch restricted methods are checked inside .validate_compute
-    mismatch_rows <- which(rowSums(object$X) != rowSums(object$W))
-    if (!allow_mismatch && length(mismatch_rows) > 0) {
-        stop(
-            "run_em: Row-wise mismatch in vote totals detected.\n",
-            "Rows with mismatches: ", paste(mismatch_rows, collapse = ", "), "\n",
-            "To allow mismatches, set `allow_mismatch = TRUE`."
-        )
-    } else if (method == "exact" && length(mismatch_rows) > 0) {
-        W <- .dhondt_correction(object$W, object$X)
-        message("Applying a D'Hondt correction for correcting mismatches in W")
-        # stop("run_em: Exact method isn't supported with mismatch")
-    }
-
-    # Handle the group aggregation, if provided
-    if (!is.null(group_agg)) {
-        sizes <- diff(c(0, group_agg))
-        rep_labels <- rep(seq_along(sizes), sizes)
-        groups <- split(seq_len(ncol(object$W)), rep_labels)
-        Wagg <- do.call(
-            cbind,
-            lapply(groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
-        )
-        rownames(Wagg) <- rownames(object$W)
-        object$W_agg <- Wagg
-        object$group_agg <- group_agg
-    }
-
-    object$method <- method
-
-    if (is_parametric) {
-        if (method != "mult") {
-            stop("run_em: Parametric mode only supports method = \"mult\".")
-        }
-
-        W <- if (is.null(object$W_agg)) object$W else object$W_agg
-        V <- object$V
-        num_candidates <- ncol(object$X)
-        num_groups <- ncol(W)
-        num_attributes <- ncol(V)
-
-        if (is.null(beta_init)) {
-            beta <- matrix(0, nrow = num_groups, ncol = num_candidates - 1)
-        } else {
-            beta <- beta_init
-        }
-        if (is.null(alpha_init)) {
-            alpha <- matrix(0, nrow = num_candidates - 1, ncol = num_attributes)
-        } else {
-            alpha <- alpha_init
-        }
-
-        if (!is.matrix(beta) || nrow(beta) != num_groups || ncol(beta) != num_candidates - 1) {
-            stop("run_em: 'beta' must be a matrix with dimensions (g x (c-1)).")
-        }
-        if (!is.matrix(alpha) || nrow(alpha) != num_candidates - 1 || ncol(alpha) != num_attributes) {
-            stop("run_em: 'alpha' must be a matrix with dimensions ((c-1) x a).")
-        }
-
-        resulting_values <- EMAlgorithmParametric(
-            as.matrix(object$X),
-            as.matrix(W),
-            as.matrix(V),
-            as.matrix(beta),
-            as.matrix(alpha),
-            maxiter,
-            maxtime,
-            ll_threshold,
-            maxnewton,
-            verbose,
-            adjust_prob_cond_method,
-            adjust_prob_cond_every
-        )
-
-        object$prob <- resulting_values$prob
-        dimnames(object$prob) <- list(
-            colnames(W),
-            colnames(object$X),
-            rownames(object$X)
-        )
-        object$cond_prob <- resulting_values$cond_prob
-        dimnames(object$cond_prob) <- list(
-            colnames(W),
-            colnames(object$X),
-            rownames(object$X)
-        )
-        object$expected_outcome <- resulting_values$expected_outcome
-        dimnames(object$expected_outcome) <- list(
-            colnames(W),
-            colnames(object$X),
-            rownames(object$X)
-        )
-        object$beta <- resulting_values$beta
-        if (!is.null(colnames(W))) {
-            rownames(object$beta) <- colnames(W)
-        }
-        if (!is.null(colnames(object$X))) {
-            colnames(object$beta) <- colnames(object$X)[-ncol(object$X)]
-        }
-        object$alpha <- resulting_values$alpha
-        if (!is.null(colnames(object$X))) {
-            rownames(object$alpha) <- colnames(object$X)[-ncol(object$X)]
-        }
-        if (!is.null(colnames(V))) {
-            colnames(object$alpha) <- colnames(V)
-        }
-        object$iterations <- as.numeric(resulting_values$iter)
-        object$logLik <- as.numeric(resulting_values$logLik)
-        object$time <- resulting_values$time
-
-        object$maxiter <- maxiter
-        object$maxtime <- maxtime
-        object$ll_threshold <- ll_threshold
-        object$maxnewton <- maxnewton
-        object$adjust_prob_cond_method <- adjust_prob_cond_method
-        object$adjust_prob_cond_every <- adjust_prob_cond_every
-
-        if (symmetric) {
-            # --- Second run with X/W swapped and symmetric = FALSE ---
-            base_call_sym <- base_call
-            base_call_sym$symmetric <- FALSE
-            base_call_sym$X <- object$W
-            base_call_sym$W <- object$X
-            base_call_sym$V <- object$V
-            base_call_sym$json_path <- NULL
-            base_call_sym$object <- NULL
-            base_call_sym$scale_factor <- 1
-            base_call_sym$beta_init <- NULL
-            base_call_sym$alpha_init <- NULL
-
-            inverse <- eval(base_call_sym, parent.frame())
-
-            object$cond_prob_inv <- inverse$cond_prob
-            object$prob_inv <- inverse$prob
-
-            object$time <- object$time + inverse$time
-            object$iterations <- object$iterations + inverse$iterations
-
-            A2 <- aperm(inverse$expected_outcome, c(2, 1, 3)) # G x C x B
-            object$expected_outcome <- 0.5 * (object$expected_outcome + A2)
-            dimnames(object$expected_outcome) <- list(
-                colnames(W),
-                colnames(object$X),
-                rownames(object$X)
-            )
-
-            W_sym <- if (is.null(object$W_agg)) object$W else object$W_agg
-            E_bgc <- aperm(object$expected_outcome, c(3, 1, 2)) # B x G x C
-            Q_bgc <- sweep(E_bgc, c(1, 2), W_sym, "/")
-            object$cond_prob <- aperm(Q_bgc, c(2, 3, 1)) # G x C x B
-            dimnames(object$cond_prob) <- list(
-                colnames(W_sym),
-                colnames(object$X),
-                rownames(object$X)
-            )
-
-            object$prob <- object$cond_prob
-            dimnames(object$prob) <- list(
-                colnames(W_sym),
-                colnames(object$X),
-                rownames(object$X)
-            )
-        }
-
-        return(invisible(object))
-    }
-
-    # Default values
-    if (method == "mcmc") {
-        # Step size
-        object$mcmc_stepsize <- as.integer(if ("mcmc_stepsize" %in% names(all_params)) all_params$mcmc_stepsize else 3000)
-        # Samples
-        object$mcmc_samples <- as.integer(if ("mcmc_samples" %in% names(all_params)) all_params$mcmc_samples else 1000)
-        # Burn in
-        object$burn_in <- as.integer(if ("burn_in" %in% names(all_params)) all_params$burn_in else 10000)
-    } else if (method == "mvn_cdf") {
-        # Montecarlo method
-        object$mvncdf_method <- if ("mvncdf_method" %in% names(all_params)) all_params$mvncdf_method else "genz"
-        # Montecarlo samples
-        object$mvncdf_samples <- if ("mvncdf_samples" %in% names(all_params)) all_params$mvncdf_samples else 5000
-        # Montecarlo error
-        object$mvncdf_error <- if ("mvncdf_error" %in% names(all_params)) all_params$mvncdf_error else 1e-3
-    }
-
-    W <- if (is.null(object$W_agg)) object$W else object$W_agg
-    # RsetParameters(t(object$X), W)
-
-    resulting_values <- EMAlgorithmFull(
-        t(object$X),
-        W,
-        method,
-        if (is.character(initial_prob)) initial_prob else "custom",
-        maxiter,
-        maxtime,
-        param_threshold,
-        ll_threshold,
-        compute_ll,
-        verbose,
-        as.integer(if (!is.null(object$mcmc_stepsize)) object$mcmc_stepsize else 3000),
-        as.integer(if (!is.null(object$mcmc_samples)) object$mcmc_samples else 1000),
-        if (!is.null(object$mvncdf_method)) object$mvncdf_method else "genz",
-        as.numeric(if (!is.null(object$mvncdf_error)) object$mvncdf_error else 1e-3),
-        as.numeric(if (!is.null(object$mvncdf_samples)) object$mvncdf_samples else 5000),
-        miniter,
-        adjust_prob_cond_method,
-        adjust_prob_cond_every,
-        if (is.matrix(initial_prob)) initial_prob else matrix(-1, nrow = 1, ncol = 1)
+    object <- .run_em_prepare_object(
+        object = object,
+        X = X,
+        W = W,
+        V = V,
+        json_path = json_path,
+        scale_factor = scale_factor,
+        method = method,
+        allow_mismatch = allow_mismatch,
+        group_agg = group_agg
     )
-    # ---------- ... ---------- #
 
-    object$cond_prob <- resulting_values$q
-    # object$cond_prob <- aperm(resulting_values$q, perm = c(2, 3, 1)) # Correct dimensions
-    dimnames(object$cond_prob) <- list(
-        colnames(W),
-        colnames(object$X),
-        rownames(object$X)
+    control <- list(
+        base_call = base_call,
+        caller_env = parent.frame(),
+        all_params = all_params,
+        method = method,
+        initial_prob = initial_prob,
+        maxiter = maxiter,
+        miniter = miniter,
+        maxtime = maxtime,
+        param_threshold = param_threshold,
+        ll_threshold = ll_threshold,
+        compute_ll = compute_ll,
+        verbose = verbose,
+        adjust_prob_cond_method = adjust_prob_cond_method,
+        adjust_prob_cond_every = adjust_prob_cond_every,
+        maxnewton = maxnewton,
+        beta_init = beta_init,
+        alpha_init = alpha_init,
+        symmetric = symmetric,
+        symmetric_weight_method = symmetric_weight_method
     )
-    object$expected_outcome <- resulting_values$expected_outcome
-    dimnames(object$expected_outcome) <- list(
-        colnames(W),
-        colnames(object$X),
-        rownames(object$X)
-    )
-    object$prob <- as.matrix(resulting_values$result)
-    dimnames(object$prob) <- list(colnames(W), colnames(object$X))
-    object$iterations <- as.numeric(resulting_values$total_iterations)
-    if (compute_ll) {
-        object$logLik <- as.numeric(resulting_values$log_likelihood[length(resulting_values$log_likelihood)])
-    }
-    object$time <- resulting_values$total_time
-    object$message <- resulting_values$stopping_reason
-    object$status <- as.integer(resulting_values$finish_id)
-    # Add function arguments
-    object$miniter <- miniter
-    object$maxiter <- maxiter
-    object$maxtime <- maxtime
-    object$param_threshold <- param_threshold
-    object$ll_threshold <- ll_threshold
-    object$initial_prob <- initial_prob
-    object$adjust_prob_cond_method <- adjust_prob_cond_method
-    object$adjust_prob_cond_every <- adjust_prob_cond_every
 
-    if (symmetric) {
-        # --- Second run with X/W swapped and symmetric = FALSE ---
-        base_call_sym <- base_call
-        base_call_sym$symmetric <- FALSE
-        base_call_sym$X <- object$W
-        base_call_sym$W <- object$X
-        base_call_sym$json_path <- NULL
-        base_call_sym$object <- NULL
-        base_call_sym$scale_factor <- 1
-        ip <- all_params$initial_prob
-        if (is.matrix(ip)) {
-            col_tot_X <- colSums(object$X)
-            num <- sweep(ip, 2, col_tot_X, "*")
-            denom <- rowSums(num)
-            base_call_sym$initial_prob <- sweep(num, 1, denom, "/")
-            base_call_sym$initial_prob <- t(base_call_sym$initial_prob)
-        }
-
-
-        inverse <- eval(base_call_sym, parent.frame())
-        # --- Reversed features ---
-        object$cond_prob_inv <- inverse$cond_prob
-        object$prob_inv <- inverse$prob
-        # object$expected_outcome_inv <- inverse$expected_outcome
-
-        # --- Accumulate time and iterations ---
-        object$time <- object$time + inverse$time
-        object$iterations <- object$iterations + inverse$iterations
-
-        # --- Symmetrize expected_outcome (G x C x B) ---
-        # inverse$expected_outcome is B x C x G (since X/W swapped)
-        A2 <- aperm(inverse$expected_outcome, c(2, 1, 3)) # G x C x B
-        object$expected_outcome <- 0.5 * (object$expected_outcome + A2)
-
-        # --- Compute cond_prob[g,c,b] = expected_outcome[g,c,b] / W[b,g] ---
-        # Work in B x G x C, divide by W (B x G), then permute back.
-        E_bgc <- aperm(object$expected_outcome, c(3, 1, 2)) # B x G x C
-        Q_bgc <- sweep(E_bgc, c(1, 2), object$W, "/") # divide by W[b,g]
-        object$cond_prob <- aperm(Q_bgc, c(2, 3, 1)) # G x C x B
-
-        # --- Compute prob[g,c] = sum_b expected_outcome[g,c,b] / sum_b W[b,g] ---
-        num <- apply(object$expected_outcome, c(1, 2), sum) # G x C (sum over B)
-        den <- colSums(object$W) # length G (sum over B)
-
-        # divide each row g by den[g]
-        object$prob <- sweep(num, 1, den, "/")
+    result <- if (!is.null(object$V)) {
+        .run_em_parametric(object, control)
+    } else {
+        .run_em_nonparametric(object, control)
     }
 
-    invisible(object) # Updates the object.
+    invisible(result)
 }
 
 #' Runs a Bootstrap to Estimate the **Standard Deviation** of Predicted Probabilities

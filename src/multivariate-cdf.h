@@ -25,6 +25,7 @@ extern "C"
      * @return A pointer to a flattened 3D array (b x g x c) representing the probabilities.
      */
     void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll);
+    double computeLogLikMultivariateCDF(EMContext *ctx, QMethodInput params);
 
     /*
      * @brief Allocates the seeds for the Montecarlo simulation

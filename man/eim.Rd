@@ -61,7 +61,7 @@ while others are ommited due to its straightfoward implementantion. The availabl
 \item \code{print.eim} - Print info about the object.
 \item \code{summary.eim} - Summarize the object.
 \item \code{as.matrix.eim} - Returns the probability matrix.
-\item \code{logLik.eim} - Returns the final log-likelihood.
+\item \code{logLik.eim} - Returns the final log-likelihood, or evaluates log-likelihood at a fixed probability matrix.
 }
 }
 

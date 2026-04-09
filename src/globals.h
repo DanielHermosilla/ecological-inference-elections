@@ -34,6 +34,8 @@ extern "C"
         const char *simulationMethod; // For "MVN CDF"
         char *prob_cond;
         bool prob_cond_every;
+        bool symmetric;
+        char *symmetric_weight_method;
     } QMethodInput;
 
     // All of the helper functions are made towards double type matrices
@@ -108,8 +110,9 @@ extern "C"
 
     typedef struct
     {
-        void (*computeQ)(EMContext *ctx, QMethodInput, double *ll); // Function pointer for computing q
-        QMethodInput params;                                        // Holds method-specific parameters
+        void (*computeQ)(EMContext *ctx, QMethodInput, double *ll);   // Function pointer for computing q
+        double (*computeLogLik)(EMContext *ctx, QMethodInput params); // Function pointer for LL at fixed p
+        QMethodInput params;                                          // Holds method-specific parameters
     } QMethodConfig;
 
     extern uint32_t TOTAL_VOTES;

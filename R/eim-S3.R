@@ -326,21 +326,85 @@ as.matrix.eim <- function(x, ...) {
 
 #' @title Extract log-likelihood
 #' @description
-#'   Return the log-likelihood of the last EM iteration
+#'   Return the log-likelihood of the last EM iteration, or compute it for a fixed probability matrix.
 #'
 #' @param object An `eim` object
-#' @param ... Additional parameters that will be ignored
+#' @param prob Optional probability matrix `(g x c)` used to compute a fixed-parameter log-likelihood.
+#' @param method Optional E-step method. Defaults to the fitted method in `object`, or `"mult"` if unavailable.
+#' @param ... Additional optional parameters for fixed-probability evaluation:
+#'   `mcmc_stepsize`, `mcmc_samples`, `mvncdf_method`, `mvncdf_error`, `mvncdf_samples`,
+#'   `miniter`, `adjust_prob_cond_method`, and `adjust_prob_cond_every`.
 #'
-#' @return A numeric value with the log-likelihood from the last iteration.
+#' @return A numeric value with the log-likelihood.
 #' @noRd
 #' @export
-logLik.eim <- function(object, ...) {
+logLik.eim <- function(object, prob = NULL, method = NULL, ...) {
     if (!inherits(object, "eim")) {
         stop("The object must be initialized with the `eim()` function.")
     }
 
-    if (is.null(object$logLik)) {
-        stop("The `run_em()` method must be called for getting the log-likelihood.")
+    if (is.null(prob)) {
+        if (is.null(object$logLik)) {
+            stop("The `run_em()` method must be called for getting the log-likelihood.")
+        }
+        return(tail(object$logLik, 1))
     }
-    tail(object$logLik, 1)
+
+    method_alias <- function(m) {
+        m <- trimws(tolower(as.character(m)))
+        if (m == "multinomial") {
+            return("mult")
+        }
+        m
+    }
+
+    method_use <- if (is.null(method)) {
+        if (!is.null(object$method)) object$method else "mult"
+    } else {
+        method
+    }
+    method_use <- method_alias(method_use)
+    valid_methods <- c("mult", "mcmc", "mvn_cdf", "mvn_pdf", "exact")
+    if (!(method_use %in% valid_methods)) {
+        stop("Invalid 'method'. Must be one of: ", paste(valid_methods, collapse = ", "))
+    }
+
+    if (is.null(object$X) || is.null(object$W)) {
+        stop("The object must include 'X' and 'W' matrices.")
+    }
+
+    W_use <- if (is.null(object$W_agg)) object$W else object$W_agg
+    prob_matrix <- as.matrix(prob)
+    expected_dims <- c(ncol(W_use), ncol(object$X))
+    if (!all(dim(prob_matrix) == expected_dims)) {
+        stop(
+            "Invalid 'prob' dimensions. Expected (", expected_dims[1], " x ", expected_dims[2], ")."
+        )
+    }
+
+    dots <- list(...)
+    step_size <- if (!is.null(dots$mcmc_stepsize)) dots$mcmc_stepsize else if (!is.null(object$mcmc_stepsize)) object$mcmc_stepsize else 3000
+    samples <- if (!is.null(dots$mcmc_samples)) dots$mcmc_samples else if (!is.null(object$mcmc_samples)) object$mcmc_samples else 1000
+    monte_method <- if (!is.null(dots$mvncdf_method)) dots$mvncdf_method else if (!is.null(object$mvncdf_method)) object$mvncdf_method else "genz"
+    monte_error <- if (!is.null(dots$mvncdf_error)) dots$mvncdf_error else if (!is.null(object$mvncdf_error)) object$mvncdf_error else 1e-3
+    monte_iter <- if (!is.null(dots$mvncdf_samples)) dots$mvncdf_samples else if (!is.null(object$mvncdf_samples)) object$mvncdf_samples else 5000
+    miniter <- if (!is.null(dots$miniter)) dots$miniter else if (!is.null(object$miniter)) object$miniter else 0
+    lp_method <- if (!is.null(dots$adjust_prob_cond_method)) dots$adjust_prob_cond_method else if (!is.null(object$adjust_prob_cond_method)) object$adjust_prob_cond_method else ""
+    project_every <- if (!is.null(dots$adjust_prob_cond_every)) dots$adjust_prob_cond_every else if (!is.null(object$adjust_prob_cond_every)) object$adjust_prob_cond_every else FALSE
+
+    ll <- EMLogLikFromProb(
+        t(object$X),
+        W_use,
+        prob_matrix,
+        method_use,
+        as.integer(step_size),
+        as.integer(samples),
+        as.character(monte_method),
+        as.numeric(monte_error),
+        as.integer(monte_iter),
+        as.integer(miniter),
+        as.character(lp_method),
+        as.logical(project_every)
+    )
+    as.numeric(ll)
 }

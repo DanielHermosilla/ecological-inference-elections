@@ -23,8 +23,9 @@ extern "C"
      * @return A (bxgxc) continuos array with the values of each probability. Understand it as a tensor with matrices,
      * but it's fundamental to be a continuos array in memory for simplificating the posteriors calculations.
      *
-     */
+    */
     void computeQMultinomial(EMContext *ctx, QMethodInput params, double *ll);
+    double computeLogLikMultinomial(EMContext *ctx, QMethodInput params);
 
     void precomputeLogGammas(EMContext *ctx);
 
