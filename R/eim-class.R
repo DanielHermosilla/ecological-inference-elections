@@ -325,7 +325,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'
 #' @param symmetric A boolean indicating whether to perform a symmetric estimation. If `TRUE`, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. The final probabilities are obtained by combining the expected outcomes from both runs (equal average by default; see `symmetric_weight_method`). This approach can provide a more balanced estimation in certain scenarios. The default value is `FALSE`.
 #'
-#' @param symmetric_weight_method Character string indicating how to combine both directions when `symmetric = TRUE`. Valid values are `"average"` (default, equal weights `0.5/0.5`), `"delta_ll"` (weights proportional to `dLL = LL - LL_ind` and `dLL_rev = LL_rev - LL_rev_ind`), and `"EM_weight"` (joint EM where forward and reverse finite-mixture E-steps are coupled by averaging expected counts at each iteration; currently supported only when `mixture > 1` and `H = 1`).
+#' @param symmetric_weight_method Character string indicating how to combine both directions when `symmetric = TRUE`. Valid values are `"average"` (default, equal weights `0.5/0.5`), `"delta_ll"` (weights proportional to `dLL = LL - LL_ind` and `dLL_rev = LL_rev - LL_rev_ind`), and `"EM_weight"` (joint EM where forward and reverse E-steps are coupled by averaging expected counts at each iteration; supported for non-parametric models when `H = 1`, including the default single-profile case `mixture = 1`).
 #'
 #' @param ... Added for compability
 #'
@@ -698,7 +698,7 @@ run_em <- function(object = NULL,
             stop("run_em: Parametric mode only supports method = \"mult\".")
         }
         if (isTRUE(symmetric) && identical(symmetric_weight_method, "EM_weight")) {
-            stop("run_em: `symmetric_weight_method = \"EM_weight\"` is currently supported only for non-parametric finite mixtures with `mixture > 1`.")
+            stop("run_em: `symmetric_weight_method = \"EM_weight\"` is currently supported only for non-parametric models (`V = NULL`).")
         }
         if (mixture > 1) {
             stop("run_em: `mixture > 1` is currently supported only for non-parametric models (`V = NULL`).")
@@ -969,16 +969,15 @@ run_em <- function(object = NULL,
 
     K <- as.integer(mixture)
     H_group <- as.integer(H)
-    use_mixture <- (K > 1L) || (K == 1L && mixture_explicit)
     use_row_mixture <- H_group > 1
     if (isTRUE(symmetric) && identical(symmetric_weight_method, "EM_weight") &&
-        (use_row_mixture || K <= 1L || !use_mixture)) {
-        stop("run_em: `symmetric_weight_method = \"EM_weight\"` is currently supported only when `mixture > 1` and `H = 1`.")
+        use_row_mixture) {
+        stop("run_em: `symmetric_weight_method = \"EM_weight\"` is currently supported only when `H = 1`.")
     }
     use_joint_symmetric_em <- isTRUE(symmetric) &&
         identical(symmetric_weight_method, "EM_weight") &&
-        !use_row_mixture &&
-        K > 1L
+        !use_row_mixture
+    use_mixture <- (K > 1L) || (K == 1L && mixture_explicit) || use_joint_symmetric_em
 
     if (use_row_mixture) {
         resulting_values <- EMAlgorithmRowMixture(
@@ -1116,12 +1115,19 @@ run_em <- function(object = NULL,
         object$mixture <- as.integer(mixture)
         object$K <- as.integer(K)
         object$H <- as.integer(H_group)
-        object$phi <- as.numeric(resulting_values$phi)
-        names(object$phi) <- paste0("H", seq_len(K))
-        object$responsibilities <- as.matrix(resulting_values$responsibilities)
-        dimnames(object$responsibilities) <- list(rownames(object$X), paste0("H", seq_len(K)))
-        object$component_prob <- resulting_values$component_prob
-        dimnames(object$component_prob) <- list(colnames(W), colnames(object$X), paste0("H", seq_len(K)))
+        expose_mixture_details <- K > 1L || mixture_explicit
+        if (expose_mixture_details) {
+            object$phi <- as.numeric(resulting_values$phi)
+            names(object$phi) <- paste0("H", seq_len(K))
+            object$responsibilities <- as.matrix(resulting_values$responsibilities)
+            dimnames(object$responsibilities) <- list(rownames(object$X), paste0("H", seq_len(K)))
+            object$component_prob <- resulting_values$component_prob
+            dimnames(object$component_prob) <- list(colnames(W), colnames(object$X), paste0("H", seq_len(K)))
+        } else {
+            object$phi <- NULL
+            object$responsibilities <- NULL
+            object$component_prob <- NULL
+        }
 
         object$miniter <- miniter
         object$maxiter <- maxiter

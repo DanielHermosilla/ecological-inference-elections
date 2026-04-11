@@ -165,7 +165,7 @@ static void setGlobalsFromCtx(const EMContext *ctx)
 
 static bool shouldRunSymmetricMixtureEMWeight(const QMethodInput *inputParams, int mixture_h)
 {
-    return inputParams != NULL && mixture_h > 1 && inputParams->symmetric &&
+    return inputParams != NULL && mixture_h >= 1 && inputParams->symmetric &&
            inputParams->symmetric_weight_method != NULL &&
            strcmp(inputParams->symmetric_weight_method, "EM_weight") == 0;
 }

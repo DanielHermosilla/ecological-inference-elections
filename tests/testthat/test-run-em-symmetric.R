@@ -65,6 +65,41 @@ test_that("run_em symmetric supports delta_ll weighting", {
     expect_equal(length(fit$dLL_rev), 1)
 })
 
+test_that("run_em symmetric supports EM_weight in the default single-profile case", {
+    sim <- simulate_election(
+        num_ballots = 6,
+        num_candidates = 3,
+        num_groups = 2,
+        ballot_voters = rep(40, 6),
+        lambda = 0.25,
+        seed = 143
+    )
+
+    fit <- run_em(
+        X = sim$X,
+        W = sim$W,
+        method = "mult",
+        symmetric = TRUE,
+        symmetric_weight_method = "EM_weight",
+        maxiter = 4,
+        miniter = 1,
+        maxtime = 2,
+        compute_ll = FALSE
+    )
+
+    expect_equal(fit$symmetric_weight_method, "EM_weight")
+    expect_equal(fit$symmetric_weights, c(original = 0.5, reverse = 0.5))
+    expect_true(is.matrix(fit$prob_inv))
+    expect_true(is.array(fit$cond_prob_inv))
+    expect_prob_matrix(fit$prob)
+    expect_prob_matrix(fit$prob_inv)
+    expect_prob_array(fit$cond_prob)
+    expect_prob_array(fit$cond_prob_inv)
+    expect_null(fit$phi)
+    expect_null(fit$responsibilities)
+    expect_null(fit$component_prob)
+})
+
 test_that("run_em symmetric works in parametric mode", {
     sim <- simulate_election(
         num_ballots = 6,
