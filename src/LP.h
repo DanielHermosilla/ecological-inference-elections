@@ -14,6 +14,7 @@ extern "C"
     int LPW(const Matrix *X, const Matrix *W, Matrix *q_bgc, int b);
     int LP_NW_ctx(EMContext *ctx, int b);
     int LPW_ctx(EMContext *ctx, int b);
+    int LPW_joint_symmetric_ctx(EMContext *ctx_forward, EMContext *ctx_reverse, int b);
     int LP_symmetric_mixture_cell_repair(const double *q_prev, const double *r, int K, double scale, double target_z,
                                          double *q_out);
 

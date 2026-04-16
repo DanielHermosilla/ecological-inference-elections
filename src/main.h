@@ -42,6 +42,8 @@ extern "C"
     QMethodConfig getQMethodConfig(const char *q_method, QMethodInput inputParams);
     void normalizeProbabilityRows(Matrix *P);
     void projectQ(EMContext *ctx, QMethodInput inputParams);
+    void getP(EMContext *ctx);
+    void getPredictedVotes(EMContext *ctx);
     /**
      * @brief Implements the whole EM algorithm.
      *

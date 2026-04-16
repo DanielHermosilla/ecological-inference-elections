@@ -681,7 +681,7 @@ run_em <- function(object = NULL,
 
     # Row-level mixture implies K = H.
     if (H > 1L) {
-        if (mixture != H) {
+        if (mixture_explicit && mixture != H) {
             warning(sprintf(
                 "run_em: `H > 1` implies `K = H`. Setting `mixture` from %d to %d.",
                 mixture,
@@ -967,6 +967,54 @@ run_em <- function(object = NULL,
     W <- if (is.null(object$W_agg)) object$W else object$W_agg
     # RsetParameters(t(object$X), W)
 
+    fix_empty_ballot_outputs <- function(fit_object, W_matrix) {
+        normalize_prob_rows <- function(prob_matrix) {
+            prob_matrix[!is.finite(prob_matrix) | prob_matrix < 0] <- 0
+            rs <- rowSums(prob_matrix)
+            valid <- is.finite(rs) & rs > 0
+            if (any(valid)) {
+                prob_matrix[valid, ] <- sweep(prob_matrix[valid, , drop = FALSE], 1, rs[valid], "/")
+            }
+            if (any(!valid)) {
+                prob_matrix[!valid, ] <- rep(1 / ncol(prob_matrix), ncol(prob_matrix))
+            }
+            prob_matrix
+        }
+
+        empty_ballots <- rowSums(W_matrix) == 0
+        needs_empty_fix <- any(empty_ballots) ||
+            any(!is.finite(fit_object$cond_prob)) ||
+            any(!is.finite(fit_object$expected_outcome)) ||
+            any(!is.finite(fit_object$prob))
+
+        if (!needs_empty_fix) {
+            return(fit_object)
+        }
+
+        for (ballot in which(empty_ballots)) {
+            fit_object$cond_prob[, , ballot] <- 0
+        }
+        fit_object$cond_prob[!is.finite(fit_object$cond_prob)] <- 0
+
+        expected_bgc <- sweep(aperm(fit_object$cond_prob, c(3, 1, 2)), c(1, 2), W_matrix, "*")
+        fit_object$expected_outcome <- aperm(expected_bgc, c(2, 3, 1))
+        dimnames(fit_object$expected_outcome) <- list(
+            colnames(W_matrix),
+            colnames(fit_object$X),
+            rownames(fit_object$X)
+        )
+
+        num <- apply(fit_object$expected_outcome, c(1, 2), sum)
+        den <- colSums(W_matrix)
+        valid <- is.finite(den) & den > 0
+        if (any(valid)) {
+            fit_object$prob[valid, ] <- sweep(num[valid, , drop = FALSE], 1, den[valid], "/")
+            fit_object$prob[valid, ] <- normalize_prob_rows(fit_object$prob[valid, , drop = FALSE])
+        }
+
+        fit_object
+    }
+
     K <- as.integer(mixture)
     H_group <- as.integer(H)
     use_row_mixture <- H_group > 1
@@ -1018,6 +1066,7 @@ run_em <- function(object = NULL,
         object$prob <- as.matrix(resulting_values$result)
         dimnames(object$prob) <- list(colnames(W), colnames(object$X))
         object$iterations <- as.numeric(resulting_values$total_iterations)
+        object <- fix_empty_ballot_outputs(object, W)
         if (compute_ll) {
             object$logLik <- as.numeric(resulting_values$log_likelihood)
         }
@@ -1106,6 +1155,7 @@ run_em <- function(object = NULL,
         object$prob <- as.matrix(resulting_values$result)
         dimnames(object$prob) <- list(colnames(W), colnames(object$X))
         object$iterations <- as.numeric(resulting_values$total_iterations)
+        object <- fix_empty_ballot_outputs(object, W)
         if (compute_ll) {
             object$logLik <- as.numeric(resulting_values$log_likelihood)
         }
@@ -1212,6 +1262,7 @@ run_em <- function(object = NULL,
     object$prob <- as.matrix(resulting_values$result)
     dimnames(object$prob) <- list(colnames(W), colnames(object$X))
     object$iterations <- as.numeric(resulting_values$total_iterations)
+    object <- fix_empty_ballot_outputs(object, W)
     if (compute_ll) {
         object$logLik <- as.numeric(resulting_values$log_likelihood[length(resulting_values$log_likelihood)])
     }

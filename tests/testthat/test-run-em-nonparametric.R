@@ -39,6 +39,28 @@ test_that("run_em returns consistent non-parametric outputs", {
     expect_equal(expected_by_group, t(sim$W), tolerance = 1e-6)
 })
 
+test_that("run_em treats ballot boxes with no groups as zero conditional probability", {
+    X <- matrix(c(5, 5, 3, 7, 4, 6), nrow = 3, byrow = TRUE)
+    W <- matrix(c(10, 0, 0, 0, 4, 6), nrow = 3, byrow = TRUE)
+
+    fit <- run_em(
+        X = X,
+        W = W,
+        method = "mult",
+        maxiter = 2,
+        miniter = 1,
+        maxtime = 2,
+        compute_ll = FALSE
+    )
+
+    expect_true(all(is.finite(fit$cond_prob)))
+    expect_true(all(is.finite(fit$expected_outcome)))
+    expect_true(all(is.finite(fit$prob)))
+    expect_equal(fit$cond_prob[, , 2], matrix(0, nrow = ncol(W), ncol = ncol(X)))
+    expect_equal(fit$expected_outcome[, , 2], matrix(0, nrow = ncol(W), ncol = ncol(X)))
+    expect_prob_matrix(fit$prob)
+})
+
 test_that("run_em approximates simulated probabilities", {
     sim <- simulate_election(
         num_ballots = 20,
