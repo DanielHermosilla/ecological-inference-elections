@@ -155,6 +155,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
             "status",
             "time",
             "method",
+            "row_mixture",
             "HET",
             "AE",
             "W_agg",
@@ -239,33 +240,10 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'   If `mixture = 1` (default), the standard EM is used. If `mixture > 1`,
 #'   a finite-mixture EM extension is applied with that number of components.
 #'
-#' @param H Positive integer indicating the number of latent profiles at the group
-#'   level (row-level mixture). If `H = 1` (default), row-level mixture is disabled.
-#'   If `H > 1`, the non-parametric EM uses a row-level finite-mixture backend in C.
-#'   If `H > 1`, then `K` is implied by `H` and `mixture` is forced to `H`.
-#'
-#' @param HET Optional non-negative numeric threshold (in percentage points) used to
-#'   adaptively increase the number of mixture components. If supplied, the model computes
-#'   `HET = 50 * sum(|z_hat - z_tilde|) / sum_b I_b`,
-#'   where `z_hat` is `expected_outcome` and
-#'   `z_tilde[g,c,b] = W[b,g] * sum_k p[g,c,k] * r[b,k]`,
-#'   with `r[b,k]` the posterior responsibility of ballot-box `b` for component `k`.
-#'   If `H > 1`, the adaptive search is run over `H = 1, ..., 7` and the
-#'   returned `K` tracks the selected row-level profile count (`K = H` in that path).
-#'   Otherwise, the adaptive search is run over `K = 1, ..., 7` (with `H = 1`).
-#'   While `HET >= alpha` (with `alpha = HET`), the model is re-estimated with the next
-#'   value in the selected sequence. If no value up to 7 satisfies the threshold, the fit
-#'   with the smallest observed `HET` is returned. If `HET = 0`, all values from 1 to 7 are
-#'   always evaluated and the fit with minimum observed `HET` is returned.
-#'   The returned object always includes the final `K`, `H`, and achieved `HET`.
-#'
-#' @param AE Optional non-negative numeric selector to activate adaptive search
-#'   using an absolute-error criterion inspired by `mae_inverse`. For each fit, it computes
-#'   `AE = tau = sum(|X - W %*% p|)`. If `H > 1`, the adaptive search is run over
-#'   `H = 1, ..., 7` (with `K = H`); otherwise it is run over `K = 1, ..., 7` (with `H = 1`).
-#'   When supplied, all candidate values in the selected sequence are evaluated and
-#'   the fit with minimum observed `AE` is returned. This argument is mutually exclusive
-#'   with `HET`.
+#' @param row_mixture Positive integer indicating the number of latent profiles at the group
+#'   level (row-level mixture). If `row_mixture = 1` (default), row-level mixture is disabled.
+#'   If `row_mixture > 1`, the non-parametric EM uses a row-level finite-mixture backend in C.
+#'   If `row_mixture > 1`, then `K` is implied by `row_mixture` and `mixture` is forced to `row_mixture`.
 #'
 #' @param allow_mismatch Boolean, if `TRUE`, allows a mismatch between the voters and votes for each ballot-box. If `FALSE`, throws an error if there is a mismatch. By default it is `TRUE`. See **Notes** for more details.
 #'
@@ -325,7 +303,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'
 #' @param symmetric A boolean indicating whether to perform a symmetric estimation. If `TRUE`, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. The final probabilities are obtained by combining the expected outcomes from both runs (equal average by default; see `symmetric_weight_method`). This approach can provide a more balanced estimation in certain scenarios. The default value is `FALSE`.
 #'
-#' @param symmetric_weight_method Character string indicating how to combine both directions when `symmetric = TRUE`. Valid values are `"average"` (default, equal weights `0.5/0.5`), `"delta_ll"` (weights proportional to `dLL = LL - LL_ind` and `dLL_rev = LL_rev - LL_rev_ind`), and `"EM_weight"` (joint EM where forward and reverse E-steps are coupled by averaging expected counts at each iteration; supported for non-parametric models when `H = 1`, including the default single-profile case `mixture = 1`).
+#' @param symmetric_weight_method Character string indicating how to combine both directions when `symmetric = TRUE`. Valid values are `"average"` (default, equal weights `0.5/0.5`), `"delta_ll"` (weights proportional to `dLL = LL - LL_ind` and `dLL_rev = LL_rev - LL_rev_ind`), and `"EM_weight"` (joint EM where forward and reverse E-steps are coupled by averaging expected counts at each iteration; supported for non-parametric models when `row_mixture = 1`, including the default single-profile case `mixture = 1`).
 #'
 #' @param ... Added for compability
 #'
@@ -368,7 +346,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'   \item{iterations}{The total number of iterations performed by the EM algorithm.}
 #'   \item{time}{The total execution time of the algorithm in seconds.}
 #'   \item{K}{The final number of latent profiles used by the fitted model.}
-#'   \item{H}{The final number of row-level latent profiles used by the fitted model.}
+#'   \item{row_mixture}{The final number of row-level latent profiles used by the fitted model.}
 #'   \item{HET}{The final heterogeneity metric achieved by the fitted model.}
 #'   \item{AE}{The final absolute-error metric achieved by the fitted model.}
 #'   \item{status}{
@@ -393,7 +371,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #' 		\item{prob_inv}{The estimated probability matrix `(c x g)`, obtained by swapping `X` and `W`.}
 #' 		\item{cond_prob_inv}{A `(c x g x b)` 3d-array with the probability that at each ballot-box a voter of each candidate voted for each group, given the observed outcome at the particular ballot-box.}
 #' }
-#' If `symmetric_weight_method = "delta_ll"` and the model is non-parametric with a single profile (`K = H = 1`), the object also includes `LL_ind`, `LL_rev_ind`, `dLL`, `dLL_rev`, and `symmetric_weights`.
+#' If `symmetric_weight_method = "delta_ll"` and the model is non-parametric with a single profile (`K = row_mixture = 1`), the object also includes `LL_ind`, `LL_rev_ind`, `dLL`, `dLL_rev`, and `symmetric_weights`.
 #' If `symmetric_weight_method = "EM_weight"`, the object includes `symmetric_weights = c(original = 0.5, reverse = 0.5)` and the inverse outputs come from the joint reverse run rather than from a post-hoc symmetric helper.
 #' Under this argument, the conditional probabilities will be obtained by dividing new expected outcomes by `W`. The probabilities will be calculated by performing an M-step.
 #'
@@ -443,7 +421,7 @@ run_em <- function(object = NULL,
                    method = "mult",
                    initial_prob = "group_proportional",
                    mixture = 1,
-                   H = 1,
+                   row_mixture = 1,
                    HET = NULL,
                    AE = NULL,
                    allow_mismatch = TRUE,
@@ -472,194 +450,47 @@ run_em <- function(object = NULL,
                    ...) {
     base_call <- match.call()
     caller_env <- parent.frame()
-    # Debug toggle: if `mixture` is explicitly passed (even as 1), route through mixture backend.
     mixture_explicit <- "mixture" %in% names(as.list(base_call))
-    all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
+    all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, caller_env)
     .validate_compute(all_params) # nolint
 
     if (!is.null(seed)) {
         set.seed(seed)
     }
 
-    if (is.null(object)) {
-        object <- eim(X = X, W = W, V = V, json_path = json_path)
-    } else if (!inherits(object, "eim")) {
-        stop("run_em: The object must be initialized with the eim() function.")
-    }
     mixture <- as.integer(mixture)
-    H <- as.integer(H)
+    row_mixture <- as.integer(row_mixture)
+    if ("H" %in% names(all_params) && !is.null(all_params$H)) {
+        H_alias <- as.integer(all_params$H)
+        if ("row_mixture" %in% names(all_params) && H_alias != row_mixture) {
+            stop("run_em: Provide only one of `row_mixture` or legacy `H`.")
+        }
+        row_mixture <- H_alias
+        base_call$H <- NULL
+        base_call$row_mixture <- row_mixture
+        all_params$H <- NULL
+        all_params$row_mixture <- row_mixture
+    }
     if (!is.null(HET)) {
         HET <- as.numeric(HET)
     }
     if (!is.null(AE)) {
         AE <- as.numeric(AE)
     }
-    if (!is.null(V)) {
-        object$V <- V
-    }
 
-
-    # Applies a scaling
-    if (scale_factor != 1) {
-        object$X <- round(object$X / all_params$scale_factor)
-        object$W <- round(object$W / all_params$scale_factor)
-    }
-
-    compute_HET_metric <- function(fit_object) {
-        if (is.null(fit_object$expected_outcome)) {
-            return(NA_real_)
-        }
-
-        W_fit <- if (is.null(fit_object$W_agg)) fit_object$W else fit_object$W_agg
-        if (is.null(W_fit)) {
-            return(NA_real_)
-        }
-
-        denom <- sum(W_fit)
-        if (!is.finite(denom) || denom <= 0) {
-            return(NA_real_)
-        }
-
-        z_hat <- fit_object$expected_outcome
-        if (!is.array(z_hat) || length(dim(z_hat)) != 3) {
-            return(NA_real_)
-        }
-
-        z_tilde <- NULL
-        if (!is.null(fit_object$component_prob) &&
-            !is.null(fit_object$responsibilities)) {
-            component_prob <- fit_object$component_prob
-            resp <- as.matrix(fit_object$responsibilities)
-            if (length(dim(component_prob)) == 3 &&
-                ncol(resp) == dim(component_prob)[3]) {
-                G <- dim(component_prob)[1]
-                C <- dim(component_prob)[2]
-                B <- nrow(W_fit)
-                z_tilde <- array(0, dim = c(G, C, B))
-                for (b in seq_len(B)) {
-                    for (g in seq_len(G)) {
-                        for (c in seq_len(C)) {
-                            z_tilde[g, c, b] <- W_fit[b, g] * sum(component_prob[g, c, ] * resp[b, ])
-                        }
-                    }
-                }
-            }
-        }
-
-        if (is.null(z_tilde) && is.array(fit_object$prob) && length(dim(fit_object$prob)) == 3) {
-            prob_arr <- fit_object$prob
-            G <- dim(prob_arr)[1]
-            C <- dim(prob_arr)[2]
-            B <- dim(prob_arr)[3]
-            z_tilde <- array(0, dim = c(G, C, B))
-            for (b in seq_len(B)) {
-                for (g in seq_len(G)) {
-                    z_tilde[g, , b] <- W_fit[b, g] * prob_arr[g, , b]
-                }
-            }
-        }
-
-        if (is.null(z_tilde) && is.matrix(fit_object$prob)) {
-            p_tilde <- fit_object$prob
-            G <- nrow(p_tilde)
-            C <- ncol(p_tilde)
-            B <- nrow(W_fit)
-            z_tilde <- array(0, dim = c(G, C, B))
-            for (b in seq_len(B)) {
-                for (g in seq_len(G)) {
-                    z_tilde[g, , b] <- W_fit[b, g] * p_tilde[g, ]
-                }
-            }
-        }
-
-        if (is.null(z_tilde)) {
-            return(NA_real_)
-        }
-
-        if (!identical(dim(z_hat), dim(z_tilde))) {
-            return(NA_real_)
-        }
-
-        het <- 50 * sum(abs(z_hat - z_tilde)) / denom
-        if (!is.finite(het)) {
-            return(NA_real_)
-        }
-        het
-    }
-
-    compute_AE_metric <- function(fit_object) {
-        W_fit <- if (is.null(fit_object$W_agg)) fit_object$W else fit_object$W_agg
-        X_fit <- fit_object$X
-        if (is.null(W_fit) || is.null(X_fit)) {
-            return(NA_real_)
-        }
-
-        prob_forward <- fit_object$prob
-        if (is.array(prob_forward) && length(dim(prob_forward)) == 3) {
-            G <- dim(prob_forward)[1]
-            C <- dim(prob_forward)[2]
-            prob_mat <- matrix(0, nrow = G, ncol = C)
-            for (g in seq_len(G)) {
-                den_g <- sum(W_fit[, g])
-                if (is.finite(den_g) && den_g > 0) {
-                    prob_mat[g, ] <- colSums(t(prob_forward[g, , ]) * W_fit[, g]) / den_g
-                } else {
-                    prob_mat[g, ] <- rep(1 / C, C)
-                }
-            }
-            prob_forward <- prob_mat
-        }
-        if (!is.matrix(prob_forward)) {
-            return(NA_real_)
-        }
-
-        x_hat <- as.matrix(W_fit) %*% prob_forward
-        tau <- sum(abs(as.matrix(X_fit) - x_hat))
-        if (!is.finite(tau)) {
-            return(NA_real_)
-        }
-        tau
-    }
-
-    zero_vote_state <- NULL
-
-    finalize_fit_object <- function(fit_object) {
-        fit_object <- .restore_zero_vote_columns(fit_object, zero_vote_state)
-        fit_object$HET <- compute_HET_metric(fit_object)
-        fit_object$AE <- compute_AE_metric(fit_object)
-        invisible(fit_object)
-    }
+    object <- .run_em_prepare_object(
+        object = object,
+        X = X,
+        W = W,
+        V = V,
+        json_path = json_path,
+        scale_factor = scale_factor,
+        method = method,
+        allow_mismatch = allow_mismatch,
+        group_agg = group_agg
+    )
 
     is_parametric <- !is.null(object$V)
-
-    # Note: Mismatch restricted methods are checked inside .validate_compute
-    mismatch_rows <- which(rowSums(object$X) != rowSums(object$W))
-    if (!allow_mismatch && length(mismatch_rows) > 0) {
-        stop(
-            "run_em: Row-wise mismatch in vote totals detected.\n",
-            "Rows with mismatches: ", paste(mismatch_rows, collapse = ", "), "\n",
-            "To allow mismatches, set `allow_mismatch = TRUE`."
-        )
-    } else if (method == "exact" && length(mismatch_rows) > 0) {
-        W <- .dhondt_correction(object$W, object$X)
-        message("Applying a D'Hondt correction for correcting mismatches in W")
-        # stop("run_em: Exact method isn't supported with mismatch")
-    }
-
-    # Handle the group aggregation, if provided
-    if (!is.null(group_agg)) {
-        sizes <- diff(c(0, group_agg))
-        rep_labels <- rep(seq_along(sizes), sizes)
-        groups <- split(seq_len(ncol(object$W)), rep_labels)
-        Wagg <- do.call(
-            cbind,
-            lapply(groups, function(cols) rowSums(object$W[, cols, drop = FALSE]))
-        )
-        rownames(Wagg) <- rownames(object$W)
-        object$W_agg <- Wagg
-        object$group_agg <- group_agg
-    }
-
     full_candidate_object <- object
     zero_vote_info <- .prepare_zero_vote_columns(
         object = object,
@@ -676,877 +507,66 @@ run_em <- function(object = NULL,
     all_params <- zero_vote_info$all_params
     zero_vote_state <- zero_vote_info$state
 
-    W_effective <- if (is.null(object$W_agg)) object$W else object$W_agg
-    G_effective <- ncol(W_effective)
-
-    # Row-level mixture implies K = H.
-    if (H > 1L) {
-        if (mixture_explicit && mixture != H) {
+    if (row_mixture > 1L) {
+        if (mixture_explicit && mixture != row_mixture) {
             warning(sprintf(
-                "run_em: `H > 1` implies `K = H`. Setting `mixture` from %d to %d.",
+                "run_em: `row_mixture > 1` implies `K = row_mixture`. Setting `mixture` from %d to %d.",
                 mixture,
-                H
+                row_mixture
             ))
         }
-        mixture <- as.integer(H)
+        mixture <- as.integer(row_mixture)
     }
 
-    object$method <- method
-
-    if (is_parametric) {
-        if (method != "mult") {
-            stop("run_em: Parametric mode only supports method = \"mult\".")
-        }
-        if (isTRUE(symmetric) && identical(symmetric_weight_method, "EM_weight")) {
-            stop("run_em: `symmetric_weight_method = \"EM_weight\"` is currently supported only for non-parametric models (`V = NULL`).")
-        }
-        if (mixture > 1) {
-            stop("run_em: `mixture > 1` is currently supported only for non-parametric models (`V = NULL`).")
-        }
-        if (!is.null(HET)) {
-            stop("run_em: `HET` is currently supported only for non-parametric models (`V = NULL`).")
-        }
-        if (!is.null(AE)) {
-            stop("run_em: `AE` is currently supported only for non-parametric models (`V = NULL`).")
-        }
-        if (H > 1) {
-            stop("run_em: `H > 1` is currently supported only for non-parametric models (`V = NULL`).")
-        }
-
-        W <- if (is.null(object$W_agg)) object$W else object$W_agg
-        V <- object$V
-        num_candidates <- ncol(object$X)
-        num_groups <- ncol(W)
-        num_attributes <- ncol(V)
-
-        if (is.null(beta_init)) {
-            beta <- matrix(0, nrow = num_groups, ncol = num_candidates - 1)
-        } else {
-            beta <- beta_init
-        }
-        if (is.null(alpha_init)) {
-            alpha <- matrix(0, nrow = num_candidates - 1, ncol = num_attributes)
-        } else {
-            alpha <- alpha_init
-        }
-
-        if (!is.matrix(beta) || nrow(beta) != num_groups || ncol(beta) != num_candidates - 1) {
-            stop("run_em: 'beta' must be a matrix with dimensions (g x (c-1)).")
-        }
-        if (!is.matrix(alpha) || nrow(alpha) != num_candidates - 1 || ncol(alpha) != num_attributes) {
-            stop("run_em: 'alpha' must be a matrix with dimensions ((c-1) x a).")
-        }
-
-        resulting_values <- EMAlgorithmParametric(
-            as.matrix(object$X),
-            as.matrix(W),
-            as.matrix(V),
-            as.matrix(beta),
-            as.matrix(alpha),
-            maxiter,
-            maxtime,
-            ll_threshold,
-            maxnewton,
-            verbose,
-            adjust_prob_cond_method,
-            adjust_prob_cond_every
-        )
-
-        object$prob <- resulting_values$prob
-        dimnames(object$prob) <- list(
-            colnames(W),
-            colnames(object$X),
-            rownames(object$X)
-        )
-        object$cond_prob <- resulting_values$cond_prob
-        dimnames(object$cond_prob) <- list(
-            colnames(W),
-            colnames(object$X),
-            rownames(object$X)
-        )
-        object$expected_outcome <- resulting_values$expected_outcome
-        dimnames(object$expected_outcome) <- list(
-            colnames(W),
-            colnames(object$X),
-            rownames(object$X)
-        )
-        object$beta <- resulting_values$beta
-        if (!is.null(colnames(W))) {
-            rownames(object$beta) <- colnames(W)
-        }
-        if (!is.null(colnames(object$X))) {
-            colnames(object$beta) <- colnames(object$X)[-ncol(object$X)]
-        }
-        object$alpha <- resulting_values$alpha
-        if (!is.null(colnames(object$X))) {
-            rownames(object$alpha) <- colnames(object$X)[-ncol(object$X)]
-        }
-        if (!is.null(colnames(V))) {
-            colnames(object$alpha) <- colnames(V)
-        }
-        object$iterations <- as.numeric(resulting_values$iter)
-        object$logLik <- as.numeric(resulting_values$logLik)
-        object$time <- resulting_values$time
-
-        object$maxiter <- maxiter
-        object$maxtime <- maxtime
-        object$ll_threshold <- ll_threshold
-        object$maxnewton <- maxnewton
-        object$adjust_prob_cond_method <- adjust_prob_cond_method
-        object$adjust_prob_cond_every <- adjust_prob_cond_every
-        object$mixture <- as.integer(mixture)
-        object$K <- as.integer(mixture)
-        object$H <- as.integer(H)
-
-        if (symmetric) {
-            W_sym <- if (is.null(object$W_agg)) object$W else object$W_agg
-            object <- .run_em_symmetric_helper(
-                object = object,
-                base_call = base_call,
-                parent_env = parent.frame(),
-                W_sym = W_sym,
-                all_params = all_params,
-                include_V = TRUE,
-                reset_parametric_init = TRUE,
-                transform_initial_prob = FALSE,
-                prob_from_cond_prob = TRUE
-            )
-        }
-
-        return(finalize_fit_object(object))
-    }
-
-    adaptive_search_metric <- function(metric_name, threshold) {
-        metric_fun <- switch(metric_name,
-            HET = compute_HET_metric,
-            AE = compute_AE_metric,
-            stop("run_em: Unsupported adaptive metric.")
-        )
-
-        K_max <- 7L
-        best_fit <- NULL
-        best_metric <- Inf
-        last_fit <- NULL
-        search_best_only <- isTRUE(all.equal(threshold, 0)) || identical(metric_name, "AE")
-        search_over_H <- H > 1L
-
-        if (search_over_H) {
-            H_limit <- as.integer(K_max)
-            H_current <- 1L
-            repeat {
-                base_call_metric <- base_call
-                base_call_metric$object <- full_candidate_object
-                base_call_metric$X <- NULL
-                base_call_metric$W <- NULL
-                base_call_metric$V <- NULL
-                base_call_metric$json_path <- NULL
-                base_call_metric$mixture <- H_current
-                base_call_metric$H <- H_current
-                base_call_metric$HET <- NULL
-                base_call_metric$AE <- NULL
-
-                fit_metric <- eval(base_call_metric, caller_env)
-                last_fit <- fit_metric
-                metric_value <- metric_fun(fit_metric)
-                fit_metric[[metric_name]] <- metric_value
-                fit_metric$K <- as.integer(H_current)
-                fit_metric$mixture <- as.integer(H_current)
-                fit_metric$H <- as.integer(H_current)
-
-                if (is.finite(metric_value) && metric_value < best_metric) {
-                    best_metric <- metric_value
-                    best_fit <- fit_metric
-                }
-
-                if (!search_best_only && is.finite(metric_value) && metric_value < threshold) {
-                    return(fit_metric)
-                }
-
-                if (H_current >= H_limit) {
-                    if (!is.null(best_fit)) {
-                        if (!search_best_only) {
-                            warning(sprintf(
-                                "run_em: No H <= %d satisfied the %s threshold. Returning the fit with minimum %s.",
-                                H_limit,
-                                metric_name,
-                                metric_name
-                            ))
-                        }
-                        return(best_fit)
-                    }
-                    warning(sprintf(
-                        "run_em: No finite %s found for H <= %d. Returning the last fitted model.",
-                        metric_name,
-                        H_limit
-                    ))
-                    return(last_fit)
-                }
-
-                H_current <- H_current + 1L
-            }
-        } else {
-            K_current <- 1L
-            repeat {
-                base_call_metric <- base_call
-                base_call_metric$object <- full_candidate_object
-                base_call_metric$X <- NULL
-                base_call_metric$W <- NULL
-                base_call_metric$V <- NULL
-                base_call_metric$json_path <- NULL
-                base_call_metric$mixture <- K_current
-                base_call_metric$H <- 1L
-                base_call_metric$HET <- NULL
-                base_call_metric$AE <- NULL
-
-                fit_metric <- eval(base_call_metric, caller_env)
-                last_fit <- fit_metric
-                metric_value <- metric_fun(fit_metric)
-                fit_metric[[metric_name]] <- metric_value
-                fit_metric$K <- as.integer(K_current)
-                fit_metric$mixture <- as.integer(K_current)
-                fit_metric$H <- 1L
-
-                if (is.finite(metric_value) && metric_value < best_metric) {
-                    best_metric <- metric_value
-                    best_fit <- fit_metric
-                }
-
-                if (!search_best_only && is.finite(metric_value) && metric_value < threshold) {
-                    return(fit_metric)
-                }
-
-                if (K_current >= K_max) {
-                    if (!is.null(best_fit)) {
-                        if (!search_best_only) {
-                            warning(sprintf(
-                                "run_em: No K <= %d satisfied the %s threshold. Returning the fit with minimum %s.",
-                                K_max,
-                                metric_name,
-                                metric_name
-                            ))
-                        }
-                        return(best_fit)
-                    }
-                    warning(sprintf(
-                        "run_em: No finite %s found for K <= %d. Returning the last fitted model.",
-                        metric_name,
-                        K_max
-                    ))
-                    return(last_fit)
-                }
-
-                K_current <- K_current + 1L
-            }
-        }
-    }
-
-    if (!is.null(HET)) {
-        return(invisible(adaptive_search_metric("HET", HET)))
-    }
-    if (!is.null(AE)) {
-        return(invisible(adaptive_search_metric("AE", AE)))
-    }
-
-    # Default values
-    if (method == "mcmc") {
-        # Step size
-        object$mcmc_stepsize <- as.integer(if ("mcmc_stepsize" %in% names(all_params)) all_params$mcmc_stepsize else 3000)
-        # Samples
-        object$mcmc_samples <- as.integer(if ("mcmc_samples" %in% names(all_params)) all_params$mcmc_samples else 1000)
-        # Burn in
-        object$burn_in <- as.integer(if ("burn_in" %in% names(all_params)) all_params$burn_in else 10000)
-    } else if (method == "mvn_cdf") {
-        # Montecarlo method
-        object$mvncdf_method <- if ("mvncdf_method" %in% names(all_params)) all_params$mvncdf_method else "genz"
-        # Montecarlo samples
-        object$mvncdf_samples <- if ("mvncdf_samples" %in% names(all_params)) all_params$mvncdf_samples else 5000
-        # Montecarlo error
-        object$mvncdf_error <- if ("mvncdf_error" %in% names(all_params)) all_params$mvncdf_error else 1e-3
-    }
-
-    W <- if (is.null(object$W_agg)) object$W else object$W_agg
-    # RsetParameters(t(object$X), W)
-
-    fix_empty_ballot_outputs <- function(fit_object, W_matrix) {
-        normalize_prob_rows <- function(prob_matrix) {
-            prob_matrix[!is.finite(prob_matrix) | prob_matrix < 0] <- 0
-            rs <- rowSums(prob_matrix)
-            valid <- is.finite(rs) & rs > 0
-            if (any(valid)) {
-                prob_matrix[valid, ] <- sweep(prob_matrix[valid, , drop = FALSE], 1, rs[valid], "/")
-            }
-            if (any(!valid)) {
-                prob_matrix[!valid, ] <- rep(1 / ncol(prob_matrix), ncol(prob_matrix))
-            }
-            prob_matrix
-        }
-
-        empty_ballots <- rowSums(W_matrix) == 0
-        needs_empty_fix <- any(empty_ballots) ||
-            any(!is.finite(fit_object$cond_prob)) ||
-            any(!is.finite(fit_object$expected_outcome)) ||
-            any(!is.finite(fit_object$prob))
-
-        if (!needs_empty_fix) {
-            return(fit_object)
-        }
-
-        for (ballot in which(empty_ballots)) {
-            fit_object$cond_prob[, , ballot] <- 0
-        }
-        fit_object$cond_prob[!is.finite(fit_object$cond_prob)] <- 0
-
-        expected_bgc <- sweep(aperm(fit_object$cond_prob, c(3, 1, 2)), c(1, 2), W_matrix, "*")
-        fit_object$expected_outcome <- aperm(expected_bgc, c(2, 3, 1))
-        dimnames(fit_object$expected_outcome) <- list(
-            colnames(W_matrix),
-            colnames(fit_object$X),
-            rownames(fit_object$X)
-        )
-
-        num <- apply(fit_object$expected_outcome, c(1, 2), sum)
-        den <- colSums(W_matrix)
-        valid <- is.finite(den) & den > 0
-        if (any(valid)) {
-            fit_object$prob[valid, ] <- sweep(num[valid, , drop = FALSE], 1, den[valid], "/")
-            fit_object$prob[valid, ] <- normalize_prob_rows(fit_object$prob[valid, , drop = FALSE])
-        }
-
-        fit_object
-    }
-
+    H_group <- as.integer(row_mixture)
     K <- as.integer(mixture)
-    H_group <- as.integer(H)
-    use_row_mixture <- H_group > 1
-    if (isTRUE(symmetric) && identical(symmetric_weight_method, "EM_weight") &&
-        use_row_mixture) {
-        stop("run_em: `symmetric_weight_method = \"EM_weight\"` is currently supported only when `H = 1`.")
-    }
+    use_row_mixture <- H_group > 1L
     use_joint_symmetric_em <- isTRUE(symmetric) &&
         identical(symmetric_weight_method, "EM_weight") &&
         !use_row_mixture
     use_mixture <- (K > 1L) || (K == 1L && mixture_explicit) || use_joint_symmetric_em
 
-    if (use_row_mixture) {
-        resulting_values <- EMAlgorithmRowMixture(
-            t(object$X),
-            W,
-            method,
-            if (is.character(initial_prob)) initial_prob else "custom",
-            maxiter,
-            maxtime,
-            param_threshold,
-            ll_threshold,
-            compute_ll,
-            verbose,
-            as.integer(if (!is.null(object$mcmc_stepsize)) object$mcmc_stepsize else 3000),
-            as.integer(if (!is.null(object$mcmc_samples)) object$mcmc_samples else 1000),
-            if (!is.null(object$mvncdf_method)) object$mvncdf_method else "genz",
-            as.numeric(if (!is.null(object$mvncdf_error)) object$mvncdf_error else 1e-3),
-            as.numeric(if (!is.null(object$mvncdf_samples)) object$mvncdf_samples else 5000),
-            miniter,
-            adjust_prob_cond_method,
-            adjust_prob_cond_every,
-            if (is.matrix(initial_prob)) initial_prob else matrix(-1, nrow = 1, ncol = 1),
-            H_group
-        )
-
-        object$cond_prob <- resulting_values$q
-        dimnames(object$cond_prob) <- list(
-            colnames(W),
-            colnames(object$X),
-            rownames(object$X)
-        )
-        object$expected_outcome <- resulting_values$expected_outcome
-        dimnames(object$expected_outcome) <- list(
-            colnames(W),
-            colnames(object$X),
-            rownames(object$X)
-        )
-        object$prob <- as.matrix(resulting_values$result)
-        dimnames(object$prob) <- list(colnames(W), colnames(object$X))
-        object$iterations <- as.numeric(resulting_values$total_iterations)
-        object <- fix_empty_ballot_outputs(object, W)
-        if (compute_ll) {
-            object$logLik <- as.numeric(resulting_values$log_likelihood)
-        }
-        object$time <- resulting_values$total_time
-        object$message <- resulting_values$stopping_reason
-        object$status <- as.integer(resulting_values$finish_id)
-        object$mixture <- as.integer(H_group)
-        object$K <- as.integer(H_group)
-        object$H <- as.integer(H_group)
-
-        object$phi <- as.matrix(resulting_values$phi)
-        dimnames(object$phi) <- list(colnames(W), paste0("H", seq_len(H_group)))
-
-        object$responsibilities <- as.matrix(resulting_values$responsibilities)
-        assignment_count <- ncol(object$responsibilities)
-        dimnames(object$responsibilities) <- list(rownames(object$X), paste0("A", seq_len(assignment_count)))
-
-        object$component_prob <- resulting_values$component_prob
-        dimnames(object$component_prob) <- list(colnames(W), colnames(object$X), paste0("H", seq_len(H_group)))
-
-        object$miniter <- miniter
-        object$maxiter <- maxiter
-        object$maxtime <- maxtime
-        object$param_threshold <- param_threshold
-        object$ll_threshold <- ll_threshold
-        object$initial_prob <- initial_prob
-        object$adjust_prob_cond_method <- adjust_prob_cond_method
-        object$adjust_prob_cond_every <- adjust_prob_cond_every
-
-        if (symmetric) {
-            W_sym <- if (is.null(object$W_agg)) object$W else object$W_agg
-            object <- .run_em_symmetric_helper(
-                object = object,
-                base_call = base_call,
-                parent_env = parent.frame(),
-                W_sym = W_sym,
-                all_params = all_params,
-                include_V = FALSE,
-                reset_parametric_init = FALSE,
-                transform_initial_prob = TRUE,
-                prob_from_cond_prob = FALSE
-            )
-        }
-
-        return(finalize_fit_object(object))
-    }
-
-    if (use_mixture) {
-        resulting_values <- EMAlgorithmMixture(
-            t(object$X),
-            W,
-            method,
-            if (is.character(initial_prob)) initial_prob else "custom",
-            maxiter,
-            maxtime,
-            param_threshold,
-            ll_threshold,
-            compute_ll,
-            verbose,
-            as.integer(if (!is.null(object$mcmc_stepsize)) object$mcmc_stepsize else 3000),
-            as.integer(if (!is.null(object$mcmc_samples)) object$mcmc_samples else 1000),
-            if (!is.null(object$mvncdf_method)) object$mvncdf_method else "genz",
-            as.numeric(if (!is.null(object$mvncdf_error)) object$mvncdf_error else 1e-3),
-            as.numeric(if (!is.null(object$mvncdf_samples)) object$mvncdf_samples else 5000),
-            miniter,
-            adjust_prob_cond_method,
-            adjust_prob_cond_every,
-            if (is.matrix(initial_prob)) initial_prob else matrix(-1, nrow = 1, ncol = 1),
-            K,
-            use_joint_symmetric_em,
-            if (use_joint_symmetric_em) "EM_weight" else "average"
-        )
-
-        object$cond_prob <- resulting_values$q
-        dimnames(object$cond_prob) <- list(
-            colnames(W),
-            colnames(object$X),
-            rownames(object$X)
-        )
-        object$expected_outcome <- resulting_values$expected_outcome
-        dimnames(object$expected_outcome) <- list(
-            colnames(W),
-            colnames(object$X),
-            rownames(object$X)
-        )
-        object$prob <- as.matrix(resulting_values$result)
-        dimnames(object$prob) <- list(colnames(W), colnames(object$X))
-        object$iterations <- as.numeric(resulting_values$total_iterations)
-        object <- fix_empty_ballot_outputs(object, W)
-        if (compute_ll) {
-            object$logLik <- as.numeric(resulting_values$log_likelihood)
-        }
-        object$time <- resulting_values$total_time
-        object$message <- resulting_values$stopping_reason
-        object$status <- as.integer(resulting_values$finish_id)
-        object$mixture <- as.integer(mixture)
-        object$K <- as.integer(K)
-        object$H <- as.integer(H_group)
-        expose_mixture_details <- K > 1L || mixture_explicit
-        if (expose_mixture_details) {
-            object$phi <- as.numeric(resulting_values$phi)
-            names(object$phi) <- paste0("H", seq_len(K))
-            object$responsibilities <- as.matrix(resulting_values$responsibilities)
-            dimnames(object$responsibilities) <- list(rownames(object$X), paste0("H", seq_len(K)))
-            object$component_prob <- resulting_values$component_prob
-            dimnames(object$component_prob) <- list(colnames(W), colnames(object$X), paste0("H", seq_len(K)))
-        } else {
-            object$phi <- NULL
-            object$responsibilities <- NULL
-            object$component_prob <- NULL
-        }
-
-        object$miniter <- miniter
-        object$maxiter <- maxiter
-        object$maxtime <- maxtime
-        object$param_threshold <- param_threshold
-        object$ll_threshold <- ll_threshold
-        object$initial_prob <- initial_prob
-        object$adjust_prob_cond_method <- adjust_prob_cond_method
-        object$adjust_prob_cond_every <- adjust_prob_cond_every
-
-        if (use_joint_symmetric_em) {
-            object$cond_prob_inv <- resulting_values$q_inv
-            dimnames(object$cond_prob_inv) <- list(
-                colnames(object$X),
-                colnames(W),
-                rownames(object$X)
-            )
-            object$prob_inv <- as.matrix(resulting_values$prob_inv)
-            dimnames(object$prob_inv) <- list(colnames(object$X), colnames(W))
-            object$expected_outcome_inv <- resulting_values$expected_outcome_inv
-            dimnames(object$expected_outcome_inv) <- list(
-                colnames(object$X),
-                colnames(W),
-                rownames(object$X)
-            )
-            object$symmetric_weight_method <- "EM_weight"
-            object$symmetric_weights <- c(original = 0.5, reverse = 0.5)
-        } else if (symmetric) {
-            W_sym <- if (is.null(object$W_agg)) object$W else object$W_agg
-            object <- .run_em_symmetric_helper(
-                object = object,
-                base_call = base_call,
-                parent_env = parent.frame(),
-                W_sym = W_sym,
-                all_params = all_params,
-                include_V = FALSE,
-                reset_parametric_init = FALSE,
-                transform_initial_prob = TRUE,
-                prob_from_cond_prob = FALSE
-            )
-        }
-
-        return(finalize_fit_object(object))
-    }
-
-    resulting_values <- EMAlgorithmFull(
-        t(object$X),
-        W,
-        method,
-        if (is.character(initial_prob)) initial_prob else "custom",
-        maxiter,
-        maxtime,
-        param_threshold,
-        ll_threshold,
-        compute_ll,
-        verbose,
-        as.integer(if (!is.null(object$mcmc_stepsize)) object$mcmc_stepsize else 3000),
-        as.integer(if (!is.null(object$mcmc_samples)) object$mcmc_samples else 1000),
-        if (!is.null(object$mvncdf_method)) object$mvncdf_method else "genz",
-        as.numeric(if (!is.null(object$mvncdf_error)) object$mvncdf_error else 1e-3),
-        as.numeric(if (!is.null(object$mvncdf_samples)) object$mvncdf_samples else 5000),
-        miniter,
-        adjust_prob_cond_method,
-        adjust_prob_cond_every,
-        if (is.matrix(initial_prob)) initial_prob else matrix(-1, nrow = 1, ncol = 1)
+    control <- list(
+        base_call = base_call,
+        caller_env = caller_env,
+        all_params = all_params,
+        full_candidate_object = full_candidate_object,
+        zero_vote_state = zero_vote_state,
+        method = method,
+        initial_prob = initial_prob,
+        mixture = mixture,
+        row_mixture = row_mixture,
+        HET = HET,
+        AE = AE,
+        K = K,
+        H_group = H_group,
+        mixture_explicit = mixture_explicit,
+        use_row_mixture = use_row_mixture,
+        use_joint_symmetric_em = use_joint_symmetric_em,
+        use_mixture = use_mixture,
+        maxiter = maxiter,
+        miniter = miniter,
+        maxtime = maxtime,
+        param_threshold = param_threshold,
+        ll_threshold = ll_threshold,
+        compute_ll = compute_ll,
+        verbose = verbose,
+        adjust_prob_cond_method = adjust_prob_cond_method,
+        adjust_prob_cond_every = adjust_prob_cond_every,
+        maxnewton = maxnewton,
+        beta_init = beta_init,
+        alpha_init = alpha_init,
+        symmetric = symmetric,
+        symmetric_weight_method = symmetric_weight_method
     )
-    # ---------- ... ---------- #
 
-    object$cond_prob <- resulting_values$q
-    # object$cond_prob <- aperm(resulting_values$q, perm = c(2, 3, 1)) # Correct dimensions
-    dimnames(object$cond_prob) <- list(
-        colnames(W),
-        colnames(object$X),
-        rownames(object$X)
-    )
-    object$expected_outcome <- resulting_values$expected_outcome
-    dimnames(object$expected_outcome) <- list(
-        colnames(W),
-        colnames(object$X),
-        rownames(object$X)
-    )
-    object$prob <- as.matrix(resulting_values$result)
-    dimnames(object$prob) <- list(colnames(W), colnames(object$X))
-    object$iterations <- as.numeric(resulting_values$total_iterations)
-    object <- fix_empty_ballot_outputs(object, W)
-    if (compute_ll) {
-        object$logLik <- as.numeric(resulting_values$log_likelihood[length(resulting_values$log_likelihood)])
-    }
-    object$time <- resulting_values$total_time
-    object$message <- resulting_values$stopping_reason
-    object$status <- as.integer(resulting_values$finish_id)
-    # Add function arguments
-    object$miniter <- miniter
-    object$maxiter <- maxiter
-    object$maxtime <- maxtime
-    object$param_threshold <- param_threshold
-    object$ll_threshold <- ll_threshold
-    object$initial_prob <- initial_prob
-    object$mixture <- as.integer(mixture)
-    object$K <- as.integer(mixture)
-    object$H <- as.integer(H_group)
-    object$adjust_prob_cond_method <- adjust_prob_cond_method
-    object$adjust_prob_cond_every <- adjust_prob_cond_every
-
-    if (symmetric) {
-        object <- .run_em_symmetric_helper(
-            object = object,
-            base_call = base_call,
-            parent_env = parent.frame(),
-            W_sym = object$W,
-            all_params = all_params,
-            include_V = FALSE,
-            reset_parametric_init = FALSE,
-            transform_initial_prob = TRUE,
-            prob_from_cond_prob = FALSE
-        )
-    }
-
-    finalize_fit_object(object)
-}
-
-.run_em_symmetric_helper <- function(object,
-                                     base_call,
-                                     parent_env,
-                                     W_sym,
-                                     all_params = NULL,
-                                     include_V = FALSE,
-                                     reset_parametric_init = FALSE,
-                                     transform_initial_prob = FALSE,
-                                     prob_from_cond_prob = FALSE) {
-    base_call_sym <- base_call
-    base_call_sym$symmetric <- FALSE
-    base_call_sym$X <- object$W
-    base_call_sym$W <- object$X
-    base_call_sym$json_path <- NULL
-    base_call_sym$object <- NULL
-    base_call_sym$scale_factor <- 1
-
-    if (include_V) {
-        base_call_sym$V <- object$V
-    }
-
-    if (reset_parametric_init) {
-        base_call_sym$beta_init <- NULL
-        base_call_sym$alpha_init <- NULL
-    }
-
-    if (transform_initial_prob && !is.null(all_params)) {
-        ip <- all_params$initial_prob
-        if (is.matrix(ip)) {
-            col_tot_X <- colSums(object$X)
-            num <- sweep(ip, 2, col_tot_X, "*")
-            denom <- rowSums(num)
-            base_call_sym$initial_prob <- sweep(num, 1, denom, "/")
-            base_call_sym$initial_prob <- t(base_call_sym$initial_prob)
-        }
-    }
-
-    inverse <- eval(base_call_sym, parent_env)
-    object$cond_prob_inv <- inverse$cond_prob
-    object$prob_inv <- inverse$prob
-    object$expected_outcome_inv <- inverse$expected_outcome
-    object$time <- object$time + inverse$time
-    object$iterations <- object$iterations + inverse$iterations
-
-    normalize_prob_rows <- function(prob_matrix) {
-        prob_matrix[!is.finite(prob_matrix) | prob_matrix < 0] <- 0
-        rs <- rowSums(prob_matrix)
-        valid <- is.finite(rs) & rs > 0
-        if (any(valid)) {
-            prob_matrix[valid, ] <- sweep(prob_matrix[valid, , drop = FALSE], 1, rs[valid], "/")
-        }
-        if (any(!valid)) {
-            prob_matrix[!valid, ] <- rep(1 / ncol(prob_matrix), ncol(prob_matrix))
-        }
-        prob_matrix
-    }
-
-    normalize_cube_last_dim <- function(arr3) {
-        B <- dim(arr3)[1]
-        R <- dim(arr3)[2]
-        K <- dim(arr3)[3]
-        for (b in seq_len(B)) {
-            for (r in seq_len(R)) {
-                row_vals <- arr3[b, r, ]
-                row_vals[!is.finite(row_vals) | row_vals < 0] <- 0
-                row_sum <- sum(row_vals)
-                if (is.finite(row_sum) && row_sum > 0) {
-                    arr3[b, r, ] <- row_vals / row_sum
-                } else {
-                    arr3[b, r, ] <- rep(1 / K, K)
-                }
-            }
-        }
-        arr3
-    }
-
-    mstep_from_q <- function(q_array, W_matrix) {
-        q_bgc <- aperm(q_array, c(3, 1, 2))
-        weighted <- sweep(q_bgc, c(1, 2), W_matrix, "*")
-        num <- apply(weighted, c(2, 3), sum)
-        den <- colSums(W_matrix)
-        prob <- sweep(num, 1, den, "/")
-        normalize_prob_rows(prob)
-    }
-
-    em_loglik_from_prob <- function(X_matrix, W_matrix, prob_matrix, method_name) {
-        if (!is.matrix(prob_matrix)) {
-            return(NA_real_)
-        }
-        if (ncol(X_matrix) != ncol(prob_matrix) || ncol(W_matrix) != nrow(prob_matrix)) {
-            return(NA_real_)
-        }
-        ll_result <- EMAlgorithmFull(
-            t(X_matrix),
-            W_matrix,
-            as.character(method_name),
-            "custom",
-            as.integer(0),
-            as.double(0),
-            as.double(0),
-            as.double(-Inf),
-            as.logical(TRUE),
-            as.logical(FALSE),
-            as.integer(3000),
-            as.integer(1000),
-            "genz",
-            as.double(1e-3),
-            as.integer(5000),
-            as.integer(0),
-            "",
-            as.logical(FALSE),
-            prob_matrix
-        )
-        as.numeric(ll_result$log_likelihood)
-    }
-
-    weight_method <- "average"
-    if (!is.null(all_params) && !is.null(all_params$symmetric_weight_method)) {
-        weight_method <- as.character(all_params$symmetric_weight_method)
-    }
-    em_method <- "mult"
-    if (!is.null(all_params) && !is.null(all_params$method)) {
-        em_method <- as.character(all_params$method)
-    }
-
-    weight_original <- 0.5
-    weight_reverse <- 0.5
-    expected_orig <- object$expected_outcome
-    A2 <- aperm(inverse$expected_outcome, c(2, 1, 3))
-
-    single_profile <- (is.null(object$K) || as.integer(object$K) == 1L) &&
-        (is.null(object$H) || as.integer(object$H) == 1L)
-    can_use_delta <- identical(weight_method, "delta_ll") &&
-        !include_V &&
-        single_profile &&
-        is.matrix(object$X) &&
-        is.matrix(W_sym) &&
-        is.matrix(object$W) &&
-        is.matrix(object$prob) &&
-        is.matrix(inverse$prob) &&
-        nrow(object$X) == nrow(W_sym) &&
-        nrow(object$W) == nrow(object$X) &&
-        ncol(W_sym) == ncol(object$W) &&
-        identical(dim(expected_orig), dim(A2))
-
-    if (can_use_delta) {
-        q_orig_bgc <- aperm(object$cond_prob, c(3, 1, 2))
-        z_from_orig_bgc <- sweep(q_orig_bgc, c(1, 2), W_sym, "*")
-        q_rev_ind_bcg <- sweep(aperm(z_from_orig_bgc, c(1, 3, 2)), c(1, 2), object$X, "/")
-        q_rev_ind_bcg <- normalize_cube_last_dim(q_rev_ind_bcg)
-        q_rev_ind <- aperm(q_rev_ind_bcg, c(2, 3, 1))
-        p_rev_ind <- mstep_from_q(q_rev_ind, object$X)
-
-        q_rev_bcg <- aperm(inverse$cond_prob, c(3, 1, 2))
-        z_from_rev_bgc <- aperm(sweep(q_rev_bcg, c(1, 2), object$X, "*"), c(1, 3, 2))
-        q_ind_bgc <- sweep(z_from_rev_bgc, c(1, 2), W_sym, "/")
-        q_ind_bgc <- normalize_cube_last_dim(q_ind_bgc)
-        q_ind <- aperm(q_ind_bgc, c(2, 3, 1))
-        p_ind <- mstep_from_q(q_ind, W_sym)
-
-        LL <- suppressWarnings(as.numeric(object$logLik))
-        if (!is.finite(LL)) {
-            LL <- em_loglik_from_prob(object$X, W_sym, object$prob, em_method)
-        }
-        LL_rev <- suppressWarnings(as.numeric(inverse$logLik))
-        if (!is.finite(LL_rev)) {
-            LL_rev <- em_loglik_from_prob(object$W, object$X, inverse$prob, em_method)
-        }
-
-        LL_ind <- em_loglik_from_prob(object$X, W_sym, p_ind, em_method)
-        LL_rev_ind <- em_loglik_from_prob(object$W, object$X, p_rev_ind, em_method)
-
-        dLL <- LL - LL_ind
-        dLL_rev <- LL_rev - LL_rev_ind
-
-        dLL_pos <- max(0, dLL)
-        dLL_rev_pos <- max(0, dLL_rev)
-        den_dLL <- dLL_pos + dLL_rev_pos
-        if (is.finite(den_dLL) && den_dLL > 0) {
-            weight_original <- dLL_pos / den_dLL
-            weight_reverse <- dLL_rev_pos / den_dLL
-        }
-
-        object$LL_ind <- LL_ind
-        object$LL_rev_ind <- LL_rev_ind
-        object$dLL <- dLL
-        object$dLL_rev <- dLL_rev
-        object$symmetric_weight_method <- "delta_ll"
+    result <- if (is_parametric) {
+        .run_em_parametric(object, control)
     } else {
-        object$symmetric_weight_method <- "average"
-    }
-    object$symmetric_weights <- c(original = weight_original, reverse = weight_reverse)
-
-    object$expected_outcome <- weight_original * expected_orig + weight_reverse * A2
-    dimnames(object$expected_outcome) <- list(
-        colnames(W_sym),
-        colnames(object$X),
-        rownames(object$X)
-    )
-
-    E_bgc <- aperm(object$expected_outcome, c(3, 1, 2))
-    Q_bgc <- sweep(E_bgc, c(1, 2), W_sym, "/")
-    B <- dim(Q_bgc)[1]
-    G <- dim(Q_bgc)[2]
-    C <- dim(Q_bgc)[3]
-    for (b in seq_len(B)) {
-        for (g in seq_len(G)) {
-            row_vals <- Q_bgc[b, g, ]
-            row_vals[!is.finite(row_vals) | row_vals < 0] <- 0
-            row_sum <- sum(row_vals)
-            if (is.finite(row_sum) && row_sum > 0) {
-                Q_bgc[b, g, ] <- row_vals / row_sum
-            } else {
-                Q_bgc[b, g, ] <- rep(1 / C, C)
-            }
-        }
-    }
-    object$cond_prob <- aperm(Q_bgc, c(2, 3, 1))
-    dimnames(object$cond_prob) <- list(
-        colnames(W_sym),
-        colnames(object$X),
-        rownames(object$X)
-    )
-
-    if (prob_from_cond_prob) {
-        object$prob <- object$cond_prob
-        dimnames(object$prob) <- list(
-            colnames(W_sym),
-            colnames(object$X),
-            rownames(object$X)
-        )
-    } else {
-        num <- apply(object$expected_outcome, c(1, 2), sum)
-        den <- colSums(W_sym)
-        object$prob <- sweep(num, 1, den, "/")
-        object$prob[!is.finite(object$prob) | object$prob < 0] <- 0
-        rs <- rowSums(object$prob)
-        valid <- is.finite(rs) & rs > 0
-        if (any(valid)) {
-            object$prob[valid, ] <- sweep(object$prob[valid, , drop = FALSE], 1, rs[valid], "/")
-        }
-        if (any(!valid)) {
-            object$prob[!valid, ] <- rep(1 / ncol(object$prob), ncol(object$prob))
-        }
-        dimnames(object$prob) <- list(colnames(W_sym), colnames(object$X))
+        .run_em_nonparametric(object, control)
     }
 
-    object
+    invisible(result)
 }
 
 #' Runs a Bootstrap to Estimate the **Standard Deviation** of Predicted Probabilities

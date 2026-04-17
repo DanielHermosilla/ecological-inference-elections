@@ -813,6 +813,7 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
                sizeof(double) * oldProbabilities.rows * oldProbabilities.cols);
         *logLLarr = newLL;
         getP(ctx); // M-Step
+        double delta_parameters = matrixParameterDelta(&oldProbabilities, &ctx->probabilities);
 
         if (verbose)
         {
@@ -820,7 +821,10 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
             printMatrix(&ctx->probabilities);
             Rprintf("Log-likelihood: %f\n", newLL);
             if (i != 0)
+            {
                 Rprintf("Delta log-likelihood: %f\n", fabs(newLL - oldLL));
+                Rprintf("Delta parameters: %f\n", delta_parameters);
+            }
         }
         // ---...--- //
         /*
@@ -833,7 +837,7 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
         // ---- Check convergence ---- //
         if (i >= 1 && i >= config.params.miniter &&
             (fabs(newLL - oldLL) < LLconvergence ||
-             convergeMatrix(&oldProbabilities, &ctx->probabilities, convergence) || early_stop))
+             (convergence > 0 && delta_parameters < convergence) || early_stop))
         {
             // ---- End timer ----
             clock_gettime(CLOCK_MONOTONIC_RAW, &end);

@@ -266,6 +266,7 @@ extern "C"
      * @endcode
      */
     bool convergeMatrix(const Matrix *matrixA, const Matrix *matrixB, const double convergence);
+    double matrixParameterDelta(const Matrix *matrixA, const Matrix *matrixB);
 
     /**
      * @brief Retrieves the maximum element of the matrix.

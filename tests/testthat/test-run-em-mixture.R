@@ -211,7 +211,7 @@ test_that("run_em with HET = 0 returns the best K between 1 and 7", {
     expect_equal(fit$HET, best_het, tolerance = 1e-10)
 })
 
-test_that("run_em with HET = 0 and H > 1 returns the best H between 1 and 7", {
+test_that("run_em with HET = 0 and row_mixture > 1 returns the best row_mixture between 1 and 7", {
     sim <- simulate_election(
         num_ballots = 6,
         num_candidates = 3,
@@ -225,7 +225,7 @@ test_that("run_em with HET = 0 and H > 1 returns the best H between 1 and 7", {
         X = sim$X,
         W = sim$W,
         method = "mult",
-        H = 2,
+        row_mixture = 2,
         HET = 0,
         seed = seed_em,
         maxiter = 3,
@@ -240,7 +240,7 @@ test_that("run_em with HET = 0 and H > 1 returns the best H between 1 and 7", {
             X = sim$X,
             W = sim$W,
             method = "mult",
-            H = h,
+            row_mixture = h,
             seed = seed_em,
             maxiter = 3,
             miniter = 1,
@@ -258,7 +258,7 @@ test_that("run_em with HET = 0 and H > 1 returns the best H between 1 and 7", {
     expect_true(is.numeric(fit$HET))
     expect_equal(fit$K, as.integer(best_h))
     expect_equal(fit$mixture, as.integer(best_h))
-    expect_equal(fit$H, as.integer(best_h))
+    expect_equal(fit$row_mixture, as.integer(best_h))
     expect_equal(fit$HET, best_het, tolerance = 1e-10)
 })
 
@@ -393,7 +393,7 @@ test_that("run_em with AE = 0 returns the best K between 1 and 7", {
     expect_equal(fit$AE, best_ae, tolerance = 1e-10)
 })
 
-test_that("run_em allows H > G without truncation", {
+test_that("run_em allows row_mixture > G without truncation", {
     sim <- simulate_election(
         num_ballots = 6,
         num_candidates = 3,
@@ -406,20 +406,20 @@ test_that("run_em allows H > G without truncation", {
         X = sim$X,
         W = sim$W,
         method = "mult",
-        H = 5,
+        row_mixture = 5,
         maxiter = 3,
         miniter = 1,
         maxtime = 5,
         compute_ll = FALSE
     )
 
-    expect_equal(fit$H, 5L)
+    expect_equal(fit$row_mixture, 5L)
     expect_equal(fit$K, 5L)
     expect_equal(fit$mixture, 5L)
     expect_equal(dim(fit$phi), c(ncol(sim$W), 5))
 })
 
-test_that("run_em prioritizes row-level backend when H > 1 and mixture > 1", {
+test_that("run_em prioritizes row-level backend when row_mixture > 1 and mixture > 1", {
     sim <- simulate_election(
         num_ballots = 6,
         num_candidates = 3,
@@ -434,17 +434,17 @@ test_that("run_em prioritizes row-level backend when H > 1 and mixture > 1", {
             W = sim$W,
             method = "mult",
             mixture = 3,
-            H = 2,
+            row_mixture = 2,
             maxiter = 3,
             miniter = 1,
             maxtime = 5,
             compute_ll = FALSE
         ),
-        "implies `K = H`"
+        "implies `K = row_mixture`"
     )
 
     expect_s3_class(fit, "eim")
-    expect_equal(fit$H, 2L)
+    expect_equal(fit$row_mixture, 2L)
     expect_equal(fit$K, 2L)
     expect_equal(fit$mixture, 2L)
     expect_equal(dim(fit$phi), c(ncol(sim$W), 2))
@@ -519,7 +519,37 @@ test_that("run_em supports symmetric finite mixtures with EM_weight joint EM", {
     expect_true(all(abs(rowSums(fit$responsibilities) - 1) < 1e-6))
 })
 
-test_that("run_em rejects EM_weight when H > 1", {
+test_that("run_em symmetric finite mixtures ignore log-likelihood threshold", {
+    sim <- simulate_election(
+        num_ballots = 6,
+        num_candidates = 3,
+        num_groups = 2,
+        ballot_voters = rep(35, 6),
+        seed = 904
+    )
+
+    fit <- run_em(
+        X = sim$X,
+        W = sim$W,
+        method = "mult",
+        mixture = 2,
+        symmetric = TRUE,
+        symmetric_weight_method = "EM_weight",
+        maxiter = 6,
+        miniter = 1,
+        maxtime = 5,
+        param_threshold = 0,
+        ll_threshold = Inf,
+        compute_ll = TRUE
+    )
+
+    expect_equal(fit$status, 2L)
+    expect_equal(fit$iterations, 6)
+    expect_true(is.numeric(fit$logLik))
+    expect_equal(length(fit$logLik), 1)
+})
+
+test_that("run_em rejects EM_weight when row_mixture > 1", {
     sim <- simulate_election(
         num_ballots = 6,
         num_candidates = 3,
@@ -533,13 +563,13 @@ test_that("run_em rejects EM_weight when H > 1", {
             X = sim$X,
             W = sim$W,
             method = "mult",
-            H = 2,
+            row_mixture = 2,
             symmetric = TRUE,
             symmetric_weight_method = "EM_weight",
             maxiter = 4,
             miniter = 1,
             maxtime = 5
         ),
-        "H = 1"
+        "row_mixture = 1"
     )
 })

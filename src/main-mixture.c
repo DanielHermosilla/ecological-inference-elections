@@ -493,11 +493,15 @@ static double computeMixtureParameterDelta(EMContext **components, const double 
                 double oldv = prev_component_prob[(size_t)g + (size_t)G * ((size_t)c + (size_t)C * (size_t)k)];
                 double newv = MATRIX_AT(components[k]->probabilities, g, c);
                 double d = fabs(newv - oldv);
+                if (!isfinite(d))
+                    return INFINITY;
                 if (d > delta)
                     delta = d;
             }
         }
         double dphi = fabs(phi[k] - prev_phi_params[k]);
+        if (!isfinite(dphi))
+            return INFINITY;
         if (dphi > delta)
             delta = dphi;
     }
@@ -868,12 +872,16 @@ static EMMixtureResult *EMAlgoritmMixtureSymmetric(Matrix *X, Matrix *W, const c
         double delta_reverse = computeMixtureParameterDelta(components_reverse, phi_reverse, mixture_h,
                                                             prev_component_prob_reverse, prev_phi_reverse);
         double delta = (delta_forward > delta_reverse) ? delta_forward : delta_reverse;
-        final_ll = 0.5 * (ll_forward + ll_reverse);
+        double joint_ll = ll_forward + ll_reverse;
+        final_ll = 0.5 * joint_ll;
 
         if (verbose)
         {
             Rprintf("\n----------\nIteration: %d\nForward log-likelihood: %.10f\nReverse log-likelihood: %.10f\n",
                     iter, ll_forward, ll_reverse);
+            Rprintf("Delta forward parameters: %.10f\n", delta_forward);
+            Rprintf("Delta reverse parameters: %.10f\n", delta_reverse);
+            Rprintf("Delta parameters (max): %.10f\n", delta);
         }
 
         struct timespec now;
@@ -1311,32 +1319,16 @@ EMMixtureResult *EMAlgoritmMixture(Matrix *X, Matrix *W, const char *p_method, c
         canonicalize_mixture_labels(components, phi, mixture_h);
 
         // Convergence metric in canonical order (not affected by label permutations).
-        delta = 0.0;
-        for (int k = 0; k < mixture_h; ++k)
-        {
-            for (int c = 0; c < C; ++c)
-            {
-                for (int g = 0; g < G; ++g)
-                {
-                    double oldv = prev_component_prob[(size_t)g + (size_t)G * ((size_t)c + (size_t)C * (size_t)k)];
-                    double newv = MATRIX_AT(components[k]->probabilities, g, c);
-                    double d = fabs(newv - oldv);
-                    if (d > delta)
-                    {
-                        delta = d;
-                    }
-                }
-            }
-            double dphi = fabs(phi[k] - prev_phi_params[k]);
-            if (dphi > delta)
-            {
-                delta = dphi;
-            }
-        }
+        delta = computeMixtureParameterDelta(components, phi, mixture_h, prev_component_prob, prev_phi_params);
 
         if (verbose && iter % 1 == 0)
         {
             print_mixture_state(iter, final_ll, components, phi, mixture_h);
+            if (isfinite(prev_ll))
+            {
+                Rprintf("Delta log-likelihood: %.10f\n", fabs(final_ll - prev_ll));
+            }
+            Rprintf("Delta parameters: %.10f\n", delta);
         }
 
         // Early stop safeguard: after 50 iterations, stop if log-likelihood decreases.
@@ -1946,7 +1938,11 @@ EMMixtureResult *EMAlgoritmRowMixture(Matrix *X, Matrix *W, const char *p_method
                     // p_{k,g,c} = num_{k,g,c} / sum_{c'} num_{k,g,c'}.
                     double newv = acc_num[comp_idx(g, c, k, G, C)] / row_sum;
                     double d = fabs(newv - oldv);
-                    if (d > delta)
+                    if (!isfinite(d))
+                    {
+                        delta = INFINITY;
+                    }
+                    else if (d > delta)
                     {
                         delta = d;
                     }
@@ -2010,7 +2006,11 @@ EMMixtureResult *EMAlgoritmRowMixture(Matrix *X, Matrix *W, const char *p_method
             {
                 size_t idx = (size_t)g * (size_t)H + (size_t)k;
                 double d = fabs(phi_new[idx] - phi[idx]);
-                if (d > delta)
+                if (!isfinite(d))
+                {
+                    delta = INFINITY;
+                }
+                else if (d > delta)
                 {
                     delta = d;
                 }
@@ -2021,6 +2021,7 @@ EMMixtureResult *EMAlgoritmRowMixture(Matrix *X, Matrix *W, const char *p_method
         if (verbose && iter % 1 == 0)
         {
             print_row_mixture_state(iter, final_ll, component_prob, phi, G, C, H);
+            Rprintf("Delta parameters: %.10f\n", delta);
         }
 
         // Early stop safeguard: after 50 iterations, stop if log-likelihood decreases.

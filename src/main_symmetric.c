@@ -316,8 +316,10 @@ void runSymmetricEMWeight(EMContext *ctx_forward, const char *p_method, const ch
     double elapsed_total = 0.0;
     double oldLL_forward = -DBL_MAX;
     double oldLL_reverse = -DBL_MAX;
+    double oldLL_joint = -DBL_MAX;
     double newLL_forward = 0.0;
     double newLL_reverse = 0.0;
+    double newLL_joint = 0.0;
     bool converged = false;
     bool timeout_reached = false;
 
@@ -369,6 +371,11 @@ void runSymmetricEMWeight(EMContext *ctx_forward, const char *p_method, const ch
         setGlobalsFromCtx(ctx_reverse);
         getP(ctx_reverse);
 
+        newLL_joint = newLL_forward + newLL_reverse;
+        double delta_forward_parameters = matrixParameterDelta(&old_forward_prob, &ctx_forward->probabilities);
+        double delta_reverse_parameters = matrixParameterDelta(&old_reverse_prob, &ctx_reverse->probabilities);
+        double delta_parameters =
+            (delta_forward_parameters > delta_reverse_parameters) ? delta_forward_parameters : delta_reverse_parameters;
         *logLLarr = 0.5 * (newLL_forward + newLL_reverse);
 
         if (verbose)
@@ -382,6 +389,10 @@ void runSymmetricEMWeight(EMContext *ctx_forward, const char *p_method, const ch
             {
                 Rprintf("Delta forward log-likelihood: %f\n", fabs(newLL_forward - oldLL_forward));
                 Rprintf("Delta reverse log-likelihood: %f\n", fabs(newLL_reverse - oldLL_reverse));
+                Rprintf("Delta joint log-likelihood: %f\n", fabs(newLL_joint - oldLL_joint));
+                Rprintf("Delta forward parameters: %f\n", delta_forward_parameters);
+                Rprintf("Delta reverse parameters: %f\n", delta_reverse_parameters);
+                Rprintf("Delta parameters (max): %f\n", delta_parameters);
             }
         }
 
@@ -391,10 +402,10 @@ void runSymmetricEMWeight(EMContext *ctx_forward, const char *p_method, const ch
         bool early_stop_reverse = decreasing_reverse && strcmp(q_method, "exact") == 0;
 
         bool converged_forward = fabs(newLL_forward - oldLL_forward) < LLconvergence ||
-                                 convergeMatrix(&old_forward_prob, &ctx_forward->probabilities, convergence) ||
+                                 (convergence > 0 && delta_forward_parameters < convergence) ||
                                  early_stop_forward;
         bool converged_reverse = fabs(newLL_reverse - oldLL_reverse) < LLconvergence ||
-                                 convergeMatrix(&old_reverse_prob, &ctx_reverse->probabilities, convergence) ||
+                                 (convergence > 0 && delta_reverse_parameters < convergence) ||
                                  early_stop_reverse;
 
         if (i >= 1 && i >= inputParams->miniter && converged_forward && converged_reverse)
@@ -420,6 +431,7 @@ void runSymmetricEMWeight(EMContext *ctx_forward, const char *p_method, const ch
 
         oldLL_forward = newLL_forward;
         oldLL_reverse = newLL_reverse;
+        oldLL_joint = newLL_joint;
     } // End loop
 
     if (!converged && !timeout_reached)

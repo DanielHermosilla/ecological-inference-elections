@@ -459,45 +459,42 @@ void fillMatrix(Matrix *matrix, const double value)
  * // bool->true
  * @endcode
  */
-bool convergeMatrix(const Matrix *matrixA, const Matrix *matrixB, const double convergence)
+double matrixParameterDelta(const Matrix *matrixA, const Matrix *matrixB)
 {
-
     checkMatrix(matrixA);
     checkMatrix(matrixB);
-
-    if (convergence <= 0)
-    {
-        return false; // We will acept -Inf values
-    }
 
     if (matrixA->cols != matrixB->cols || matrixA->rows != matrixB->rows)
     {
         error("Matrix handling: The dimensions of both matrices doesn't match.\n");
     }
 
-    int size = matrixA->rows * matrixB->cols;
-    int incX = 1;
-    int incY = 1;
-    double alpha = -1.0;
-
-    double *diff = (double *)Calloc(size, double);
-
-    F77_CALL(dcopy)(&(size), matrixA->data, &incX, diff, &incY);
-    F77_CALL(daxpy)(&(size), &alpha, matrixB->data, &incX, diff, &incY);
-
-    for (int i = 0; i < size; i++)
+    int size = matrixA->rows * matrixA->cols;
+    double delta = 0.0;
+    for (int i = 0; i < size; ++i)
     {
-        // If there's a value whom convergence is greater than epsilon, the convergence
-        // isn't achieved.
-        if (fabs(diff[i]) >= convergence)
+        double d = fabs(matrixA->data[i] - matrixB->data[i]);
+        if (!isfinite(d))
         {
-            Free(diff);
-            return false;
+            return INFINITY;
+        }
+        if (d > delta)
+        {
+            delta = d;
         }
     }
 
-    Free(diff);
-    return true;
+    return delta;
+}
+
+bool convergeMatrix(const Matrix *matrixA, const Matrix *matrixB, const double convergence)
+{
+    if (convergence <= 0)
+    {
+        return false; // We will acept -Inf values
+    }
+
+    return matrixParameterDelta(matrixA, matrixB) < convergence;
 }
 
 /**

@@ -100,6 +100,36 @@ test_that("run_em symmetric supports EM_weight in the default single-profile cas
     expect_null(fit$component_prob)
 })
 
+test_that("run_em symmetric EM_weight can run without parameter convergence", {
+    sim <- simulate_election(
+        num_ballots = 6,
+        num_candidates = 3,
+        num_groups = 2,
+        ballot_voters = rep(40, 6),
+        lambda = 0.25,
+        seed = 143
+    )
+
+    fit <- run_em(
+        X = sim$X,
+        W = sim$W,
+        method = "mult",
+        symmetric = TRUE,
+        symmetric_weight_method = "EM_weight",
+        maxiter = 6,
+        miniter = 1,
+        maxtime = 2,
+        param_threshold = 0,
+        ll_threshold = Inf,
+        compute_ll = TRUE
+    )
+
+    expect_equal(fit$status, 2L)
+    expect_equal(fit$iterations, 6)
+    expect_true(is.numeric(fit$logLik))
+    expect_equal(length(fit$logLik), 1)
+})
+
 test_that("run_em symmetric works in parametric mode", {
     sim <- simulate_election(
         num_ballots = 6,
