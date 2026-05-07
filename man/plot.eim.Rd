@@ -35,7 +35,7 @@ Returns a \code{ggplot2} object representing the pie charts.
 }
 \description{
 Plots the estimated probabilities as pie charts using \code{ggplot2}, one per row of the probability matrix.
-Each slice displays its percentage label. For the parametric case, it does a weighted average over groups to retrieve the global probabilities.
+Each slice displays its percentage label.
 }
 \examples{
 \donttest{
@@ -43,9 +43,7 @@ sim <- simulate_election(
     num_ballots = 100,
     num_candidates = 4,
     num_groups = 5,
-    ballot_voters = 40,
-    num_covariates = 2,
-    num_districts = 2,
+    ballot_voters = rep(40, 100),
     seed = 42
 )
 fit <- run_em(sim, maxiter = 5)

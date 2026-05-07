@@ -40,6 +40,8 @@
 #' @useDynLib fastei, .registration = TRUE
 #' @import Rcpp
 #' @importFrom Rcpp evalCpp
-#' @importFrom stats pt rgamma rmultinom pnorm rnorm runif
+#' @importFrom stats logLik pt rgamma rmultinom pnorm rnorm runif
 #' @importFrom utils modifyList tail write.csv
 NULL
+
+utils::globalVariables(c("label", "value"))

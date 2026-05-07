@@ -1,4 +1,4 @@
-test_that("simulate_election creates consistent non-parametric data", {
+test_that("simulate_election creates consistent data", {
     num_ballots <- 12
     num_candidates <- 3
     num_groups <- 2

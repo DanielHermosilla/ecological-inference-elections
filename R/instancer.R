@@ -2,7 +2,6 @@
 #'
 #' @description
 #' This function simulates an election by creating matrices representing candidate votes `(X)` and voters' demographic group `(W)` across a specified number of ballot-boxes. It either (i) receives as input or (ii) generates a probability matrix `(prob)`, indicating how likely each demographic group is to vote for each candidate.
-#' It supports both non-parametric and parametric simulations; set `num_covariates` and `num_districts` greater than zero to generate `V`, `real_alpha`, and `real_beta`.
 #'
 #' By default, the number of voters per ballot box `(ballot_voters)` is set to a vector of 100 with
 #' length `num_ballots`. You can optionally override this by providing a custom vector.
@@ -45,12 +44,6 @@
 #'   Optional. A user-supplied probability matrix of dimension `(g x c)`.
 #'   If provided, this matrix is used as the underlying voting probability distribution. If not supplied, each row is sampled from a Dirichlet distribution with each parameter set to one.
 #'
-#' @param num_covariates
-#'   Optional. Number of covariates (`a`) used to build the parametric covariates matrix `V`.
-#'
-#' @param num_districts
-#'   Number of districts used to assign ballot boxes, when `num_covariates` isn't zero.
-#'
 #' @section Shuffling Mechanism:
 #' Without loss of generality, consider an order relation of groups and ballot-boxes. The shuffling step is controlled by the `lambda` parameter and operates as follows:
 #'
@@ -65,22 +58,12 @@
 #'
 #' Using a high level of `lambda` (greater than 0.7) is not recommended, as this could make identification of the voting probabilities difficult. This is because higher values of lambda induce similar ballot-boxes in terms of voters' group.
 #'
-#' @return An eim object. For the non-parametric case it contains:
+#' @return An eim object containing:
 #' \describe{
 #'   \item{\code{X}}{A \code{(b x c)} matrix with candidates' votes for each ballot box.}
 #'   \item{\code{W}}{A \code{(b x g)} matrix with voters' groups for each ballot-box.}
 #'   \item{\code{real_prob}}{A \code{(g x c)} matrix with the probability that a voter from each group votes for each candidate. If prob is provided, it would equal such probability.}
 #' 	 \item{\code{outcome}}{A \code{(b x g x c)} array with the number of votes for each candidate in each ballot box, broken down by group.}
-#' }
-#'
-#' When `num_attributes` and `num_districts` are not zero, it returns:
-#' \describe{
-#'   \item{\code{X}}{A \code{(b x c)} matrix with candidates' votes for each ballot box.}
-#'   \item{\code{W}}{A \code{(b x g)} matrix with voters' groups for each ballot-box.}
-#'   \item{\code{V}}{A \code{(b x a)} matrix with ballot-box attributes.}
-#'   \item{\code{real_prob}}{A \code{(g x c x b)} array with ballot-box probabilities.}
-#'   \item{\code{real_alpha}}{A \code{((c-1) x a)} matrix of true attribute parameters.}
-#'   \item{\code{real_beta}}{A \code{(g x (c-1))} matrix of true group parameters.}
 #' }
 #'
 #' @references
@@ -137,32 +120,15 @@ simulate_election <- function(num_ballots,
                               lambda = 0.5,
                               seed = NULL,
                               group_proportions = rep(1 / num_groups, num_groups),
-                              prob = NULL,
-                              num_covariates = 0,
-                              num_districts = 0) {
+                              prob = NULL) {
     # If user provides a seed, override the current global seed
     if (!is.null(seed)) {
         set.seed(seed)
     }
 
-    # If the user gives num_covariates and num_districts > 0, set parametric to TRUE
-    parametric <- ifelse(num_covariates > 0 && num_districts > 0, TRUE, FALSE)
-    if (num_covariates > 0 && num_districts == 0 || num_districts > 0 && num_covariates == 0) {
-        stop("`num_covariates` and `num_districts` must both be greater than 0 to enable parametric mode.")
-    }
-
-    if (parametric) {
-        if (length(ballot_voters) != 1 && length(ballot_voters) != num_ballots) {
-            stop("`ballot_voters` must be length 1 or length `num_ballots` in parametric mode.")
-        }
-        if (length(ballot_voters) == num_ballots && length(unique(ballot_voters)) != 1) {
-            stop("`ballot_voters` must be constant across ballot boxes in parametric mode.")
-        }
-    } else {
-        # Validate length of ballot_voters
-        if (length(ballot_voters) != num_ballots) {
-            stop("`ballot_voters` must be a vector of length `num_ballots`.")
-        }
+    # Validate length of ballot_voters
+    if (length(ballot_voters) != num_ballots) {
+        stop("`ballot_voters` must be a vector of length `num_ballots`.")
     }
 
     # Validate group proportions
@@ -175,117 +141,6 @@ simulate_election <- function(num_ballots,
     }
     if (lambda < 0 || lambda > 1) {
         stop("Lambda must be a decimal between 0 and 1.")
-    }
-
-    if (parametric) {
-        if (!is.null(prob)) {
-            warning("simulate_election: 'prob' is ignored in parametric mode.")
-        }
-        num_voters <- ballot_voters[1]
-
-        alpha <- matrix(
-            rnorm((num_candidates - 1) * num_covariates),
-            nrow = num_candidates - 1,
-            ncol = num_covariates
-        )
-        beta <- matrix(
-            rnorm(num_groups * (num_candidates - 1)),
-            nrow = num_groups,
-            ncol = num_candidates - 1
-        )
-
-        random_one_in_each_row <- function(n, m) {
-            mat <- matrix(0L, nrow = n, ncol = m)
-            idx <- sample.int(m, n, replace = TRUE)
-            mat[cbind(seq_len(n), idx)] <- 1L
-            d <- min(n, m)
-            mat[seq_len(d), seq_len(d)] <- diag(1L, d)
-            mat
-        }
-
-        e_bd <- random_one_in_each_row(num_ballots, num_districts)
-
-        v_da <- matrix(
-            runif(num_districts * num_covariates, min = 0, max = 1),
-            nrow = num_districts,
-            ncol = num_covariates
-        )
-        v_ba <- e_bd %*% v_da
-
-        p_dgc <- array(0, dim = c(num_districts, num_groups, num_candidates))
-        for (d in seq_len(num_districts)) {
-            for (g in seq_len(num_groups)) {
-                u <- alpha %*% v_da[d, ] + beta[g, ]
-                u <- c(u, 0)
-                p_dgc[d, g, ] <- exp(u) / sum(exp(u))
-            }
-        }
-
-        W <- matrix(0L, nrow = num_ballots, ncol = num_groups)
-        X <- matrix(0L, nrow = num_ballots, ncol = num_candidates)
-
-        for (d in seq_len(num_districts)) {
-            boxes <- which(e_bd[, d] == 1L)
-            B_d <- length(boxes)
-            I_d <- num_voters * B_d
-
-            base_counts <- floor(I_d * group_proportions)
-            remainder <- I_d - sum(base_counts)
-            if (remainder > 0) {
-                fractional_parts <- I_d * group_proportions - base_counts
-                indices <- order(fractional_parts, decreasing = TRUE)
-                base_counts[indices[seq_len(remainder)]] <- base_counts[indices[seq_len(remainder)]] + 1
-            }
-
-            omega0 <- rep(seq_len(num_groups), times = base_counts)
-            if (length(omega0) > I_d) {
-                omega0 <- omega0[seq_len(I_d)]
-            }
-            if (length(omega0) < I_d) {
-                omega0 <- c(
-                    omega0,
-                    sample(seq_len(num_groups), I_d - length(omega0), replace = TRUE)
-                )
-            }
-            omega <- omega0
-
-            n_mix <- round(lambda * I_d)
-            if (n_mix > 0) {
-                idx <- sample.int(I_d, n_mix)
-                vals_to_mix <- omega0[idx]
-                omega[idx] <- sample(vals_to_mix, length(vals_to_mix))
-            }
-
-            for (j in seq_along(boxes)) {
-                b <- boxes[j]
-                start <- (j - 1) * num_voters + 1
-                end <- j * num_voters
-                G_b <- omega[start:end]
-                votes_b <- vapply(G_b, function(g) {
-                    sample.int(num_candidates, 1, prob = p_dgc[d, g, ])
-                }, integer(1))
-                W[b, ] <- tabulate(G_b, nbins = num_groups)
-                X[b, ] <- tabulate(votes_b, nbins = num_candidates)
-            }
-        }
-
-        real_prob <- array(0, dim = c(num_groups, num_candidates, num_ballots))
-        for (b in seq_len(num_ballots)) {
-            d <- which(e_bd[b, ] == 1L)
-            real_prob[, , b] <- p_dgc[d, , ]
-        }
-
-        toReturn <- list(
-            W = W,
-            X = X,
-            V = v_ba,
-            real_prob = real_prob,
-            real_alpha = alpha,
-            real_beta = beta
-        )
-
-        class(toReturn) <- "eim"
-        return(toReturn)
     }
 
     # Build W (b x g), the distribution of groups in each ballot box

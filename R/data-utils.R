@@ -1,6 +1,6 @@
 #' Extracts voting and demographic data matrices for a given electoral district in Chile.
 #'
-#' This function retrieves the voting results and demographic covariates for a given electoral district from the 2021 Chilean election dataset included in this package. The function returns an [`eim`] object that can be directly used in [`run_em`] or other estimation functions.
+#' This function retrieves the voting results and demographic group counts for a given electoral district from the 2021 Chilean election dataset included in this package. The function returns an [`eim`] object that can be directly used in [`run_em`] or other estimation functions.
 #'
 #' The function builds the `X` matrix using the number of votes per candidate, and the `W` matrix using the number of voters in each demographic group (e.g., age ranges). Optionally, blank and null votes can be merged into a single additional column (considered as another candidate).
 #'
@@ -22,9 +22,6 @@
 #' - **W**: A matrix `(b x g)` with the number of voters per group (e.g., age ranges) for each ballot box.
 #'
 #' This object can be passed to functions like [`run_em`] or [`get_agg_proxy`] for estimation and group aggregation. See **Example**.
-#'
-#' @note
-#' This function returns an `eim` object with no covariates, i.e., `V=NULL`.
 #'
 #' Only one parameter is accepted among `elect_district` and `region`. If either both parameters are given, it will return an error. If neither of these two inputs is supplied, it will return an `eim` object with an aggregation corresponding to the whole dataset. To see all electoral districts and regions names, see the function [chile_election_2021].
 #'

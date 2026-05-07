@@ -223,9 +223,7 @@ extern "C"
     /**
      * @brief Checks if the difference of two matrices converge to a value
      *
-     * Given two matrices, it performs de absolute difference and evaluate the convergence towards a given
-     * arbitrary values: |x1 - x2| < epsilon. If there's a value whom convergence is greater than epsilon, the
-     * convergence is not achieved.
+     * Given two matrices, it evaluates convergence using the Frobenius norm of their difference.
      *
      * @param[in] matrix Matrix to perform the substraction.
      * @param[in] matrix Matrix to perform the substraction.

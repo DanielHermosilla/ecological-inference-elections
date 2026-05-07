@@ -1,4 +1,4 @@
-test_that("simulate_election returns non-parametric data", {
+test_that("simulate_election returns data", {
     sim <- simulate_election(
         num_ballots = 10,
         num_candidates = 3,
@@ -13,7 +13,7 @@ test_that("simulate_election returns non-parametric data", {
     expect_equal(dim(sim$real_prob), c(2, 3))
 })
 
-test_that("run_em returns non-parametric probability matrix", {
+test_that("run_em returns probability matrix", {
     sim <- simulate_election(
         num_ballots = 10,
         num_candidates = 3,
@@ -37,7 +37,7 @@ test_that("run_em returns non-parametric probability matrix", {
     expect_equal(dim(fit$cond_prob), c(2, 3, 10))
 })
 
-test_that("bootstrap returns non-parametric standard deviations", {
+test_that("bootstrap returns standard deviations", {
     sim <- simulate_election(
         num_ballots = 8,
         num_candidates = 3,

@@ -70,9 +70,6 @@ z_{ij} = \frac{p_{1,ij}-p_{2,ij}}{\sqrt{s_{1,ij}^2+s_{2,ij}^2}}
 }
 In this expression, \eqn{s_{1,ij}^2} and \eqn{s_{2,ij}^2} represent the bootstrap sample variances for the treatment and control sets, respectively, while \eqn{p_{1,ij}} and \eqn{p_{2,ij}} are the corresponding estimated probability matrices obtained via the EM algorithm.
 }
-\note{
-This function does not support covariate models (i.e., \code{eim} objects with non-NULL \code{V} attributes).
-}
 \examples{
 sim1 <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 123)
 sim2 <- simulate_election(num_ballots = 100, num_candidates = 3, num_groups = 5, seed = 124)

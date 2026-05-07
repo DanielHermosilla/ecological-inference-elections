@@ -34,7 +34,7 @@ An \code{\link{eim}} object with the following attributes:
 This object can be passed to functions like \code{\link{run_em}} or \code{\link{get_agg_proxy}} for estimation and group aggregation. See \strong{Example}.
 }
 \description{
-This function retrieves the voting results and demographic covariates for a given electoral district from the 2021 Chilean election dataset included in this package. The function returns an \code{\link{eim}} object that can be directly used in \code{\link{run_em}} or other estimation functions.
+This function retrieves the voting results and demographic group counts for a given electoral district from the 2021 Chilean election dataset included in this package. The function returns an \code{\link{eim}} object that can be directly used in \code{\link{run_em}} or other estimation functions.
 }
 \details{
 The function builds the \code{X} matrix using the number of votes per candidate, and the \code{W} matrix using the number of voters in each demographic group (e.g., age ranges). Optionally, blank and null votes can be merged into a single additional column (considered as another candidate).
@@ -42,8 +42,6 @@ The function builds the \code{X} matrix using the number of votes per candidate,
 Additionally, ballot boxes where the number of votes does not match the number of registered voters (i.e., those where \code{MISMATCH == TRUE}) can be excluded from the dataset by setting \code{remove_mismatch = TRUE}.
 }
 \note{
-This function returns an \code{eim} object with no covariates, i.e., \code{V=NULL}.
-
 Only one parameter is accepted among \code{elect_district} and \code{region}. If either both parameters are given, it will return an error. If neither of these two inputs is supplied, it will return an \code{eim} object with an aggregation corresponding to the whole dataset. To see all electoral districts and regions names, see the function \link{chile_election_2021}.
 }
 \examples{

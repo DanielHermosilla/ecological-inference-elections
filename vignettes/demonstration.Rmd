@@ -14,7 +14,7 @@ output:
     number_sections: false
 ---
 
-The `fastei` library implements the Expectation-Maximization algorithm to estimate probabilities in non-parametric Ecological Inference for the RxC case. It offers both an exact method and four approximation methods suitable for large datasets. The application demonstrated here is based on an electoral context where, for each ballot box, we know the number of voters in each demographic group and the number of votes received by each candidate.
+The `fastei` library implements the Expectation-Maximization algorithm to estimate probabilities in Ecological Inference for the RxC case. It offers both an exact method and four approximation methods suitable for large datasets. The application demonstrated here is based on an electoral context where, for each ballot box, we know the number of voters in each demographic group and the number of votes received by each candidate.
 
 # Estimate Voting Probabilities
 We use data from the First Round of the Chilean Presidential Election of 2021, where at each ballot box we have the voters of eight age ranges (groups), and candidate votes obtained. The function `get_eim_chile()` loads this data at either the country, region, or electoral district level.

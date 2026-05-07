@@ -19,7 +19,6 @@
 print.eim <- function(x, ...) {
     object <- x
     cat("eim ecological inference model\n")
-    is_parametric <- !is.null(object$V)
 
     # Determine if truncation is needed
     truncated_X <- (nrow(object$X) > 5)
@@ -43,51 +42,17 @@ print.eim <- function(x, ...) {
         if (truncated_W_agg) cat(".\n.\n.\n") else cat("\n")
     }
 
-    if (is_parametric) {
-        cat("Attribute matrix (V) [b x a]:\n")
-        print(object$V[1:min(5, nrow(object$V)), , drop = FALSE]) # nolint
-        truncated_V <- (nrow(object$V) > 5)
-        if (truncated_V) cat(".\n.\n.\n") else cat("\n")
-
-        if (!is.null(object$beta)) {
-            cat("Estimated beta parameters [g x (c-1)]:\n")
-            print(object$beta, drop = FALSE)
-            cat("\n")
-        }
-        if (!is.null(object$alpha)) {
-            cat("Estimated alpha parameters [(c-1) x a]:\n")
-            print(object$alpha, drop = FALSE)
-            cat("\n")
-        }
-        if (!is.null(object$sd_beta)) {
-            cat("Standard deviation for beta [g x (c-1)]:\n")
-            print(object$sd_beta, drop = FALSE)
-            cat("\n")
-        }
-        if (!is.null(object$sd_alpha)) {
-            cat("Standard deviation for alpha [(c-1) x a]:\n")
-            print(object$sd_alpha, drop = FALSE)
-            cat("\n")
-        }
-        # if (!is.null(object$prob)) {
-        #     prob_dim <- dim(object$prob)
-        #     cat("Estimated probabilities [g x c x b]: ", paste(prob_dim, collapse = " x "), "\n", sep = "")
-        #     cat("\n")
-        # }
-    } else {
-        if (is_method) {
-            cat(sprintf("Estimated probability [%s x c]:\n", dim))
-            truncated_P <- (nrow(object$prob) > 5)
-            print(round(object$prob[1:min(5, nrow(object$prob)), ], 3)) # nolint
-            if (truncated_P) cat(".\n.\n.\n") else cat("\n")
-        }
-        # Consider showing matrices first
-        if (!is.null(object$sd)) {
-            cat(sprintf("Standard deviation of the estimated probability matrix [%s x c]:\n", dim))
-            truncated_boot <- (nrow(object$sd) > 5)
-            print(round(object$sd[1:min(5, nrow(object$sd)), ], 3)) # nolint
-            if (truncated_boot) cat(".\n.\n.\n") else cat("\n")
-        }
+    if (is_method) {
+        cat(sprintf("Estimated probability [%s x c]:\n", dim))
+        truncated_P <- (nrow(object$prob) > 5)
+        print(round(object$prob[1:min(5, nrow(object$prob)), ], 3)) # nolint
+        if (truncated_P) cat(".\n.\n.\n") else cat("\n")
+    }
+    if (!is.null(object$sd)) {
+        cat(sprintf("Standard deviation of the estimated probability matrix [%s x c]:\n", dim))
+        truncated_boot <- (nrow(object$sd) > 5)
+        print(round(object$sd[1:min(5, nrow(object$sd)), ], 3)) # nolint
+        if (truncated_boot) cat(".\n.\n.\n") else cat("\n")
     }
 
     if (is_method) {
@@ -137,10 +102,6 @@ summary.eim <- function(object, ...) {
         ballots = nrow(object$X)
     )
 
-    if (!is.null(object$V)) {
-        object_core_attr$attributes <- ncol(object$V)
-    }
-
     # A list with attributes to display if the EM is computed.
     if (!is.null(object$method)) {
         object_run_em_attr <- list(
@@ -155,13 +116,6 @@ summary.eim <- function(object, ...) {
         )
     }
 
-    if (!is.null(object$beta)) {
-        object_run_em_attr$beta <- object$beta
-    }
-    if (!is.null(object$alpha)) {
-        object_run_em_attr$alpha <- object$alpha
-    }
-
     # Display sd if the bootstrapping method has been called.
     if (!is.null(object$sd)) {
         object_run_em_attr$sd <- object$sd
@@ -169,13 +123,6 @@ summary.eim <- function(object, ...) {
     if (!is.null(object$avg_prob)) {
         object_run_em_attr$avg_prob <- object$avg_prob
     }
-    if (!is.null(object$sd_beta)) {
-        object_run_em_attr$sd_beta <- object$sd_beta
-    }
-    if (!is.null(object$sd_alpha)) {
-        object_run_em_attr$sd_alpha <- object$sd_alpha
-    }
-
     final_list <- c(object_core_attr, object_run_em_attr)
     final_list
 }
@@ -183,7 +130,7 @@ summary.eim <- function(object, ...) {
 #' @title Plot estimated probabilities
 #' @description
 #'   Plots the estimated probabilities as pie charts using `ggplot2`, one per row of the probability matrix.
-#'   Each slice displays its percentage label. For the parametric case, it does a weighted average over groups to retrieve the global probabilities.
+#'   Each slice displays its percentage label.
 #'
 #' @param x An "eim" object.
 #' @param title Title for the plot.
@@ -202,9 +149,7 @@ summary.eim <- function(object, ...) {
 #'     num_ballots = 100,
 #'     num_candidates = 4,
 #'     num_groups = 5,
-#'     ballot_voters = 40,
-#'     num_covariates = 2,
-#'     num_districts = 2,
+#'     ballot_voters = rep(40, 100),
 #'     seed = 42
 #' )
 #' fit <- run_em(sim, maxiter = 5)
@@ -228,18 +173,7 @@ plot.eim <- function(x,
     W_use <- if (!is.null(object$W_agg)) object$W_agg else object$W
     G <- ncol(W_use)
 
-    # Case it's parametric
-    if (is.array(prob) && length(dim(prob)) == 3) {
-        W <- as.matrix(W_use)
-        C <- dim(prob)[2]
-        P <- matrix(0, nrow = G, ncol = C)
-        for (g in seq_len(G)) {
-            P[g, ] <- colSums(t(prob[g, , ]) * W[, g]) / sum(W[, g])
-        }
-        dimnames(P) <- dimnames(prob)[1:2]
-    } else {
-        P <- as.matrix(prob)
-    }
+    P <- as.matrix(prob)
 
     row_names <- rownames(P)
     col_names <- colnames(P)
@@ -292,7 +226,7 @@ plot.eim <- function(x,
     invisible(plot_obj)
 }
 
-#' Returns the object estimated probability. In case it is a parametric model, it returns the global probabilities weighted by W.
+#' Returns the object estimated probability.
 #'
 #' @param object An "eim" object.
 #' @param ... Additional arguments that are ignored.
@@ -308,19 +242,7 @@ as.matrix.eim <- function(x, ...) {
     }
     prob <- object$prob
 
-    # Return the global probabilities in case of parametric model, weighted by W
-    if (is.array(prob) && length(dim(prob)) == 3) {
-        W <- as.matrix(object$W)
-        G <- dim(prob)[1]
-        C <- dim(prob)[2]
-        P <- matrix(0, nrow = G, ncol = C)
-        for (g in seq_len(G)) {
-            P[g, ] <- colSums(t(prob[g, , ]) * W[, g]) / sum(W[, g])
-        }
-        dimnames(P) <- dimnames(prob)[1:2]
-    } else {
-        P <- as.matrix(prob)
-    }
+    P <- as.matrix(prob)
     return(P)
 }
 

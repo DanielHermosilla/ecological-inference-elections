@@ -10,17 +10,13 @@ library(jsonlite)
 #'
 #' @param W A `(b x g)` matrix representing group votes per ballot box.
 #'
-#' @param V Optional `(b x a)` matrix with the attributes for each ballot box. This is only used for parametric models.
-#'
-#' @param json_path A path to a JSON file containing `X`, `W` (and optionally `V`) fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.
+#' @param json_path A path to a JSON file containing `X` and `W` fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.
 #'
 #' @details
 #' If `X` and `W` are directly supplied, they must match the
 #' dimensions of ballot boxes `(b)`. Alternatively, if `json_path` is provided, the function expects
-#' the JSON file to contain elements named `"X"` and `"W"` (and optionally `"V"`) under the
+#' the JSON file to contain elements named `"X"` and `"W"` under the
 #' top-level object. This two approaches are **mutually exclusable**, yielding an error otherwise.
-#'
-#' When `V` is supplied, the object is treated as parametric and includes the `V` attribute.
 #'
 #' Internally, this function also initializes the corresponding instance within
 #' the low-level (C-based) API, ensuring the data is correctly registered for
@@ -30,12 +26,10 @@ library(jsonlite)
 #' \describe{
 #'   \item{\code{X}}{The candidate votes matrix \code{(b x c)}.}
 #'   \item{\code{W}}{The group votes matrix \code{(b x g)}.}
-#'   \item{\code{V}}{The parametric covariates matrix \code{(b x a)}, when provided.}
 #' }
 #'
 #' @note
 #' A way to generate synthetic data for `X` and `W` is by using the [simulate_election] function. See Example 2 below.
-#' This constructor can be used for both non-parametric and parametric models (by providing `V`).
 #'
 #' @section Methods:
 #' In addition to this constructor, the "eim" class provides several
@@ -104,23 +98,17 @@ library(jsonlite)
 #'
 #' @export
 #' @aliases eim()
-eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
+eim <- function(X = NULL, W = NULL, json_path = NULL) {
     x_provided <- !is.null(X)
     w_provided <- !is.null(W)
-    v_provided <- !is.null(V)
     xw_provided <- x_provided || w_provided
-    xwv_provided <- xw_provided || v_provided
     json_provided <- !is.null(json_path)
 
     if (sum(x_provided, w_provided) == 1) {
         stop("eim: If providing a matrix, 'X' and 'W' must be provided.")
     }
 
-    if (v_provided && !xw_provided) {
-        stop("eim: If providing 'V', you must also provide 'X' and 'W'.")
-    }
-
-    if (sum(xwv_provided, json_provided) != 1) {
+    if (sum(xw_provided, json_provided) != 1) {
         stop(paste(
             "eim: You must provide exactly one of the following:\n",
             "(1)\tA json path\n",
@@ -134,9 +122,6 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
         matrices <- .validate_json_eim(json_path) # nolint
         X <- as.matrix(matrices$X)
         W <- as.matrix(matrices$W)
-        if (!is.null(matrices$V)) {
-            V <- as.matrix(matrices$V)
-        }
         allowed_params <- c(
             "prob",
             "avg_prob",
@@ -156,10 +141,6 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
             "time",
             "method",
             "W_agg",
-            "beta",
-            "alpha",
-            "sd_beta",
-            "sd_alpha",
             "mcmc_samples",
             "mcmc_stepsize",
             "mvncdf_method",
@@ -186,17 +167,13 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
     }
 
     # Perform matricial validation
-    .validate_eim(X, W, V) # nolint
+    .validate_eim(X, W) # nolint
 
     # Create the S3 object
     obj <- list(
         X = X,
         W = W
     )
-    if (!is.null(V)) {
-        obj$V <- V
-    }
-
     # Add optional parameters if they exist
     if (length(extra_params) > 0) {
         obj <- c(obj, extra_params)
@@ -209,7 +186,6 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'
 #' @description
 #' Executes the Expectation-Maximization (EM) algorithm indicating the approximation method to use in the E-step.
-#' It supports both non-covariate and covariate models; the covariate mode is enabled by providing `V`.
 #' Certain methods may require additional arguments, which can be passed through `...` (see [fastei-package] for more details).
 #'
 #' @param object An object of class `eim`, which can be created using the [eim] function. This parameter should not be used if either (i) `X` and `W` matrices or (ii) `json_path` is supplied. See **Note**.
@@ -224,8 +200,6 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #' - `mcmc`: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the E-step.
 #' - `exact`: Solves the E-step using the Total Probability Law.
 #'
-#' When `V` is supplied (covariate mode), only `mult` is supported.
-#'
 #' For a detailed description of each method, see [fastei-package] and **References**.
 #'
 #' @param initial_prob An optional string specifying the method used to obtain the initial
@@ -234,8 +208,6 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #' - `proportional`: Assigns probabilities to each group based on the proportion of candidates votes.
 #' - `group_proportional`: Computes the probability matrix by taking into account both group and candidate proportions. This is the default method.
 #' - `random`: Use randomized values to fill the probability matrix.
-#' This argument is ignored if `V` is supplied (covariate mode), as the initial probabilities are computed with `alpha_init` and `beta_init`.
-#'
 #' @param allow_mismatch Boolean, if `TRUE`, allows a mismatch between the voters and votes for each ballot-box. If `FALSE`, throws an error if there is a mismatch. By default it is `TRUE`. See **Notes** for more details.
 #'
 #' @param maxiter An optional integer indicating the maximum number of EM iterations.
@@ -246,19 +218,13 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #' @param maxtime An optional numeric specifying the maximum running time (in seconds) for the
 #'   algorithm. This is checked at every iteration of the EM algorithm. The default value is `3600`, which corresponds to an hour.
 #'
-#' @param param_threshold An optional numeric value indicating the minimum difference between
-#'   consecutive probability values required to stop iterating. The default value is `0.001`. Note that the algorithm will stop if either `ll_threshold` **or** `param_threshold` is accomplished.
+#' @param param_threshold An optional numeric value indicating the maximum Frobenius norm
+#'   of the difference between consecutive probability matrices required to stop iterating. The default value is `0.001`. Note that the algorithm will stop if either `ll_threshold` **or** `param_threshold` is accomplished.
 #'
 #' @param ll_threshold An optional numeric value indicating the minimum difference between consecutive log-likelihood values to stop iterating. The default value is `inf`, essentially deactivating
 #' the threshold. Note that the algorithm will stop if either `ll_threshold` **or** `param_threshold` is accomplished.
 #'
 #' @param compute_ll An optional boolean indicating whether to compute the log-likelihood at each iteration. The default value is `TRUE`.
-#'
-#' @param beta_init Optional `g x (c-1)` matrix of initial group coefficients. Ignored if no covariates are provided (i.e., `V = NULL`).
-#'
-#' @param alpha_init Optional `(c-1) x a` matrix of initial attribute coefficients used for initialization. Ignored if no covariates are provided (`V = NULL`).
-#'
-#' @param maxnewton Maximum number of Newton iterations used in the parametric M-step. Default is 1. Ignored if no covariates are provided (i.e., `V = NULL`).
 #'
 #' @param adjust_prob_cond_method An optional string indicating the method to adjust the conditional probability so that for each candidate, the sum product of voters and conditional probabilities across groups equals the votes obtained by the candidate. It can take values: `""` if no adjusting is made, `"lp"` if the adjustment is based on a linear programming that penalizes with L1-norm, `"project_lp"` if the adjustment is performed using projection and linear programming (this is the default)
 #'
@@ -292,9 +258,9 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'
 #' @param scale_factor An optional numeric value used to scale down the `X` and `W` matrices before executing the EM algorithm. This scaling can help improve performance when dealing with large vote counts. For example if `scale_factor = 2` all elements of `X` and `W` are divided by two and rounded. The default value is `1`, which means no scaling is applied. In case the scaling results in mismatch between `W` and `X`, ensure that `allow_mismatch = TRUE`.
 #'
-#' @param symmetric A boolean indicating whether to perform a symmetric estimation. If `TRUE`, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. In the non-parametric case, the final probabilities are obtained by combining both directions using `symmetric_weight_method` (`"joint"` by default). In the parametric case, the current implementation keeps the classic equal average of both runs. The default value is `FALSE`.
+#' @param symmetric A boolean indicating whether to perform a symmetric estimation. If `TRUE`, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. The final probabilities are obtained by combining both directions using `symmetric_weight_method` (`"joint"` by default). The default value is `FALSE`.
 #'
-#' @param symmetric_weight_method Character string indicating how to combine both directions when `symmetric = TRUE` in the non-parametric case. Valid values are `"joint"` (default non-parametric behavior: joint EM where forward/reverse E-steps are averaged each iteration using equal weights), `"average"`, `"delta_ll"` (weights based on the relative likelihood gaps), and `"mae_inverse"` (weights based on reconstruction errors). In the parametric case, symmetric estimation still uses the equal-average scheme and reports `"average"`.
+#' @param symmetric_weight_method Character string indicating how to combine both directions when `symmetric = TRUE`. Valid values are `"joint"` (default behavior: joint EM where forward/reverse E-steps are averaged each iteration using equal weights), `"average"`, `"delta_ll"` (weights based on the relative likelihood gaps), and `"mae_inverse"` (weights based on reconstruction errors).
 #'
 #' @param ... Added for compability
 #'
@@ -323,8 +289,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #' The function returns an `eim` object with the function arguments and the following attributes:
 #' \describe{
 #'   \item{prob}{
-#'     If `V` is `NULL` (non-covariate), the estimated global probability matrix `(g x c)`.
-#'     If `V` is supplied (covariates), a `(g x c x b)` 3d-array of probabilities for each ballot-box.
+#'     The estimated global probability matrix `(g x c)`.
 #'   }
 #' 	 \item{cond_prob}{
 #'     A `(g x c x b)` 3d-array with the probability that at each ballot-box a voter of each group voted for each candidate,
@@ -355,7 +320,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'
 #' Furthermore, if `symmetric = TRUE`, the following additional attributes are included:
 #' \describe{
-#' 		\item{prob_inv}{The estimated probability matrix `(c x g)`, obtained by swapping `X` and `W`, when the symmetric scheme performs an explicit reverse run (for example `"average"`, `"delta_ll"`, `"mae_inverse"`, and the current parametric symmetric path).}
+#' 		\item{prob_inv}{The estimated probability matrix `(c x g)`, obtained by swapping `X` and `W`, when the symmetric scheme performs an explicit reverse run (for example `"average"`, `"delta_ll"`, and `"mae_inverse"`).}
 #' 		\item{cond_prob_inv}{A `(c x g x b)` 3d-array with the probability that at each ballot-box a voter of each candidate voted for each group, given the observed outcome at the particular ballot-box, when the symmetric scheme performs an explicit reverse run.}
 #' }
 #' If `symmetric_weight_method = "delta_ll"` and both `logLik` values are available, the object also includes `LL_ind`, `LL_rev_ind`, `dLL`, `dLL_rev`, `nu`, `nu_rev`, and `symmetric_weights`.
@@ -403,7 +368,6 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 run_em <- function(object = NULL,
                    X = NULL,
                    W = NULL,
-                   V = NULL,
                    json_path = NULL,
                    method = "mult",
                    initial_prob = "group_proportional",
@@ -424,9 +388,6 @@ run_em <- function(object = NULL,
                    mvncdf_samples = 5000,
                    adjust_prob_cond_method = "project_lp",
                    adjust_prob_cond_every = FALSE,
-                   maxnewton = 1,
-                   beta_init = NULL,
-                   alpha_init = NULL,
                    scale_factor = 1,
                    symmetric = FALSE,
                    symmetric_weight_method = "joint",
@@ -443,7 +404,6 @@ run_em <- function(object = NULL,
         object = object,
         X = X,
         W = W,
-        V = V,
         json_path = json_path,
         scale_factor = scale_factor,
         method = method,
@@ -466,18 +426,11 @@ run_em <- function(object = NULL,
         verbose = verbose,
         adjust_prob_cond_method = adjust_prob_cond_method,
         adjust_prob_cond_every = adjust_prob_cond_every,
-        maxnewton = maxnewton,
-        beta_init = beta_init,
-        alpha_init = alpha_init,
         symmetric = symmetric,
         symmetric_weight_method = symmetric_weight_method
     )
 
-    result <- if (!is.null(object$V)) {
-        .run_em_parametric(object, control)
-    } else {
-        .run_em_nonparametric(object, control)
-    }
+    result <- .run_em_core(object, control)
 
     invisible(result)
 }
@@ -486,8 +439,6 @@ run_em <- function(object = NULL,
 #'
 #' @description
 #' This function computes the Expected-Maximization (EM) algorithm "`nboot`" times. It then computes the standard deviation from the `nboot` estimated probability matrices on each component.
-#' It supports both non-parametric and parametric models; the parametric mode is enabled by providing `V` and only supports `method = "mult"`.
-#'
 #' @param nboot Integer specifying how many times to run the
 #'   EM algorithm.
 #'
@@ -505,8 +456,6 @@ run_em <- function(object = NULL,
 #'
 #' @return
 #' Returns an `eim` object with the `sd` field containing the estimated standard deviations of the probabilities and the `avg_prob` field with the average bootstrapped probability matrix. If an `eim` object is provided, its attributes (see [run_em]) are retained in the returned object.
-#'
-#' For parametric models, it returns `sd_beta` and `sd_alpha` instead of `sd` and `avg_prob`.
 #'
 #' @examples
 #' \donttest{
@@ -564,12 +513,10 @@ run_em <- function(object = NULL,
 bootstrap <- function(object = NULL,
                       X = NULL,
                       W = NULL,
-                      V = NULL,
                       json_path = NULL,
                       nboot = 100,
                       allow_mismatch = TRUE,
                       seed = NULL,
-                      maxnewton = 1,
                       ...) {
     # Retrieve the default values from run_em() as a list
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
@@ -577,15 +524,10 @@ bootstrap <- function(object = NULL,
 
     # Initialize eim object if needed
     if (is.null(object)) {
-        object <- eim(X = X, W = W, V = V, json_path = json_path)
+        object <- eim(X = X, W = W, json_path = json_path)
     } else if (!inherits(object, "eim")) {
         stop("Bootstrap: The object must be initialized with the `eim()` function.")
     }
-    if (!is.null(V)) {
-        object$V <- V
-    }
-
-    is_parametric <- !is.null(object$V)
 
     # Handle the group aggregation, if provided
     if (!is.null(all_params$group_agg)) {
@@ -603,100 +545,6 @@ bootstrap <- function(object = NULL,
 
     # I need to define the method before on this case
     method <- if (!is.null(all_params$method)) all_params$method else "mult"
-
-    if (is_parametric) {
-        if (method != "mult") {
-            stop("bootstrap: Parametric mode only supports method = \"mult\".")
-        }
-
-        # Applies a scaling
-        if (!is.null(all_params$scale_factor) && all_params$scale_factor != 1) {
-            object$X <- round(object$X / all_params$scale_factor)
-            object$W <- round(object$W / all_params$scale_factor)
-        }
-
-        if (!allow_mismatch) {
-            mismatch_rows <- which(rowSums(object$X) != rowSums(object$W))
-            if (length(mismatch_rows) > 0) {
-                stop(
-                    "bootstrap: Row-wise mismatch in vote totals detected.\n",
-                    "Rows with mismatches: ", paste(mismatch_rows, collapse = ", "), "\n",
-                    "To allow mismatches, set `allow_mismatch = TRUE`."
-                )
-            }
-        }
-
-        # Set seed for reproducibility
-        if (!is.null(seed)) set.seed(seed)
-
-        W <- if (is.null(object$W_agg)) object$W else object$W_agg
-        V <- object$V
-        num_candidates <- ncol(object$X)
-        num_groups <- ncol(W)
-        num_attributes <- ncol(V)
-
-        if (is.null(all_params$init_beta)) {
-            beta <- matrix(0, nrow = num_groups, ncol = num_candidates - 1)
-        }
-        if (is.null(all_params$init_alpha)) {
-            alpha <- matrix(0, nrow = num_candidates - 1, ncol = num_attributes)
-        }
-
-        if (!is.matrix(beta) || nrow(beta) != num_groups || ncol(beta) != num_candidates - 1) {
-            stop("bootstrap: 'init_beta' must be a matrix with dimensions (g x (c-1)).")
-        }
-        if (!is.matrix(alpha) || nrow(alpha) != num_candidates - 1 || ncol(alpha) != num_attributes) {
-            stop("bootstrap: 'init_alpha' must be a matrix with dimensions ((c-1) x a).")
-        }
-
-        maxiter <- if (!is.null(all_params$maxiter)) all_params$maxiter else 1000
-        maxtime <- if (!is.null(all_params$maxtime)) all_params$maxtime else 3600
-        verbose <- if (!is.null(all_params$verbose)) all_params$verbose else FALSE
-        adjust_prob_cond_method <- if (!is.null(all_params$adjust_prob_cond_method)) all_params$adjust_prob_cond_method else "project_lp"
-        adjust_prob_cond_every <- if (!is.null(all_params$adjust_prob_cond_every)) all_params$adjust_prob_cond_every else FALSE
-
-        if ("ll_threshold" %in% names(all_params)) {
-            ll_threshold <- all_params$ll_threshold
-        } else {
-            ll_threshold <- as.double(-Inf)
-        }
-
-        result <- bootstrapParametricAlg(
-            as.matrix(object$X),
-            as.matrix(W),
-            as.matrix(V),
-            as.matrix(beta),
-            as.matrix(alpha),
-            as.integer(maxiter),
-            as.integer(nboot),
-            as.double(maxtime),
-            as.double(ll_threshold),
-            as.integer(maxnewton),
-            as.logical(verbose),
-            as.character(adjust_prob_cond_method),
-            as.logical(adjust_prob_cond_every)
-        )
-
-        object$sd_beta <- result$sd_beta
-        if (!is.null(colnames(W))) {
-            rownames(object$sd_beta) <- colnames(W)
-        }
-        if (!is.null(colnames(object$X))) {
-            colnames(object$sd_beta) <- colnames(object$X)[-ncol(object$X)]
-        }
-
-        object$sd_alpha <- result$sd_alpha
-        if (!is.null(colnames(object$X))) {
-            rownames(object$sd_alpha) <- colnames(object$X)[-ncol(object$X)]
-        }
-        if (!is.null(colnames(V))) {
-            colnames(object$sd_alpha) <- colnames(V)
-        }
-
-        object$nboot <- nboot
-        class(object) <- "eim"
-        return(object)
-    }
 
     # Applies a scaling
     if (!is.null(all_params$scale_factor) && all_params$scale_factor != 1) {
@@ -797,132 +645,9 @@ bootstrap <- function(object = NULL,
     return(object)
 }
 
-#' Reduce Parametric Covariates with PCA
-#'
-#' @description
-#' Applies a Principal Component Analysis (PCA) to the covariates matrix `V` and
-#' replaces it with a lower dimensional representation. This function is intended
-#' for parametric workflows and requires a valid `V` matrix.
-#'
-#' @param object An object of class `eim`, which can be created using the [eim] function.
-#'
-#' @param X A `(b x c)` matrix representing candidate votes per ballot box.
-#'
-#' @param W A `(b x g)` matrix representing group votes per ballot box.
-#'
-#' @param V A `(b x a)` matrix with parametric covariates.
-#'
-#' @param json_path A path to a JSON file containing `X`, `W`, and `V` fields.
-#'
-#' @param components Integer specifying the number of principal components to keep.
-#'
-#' @param sd_threshold Numeric in `(0, 1]` indicating the minimum cumulative proportion
-#'   of variance explained by the retained components.
-#'
-#' @param center Logical indicating whether to center the columns of `V` before PCA.
-#'
-#' @param scale Logical indicating whether to scale the columns of `V` before PCA.
-#'
-#' @return
-#' Returns an `eim` object with the `V` matrix replaced by its PCA scores. The
-#' columns of `V` are renamed as `PCA 1`, `PCA 2`, ..., up to the chosen number
-#' of components.
-#'
-#' @examples
-#' sim <- simulate_election(
-#'     num_ballots = 50,
-#'     num_candidates = 3,
-#'     num_groups = 2,
-#'     ballot_voters = 40,
-#'     num_covariates = 10,
-#'     num_districts = 2,
-#'     seed = 1
-#' )
-#'
-#' sim_pca <- PCA(sim, components = 2)
-#' sim_pca$V
-#'
-#' @name PCA
-#' @aliases PCA()
-#' @export
-PCA <- function(object = NULL,
-                X = NULL,
-                W = NULL,
-                V = NULL,
-                json_path = NULL,
-                components = NULL,
-                sd_threshold = NULL,
-                center = TRUE,
-                scale = TRUE) {
-    all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
-    .validate_compute(all_params) # nolint
-
-    if (is.null(object)) {
-        object <- eim(X = X, W = W, V = V, json_path = json_path)
-    } else if (!inherits(object, "eim")) {
-        stop("PCA: The object must be initialized with the `eim()` function.")
-    }
-
-    if (!is.null(V)) {
-        object$V <- V
-    }
-
-    if (is.null(object$V)) {
-        stop("PCA: This function requires a parametric object with a V matrix.")
-    }
-
-    if (!is.null(components) && !is.null(sd_threshold)) {
-        stop("PCA: Provide either 'components' or 'sd_threshold', not both.")
-    }
-
-    if (is.null(components) && is.null(sd_threshold)) {
-        stop("PCA: Provide either 'components' or 'sd_threshold'.")
-    }
-
-    Vmat <- as.matrix(object$V)
-    if (ncol(Vmat) < 1) {
-        stop("PCA: 'V' must have at least 1 column.")
-    }
-    if (any(!is.finite(Vmat))) {
-        stop("PCA: 'V' cannot contain missing values or infinite values.")
-    }
-
-    pca <- stats::prcomp(Vmat, center = center, scale. = scale)
-
-    if (!is.null(sd_threshold)) {
-        if (!is.numeric(sd_threshold) || length(sd_threshold) != 1 || is.na(sd_threshold) ||
-            sd_threshold <= 0 || sd_threshold > 1) {
-            stop("PCA: 'sd_threshold' must be a numeric value in (0, 1].")
-        }
-        var_ratio <- cumsum(pca$sdev^2) / sum(pca$sdev^2)
-        components <- which(var_ratio >= sd_threshold)[1]
-    }
-
-    if (!is.numeric(components) || length(components) != 1 || is.na(components) ||
-        components < 1 || as.integer(components) != components) {
-        stop("PCA: 'components' must be a positive integer.")
-    }
-
-    components <- as.integer(components)
-    if (components > ncol(Vmat)) {
-        stop("PCA: 'components' cannot exceed the number of columns in V.")
-    }
-
-    scores <- pca$x[, seq_len(components), drop = FALSE]
-    colnames(scores) <- paste("PCA", seq_len(components))
-    rownames(scores) <- rownames(Vmat)
-
-    object$V <- scores
-    class(object) <- "eim"
-    return(object)
-}
-
 #' Runs the EM algorithm aggregating adjacent groups, maximizing the variability of macro-group allocation in ballot boxes.
 #'
 #' This function estimates the voting probabilities (computed using [run_em]) aggregating adjacent groups so that the estimated probabilities' standard deviation (computed using [bootstrap]) is below a given threshold. See **Details** for more information.
-#'
-#' @note
-#' This function only supports non-parametric models. Parametric objects (with `V`) are not supported.
 #'
 #' Groups need to have an order relation so that adjacent groups can be merged. Groups of consecutive column indices in the matrix W are considered adjacent. For example, consider the following seven groups defined by voters' age ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, even for a fixed number of macro-groups, a Dynamic Program (DP) mechanism is used to find the group aggregation that maximizes the sum of the standard deviation of the macro-groups proportions among ballot boxes for a specific number of macro-groups. If no group aggregation standard deviation statistic meets the threshold condition, `NULL` is returned.
 #'
@@ -1046,10 +771,6 @@ get_agg_proxy <- function(object = NULL,
     } else if (!inherits(object, "eim")) {
         stop("Bootstrap: The object must be initialized with the `eim()` function.")
     }
-    if (!is.null(object$V)) {
-        stop("get_agg_proxy: Parametric models are not supported.")
-    }
-
     # I need to define the method before
     if (!is.null(all_params$scale_factor) && all_params$scale_factor != 1) {
         object$X <- round(object$X / all_params$scale_factor)
@@ -1175,9 +896,6 @@ get_agg_proxy <- function(object = NULL,
 
 #' Runs the EM algorithm **over all possible group aggregating**, returning the one with higher likelihood while constraining the standard deviation of the probabilities.
 #'
-#' @note
-#' This function only supports non-parametric models. Parametric objects (with `V`) are not supported.
-#'
 #' This function estimates the voting probabilities (computed using [run_em]) by trying all group aggregations (of adjacent groups), choosing
 #' the one that achieves the higher likelihood as long as the standard deviation (computed using [bootstrap]) of the estimated probabilities
 #' is below a given threshold. See **Details** for more informacion on adjacent groups.
@@ -1265,10 +983,6 @@ get_agg_opt <- function(object = NULL,
     } else if (!inherits(object, "eim")) {
         stop("get_agg_opt: The object must be initialized with the `eim()` function.")
     }
-    if (!is.null(object$V)) {
-        stop("get_agg_opt: Parametric models are not supported.")
-    }
-
     # Note: Mismatch restricted methods are checked inside .validate_compute
     # Method needs to be defined before
 
@@ -1443,9 +1157,6 @@ get_agg_opt <- function(object = NULL,
 #' Each entry in the pvals matrix is the p-value from Wald test between the corresponding
 #' entries of the two estimated probability matrices.
 #'
-#' @note
-#' This function does not support covariate models (i.e., `eim` objects with non-NULL `V` attributes).
-#'
 #' @details
 #' The user must provide either of the following (but not both):
 #' - Two `eim` objects via `object1` and `object2`, or
@@ -1504,10 +1215,6 @@ waldtest <- function(object1 = NULL,
     if (using_matrices) {
         object <- eim(X, W)
         object2 <- eim(X2, W2)
-    }
-
-    if (!is.null(object$V) || !is.null(object2$V)) {
-        stop("waldtest: Parametric models are not supported.")
     }
 
     if (ncol(object$X) != ncol(object2$X) || ncol(object$W) != ncol(object2$W)) {
@@ -1581,9 +1288,6 @@ waldtest <- function(object1 = NULL,
 #' attributes when exporting to JSON. If the `prob` field exists, it is saved when using CSV;
 #' otherwise, it yields an error.
 #'
-#' @note
-#' This function supports both non-parametric and parametric models. For parametric probabilities, the CSV output is a flattened matrix where rows correspond to ballot-box and group pairs.
-#'
 #' @param object An `eim` object.
 #' @param filename A character string specifying the file path, including the desired file extension (`.rds`, `.json`, or `.csv`).
 #' @param ... Additional arguments (currently unused but included for compatibility).
@@ -1595,7 +1299,6 @@ waldtest <- function(object1 = NULL,
 #' - If the file extension is **JSON**, all available attributes of the object are stored in JSON format.
 #' - If the file extension is **CSV**:
 #'   - If the object contains a `prob` field, only that field is saved as a CSV.
-#'   - For parametric probabilities, the 3D array is flattened into a 2D matrix with rows for each ballot-box/group pair.
 #'   - Otherwise, returns an error.
 #'
 #' @return The function does not return anything explicitly but saves the object to the specified file.
@@ -1684,29 +1387,6 @@ save_eim <- function(object, filename, ...) {
         # Save as CSV
     } else if (file_ext == "csv") {
         if (!is.null(object$prob)) {
-            if (is.array(object$prob) && length(dim(object$prob)) == 3) {
-                B <- dim(object$prob)[3]
-                G <- dim(object$prob)[1]
-                C <- dim(object$prob)[2]
-                p_bgc <- aperm(object$prob, c(3, 1, 2)) # B x G x C
-                flat <- matrix(0, nrow = B * G, ncol = C)
-                row_labels <- character(B * G)
-                idx <- 1
-                ballot_names <- if (!is.null(rownames(object$X))) rownames(object$X) else paste0("B", seq_len(B))
-                group_names <- if (!is.null(colnames(object$W))) colnames(object$W) else paste0("G", seq_len(G))
-                for (b in seq_len(B)) {
-                    for (g in seq_len(G)) {
-                        flat[idx, ] <- p_bgc[b, g, ]
-                        row_labels[idx] <- paste0(ballot_names[b], "::", group_names[g])
-                        idx <- idx + 1
-                    }
-                }
-                colnames(flat) <- colnames(object$X)
-                rownames(flat) <- row_labels
-                write.csv(flat, filename, row.names = TRUE)
-                message("Probability matrix saved as CSV: ", filename)
-                return(invisible(NULL))
-            }
             write.csv(as.matrix(object$prob), filename, row.names = TRUE)
             message("Probability matrix saved as CSV: ", filename)
         } else {

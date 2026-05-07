@@ -1,4 +1,4 @@
-test_that("run_em returns consistent non-parametric outputs", {
+test_that("run_em returns consistent outputs", {
     sim <- simulate_election(
         num_ballots = 10,
         num_candidates = 3,

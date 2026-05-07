@@ -25,7 +25,7 @@ get_agg_opt(
 
 \item{W}{A \verb{(b x g)} matrix representing group votes per ballot box.}
 
-\item{json_path}{A path to a JSON file containing \code{X}, \code{W} (and optionally \code{V}) fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.}
+\item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.}
 
 \item{sd_statistic}{String indicates the statistic for the standard deviation \verb{(g x c)} matrix for the stopping condition, i.e., the algorithm stops when the statistic is below the threshold. It can take the value \code{maximum}, in which case computes the maximum over the standard deviation matrix, or \code{average}, in which case computes the average.}
 
@@ -67,8 +67,6 @@ Additionally, it will create the \code{W_agg} attribute with the aggregated grou
 Runs the EM algorithm \strong{over all possible group aggregating}, returning the one with higher likelihood while constraining the standard deviation of the probabilities.
 }
 \note{
-This function only supports non-parametric models. Parametric objects (with \code{V}) are not supported.
-
 This function estimates the voting probabilities (computed using \link{run_em}) by trying all group aggregations (of adjacent groups), choosing
 the one that achieves the higher likelihood as long as the standard deviation (computed using \link{bootstrap}) of the estimated probabilities
 is below a given threshold. See \strong{Details} for more informacion on adjacent groups.

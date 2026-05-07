@@ -23,7 +23,7 @@ test_that("run_em aggregates groups when group_agg is provided", {
     expect_equal(dim(fit$prob), c(2, 3))
 })
 
-test_that("get_agg_proxy returns aggregated results for non-parametric models", {
+test_that("get_agg_proxy returns aggregated results", {
     sim <- simulate_election(
         num_ballots = 6,
         num_candidates = 3,

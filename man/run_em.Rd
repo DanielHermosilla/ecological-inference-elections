@@ -9,7 +9,6 @@ run_em(
   object = NULL,
   X = NULL,
   W = NULL,
-  V = NULL,
   json_path = NULL,
   method = "mult",
   initial_prob = "group_proportional",
@@ -30,9 +29,6 @@ run_em(
   mvncdf_samples = 5000,
   adjust_prob_cond_method = "project_lp",
   adjust_prob_cond_every = FALSE,
-  maxnewton = 1,
-  beta_init = NULL,
-  alpha_init = NULL,
   scale_factor = 1,
   symmetric = FALSE,
   symmetric_weight_method = "joint",
@@ -46,9 +42,7 @@ run_em(
 
 \item{W}{A \verb{(b x g)} matrix representing group votes per ballot box.}
 
-\item{V}{Optional \verb{(b x a)} matrix with the attributes for each ballot box. This is only used for parametric models.}
-
-\item{json_path}{A path to a JSON file containing \code{X}, \code{W} (and optionally \code{V}) fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.}
+\item{json_path}{A path to a JSON file containing \code{X} and \code{W} fields, stored as nested arrays. It may contain additional fields with other attributes, which will be added to the returned object.}
 
 \item{method}{An optional string specifying the method used for estimating the E-step. Valid
 options are:
@@ -60,8 +54,6 @@ options are:
 \item \code{exact}: Solves the E-step using the Total Probability Law.
 }
 
-When \code{V} is supplied (covariate mode), only \code{mult} is supported.
-
 For a detailed description of each method, see \link{fastei-package} and \strong{References}.}
 
 \item{initial_prob}{An optional string specifying the method used to obtain the initial
@@ -71,7 +63,6 @@ probability. Accepted values are:
 \item \code{proportional}: Assigns probabilities to each group based on the proportion of candidates votes.
 \item \code{group_proportional}: Computes the probability matrix by taking into account both group and candidate proportions. This is the default method.
 \item \code{random}: Use randomized values to fill the probability matrix.
-This argument is ignored if \code{V} is supplied (covariate mode), as the initial probabilities are computed with \code{alpha_init} and \code{beta_init}.
 }}
 
 \item{allow_mismatch}{Boolean, if \code{TRUE}, allows a mismatch between the voters and votes for each ballot-box. If \code{FALSE}, throws an error if there is a mismatch. By default it is \code{TRUE}. See \strong{Notes} for more details.}
@@ -84,8 +75,7 @@ The default value is \code{1000}.}
 \item{maxtime}{An optional numeric specifying the maximum running time (in seconds) for the
 algorithm. This is checked at every iteration of the EM algorithm. The default value is \code{3600}, which corresponds to an hour.}
 
-\item{param_threshold}{An optional numeric value indicating the minimum difference between
-consecutive probability values required to stop iterating. The default value is \code{0.001}. Note that the algorithm will stop if either \code{ll_threshold} \strong{or} \code{param_threshold} is accomplished.}
+\item{param_threshold}{An optional numeric value indicating the maximum Frobenius norm of the difference between consecutive probability matrices required to stop iterating. The default value is \code{0.001}. Note that the algorithm will stop if either \code{ll_threshold} \strong{or} \code{param_threshold} is accomplished.}
 
 \item{ll_threshold}{An optional numeric value indicating the minimum difference between consecutive log-likelihood values to stop iterating. The default value is \code{inf}, essentially deactivating
 the threshold. Note that the algorithm will stop if either \code{ll_threshold} \strong{or} \code{param_threshold} is accomplished.}
@@ -122,17 +112,11 @@ samples for the \code{mvn_cdf} method. The default value is \code{5000}. This ar
 
 \item{adjust_prob_cond_every}{An optional boolean indicating whether to adjust the conditional probability on every iteration (if \code{TRUE}), or only at the conditional probabilities obtained at the end of the EM algorithm (if \code{FALSE}, this is the default). This parameter applies only if \code{adjust_prob_conditional_method} is \code{lp} or \code{project_lp}.}
 
-\item{maxnewton}{Maximum number of Newton iterations used in the parametric M-step. Default is 1. Ignored if no covariates are provided (i.e., \code{V = NULL}).}
-
-\item{beta_init}{Optional \verb{g x (c-1)} matrix of initial group coefficients. Ignored if no covariates are provided (i.e., \code{V = NULL}).}
-
-\item{alpha_init}{Optional \verb{(c-1) x a} matrix of initial attribute coefficients used for initialization. Ignored if no covariates are provided (\code{V = NULL}).}
-
 \item{scale_factor}{An optional numeric value used to scale down the \code{X} and \code{W} matrices before executing the EM algorithm. This scaling can help improve performance when dealing with large vote counts. For example if \code{scale_factor = 2} all elements of \code{X} and \code{W} are divided by two and rounded. The default value is \code{1}, which means no scaling is applied. In case the scaling results in mismatch between \code{W} and \code{X}, ensure that \code{allow_mismatch = TRUE}.}
 
-\item{symmetric}{A boolean indicating whether to perform a symmetric estimation. If \code{TRUE}, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. In the non-parametric case, the final probabilities are obtained by combining both directions using \code{symmetric_weight_method} (\code{"joint"} by default). In the parametric case, the current implementation keeps the classic equal average of both runs. The default value is \code{FALSE}.}
+\item{symmetric}{A boolean indicating whether to perform a symmetric estimation. If \code{TRUE}, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. The final probabilities are obtained by combining both directions using \code{symmetric_weight_method} (\code{"joint"} by default). The default value is \code{FALSE}.}
 
-\item{symmetric_weight_method}{Character string indicating how to combine both directions when \code{symmetric = TRUE} in the non-parametric case. Valid values are \code{"joint"} (default non-parametric behavior: joint EM where forward and reverse E-steps are averaged each iteration using equal weights), \code{"average"} (preserves the historical two-run average), \code{"delta_ll"} (weights based on the relative likelihood gaps \code{tau = (LL - LL_ind) / abs(LL)} and \code{tau_rev = (LL_rev - LL_rev_ind) / abs(LL_rev)}, with \code{alpha = tau_rev / (tau + tau_rev)}), and \code{"mae_inverse"} (weights based on reconstruction errors \code{tau = sum(abs(X - W \%*\% p))} and \code{tau_rev = sum(abs(W - X \%*\% p_rev))}, with \code{alpha = tau_rev / (tau + tau_rev)}). In the parametric case, symmetric estimation still uses the equal-average scheme and reports \code{"average"}.}
+\item{symmetric_weight_method}{Character string indicating how to combine both directions when \code{symmetric = TRUE}. Valid values are \code{"joint"} (default behavior: joint EM where forward and reverse E-steps are averaged each iteration using equal weights), \code{"average"} (preserves the historical two-run average), \code{"delta_ll"} (weights based on the relative likelihood gaps \code{tau = (LL - LL_ind) / abs(LL)} and \code{tau_rev = (LL_rev - LL_rev_ind) / abs(LL_rev)}), and \code{"mae_inverse"} (weights based on reconstruction errors \code{tau = sum(abs(X - W \%*\% p))} and \code{tau_rev = sum(abs(W - X \%*\% p_rev))}).}
 
 \item{...}{Added for compability}
 }
@@ -140,8 +124,7 @@ samples for the \code{mvn_cdf} method. The default value is \code{5000}. This ar
 The function returns an \code{eim} object with the function arguments and the following attributes:
 \describe{
 \item{prob}{
-If \code{V} is \code{NULL} (non-covariate), the estimated global probability matrix \verb{(g x c)}.
-If \code{V} is supplied (covariates), a \verb{(g x c x b)} 3d-array of probabilities for each ballot-box.
+The estimated global probability matrix \verb{(g x c)}.
 }
 \item{cond_prob}{
 A \verb{(g x c x b)} 3d-array with the probability that at each ballot-box a voter of each group voted for each candidate,
@@ -172,7 +155,7 @@ If \code{group_agg} is different than \code{NULL}, two values are returned: \cod
 
 Furthermore, if \code{symmetric = TRUE}, the following additional attributes are included:
 \describe{
-\item{prob_inv}{The estimated probability matrix \verb{(c x g)}, obtained by swapping \code{X} and \code{W}, when the symmetric scheme performs an explicit reverse run (for example \code{"average"}, \code{"delta_ll"}, \code{"mae_inverse"}, and the current parametric symmetric path).}
+\item{prob_inv}{The estimated probability matrix \verb{(c x g)}, obtained by swapping \code{X} and \code{W}, when the symmetric scheme performs an explicit reverse run (for example \code{"average"}, \code{"delta_ll"}, and \code{"mae_inverse"}).}
 \item{cond_prob_inv}{A \verb{(c x g x b)} 3d-array with the probability that at each ballot-box a voter of each candidate voted for each group, given the observed outcome at the particular ballot-box, when the symmetric scheme performs an explicit reverse run.}
 }
 If \code{symmetric_weight_method = "delta_ll"} and both \code{logLik} values are available, the object also includes \code{LL_ind}, \code{LL_rev_ind}, \code{dLL}, \code{dLL_rev}, \code{nu}, \code{nu_rev}, and \code{symmetric_weights}.
@@ -181,7 +164,6 @@ Under this argument, the conditional probabilities will be obtained by dividing 
 }
 \description{
 Executes the Expectation-Maximization (EM) algorithm indicating the approximation method to use in the E-step.
-It supports both non-covariate and covariate models; the covariate mode is enabled by providing \code{V}.
 Certain methods may require additional arguments, which can be passed through \code{...} (see \link{fastei-package} for more details).
 }
 \note{
