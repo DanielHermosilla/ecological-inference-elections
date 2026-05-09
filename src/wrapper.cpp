@@ -835,10 +835,10 @@ Rcpp::List groupAggGreedy(Rcpp::String sd_statistic, Rcpp::NumericVector sd_thre
     int finishReason = 0;
     int totalIter = 0;
 
-    // For storing the final partition boundaries
-    // 'G' can be up to WR.cols. You might want a vector of size G.
+    // Stores returned partition boundaries. The exhaustive search can return
+    // one boundary per original group, so this needs G slots, not G - 1 cuts.
     int G = WR.cols;
-    int *boundaries = Calloc(G - 1, int);
+    int *boundaries = Calloc(G, int);
     int numCuts = 0;
     Matrix *bestBootstrap = NULL;
 
