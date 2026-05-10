@@ -14,6 +14,7 @@ extern "C"
     int LPW(const Matrix *X, const Matrix *W, Matrix *q_bgc, int b);
     int LP_NW_ctx(EMContext *ctx, int b);
     int LPW_ctx(EMContext *ctx, int b);
+    int LPW_joint_symmetric(const Matrix *X, const Matrix *W, Matrix *q_forward, Matrix *q_reverse, int b);
     int LPW_joint_symmetric_ctx(EMContext *ctx_forward, EMContext *ctx_reverse, int b);
 
 #ifdef __cplusplus

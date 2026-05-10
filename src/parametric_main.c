@@ -861,6 +861,101 @@ void M_step(Matrix *X, Matrix *W, Matrix *V, EMBuffers *buf, const double tol, c
     // }
 }
 
+static void average_expected_outcomes_update_q(const Matrix *X, const Matrix *W, EMBuffers *forward, EMBuffers *reverse)
+{
+    const int B = forward->B;
+    const int G = forward->G;
+    const int C = forward->C;
+    const size_t z_size = (size_t)B * (size_t)G * (size_t)C;
+    double *z_avg = (double *)Calloc(z_size, double);
+
+    for (int b = 0; b < B; ++b)
+    {
+        for (int g = 0; g < G; ++g)
+        {
+            const double w_bg = MATRIX_AT_PTR(W, b, g);
+            for (int c = 0; c < C; ++c)
+            {
+                const double x_bc = MATRIX_AT_PTR(X, b, c);
+                const double z_forward = w_bg * MATRIX_AT(forward->q_bgc[b], g, c);
+                const double z_reverse = x_bc * MATRIX_AT(reverse->q_bgc[b], c, g);
+                Q_3D(z_avg, b, g, c, G, C) = 0.5 * (z_forward + z_reverse);
+            }
+        }
+    }
+
+    for (int b = 0; b < B; ++b)
+    {
+        for (int g = 0; g < G; ++g)
+        {
+            const double den = MATRIX_AT_PTR(W, b, g);
+            double sum = 0.0;
+            for (int c = 0; c < C; ++c)
+            {
+                double value = den > 0.0 ? Q_3D(z_avg, b, g, c, G, C) / den : 1.0 / (double)C;
+                if (!isfinite(value) || value < 0.0)
+                    value = 0.0;
+                MATRIX_AT(forward->q_bgc[b], g, c) = value;
+                sum += value;
+            }
+            if (!isfinite(sum) || sum <= 0.0)
+            {
+                const double uniform = 1.0 / (double)C;
+                for (int c = 0; c < C; ++c)
+                    MATRIX_AT(forward->q_bgc[b], g, c) = uniform;
+            }
+            else
+            {
+                for (int c = 0; c < C; ++c)
+                    MATRIX_AT(forward->q_bgc[b], g, c) /= sum;
+            }
+        }
+    }
+
+    for (int b = 0; b < B; ++b)
+    {
+        for (int c = 0; c < C; ++c)
+        {
+            const double den = MATRIX_AT_PTR(X, b, c);
+            double sum = 0.0;
+            for (int g = 0; g < G; ++g)
+            {
+                double value = den > 0.0 ? Q_3D(z_avg, b, g, c, G, C) / den : 1.0 / (double)G;
+                if (!isfinite(value) || value < 0.0)
+                    value = 0.0;
+                MATRIX_AT(reverse->q_bgc[b], c, g) = value;
+                sum += value;
+            }
+            if (!isfinite(sum) || sum <= 0.0)
+            {
+                const double uniform = 1.0 / (double)G;
+                for (int g = 0; g < G; ++g)
+                    MATRIX_AT(reverse->q_bgc[b], c, g) = uniform;
+            }
+            else
+            {
+                for (int g = 0; g < G; ++g)
+                    MATRIX_AT(reverse->q_bgc[b], c, g) /= sum;
+            }
+        }
+    }
+
+    Free(z_avg);
+}
+
+static void apply_joint_or_separate_lp(Matrix *X, Matrix *W, EMBuffers *forward, EMBuffers *reverse)
+{
+    for (int b = 0; b < forward->B; ++b)
+    {
+        int status = LPW_joint_symmetric(X, W, forward->q_bgc, reverse->q_bgc, b);
+        if (status != 0)
+        {
+            LPW(X, W, forward->q_bgc, b);
+            LPW(W, X, reverse->q_bgc, b);
+        }
+    }
+}
+
 Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alpha, const int maxiter,
                      const double maxtime, const double ll_threshold, const int maxnewton, const bool verbose,
                      double *out_elapsed, int *total_iterations, double *logLikelihood,
@@ -987,4 +1082,173 @@ Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alph
 
     // Matrix *finalProbability = getProbability(V, beta, alpha);
     return finalProb; // Return the final probabilities
+}
+
+Matrix *EM_Algorithm_Symmetric(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alpha, const int maxiter,
+                               const double maxtime, const double ll_threshold, const int maxnewton,
+                               const bool verbose, double *out_elapsed, int *total_iterations,
+                               double *logLikelihood, Matrix **out_q, Matrix **out_expected,
+                               const char *adjust_prob_cond_method, bool adjust_prob_cond_every)
+{
+    int B = V->rows;
+    int A = V->cols;
+    int C = X->cols;
+    int G = W->cols;
+    int Cm = C - 1;
+    int Gm = G - 1;
+
+    if (C < 2 || G < 2)
+        error("Parametric symmetric EM requires at least two candidates and two groups.");
+
+    EMBuffers forward;
+    EMBuffers reverse;
+    init_EMBuffers(&forward, B, G, Cm, A);
+    init_EMBuffers(&reverse, B, C, Gm, A);
+    forward.alpha = copMatrix(alpha);
+    forward.beta = copMatrix(beta);
+    reverse.alpha = createMatrix(Gm, A);
+    reverse.beta = createMatrix(C, Gm);
+
+    bool use_project_lp = (adjust_prob_cond_method != NULL && strcmp(adjust_prob_cond_method, "project_lp") == 0);
+    bool use_lp = (adjust_prob_cond_method != NULL && strcmp(adjust_prob_cond_method, "lp") == 0);
+
+    double *scale_forward = NULL;
+    double *scale_reverse = NULL;
+    Matrix norm_forward = (Matrix){0};
+    Matrix norm_reverse = (Matrix){0};
+    if (use_project_lp)
+    {
+        scale_forward = (double *)Calloc(B, double);
+        scale_reverse = (double *)Calloc(B, double);
+        for (int b = 0; b < B; ++b)
+        {
+            scale_forward[b] = 1.0;
+            scale_reverse[b] = 1.0;
+        }
+        if (hasMismatch(X, W))
+            precomputeScaleFactors(scale_forward, X, W);
+        if (hasMismatch(W, X))
+            precomputeScaleFactors(scale_reverse, W, X);
+        norm_forward = precomputeNorm(scale_forward, W);
+        norm_reverse = precomputeNorm(scale_reverse, X);
+    }
+
+    struct timespec t0, t1;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &t0);
+    double old_ll_forward = -DBL_MAX;
+    double old_ll_reverse = -DBL_MAX;
+    double new_ll_forward = -DBL_MAX;
+    double new_ll_reverse = -DBL_MAX;
+    double tol = 1.0;
+
+    for (int iter = 0; iter < maxiter; ++iter)
+    {
+        *total_iterations += 1;
+        tol = 1.0 / (iter + 1);
+
+        E_step(X, W, V, &forward);
+        if (adjust_prob_cond_every && use_project_lp)
+            projectQ(X, W, &forward, &norm_forward, scale_forward);
+
+        E_step(W, X, V, &reverse);
+        if (adjust_prob_cond_every && use_project_lp)
+            projectQ(W, X, &reverse, &norm_reverse, scale_reverse);
+
+        if (adjust_prob_cond_every && use_lp)
+            apply_joint_or_separate_lp(X, W, &forward, &reverse);
+
+        average_expected_outcomes_update_q(X, W, &forward, &reverse);
+
+        M_step(X, W, V, &forward, tol, maxnewton, verbose);
+        M_step(W, X, V, &reverse, tol, maxnewton, verbose);
+
+        new_ll_forward = compute_ll_multinomial_log(X, W, V, &forward);
+        new_ll_reverse = compute_ll_multinomial_log(W, X, V, &reverse);
+
+        if (iter % 5 == 0)
+            R_CheckUserInterrupt();
+
+        if (verbose)
+        {
+            Rprintf("Iteration %d: forward log-likelihood = %.4f, reverse log-likelihood = %.4f\n", iter + 1,
+                    new_ll_forward, new_ll_reverse);
+        }
+
+        bool converged_forward =
+            fabs(new_ll_forward - old_ll_forward) <= ll_threshold || old_ll_forward >= new_ll_forward;
+        bool converged_reverse =
+            fabs(new_ll_reverse - old_ll_reverse) <= ll_threshold || old_ll_reverse >= new_ll_reverse;
+        if (converged_forward && converged_reverse)
+        {
+            if (verbose)
+                Rprintf("Parametric symmetric EM converged after %d iterations.\n", iter + 1);
+            break;
+        }
+
+        old_ll_forward = new_ll_forward;
+        old_ll_reverse = new_ll_reverse;
+    }
+
+    E_step(X, W, V, &forward);
+    E_step(W, X, V, &reverse);
+    average_expected_outcomes_update_q(X, W, &forward, &reverse);
+    if (use_project_lp)
+    {
+        projectQ(X, W, &forward, &norm_forward, scale_forward);
+        projectQ(W, X, &reverse, &norm_reverse, scale_reverse);
+    }
+    else if (use_lp)
+    {
+        apply_joint_or_separate_lp(X, W, &forward, &reverse);
+    }
+
+    M_step(X, W, V, &forward, tol, maxnewton, verbose);
+    M_step(W, X, V, &reverse, tol, maxnewton, verbose);
+    new_ll_forward = compute_ll_multinomial_log(X, W, V, &forward);
+    new_ll_reverse = compute_ll_multinomial_log(W, X, V, &reverse);
+
+    clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
+
+    if (out_q != NULL)
+    {
+        Matrix *q_out = alloc_matrix_array(B, G, forward.C);
+        copy_matrix_array(q_out, forward.q_bgc, B);
+        *out_q = q_out;
+    }
+    if (out_expected != NULL)
+    {
+        Matrix *expected_out = alloc_matrix_array(B, G, forward.C);
+        compute_expected_outcome(W, forward.q_bgc, expected_out, B, G, forward.C);
+        *out_expected = expected_out;
+    }
+
+    double sec = (double)(t1.tv_sec - t0.tv_sec);
+    double nsec = (double)(t1.tv_nsec - t0.tv_nsec) * 1e-9;
+    *out_elapsed = sec + nsec;
+    *logLikelihood = 0.5 * (new_ll_forward + new_ll_reverse);
+
+    size_t na = forward.alpha.rows * forward.alpha.cols;
+    memcpy(alpha->data, forward.alpha.data, na * sizeof(double));
+    size_t nb = forward.beta.rows * forward.beta.cols;
+    memcpy(beta->data, forward.beta.data, nb * sizeof(double));
+
+    Matrix *finalProb = forward.prob;
+    forward.prob = NULL;
+
+    freeMatrix(&forward.alpha);
+    freeMatrix(&forward.beta);
+    freeMatrix(&reverse.alpha);
+    freeMatrix(&reverse.beta);
+    free_EMBuffers(&forward);
+    free_EMBuffers(&reverse);
+    if (scale_forward != NULL)
+        Free(scale_forward);
+    if (scale_reverse != NULL)
+        Free(scale_reverse);
+    if (norm_forward.data != NULL)
+        freeMatrix(&norm_forward);
+    if (norm_reverse.data != NULL)
+        freeMatrix(&norm_reverse);
+
+    return finalProb;
 }

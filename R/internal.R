@@ -944,7 +944,14 @@
         stop("run_em: 'alpha' must be a matrix with dimensions ((c-1) x a).")
     }
 
-    resulting_values <- EMAlgorithmParametric(
+    use_joint_parametric <- isTRUE(control$symmetric) && identical(control$symmetric_weight_method, "joint")
+    parametric_algorithm <- if (use_joint_parametric) {
+        EMAlgorithmParametricSymmetric
+    } else {
+        EMAlgorithmParametric
+    }
+
+    resulting_values <- parametric_algorithm(
         as.matrix(object$X),
         as.matrix(W_matrix),
         as.matrix(V_matrix),
@@ -961,6 +968,15 @@
 
     object <- .run_em_assign_parametric_results(object, resulting_values, W_matrix, V_matrix, control)
     if (!control$symmetric) {
+        return(object)
+    }
+
+    if (use_joint_parametric) {
+        object$cond_prob_inv <- NULL
+        object$prob_inv <- NULL
+        object$expected_outcome_inv <- NULL
+        object$symmetric_weight_method <- "joint"
+        object$symmetric_weights <- c(original = 0.5, reverse = 0.5)
         return(object)
     }
 

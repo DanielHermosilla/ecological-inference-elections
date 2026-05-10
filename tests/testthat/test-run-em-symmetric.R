@@ -61,7 +61,7 @@ test_that("run_em symmetric average preserves inverse outputs", {
     expect_true(all(abs(sums_inv - 1) < 1e-6))
 })
 
-test_that("run_em symmetric works in parametric mode", {
+test_that("run_em symmetric uses joint by default in parametric mode", {
     sim <- simulate_election(
         num_ballots = 6,
         num_candidates = 3,
@@ -82,23 +82,106 @@ test_that("run_em symmetric works in parametric mode", {
         maxtime = 2
     )
 
-    expect_equal(fit$symmetric_weight_method, "average")
+    expect_equal(fit$symmetric_weight_method, "joint")
     expect_equal(fit$symmetric_weights, c(original = 0.5, reverse = 0.5))
     expect_true(is.array(fit$prob))
     expect_true(is.array(fit$cond_prob))
-    expect_true(is.array(fit$prob_inv))
-    expect_true(is.array(fit$cond_prob_inv))
+    expect_null(fit$prob_inv)
+    expect_null(fit$cond_prob_inv)
+    expect_null(fit$expected_outcome_inv)
 
     expect_equal(dim(fit$prob), c(ncol(sim$W), ncol(sim$X), nrow(sim$X)))
     expect_equal(dim(fit$cond_prob), c(ncol(sim$W), ncol(sim$X), nrow(sim$X)))
+    expect_equal(dim(fit$expected_outcome), c(ncol(sim$W), ncol(sim$X), nrow(sim$X)))
+    expect_equal(dim(fit$beta), c(ncol(sim$W), ncol(sim$X) - 1))
+    expect_equal(dim(fit$alpha), c(ncol(sim$X) - 1, ncol(sim$V)))
+
+    expect_prob_array(fit$prob)
+    expect_prob_array(fit$cond_prob)
+})
+
+test_that("run_em symmetric average preserves legacy parametric inverse outputs", {
+    sim <- simulate_election(
+        num_ballots = 6,
+        num_candidates = 3,
+        num_groups = 2,
+        ballot_voters = 40,
+        num_covariates = 2,
+        num_districts = 2,
+        seed = 141
+    )
+
+    fit <- run_em(
+        X = sim$X,
+        W = sim$W,
+        V = sim$V,
+        method = "mult",
+        symmetric = TRUE,
+        symmetric_weight_method = "average",
+        maxiter = 4,
+        maxtime = 2
+    )
+
+    expect_equal(fit$symmetric_weight_method, "average")
+    expect_equal(fit$symmetric_weights, c(original = 0.5, reverse = 0.5))
+    expect_true(is.array(fit$prob_inv))
+    expect_true(is.array(fit$cond_prob_inv))
+    expect_true(is.array(fit$expected_outcome_inv))
     expect_equal(dim(fit$prob_inv), c(ncol(sim$X), ncol(sim$W), nrow(sim$X)))
     expect_equal(dim(fit$cond_prob_inv), c(ncol(sim$X), ncol(sim$W), nrow(sim$X)))
 
     expect_prob_array(fit$prob)
     expect_prob_array(fit$cond_prob)
+    expect_prob_array(fit$cond_prob_inv)
+})
 
-    sums_inv <- apply(fit$cond_prob_inv, c(1, 3), sum)
-    expect_true(all(abs(sums_inv - 1) < 1e-6))
+test_that("run_em parametric joint supports lp with adjust_prob_cond_every TRUE/FALSE", {
+    sim <- simulate_election(
+        num_ballots = 5,
+        num_candidates = 3,
+        num_groups = 2,
+        ballot_voters = 35,
+        num_covariates = 2,
+        num_districts = 2,
+        seed = 147
+    )
+
+    fit_false <- run_em(
+        X = sim$X,
+        W = sim$W,
+        V = sim$V,
+        method = "mult",
+        symmetric = TRUE,
+        symmetric_weight_method = "joint",
+        adjust_prob_cond_method = "lp",
+        adjust_prob_cond_every = FALSE,
+        maxiter = 3,
+        maxtime = 2
+    )
+
+    fit_true <- run_em(
+        X = sim$X,
+        W = sim$W,
+        V = sim$V,
+        method = "mult",
+        symmetric = TRUE,
+        symmetric_weight_method = "joint",
+        adjust_prob_cond_method = "lp",
+        adjust_prob_cond_every = TRUE,
+        maxiter = 3,
+        maxtime = 2
+    )
+
+    expect_false(isTRUE(fit_false$adjust_prob_cond_every))
+    expect_true(isTRUE(fit_true$adjust_prob_cond_every))
+    expect_equal(fit_false$symmetric_weight_method, "joint")
+    expect_equal(fit_true$symmetric_weight_method, "joint")
+    expect_null(fit_false$prob_inv)
+    expect_null(fit_true$prob_inv)
+    expect_prob_array(fit_false$prob)
+    expect_prob_array(fit_true$prob)
+    expect_prob_array(fit_false$cond_prob)
+    expect_prob_array(fit_true$cond_prob)
 })
 
 test_that("run_em symmetric supports delta_ll weighting", {

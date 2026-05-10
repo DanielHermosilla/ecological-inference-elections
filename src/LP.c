@@ -58,6 +58,19 @@ typedef struct
     bool x_is_cb;
 } LPSolverInput;
 
+typedef struct
+{
+    const Matrix *X;
+    const Matrix *W;
+    Matrix *q_forward_bgc;
+    Matrix *q_reverse_bcg;
+    double *q_forward;
+    double *q_reverse;
+    int G;
+    int C;
+    bool x_is_cb;
+} LPJointSymmetricInput;
+
 static inline double lp_get_x(const LPSolverInput *input, int b, int c)
 {
     if (input->x_is_cb)
@@ -80,6 +93,43 @@ static inline void lp_set_q(const LPSolverInput *input, int b, int g, int c, dou
         MATRIX_AT(input->q_bgc[b], g, c) = value;
     else
         Q_3D(input->q, b, g, c, input->G, input->C) = value;
+}
+
+static inline double joint_get_x(const LPJointSymmetricInput *input, int b, int c)
+{
+    if (input->x_is_cb)
+        return MATRIX_AT_PTR(input->X, c, b);
+    return MATRIX_AT_PTR(input->X, b, c);
+}
+static inline double joint_get_w(const LPJointSymmetricInput *input, int b, int g)
+{
+    return MATRIX_AT_PTR(input->W, b, g);
+}
+static inline double joint_get_q_forward(const LPJointSymmetricInput *input, int b, int g, int c)
+{
+    if (input->q_forward_bgc != NULL)
+        return MATRIX_AT(input->q_forward_bgc[b], g, c);
+    return Q_3D(input->q_forward, b, g, c, input->G, input->C);
+}
+static inline double joint_get_q_reverse(const LPJointSymmetricInput *input, int b, int c, int g)
+{
+    if (input->q_reverse_bcg != NULL)
+        return MATRIX_AT(input->q_reverse_bcg[b], c, g);
+    return Q_3D(input->q_reverse, b, c, g, input->C, input->G);
+}
+static inline void joint_set_q_forward(const LPJointSymmetricInput *input, int b, int g, int c, double value)
+{
+    if (input->q_forward_bgc != NULL)
+        MATRIX_AT(input->q_forward_bgc[b], g, c) = value;
+    else
+        Q_3D(input->q_forward, b, g, c, input->G, input->C) = value;
+}
+static inline void joint_set_q_reverse(const LPJointSymmetricInput *input, int b, int c, int g, double value)
+{
+    if (input->q_reverse_bcg != NULL)
+        MATRIX_AT(input->q_reverse_bcg[b], c, g) = value;
+    else
+        Q_3D(input->q_reverse, b, c, g, input->C, input->G) = value;
 }
 
 // ---- Simplex tab ----
@@ -511,10 +561,10 @@ int LPW_ctx(EMContext *ctx, int b)
     return solve_ballot_simplex(&input, b, 0);
 }
 
-static int solve_ballot_joint_symmetric_simplex(EMContext *ctx_forward, EMContext *ctx_reverse, int b)
+static int solve_ballot_joint_symmetric_simplex(const LPJointSymmetricInput *input, int b)
 {
-    const int G = (int)ctx_forward->G;
-    const int C = (int)ctx_forward->C;
+    const int G = input->G;
+    const int C = input->C;
     const int nQ = G * C;
     const int nVars = 6 * nQ;                  // q_f, q_r, d_f+, d_f-, d_r+, d_r-
     const int nRows = 3 * nQ + 2 * G + 2 * C; // abs_f, abs_r, row/col constraints, coupling
@@ -537,9 +587,9 @@ static int solve_ballot_joint_symmetric_simplex(EMContext *ctx_forward, EMContex
     double sum_w = 0.0;
     double sum_x = 0.0;
     for (int g = 0; g < G; ++g)
-        sum_w += MATRIX_AT(ctx_forward->W, b, g);
+        sum_w += joint_get_w(input, b, g);
     for (int c = 0; c < C; ++c)
-        sum_x += MATRIX_AT(ctx_forward->X, c, b);
+        sum_x += joint_get_x(input, b, c);
 
     const double rel = (fmax(fabs(sum_w), fabs(sum_x)) > 0.0) ? fabs(sum_w - sum_x) / fmax(fabs(sum_w), fabs(sum_x))
                                                                : 0.0;
@@ -548,9 +598,9 @@ static int solve_ballot_joint_symmetric_simplex(EMContext *ctx_forward, EMContex
     double *Weff = (double *)xcalloc(G, sizeof(double));
     double *Xeff = (double *)xcalloc(C, sizeof(double));
     for (int g = 0; g < G; ++g)
-        Weff[g] = MATRIX_AT(ctx_forward->W, b, g) * alpha;
+        Weff[g] = joint_get_w(input, b, g) * alpha;
     for (int c = 0; c < C; ++c)
-        Xeff[c] = MATRIX_AT(ctx_forward->X, c, b);
+        Xeff[c] = joint_get_x(input, b, c);
 
     double *A = (double *)xcalloc((size_t)nRows * (size_t)nVars, sizeof(double));
     double *rhs = (double *)xcalloc(nRows, sizeof(double));
@@ -573,8 +623,8 @@ static int solve_ballot_joint_symmetric_simplex(EMContext *ctx_forward, EMContex
             const int cg = c * G + g;
             const double w = Weff[g];
             const double xb = Xeff[c];
-            const double qf_prev = Q_3D(ctx_forward->q, b, g, c, G, C);
-            const double qr_prev = Q_3D(ctx_reverse->q, b, c, g, ctx_reverse->G, ctx_reverse->C);
+            const double qf_prev = joint_get_q_forward(input, b, g, c);
+            const double qr_prev = joint_get_q_reverse(input, b, c, g);
 
             const int rf = row_abs_f + gc;
             A[idxRC(rf, nVars, off_qf + gc)] = w;
@@ -642,8 +692,8 @@ static int solve_ballot_joint_symmetric_simplex(EMContext *ctx_forward, EMContex
                     qf = 0.0;
                 if (qr < 0.0 && qr > -1e-12)
                     qr = 0.0;
-                Q_3D(ctx_forward->q, b, g, c, G, C) = qf;
-                Q_3D(ctx_reverse->q, b, c, g, ctx_reverse->G, ctx_reverse->C) = qr;
+                joint_set_q_forward(input, b, g, c, qf);
+                joint_set_q_reverse(input, b, c, g, qr);
             }
         }
     }
@@ -658,6 +708,28 @@ static int solve_ballot_joint_symmetric_simplex(EMContext *ctx_forward, EMContex
     return (code ? -100 : 0);
 }
 
+int LPW_joint_symmetric(const Matrix *X, const Matrix *W, Matrix *q_forward, Matrix *q_reverse, int b)
+{
+    if (X == NULL || W == NULL || q_forward == NULL || q_reverse == NULL)
+        return -1;
+    if (X->rows != W->rows)
+        return -1;
+    if (b < 0 || b >= X->rows)
+        return -1;
+
+    LPJointSymmetricInput input = {0};
+    input.X = X;
+    input.W = W;
+    input.q_forward_bgc = q_forward;
+    input.q_reverse_bcg = q_reverse;
+    input.q_forward = NULL;
+    input.q_reverse = NULL;
+    input.G = W->cols;
+    input.C = X->cols;
+    input.x_is_cb = false;
+    return solve_ballot_joint_symmetric_simplex(&input, b);
+}
+
 int LPW_joint_symmetric_ctx(EMContext *ctx_forward, EMContext *ctx_reverse, int b)
 {
     if (ctx_forward == NULL || ctx_reverse == NULL)
@@ -666,5 +738,16 @@ int LPW_joint_symmetric_ctx(EMContext *ctx_forward, EMContext *ctx_reverse, int 
         return -1;
     if (b < 0 || b >= (int)ctx_forward->B)
         return -1;
-    return solve_ballot_joint_symmetric_simplex(ctx_forward, ctx_reverse, b);
+
+    LPJointSymmetricInput input = {0};
+    input.X = &ctx_forward->X;
+    input.W = &ctx_forward->W;
+    input.q_forward_bgc = NULL;
+    input.q_reverse_bcg = NULL;
+    input.q_forward = ctx_forward->q;
+    input.q_reverse = ctx_reverse->q;
+    input.G = (int)ctx_forward->G;
+    input.C = (int)ctx_forward->C;
+    input.x_is_cb = true;
+    return solve_ballot_joint_symmetric_simplex(&input, b);
 }

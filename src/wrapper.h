@@ -139,6 +139,14 @@ Rcpp::List EMAlgorithmParametric(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
                                  Rcpp::IntegerVector maximum_newton, Rcpp::LogicalVector verbose,
                                  Rcpp::String LP_method, Rcpp::LogicalVector project_every);
 
+Rcpp::List EMAlgorithmParametricSymmetric(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                                          Rcpp::NumericMatrix attribute_matrix, Rcpp::NumericMatrix beta,
+                                          Rcpp::NumericMatrix alpha, Rcpp::IntegerVector maximum_iterations,
+                                          Rcpp::NumericVector maximum_seconds,
+                                          Rcpp::NumericVector log_stopping_threshold,
+                                          Rcpp::IntegerVector maximum_newton, Rcpp::LogicalVector verbose,
+                                          Rcpp::String LP_method, Rcpp::LogicalVector project_every);
+
 /**
  * @brief Runs the parametric bootstrapping routine.
  *

@@ -292,9 +292,9 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'
 #' @param scale_factor An optional numeric value used to scale down the `X` and `W` matrices before executing the EM algorithm. This scaling can help improve performance when dealing with large vote counts. For example if `scale_factor = 2` all elements of `X` and `W` are divided by two and rounded. The default value is `1`, which means no scaling is applied. In case the scaling results in mismatch between `W` and `X`, ensure that `allow_mismatch = TRUE`.
 #'
-#' @param symmetric A boolean indicating whether to perform a symmetric estimation. If `TRUE`, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. In the non-parametric case, the final probabilities are obtained by combining both directions using `symmetric_weight_method` (`"joint"` by default). In the parametric case, the current implementation keeps the classic equal average of both runs. The default value is `FALSE`.
+#' @param symmetric A boolean indicating whether to perform a symmetric estimation. If `TRUE`, the final probabilities are obtained by combining both directions using `symmetric_weight_method` (`"joint"` by default). In parametric mode, `"joint"` runs a joint EM that averages the forward and reverse expected outcomes at each iteration; `"average"` preserves the classic two-run average. The default value is `FALSE`.
 #'
-#' @param symmetric_weight_method Character string indicating how to combine both directions when `symmetric = TRUE` in the non-parametric case. Valid values are `"joint"` (default non-parametric behavior: joint EM where forward/reverse E-steps are averaged each iteration using equal weights), `"average"`, `"delta_ll"` (weights based on the relative likelihood gaps), and `"mae_inverse"` (weights based on reconstruction errors). In the parametric case, symmetric estimation still uses the equal-average scheme and reports `"average"`.
+#' @param symmetric_weight_method Character string indicating how to combine both directions when `symmetric = TRUE`. Valid values are `"joint"` (default behavior: joint EM where forward/reverse E-steps are averaged each iteration using equal weights), `"average"` (classic two-run average), `"delta_ll"` (weights based on the relative likelihood gaps), and `"mae_inverse"` (weights based on reconstruction errors). In parametric mode, `"joint"` and `"average"` are supported directly; other values keep the classic equal-average fallback.
 #'
 #' @param ... Added for compability
 #'
@@ -355,7 +355,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'
 #' Furthermore, if `symmetric = TRUE`, the following additional attributes are included:
 #' \describe{
-#' 		\item{prob_inv}{The estimated probability matrix `(c x g)`, obtained by swapping `X` and `W`, when the symmetric scheme performs an explicit reverse run (for example `"average"`, `"delta_ll"`, `"mae_inverse"`, and the current parametric symmetric path).}
+#' 		\item{prob_inv}{The estimated probability matrix `(c x g)`, obtained by swapping `X` and `W`, when the symmetric scheme performs an explicit reverse run (for example `"average"`, `"delta_ll"`, and `"mae_inverse"`).}
 #' 		\item{cond_prob_inv}{A `(c x g x b)` 3d-array with the probability that at each ballot-box a voter of each candidate voted for each group, given the observed outcome at the particular ballot-box, when the symmetric scheme performs an explicit reverse run.}
 #' }
 #' If `symmetric_weight_method = "delta_ll"` and both `logLik` values are available, the object also includes `LL_ind`, `LL_rev_ind`, `dLL`, `dLL_rev`, `nu`, `nu_rev`, and `symmetric_weights`.

@@ -17,6 +17,10 @@ EMAlgorithmParametric <- function(candidate_matrix, group_matrix, attribute_matr
     .Call(`_fastei_EMAlgorithmParametric`, candidate_matrix, group_matrix, attribute_matrix, beta, alpha, maximum_iterations, maximum_seconds, log_stopping_threshold, maximum_newton, verbose, LP_method, project_every)
 }
 
+EMAlgorithmParametricSymmetric <- function(candidate_matrix, group_matrix, attribute_matrix, beta, alpha, maximum_iterations, maximum_seconds, log_stopping_threshold, maximum_newton, verbose, LP_method, project_every) {
+    .Call(`_fastei_EMAlgorithmParametricSymmetric`, candidate_matrix, group_matrix, attribute_matrix, beta, alpha, maximum_iterations, maximum_seconds, log_stopping_threshold, maximum_newton, verbose, LP_method, project_every)
+}
+
 bootstrapParametricAlg <- function(candidate_matrix, group_matrix, attribute_matrix, beta, alpha, maximum_iterations, nboot, maximum_seconds, log_stopping_threshold, maximum_newton, verbose, LP_method, project_every) {
     .Call(`_fastei_bootstrapParametricAlg`, candidate_matrix, group_matrix, attribute_matrix, beta, alpha, maximum_iterations, nboot, maximum_seconds, log_stopping_threshold, maximum_newton, verbose, LP_method, project_every)
 }
