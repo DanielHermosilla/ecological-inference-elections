@@ -24,20 +24,58 @@ static void setGlobalsFromCtx(const EMContext *ctx)
     TOTAL_VOTES = (uint32_t)ctx->total_votes;
 }
 
+static void computeQWithGlobals(EMContext *ctx, QMethodConfig config, double *log_likelihood)
+{
+    setGlobalsFromCtx(ctx);
+    config.computeQ(ctx, config.params, log_likelihood);
+}
+
+static void projectQWithGlobals(EMContext *ctx, QMethodInput inputParams)
+{
+    setGlobalsFromCtx(ctx);
+    projectQ(ctx, inputParams);
+}
+
+static int LPWWithGlobals(EMContext *ctx, int b)
+{
+    setGlobalsFromCtx(ctx);
+    return LPW_ctx(ctx, b);
+}
+
+static void getPWithGlobals(EMContext *ctx)
+{
+    setGlobalsFromCtx(ctx);
+    getP(ctx);
+}
+
+static void getInitialPWithGlobals(EMContext *ctx, const char *p_method, Matrix *probMatrix)
+{
+    setGlobalsFromCtx(ctx);
+    getInitialP(ctx, p_method, probMatrix);
+}
+
+static void getPredictedVotesWithGlobals(EMContext *ctx)
+{
+    setGlobalsFromCtx(ctx);
+    getPredictedVotes(ctx);
+}
+
 static void applyProbabilityCondition(EMContext *ctx, QMethodInput inputParams, bool force_every)
 {
+    setGlobalsFromCtx(ctx);
+
     if (((!force_every) && !inputParams.prob_cond_every) || inputParams.prob_cond == NULL ||
         strlen(inputParams.prob_cond) == 0)
         return;
 
     if (strcmp(inputParams.prob_cond, "project_lp") == 0)
     {
-        projectQ(ctx, inputParams);
+        projectQWithGlobals(ctx, inputParams);
     }
     else if (strcmp(inputParams.prob_cond, "lp") == 0)
     {
         for (int b = 0; b < (int)ctx->B; ++b)
-            LPW_ctx(ctx, b);
+            LPWWithGlobals(ctx, b);
     }
 
     // Keep q as a proper conditional probability after any adjustment method.
@@ -292,12 +330,12 @@ void runSymmetricEMWeight(EMContext *ctx_forward, const char *p_method, const ch
     if (strcmp(p_method, "custom") == 0)
     {
         reverse_prob_custom = buildReverseCustomInitialProb(probMatrix, ctx_forward);
-        getInitialP(ctx_reverse, "custom", &reverse_prob_custom);
+        getInitialPWithGlobals(ctx_reverse, "custom", &reverse_prob_custom);
         freeMatrix(&reverse_prob_custom);
     }
     else
     {
-        getInitialP(ctx_reverse, p_method, probMatrix);
+        getInitialPWithGlobals(ctx_reverse, p_method, probMatrix);
     }
 
     config_reverse = getQMethodConfig(q_method, reverse_params);
@@ -333,15 +371,13 @@ void runSymmetricEMWeight(EMContext *ctx_forward, const char *p_method, const ch
         const bool is_lp = has_prob_cond && strcmp(inputParams->prob_cond, "lp") == 0;
         const bool is_project_lp = has_prob_cond && strcmp(inputParams->prob_cond, "project_lp") == 0;
 
-        setGlobalsFromCtx(ctx_forward);
-        config_forward.computeQ(ctx_forward, config_forward.params, &newLL_forward);
+        computeQWithGlobals(ctx_forward, config_forward, &newLL_forward);
         if (run_prob_cond_each_iter && is_project_lp)
-            projectQ(ctx_forward, *inputParams);
+            projectQWithGlobals(ctx_forward, *inputParams);
 
-        setGlobalsFromCtx(ctx_reverse);
-        config_reverse.computeQ(ctx_reverse, config_reverse.params, &newLL_reverse);
+        computeQWithGlobals(ctx_reverse, config_reverse, &newLL_reverse);
         if (run_prob_cond_each_iter && is_project_lp)
-            projectQ(ctx_reverse, *inputParams);
+            projectQWithGlobals(ctx_reverse, *inputParams);
 
         if (run_prob_cond_each_iter && is_lp)
         {
@@ -351,8 +387,8 @@ void runSymmetricEMWeight(EMContext *ctx_forward, const char *p_method, const ch
                 if (status != 0)
                 {
                     // Safety fallback: keep the original behavior if the joint LP fails.
-                    LPW_ctx(ctx_forward, b);
-                    LPW_ctx(ctx_reverse, b);
+                    LPWWithGlobals(ctx_forward, b);
+                    LPWWithGlobals(ctx_reverse, b);
                 }
             }
         }
@@ -364,10 +400,8 @@ void runSymmetricEMWeight(EMContext *ctx_forward, const char *p_method, const ch
         memcpy(old_reverse_prob.data, ctx_reverse->probabilities.data,
                sizeof(double) * old_reverse_prob.rows * old_reverse_prob.cols);
 
-        setGlobalsFromCtx(ctx_forward);
-        getP(ctx_forward);
-        setGlobalsFromCtx(ctx_reverse);
-        getP(ctx_reverse);
+        getPWithGlobals(ctx_forward);
+        getPWithGlobals(ctx_reverse);
 
         *logLLarr = 0.5 * (newLL_forward + newLL_reverse);
 
@@ -429,11 +463,9 @@ void runSymmetricEMWeight(EMContext *ctx_forward, const char *p_method, const ch
         *finishing_reason = 2;
     }
 
-    setGlobalsFromCtx(ctx_forward);
-    config_forward.computeQ(ctx_forward, config_forward.params, &newLL_forward);
+    computeQWithGlobals(ctx_forward, config_forward, &newLL_forward);
 
-    setGlobalsFromCtx(ctx_reverse);
-    config_reverse.computeQ(ctx_reverse, config_reverse.params, &newLL_reverse);
+    computeQWithGlobals(ctx_reverse, config_reverse, &newLL_reverse);
 
     averageEstimatedVotesAndUpdateQ(ctx_forward, ctx_reverse);
 
@@ -447,8 +479,8 @@ void runSymmetricEMWeight(EMContext *ctx_forward, const char *p_method, const ch
                 if (status != 0)
                 {
                     // Safety fallback: keep the original behavior if the joint LP fails.
-                    LPW_ctx(ctx_forward, b);
-                    LPW_ctx(ctx_reverse, b);
+                    LPWWithGlobals(ctx_forward, b);
+                    LPWWithGlobals(ctx_reverse, b);
                 }
             }
         }
@@ -459,13 +491,10 @@ void runSymmetricEMWeight(EMContext *ctx_forward, const char *p_method, const ch
         }
     }
 
-    setGlobalsFromCtx(ctx_forward);
-    getP(ctx_forward);
-    setGlobalsFromCtx(ctx_reverse);
-    getP(ctx_reverse);
+    getPWithGlobals(ctx_forward);
+    getPWithGlobals(ctx_reverse);
 
-    setGlobalsFromCtx(ctx_forward);
-    getPredictedVotes(ctx_forward);
+    getPredictedVotesWithGlobals(ctx_forward);
 
     *logLLarr = 0.5 * (newLL_forward + newLL_reverse);
     *time = elapsed_total;
