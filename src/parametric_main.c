@@ -27,7 +27,7 @@ SOFTWARE.
 #include <R.h>
 #include <R_ext/BLAS.h>
 #include <R_ext/Memory.h>
-#include <R_ext/RS.h> /* for R_Calloc/R_Free, F77_CALL */
+#include <R_ext/RS.h>    /* for R_Calloc/R_Free, F77_CALL */
 #include <R_ext/Utils.h> // for R_CheckUserInterrupt
 #include <Rinternals.h>
 #include <dirent.h>
@@ -958,9 +958,8 @@ static void apply_joint_or_separate_lp(Matrix *X, Matrix *W, EMBuffers *forward,
 
 Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alpha, const int maxiter,
                      const double maxtime, const double ll_threshold, const int maxnewton, const bool verbose,
-                     double *out_elapsed, int *total_iterations, double *logLikelihood,
-                     Matrix **out_q, Matrix **out_expected,
-                     const char *adjust_prob_cond_method, bool adjust_prob_cond_every)
+                     double *out_elapsed, int *total_iterations, double *logLikelihood, Matrix **out_q,
+                     Matrix **out_expected, const char *adjust_prob_cond_method, bool adjust_prob_cond_every)
 {
     int B = V->rows;
     int A = V->cols;
@@ -1085,10 +1084,9 @@ Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alph
 }
 
 Matrix *EM_Algorithm_Symmetric(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alpha, const int maxiter,
-                               const double maxtime, const double ll_threshold, const int maxnewton,
-                               const bool verbose, double *out_elapsed, int *total_iterations,
-                               double *logLikelihood, Matrix **out_q, Matrix **out_expected,
-                               const char *adjust_prob_cond_method, bool adjust_prob_cond_every)
+                               const double maxtime, const double ll_threshold, const int maxnewton, const bool verbose,
+                               double *out_elapsed, int *total_iterations, double *logLikelihood, Matrix **out_q,
+                               Matrix **out_expected, const char *adjust_prob_cond_method, bool adjust_prob_cond_every)
 {
     int B = V->rows;
     int A = V->cols;
