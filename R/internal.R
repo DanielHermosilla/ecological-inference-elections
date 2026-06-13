@@ -88,25 +88,6 @@
         }
     }
 
-    if ("HET" %in% names(args) && !is.null(args$HET)) {
-        if (!is.numeric(args$HET) || length(args$HET) != 1 ||
-            !is.finite(args$HET) || args$HET < 0) {
-            stop("run_em: Invalid 'HET'. Must be a non-negative numeric value.")
-        }
-    }
-
-    if ("AE" %in% names(args) && !is.null(args$AE)) {
-        if (!is.numeric(args$AE) || length(args$AE) != 1 ||
-            !is.finite(args$AE) || args$AE < 0) {
-            stop("run_em: Invalid 'AE'. Must be a non-negative numeric value.")
-        }
-    }
-
-    if ("HET" %in% names(args) && !is.null(args$HET) &&
-        "AE" %in% names(args) && !is.null(args$AE)) {
-        stop("run_em: 'HET' and 'AE' cannot be provided simultaneously.")
-    }
-
     # Initial prob argument
     # valid_p_methods <- c("group_proportional", "proportional", "uniform", "random", "mult", "mcmc", "mvn_cdf", "mvn_pdf", "exact")
     # if ("initial_prob" %in% names(args) && (!is.matrix(args$initial_prob) ||
@@ -834,145 +815,14 @@
 
 #' Internal function!
 #'
-#' Compute the mixture HET metric for a fitted object.
-#'
-#' @param fit_object An `eim` object returned by `run_em()`.
-#' @return A numeric scalar, or `NA_real_` when not computable.
-#' @noRd
-.run_em_compute_HET_metric <- function(fit_object) {
-    if (is.null(fit_object$expected_outcome)) {
-        return(NA_real_)
-    }
-
-    W_fit <- .run_em_working_group_matrix(fit_object)
-    if (is.null(W_fit)) {
-        return(NA_real_)
-    }
-
-    denominator <- sum(W_fit)
-    if (!is.finite(denominator) || denominator <= 0) {
-        return(NA_real_)
-    }
-
-    z_hat <- fit_object$expected_outcome
-    if (!is.array(z_hat) || length(dim(z_hat)) != 3) {
-        return(NA_real_)
-    }
-
-    z_tilde <- NULL
-    if (!is.null(fit_object$component_prob) && !is.null(fit_object$responsibilities)) {
-        component_prob <- fit_object$component_prob
-        responsibilities <- as.matrix(fit_object$responsibilities)
-        if (length(dim(component_prob)) == 3 &&
-            ncol(responsibilities) == dim(component_prob)[3]) {
-            num_groups <- dim(component_prob)[1]
-            num_candidates <- dim(component_prob)[2]
-            num_ballots <- nrow(W_fit)
-            z_tilde <- array(0, dim = c(num_groups, num_candidates, num_ballots))
-            for (ballot in seq_len(num_ballots)) {
-                for (group in seq_len(num_groups)) {
-                    for (candidate in seq_len(num_candidates)) {
-                        z_tilde[group, candidate, ballot] <-
-                            W_fit[ballot, group] *
-                                sum(component_prob[group, candidate, ] * responsibilities[ballot, ])
-                    }
-                }
-            }
-        }
-    }
-
-    if (is.null(z_tilde) && is.array(fit_object$prob) && length(dim(fit_object$prob)) == 3) {
-        prob_arr <- fit_object$prob
-        num_groups <- dim(prob_arr)[1]
-        num_ballots <- dim(prob_arr)[3]
-        z_tilde <- array(0, dim = dim(prob_arr))
-        for (ballot in seq_len(num_ballots)) {
-            for (group in seq_len(num_groups)) {
-                z_tilde[group, , ballot] <- W_fit[ballot, group] * prob_arr[group, , ballot]
-            }
-        }
-    }
-
-    if (is.null(z_tilde) && is.matrix(fit_object$prob)) {
-        prob_matrix <- fit_object$prob
-        num_groups <- nrow(prob_matrix)
-        num_candidates <- ncol(prob_matrix)
-        num_ballots <- nrow(W_fit)
-        z_tilde <- array(0, dim = c(num_groups, num_candidates, num_ballots))
-        for (ballot in seq_len(num_ballots)) {
-            for (group in seq_len(num_groups)) {
-                z_tilde[group, , ballot] <- W_fit[ballot, group] * prob_matrix[group, ]
-            }
-        }
-    }
-
-    if (is.null(z_tilde) || !identical(dim(z_hat), dim(z_tilde))) {
-        return(NA_real_)
-    }
-
-    het <- 50 * sum(abs(z_hat - z_tilde)) / denominator
-    if (!is.finite(het)) {
-        return(NA_real_)
-    }
-
-    het
-}
-
-#' Internal function!
-#'
-#' Compute the mixture AE metric for a fitted object.
-#'
-#' @param fit_object An `eim` object returned by `run_em()`.
-#' @return A numeric scalar, or `NA_real_` when not computable.
-#' @noRd
-.run_em_compute_AE_metric <- function(fit_object) {
-    W_fit <- .run_em_working_group_matrix(fit_object)
-    X_fit <- fit_object$X
-    if (is.null(W_fit) || is.null(X_fit)) {
-        return(NA_real_)
-    }
-
-    prob_forward <- fit_object$prob
-    if (is.array(prob_forward) && length(dim(prob_forward)) == 3) {
-        num_groups <- dim(prob_forward)[1]
-        num_candidates <- dim(prob_forward)[2]
-        prob_matrix <- matrix(0, nrow = num_groups, ncol = num_candidates)
-        for (group in seq_len(num_groups)) {
-            denominator <- sum(W_fit[, group])
-            if (is.finite(denominator) && denominator > 0) {
-                prob_matrix[group, ] <- colSums(t(prob_forward[group, , ]) * W_fit[, group]) / denominator
-            } else {
-                prob_matrix[group, ] <- rep(1 / num_candidates, num_candidates)
-            }
-        }
-        prob_forward <- prob_matrix
-    }
-
-    if (!is.matrix(prob_forward)) {
-        return(NA_real_)
-    }
-
-    tau <- sum(abs(as.matrix(X_fit) - as.matrix(W_fit) %*% prob_forward))
-    if (!is.finite(tau)) {
-        return(NA_real_)
-    }
-
-    tau
-}
-
-#' Internal function!
-#'
-#' Restore zero-vote candidates and attach mixture diagnostics.
+#' Restore zero-vote candidates.
 #'
 #' @param fit_object An `eim` object returned by an EM branch.
 #' @param zero_vote_state State returned by `.prepare_zero_vote_columns()`.
 #' @return The finalized `eim` object.
 #' @noRd
 .run_em_finalize_fit_object <- function(fit_object, zero_vote_state) {
-    fit_object <- .restore_zero_vote_columns(fit_object, zero_vote_state)
-    fit_object$HET <- .run_em_compute_HET_metric(fit_object)
-    fit_object$AE <- .run_em_compute_AE_metric(fit_object)
-    fit_object
+    .restore_zero_vote_columns(fit_object, zero_vote_state)
 }
 
 #' Internal function!
@@ -1425,12 +1275,6 @@
     }
     if (isTRUE(control$symmetric) && identical(control$symmetric_weight_method, "EM_weight")) {
         stop("run_em: `symmetric_weight_method = \"EM_weight\"` is currently supported only for non-parametric models (`V = NULL`).")
-    }
-    if (!is.null(control$HET)) {
-        stop("run_em: `HET` is currently supported only for non-parametric models (`V = NULL`).")
-    }
-    if (!is.null(control$AE)) {
-        stop("run_em: `AE` is currently supported only for non-parametric models (`V = NULL`).")
     }
     if (control$row_mixture > 1L) {
         stop("run_em: `row_mixture > 1` is currently supported only for non-parametric models (`V = NULL`).")
@@ -2098,136 +1942,6 @@
 
 #' Internal function!
 #'
-#' Search over K or row_mixture using a mixture diagnostic metric.
-#'
-#' @param control List with active `run_em()` controls.
-#' @param metric_name Either `"HET"` or `"AE"`.
-#' @param threshold Numeric threshold.
-#' @return The selected fitted object.
-#' @noRd
-.run_em_adaptive_search_metric <- function(control, metric_name, threshold) {
-    metric_fun <- switch(metric_name,
-        HET = .run_em_compute_HET_metric,
-        AE = .run_em_compute_AE_metric,
-        stop("run_em: Unsupported adaptive metric.")
-    )
-
-    K_max <- 7L
-    best_fit <- NULL
-    best_metric <- Inf
-    last_fit <- NULL
-    search_best_only <- isTRUE(all.equal(threshold, 0)) || identical(metric_name, "AE")
-    search_over_H <- control$row_mixture > 1L
-
-    if (search_over_H) {
-        current <- 1L
-        repeat {
-            metric_call <- control$base_call
-            metric_call$object <- control$full_candidate_object
-            metric_call$X <- NULL
-            metric_call$W <- NULL
-            metric_call$V <- NULL
-            metric_call$json_path <- NULL
-            metric_call$mixture <- current
-            metric_call$row_mixture <- current
-            metric_call$H <- NULL
-            metric_call$HET <- NULL
-            metric_call$AE <- NULL
-
-            fit_metric <- eval(metric_call, control$caller_env)
-            last_fit <- fit_metric
-            metric_value <- metric_fun(fit_metric)
-            fit_metric[[metric_name]] <- metric_value
-            fit_metric$K <- as.integer(current)
-            fit_metric$mixture <- as.integer(current)
-            fit_metric$row_mixture <- as.integer(current)
-
-            if (is.finite(metric_value) && metric_value < best_metric) {
-                best_metric <- metric_value
-                best_fit <- fit_metric
-            }
-            if (!search_best_only && is.finite(metric_value) && metric_value < threshold) {
-                return(fit_metric)
-            }
-            if (current >= K_max) {
-                if (!is.null(best_fit)) {
-                    if (!search_best_only) {
-                        warning(sprintf(
-                            "run_em: No row_mixture <= %d satisfied the %s threshold. Returning the fit with minimum %s.",
-                            K_max,
-                            metric_name,
-                            metric_name
-                        ))
-                    }
-                    return(best_fit)
-                }
-                warning(sprintf(
-                    "run_em: No finite %s found for row_mixture <= %d. Returning the last fitted model.",
-                    metric_name,
-                    K_max
-                ))
-                return(last_fit)
-            }
-
-            current <- current + 1L
-        }
-    }
-
-    current <- 1L
-    repeat {
-        metric_call <- control$base_call
-        metric_call$object <- control$full_candidate_object
-        metric_call$X <- NULL
-        metric_call$W <- NULL
-        metric_call$V <- NULL
-        metric_call$json_path <- NULL
-        metric_call$mixture <- current
-        metric_call$row_mixture <- 1L
-        metric_call$H <- NULL
-        metric_call$HET <- NULL
-        metric_call$AE <- NULL
-
-        fit_metric <- eval(metric_call, control$caller_env)
-        last_fit <- fit_metric
-        metric_value <- metric_fun(fit_metric)
-        fit_metric[[metric_name]] <- metric_value
-        fit_metric$K <- as.integer(current)
-        fit_metric$mixture <- as.integer(current)
-        fit_metric$row_mixture <- 1L
-
-        if (is.finite(metric_value) && metric_value < best_metric) {
-            best_metric <- metric_value
-            best_fit <- fit_metric
-        }
-        if (!search_best_only && is.finite(metric_value) && metric_value < threshold) {
-            return(fit_metric)
-        }
-        if (current >= K_max) {
-            if (!is.null(best_fit)) {
-                if (!search_best_only) {
-                    warning(sprintf(
-                        "run_em: No K <= %d satisfied the %s threshold. Returning the fit with minimum %s.",
-                        K_max,
-                        metric_name,
-                        metric_name
-                    ))
-                }
-                return(best_fit)
-            }
-            warning(sprintf(
-                "run_em: No finite %s found for K <= %d. Returning the last fitted model.",
-                metric_name,
-                K_max
-            ))
-            return(last_fit)
-        }
-
-        current <- current + 1L
-    }
-}
-
-#' Internal function!
-#'
 #' Execute the non-parametric branch of `run_em()`.
 #'
 #' @param object An `eim` object.
@@ -2239,13 +1953,6 @@
         identical(control$symmetric_weight_method, "EM_weight") &&
         control$use_row_mixture) {
         stop("run_em: `symmetric_weight_method = \"EM_weight\"` is currently supported only when `row_mixture = 1`.")
-    }
-
-    if (!is.null(control$HET)) {
-        return(.run_em_adaptive_search_metric(control, "HET", control$HET))
-    }
-    if (!is.null(control$AE)) {
-        return(.run_em_adaptive_search_metric(control, "AE", control$AE))
     }
 
     object <- .run_em_apply_nonparametric_defaults(object, control$method, control$all_params)

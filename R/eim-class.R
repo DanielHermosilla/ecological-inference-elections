@@ -156,8 +156,6 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
             "time",
             "method",
             "row_mixture",
-            "HET",
-            "AE",
             "W_agg",
             "beta",
             "alpha",
@@ -371,8 +369,6 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'   \item{time}{The total execution time of the algorithm in seconds.}
 #'   \item{K}{The final number of latent profiles used by the fitted model.}
 #'   \item{row_mixture}{The final number of row-level latent profiles used by the fitted model.}
-#'   \item{HET}{The final heterogeneity metric achieved by the fitted model.}
-#'   \item{AE}{The final absolute-error metric achieved by the fitted model.}
 #'   \item{status}{
 #'     The final status ID of the algorithm upon completion:
 #'     \itemize{
@@ -447,8 +443,6 @@ run_em <- function(object = NULL,
                    mixture = 1,
                    S = NULL,
                    row_mixture = 1,
-                   HET = NULL,
-                   AE = NULL,
                    allow_mismatch = TRUE,
                    maxiter = 1000,
                    miniter = 0,
@@ -503,12 +497,6 @@ run_em <- function(object = NULL,
         base_call$row_mixture <- row_mixture
         all_params$H <- NULL
         all_params$row_mixture <- row_mixture
-    }
-    if (!is.null(HET)) {
-        HET <- as.numeric(HET)
-    }
-    if (!is.null(AE)) {
-        AE <- as.numeric(AE)
     }
 
     object <- .run_em_prepare_object(
@@ -570,8 +558,6 @@ run_em <- function(object = NULL,
         mixture = mixture,
         S = S,
         row_mixture = row_mixture,
-        HET = HET,
-        AE = AE,
         K = K,
         H_group = H_group,
         mixture_explicit = mixture_explicit,

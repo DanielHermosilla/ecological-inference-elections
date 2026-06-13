@@ -16,8 +16,6 @@ run_em(
   mixture = 1,
   S = NULL,
   row_mixture = 1,
-  HET = NULL,
-  AE = NULL,
   allow_mismatch = TRUE,
   maxiter = 1000,
   miniter = 0,
@@ -195,8 +193,6 @@ A \verb{(g x c x b)} 3d-array with the expected votes cast for each ballot-box.
 \item{time}{The total execution time of the algorithm in seconds.}
 \item{K}{The final number of latent profiles used by the fitted model.}
 \item{row_mixture}{The final number of row-level latent profiles used by the fitted model.}
-\item{HET}{The final heterogeneity metric achieved by the fitted model.}
-\item{AE}{The final absolute-error metric achieved by the fitted model.}
 \item{status}{
 The final status ID of the algorithm upon completion:
 \itemize{
