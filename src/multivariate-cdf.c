@@ -622,6 +622,142 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
     }
 }
 
+void computeQMultivariateCDFByBallot(EMContext *ctx, Matrix *probabilities_by_ballot, QMethodInput params, double *ll)
+{
+    *ll = 0.0;
+    if (ctx->ballot_loglik != NULL)
+    {
+        memset(ctx->ballot_loglik, 0, (size_t)ctx->B * sizeof(double));
+    }
+
+    Matrix *X = &ctx->X;
+    double *q = ctx->q;
+
+    const int B = (int)ctx->B;
+    const int G = (int)ctx->G;
+    const int C = (int)ctx->C;
+    const int d = C - 1;
+
+    int monteCarloSamples = params.monteCarloIter;
+    double epsilon = params.errorThreshold;
+    const char *method = params.simulationMethod;
+
+    double *logArray = NULL;
+    if (params.computeLL)
+        logArray = (double *)Calloc(B, double);
+
+    ArenaCDF A = ArenaCDF_init(C);
+
+    for (uint32_t b = 0; b < (uint32_t)B; b++)
+    {
+        Matrix *P = &probabilities_by_ballot[b];
+        Matrix P_red = removeLastColumn(P);
+
+        Matrix **L = (Matrix **)Calloc(G, Matrix *);
+        for (int g = 0; g < G; g++)
+        {
+            L[g] = (Matrix *)Calloc(1, Matrix);
+            *L[g] = createMatrix(d, d);
+        }
+        Matrix mu = createMatrix(G, d);
+
+        getMainParameters(ctx, (int)b, P_red, L, &mu);
+        getColumn_into(X, (int)b, A.feature);
+
+        for (uint16_t g = 0; g < G; g++)
+        {
+            Matrix *Lg = L[g];
+            getRow_into(&mu, g, A.mu_row);
+
+            double denom = 0.0;
+
+            for (uint16_t c = 0; c < C; c++)
+            {
+                memcpy(A.featureA, A.feature, d * sizeof(double));
+                memcpy(A.featureB, A.feature, d * sizeof(double));
+                for (uint16_t k = 0; k < d; k++)
+                {
+                    A.featureA[k] -= 0.5;
+                    A.featureB[k] += 0.5;
+                    if (k == c)
+                    {
+                        A.featureA[k] -= 1.0;
+                        A.featureB[k] -= 1.0;
+                    }
+                    A.featureA[k] -= A.mu_row[k];
+                    A.featureB[k] -= A.mu_row[k];
+                }
+
+                double val;
+                if (C != 2)
+                {
+                    val = Montecarlo(ctx, Lg, A.featureA, A.featureB, d, monteCarloSamples, epsilon, method);
+                }
+                else
+                {
+                    double s = sqrt(MATRIX_AT_PTR(Lg, 0, 0));
+                    val = pnorm(A.featureB[0], 0.0, s, 1, 0) - pnorm(A.featureA[0], 0.0, s, 1, 0);
+                }
+
+                if (!(val > 0.0) || !isfinite(val))
+                {
+                    val = pdf_midpoint(Lg, A.mu_row, A.featureA, A.featureB, d);
+                }
+
+                val *= MATRIX_AT_PTR(P, g, c);
+
+                A.mc_results[c] = val;
+                denom += isfinite(val) ? val : 0.0;
+
+                if (params.computeLL && g == 0 && isfinite(val))
+                    logArray[b] += val;
+            }
+
+            if (!(denom > 0.0) || !isfinite(denom))
+            {
+                double uniform = 1.0 / (double)C;
+                for (uint16_t c = 0; c < C; c++)
+                    Q_3D(q, b, g, c, G, C) = uniform;
+            }
+            else
+            {
+                for (uint16_t c = 0; c < C; c++)
+                {
+                    double result = A.mc_results[c] / denom;
+                    Q_3D(q, b, g, c, G, C) = (isfinite(result) ? result : 0.0);
+                }
+            }
+        }
+
+        for (int g = 0; g < G; g++)
+        {
+            freeMatrix(L[g]);
+            Free(L[g]);
+        }
+        Free(L);
+        freeMatrix(&mu);
+        freeMatrix(&P_red);
+    }
+
+    ArenaCDF_free(&A);
+
+    if (params.computeLL)
+    {
+        double finalLL = 0.0;
+        for (uint32_t b = 0; b < (uint32_t)B; b++)
+        {
+            double ll_b = (logArray[b] != 0.0) ? log(logArray[b]) : 0.0;
+            if (ctx->ballot_loglik != NULL)
+            {
+                ctx->ballot_loglik[b] = ll_b;
+            }
+            finalLL += ll_b;
+        }
+        *ll = finalLL;
+        Free(logArray);
+    }
+}
+
 double computeLogLikMultivariateCDF(EMContext *ctx, QMethodInput params)
 {
     double ll = 0.0;

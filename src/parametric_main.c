@@ -23,6 +23,8 @@ SOFTWARE.
 #include "parametric_main.h"
 #include "LP.h"
 #include "globals.h"
+#include "multivariate-cdf.h"
+#include "multivariate-pdf.h"
 #include "utils_matrix.h"
 #include <R.h>
 #include <R_ext/BLAS.h>
@@ -30,6 +32,7 @@ SOFTWARE.
 #include <R_ext/RS.h> /* for R_Calloc/R_Free, F77_CALL */
 #include <R_ext/Utils.h> // for R_CheckUserInterrupt
 #include <Rinternals.h>
+#include <Rmath.h>
 #include <dirent.h>
 #include <float.h>
 #include <math.h>
@@ -41,6 +44,9 @@ SOFTWARE.
 #include <time.h>
 #include <unistd.h>
 
+#ifdef beta
+#undef beta
+#endif
 #ifndef Calloc
 #define Calloc(n, type) ((type *)R_chk_calloc((size_t)(n), sizeof(type)))
 #endif
@@ -71,6 +77,7 @@ typedef struct
     Matrix H;          // D x D Hessian
     double *gvec;      // length D
     double *vvec;      // length D
+    double *ballot_loglik;
 } EMBuffers;
 
 void init_EMBuffers(EMBuffers *buf, int B, int G, int Cminus1, int A)
@@ -110,6 +117,7 @@ void init_EMBuffers(EMBuffers *buf, int B, int G, int Cminus1, int A)
     // Vectors
     buf->gvec = (double *)Calloc(buf->D, double);
     buf->vvec = (double *)Calloc(buf->D, double);
+    buf->ballot_loglik = (double *)Calloc(B, double);
 }
 
 void free_EMBuffers(EMBuffers *buf)
@@ -132,6 +140,7 @@ void free_EMBuffers(EMBuffers *buf)
     freeMatrix(&buf->grad_beta);
     Free(buf->gvec);
     Free(buf->vvec);
+    Free(buf->ballot_loglik);
 }
 
 // ---- Copy helpers for returning results ----
@@ -377,7 +386,37 @@ void getProbability(EMBuffers *buf,
     }
 }
 
-void E_step(Matrix *X, Matrix *W, Matrix *V, EMBuffers *buf)
+static void compute_parametric_ballot_scores(Matrix *X, Matrix *W, EMBuffers *buf)
+{
+    int B = buf->B, G = buf->G, C = buf->C;
+    const double eps = 1e-12;
+
+    for (int b = 0; b < B; ++b)
+    {
+        double wsum = 0.0;
+        for (int g = 0; g < G; ++g)
+            wsum += MATRIX_AT_PTR(W, b, g);
+        if (!isfinite(wsum) || wsum <= eps)
+            wsum = 1.0;
+
+        double ll_b = 0.0;
+        for (int c = 0; c < C; ++c)
+        {
+            double s = 0.0;
+            for (int g = 0; g < G; ++g)
+                s += MATRIX_AT_PTR(W, b, g) * MATRIX_AT(buf->prob[b], g, c);
+            MATRIX_AT(buf->S_bc, b, c) = s;
+
+            double marginal = s / wsum;
+            if (!isfinite(marginal) || marginal < eps)
+                marginal = eps;
+            ll_b += MATRIX_AT_PTR(X, b, c) * log(marginal);
+        }
+        buf->ballot_loglik[b] = ll_b;
+    }
+}
+
+static void E_step_mult(Matrix *X, Matrix *W, Matrix *V, EMBuffers *buf)
 {
 
     int B = buf->B, G = buf->G, C = buf->C;
@@ -385,18 +424,7 @@ void E_step(Matrix *X, Matrix *W, Matrix *V, EMBuffers *buf)
     // ---- Get the probabilities
     getProbability(buf, V, &buf->alpha, &buf->beta);
 
-    for (int b = 0; b < B; ++b)
-    {
-        for (int c = 0; c < C; ++c)
-        {
-            double acc = 0.0;
-            for (int g = 0; g < G; ++g)
-            {
-                acc += MATRIX_AT_PTR(W, b, g) * MATRIX_AT(buf->prob[b], g, c);
-            }
-            MATRIX_AT(buf->S_bc, b, c) = acc;
-        }
-    }
+    compute_parametric_ballot_scores(X, W, buf);
 
     // --- Compute q_bgc
     for (int b = 0; b < B; ++b)
@@ -409,17 +437,119 @@ void E_step(Matrix *X, Matrix *W, Matrix *V, EMBuffers *buf)
             {
                 double n = MATRIX_AT(buf->prob[b], g, c) * MATRIX_AT_PTR(X, b, c);
                 double d = MATRIX_AT(buf->S_bc, b, c) - MATRIX_AT(buf->prob[b], g, c);
+                if (!isfinite(d) || fabs(d) < 1e-12)
+                    d = (d < 0.0) ? -1e-12 : 1e-12;
                 double v = n / d;
+                if (!isfinite(v) || v < 0.0)
+                    v = 0.0;
                 MATRIX_AT(buf->q_bgc[b], g, c) = v;
                 denom += v;
             }
             // --- normalize
+            bool fallback_q = false;
+            if (!isfinite(denom) || denom <= 0.0)
+            {
+                denom = 1.0;
+                fallback_q = true;
+            }
             for (int c = 0; c < C; ++c)
             {
-                MATRIX_AT(buf->q_bgc[b], g, c) /= denom;
+                if (fallback_q)
+                    MATRIX_AT(buf->q_bgc[b], g, c) = MATRIX_AT(buf->prob[b], g, c);
+                else
+                    MATRIX_AT(buf->q_bgc[b], g, c) /= denom;
             }
         }
     }
+}
+
+static void E_step_mvn(Matrix *X, Matrix *W, Matrix *V, EMBuffers *buf, bool use_cdf, QMethodInput *q_params)
+{
+    int B = buf->B, G = buf->G, C = buf->C;
+
+    getProbability(buf, V, &buf->alpha, &buf->beta);
+
+    double *q_flat = (double *)Calloc((size_t)B * (size_t)G * (size_t)C, double);
+    Matrix X_ctx = createMatrix(C, B);
+    for (int b = 0; b < B; ++b)
+        for (int c = 0; c < C; ++c)
+            MATRIX_AT(X_ctx, c, b) = MATRIX_AT_PTR(X, b, c);
+
+    EMContext ctx = {0};
+    ctx.X = X_ctx;
+    ctx.W = *W;
+    ctx.probabilities = buf->prob[0];
+    ctx.q = q_flat;
+    ctx.ballot_loglik = buf->ballot_loglik;
+    ctx.B = (uint32_t)B;
+    ctx.G = (uint16_t)G;
+    ctx.C = (uint16_t)C;
+
+    uint32_t old_total_ballots = TOTAL_BALLOTS;
+    uint16_t old_total_candidates = TOTAL_CANDIDATES;
+    uint16_t old_total_groups = TOTAL_GROUPS;
+    TOTAL_BALLOTS = (uint32_t)B;
+    TOTAL_CANDIDATES = (uint16_t)C;
+    TOTAL_GROUPS = (uint16_t)G;
+
+    QMethodInput params = {0};
+    if (q_params != NULL)
+        params = *q_params;
+    params.computeLL = true;
+    if (use_cdf)
+    {
+        if (params.monteCarloIter <= 0)
+            params.monteCarloIter = 1000;
+        if (!(params.errorThreshold > 0.0) || !isfinite(params.errorThreshold))
+            params.errorThreshold = 1e-6;
+        if (params.simulationMethod == NULL)
+            params.simulationMethod = "genz";
+        allocateSeed(&ctx, params);
+    }
+
+    double ll = 0.0;
+    if (use_cdf)
+        computeQMultivariateCDFByBallot(&ctx, buf->prob, params, &ll);
+    else
+        computeQMultivariatePDFByBallot(&ctx, buf->prob, params, &ll);
+
+    for (int b = 0; b < B; ++b)
+    {
+        for (int g = 0; g < G; ++g)
+        {
+            for (int c = 0; c < C; ++c)
+                MATRIX_AT(buf->q_bgc[b], g, c) = Q_3D(q_flat, b, g, c, G, C);
+        }
+    }
+
+    if (ctx.cdf_seeds != NULL)
+        Free(ctx.cdf_seeds);
+    TOTAL_BALLOTS = old_total_ballots;
+    TOTAL_CANDIDATES = old_total_candidates;
+    TOTAL_GROUPS = old_total_groups;
+    freeMatrix(&X_ctx);
+    Free(q_flat);
+}
+
+static void E_step_method(Matrix *X, Matrix *W, Matrix *V, EMBuffers *buf, const char *q_method, QMethodInput *q_params)
+{
+    if (q_method != NULL && strcmp(q_method, "mvn_pdf") == 0)
+    {
+        E_step_mvn(X, W, V, buf, false, q_params);
+    }
+    else if (q_method != NULL && strcmp(q_method, "mvn_cdf") == 0)
+    {
+        E_step_mvn(X, W, V, buf, true, q_params);
+    }
+    else
+    {
+        E_step_mult(X, W, V, buf);
+    }
+}
+
+void E_step(Matrix *X, Matrix *W, Matrix *V, EMBuffers *buf)
+{
+    E_step_method(X, W, V, buf, "mult", NULL);
 }
 
 double objective_function(Matrix *W, Matrix *V, EMBuffers *buf, const Matrix *alpha_eval, const Matrix *beta_eval,
@@ -861,11 +991,12 @@ void M_step(Matrix *X, Matrix *W, Matrix *V, EMBuffers *buf, const double tol, c
     // }
 }
 
-Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alpha, const int maxiter,
-                     const double maxtime, const double ll_threshold, const int maxnewton, const bool verbose,
-                     double *out_elapsed, int *total_iterations, double *logLikelihood,
-                     Matrix **out_q, Matrix **out_expected,
-                     const char *adjust_prob_cond_method, bool adjust_prob_cond_every)
+Matrix *EM_Algorithm_Method(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alpha, const int maxiter,
+                            const double maxtime, const double ll_threshold, const int maxnewton, const bool verbose,
+                            double *out_elapsed, int *total_iterations, double *logLikelihood,
+                            Matrix **out_q, Matrix **out_expected,
+                            const char *q_method, QMethodInput *q_params,
+                            const char *adjust_prob_cond_method, bool adjust_prob_cond_every)
 {
     int B = V->rows;
     int A = V->cols;
@@ -901,7 +1032,7 @@ Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alph
     {
         *total_iterations += 1;
         tol = 1.0 / (iter + 1);
-        E_step(X, W, V, &buf);
+        E_step_method(X, W, V, &buf, q_method, q_params);
         if (adjust_prob_cond_every)
         {
             if (use_project_lp)
@@ -936,7 +1067,7 @@ Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alph
         }
         current_ll = new_ll;
     }
-    E_step(X, W, V, &buf);
+    E_step_method(X, W, V, &buf, q_method, q_params);
     if (use_project_lp)
     {
         projectQ(X, W, &buf, &norm, scale_factors);
@@ -987,4 +1118,665 @@ Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alph
 
     // Matrix *finalProbability = getProbability(V, beta, alpha);
     return finalProb; // Return the final probabilities
+}
+
+Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alpha, const int maxiter,
+                     const double maxtime, const double ll_threshold, const int maxnewton, const bool verbose,
+                     double *out_elapsed, int *total_iterations, double *logLikelihood,
+                     Matrix **out_q, Matrix **out_expected,
+                     const char *adjust_prob_cond_method, bool adjust_prob_cond_every)
+{
+    return EM_Algorithm_Method(X, W, V, beta, alpha, maxiter, maxtime, ll_threshold, maxnewton, verbose, out_elapsed,
+                               total_iterations, logLikelihood, out_q, out_expected, "mult", NULL,
+                               adjust_prob_cond_method, adjust_prob_cond_every);
+}
+
+static double update_matrix_parametric_responsibilities(const Matrix *score, const Matrix *phi,
+                                                        Matrix *responsibilities, double *row_scores)
+{
+    const int B = score->rows;
+    const int K = score->cols;
+    const double eps = 1e-12;
+    double ll = 0.0;
+
+    for (int b = 0; b < B; ++b)
+    {
+        for (int k = 0; k < K; ++k)
+            row_scores[k] = MATRIX_AT_PTR(score, b, k);
+
+        double maxv = -INFINITY;
+        for (int k = 0; k < K; ++k)
+        {
+            double ph = MATRIX_AT_PTR(phi, b, k);
+            ph = (isfinite(ph) && ph > eps) ? ph : eps;
+            double v = row_scores[k] + log(ph);
+            if (isfinite(v) && v > maxv)
+                maxv = v;
+        }
+        if (!isfinite(maxv))
+            maxv = log(eps);
+
+        double sum_exp = 0.0;
+        for (int k = 0; k < K; ++k)
+        {
+            double ph = MATRIX_AT_PTR(phi, b, k);
+            ph = (isfinite(ph) && ph > eps) ? ph : eps;
+            double v = row_scores[k] + log(ph);
+            if (isfinite(v))
+                sum_exp += exp(v - maxv);
+        }
+        double ll_b = (isfinite(sum_exp) && sum_exp > 0.0) ? maxv + log(sum_exp) : log(eps);
+        ll += isfinite(ll_b) ? ll_b : log(eps);
+
+        double den = 0.0;
+        for (int k = 0; k < K; ++k)
+        {
+            double ph = MATRIX_AT_PTR(phi, b, k);
+            ph = (isfinite(ph) && ph > eps) ? ph : eps;
+            double val = isfinite(row_scores[k]) ? exp(row_scores[k] + log(ph) - ll_b) : 0.0;
+            MATRIX_AT_PTR(responsibilities, b, k) = val;
+            den += val;
+        }
+
+        if (!isfinite(den) || den <= 0.0)
+        {
+            double uniform = 1.0 / (double)K;
+            for (int k = 0; k < K; ++k)
+                MATRIX_AT_PTR(responsibilities, b, k) = uniform;
+        }
+        else
+        {
+            for (int k = 0; k < K; ++k)
+                MATRIX_AT_PTR(responsibilities, b, k) /= den;
+        }
+    }
+
+    return ll;
+}
+
+static double matrix_max_delta(const Matrix *a, const Matrix *b)
+{
+    double delta = 0.0;
+    size_t n = (size_t)a->rows * (size_t)a->cols;
+    for (size_t i = 0; i < n; ++i)
+    {
+        double d = fabs(a->data[i] - b->data[i]);
+        if (isfinite(d) && d > delta)
+            delta = d;
+    }
+    return delta;
+}
+
+static void normalize_matrix_mixture_component(Matrix *P)
+{
+    const double eps = 1e-12;
+    for (int g = 0; g < P->rows; ++g)
+    {
+        double rowsum = 0.0;
+        for (int c = 0; c < P->cols; ++c)
+        {
+            double v = MATRIX_AT_PTR(P, g, c);
+            if (!isfinite(v) || v < eps)
+                v = eps;
+            MATRIX_AT_PTR(P, g, c) = v;
+            rowsum += v;
+        }
+        if (!isfinite(rowsum) || rowsum <= 0.0)
+            rowsum = 1.0;
+        for (int c = 0; c < P->cols; ++c)
+            MATRIX_AT_PTR(P, g, c) /= rowsum;
+    }
+}
+
+static void compute_membership_phi(const Matrix *V, const Matrix *beta, Matrix *phi)
+{
+    const int B = V->rows;
+    const int A = V->cols;
+    const int K = phi->cols;
+
+    for (int b = 0; b < B; ++b)
+    {
+        double max_eta = 0.0;
+        for (int k = 0; k < K - 1; ++k)
+        {
+            double eta = 0.0;
+            for (int a = 0; a < A; ++a)
+                eta += MATRIX_AT_PTR(V, b, a) * MATRIX_AT_PTR(beta, a, k);
+            MATRIX_AT_PTR(phi, b, k) = eta;
+            if (eta > max_eta)
+                max_eta = eta;
+        }
+
+        double denom = exp(-max_eta);
+        for (int k = 0; k < K - 1; ++k)
+            denom += exp(MATRIX_AT_PTR(phi, b, k) - max_eta);
+
+        for (int k = 0; k < K - 1; ++k)
+            MATRIX_AT_PTR(phi, b, k) = exp(MATRIX_AT_PTR(phi, b, k) - max_eta) / denom;
+        MATRIX_AT_PTR(phi, b, K - 1) = exp(-max_eta) / denom;
+    }
+}
+
+static double membership_negative_loglik(const Matrix *V, const Matrix *responsibilities, const Matrix *beta)
+{
+    const int B = V->rows;
+    const int A = V->cols;
+    const int K = responsibilities->cols;
+    const double eps = 1e-12;
+    double nll = 0.0;
+
+    Matrix phi = createMatrix(B, K);
+    compute_membership_phi(V, beta, &phi);
+    for (int b = 0; b < B; ++b)
+    {
+        for (int k = 0; k < K; ++k)
+        {
+            double r = MATRIX_AT_PTR(responsibilities, b, k);
+            double ph = MATRIX_AT(phi, b, k);
+            ph = (isfinite(ph) && ph > eps) ? ph : eps;
+            nll -= r * log(ph);
+        }
+    }
+    freeMatrix(&phi);
+    return nll;
+}
+
+static void newton_membership_beta(const Matrix *V, const Matrix *responsibilities, Matrix *beta, int max_iter,
+                                   double ridge)
+{
+    const int B = V->rows;
+    const int A = V->cols;
+    const int K = responsibilities->cols;
+    const int H = K - 1;
+    const int D = A * H;
+    if (D <= 0)
+        return;
+
+    Matrix phi = createMatrix(B, K);
+    double *grad = (double *)Calloc((size_t)D, double);
+    double *hess = (double *)Calloc((size_t)D * (size_t)D, double);
+    double *step = (double *)Calloc((size_t)D, double);
+    Matrix trial = createMatrix(A, H);
+
+    for (int iter = 0; iter < max_iter; ++iter)
+    {
+        compute_membership_phi(V, beta, &phi);
+        memset(grad, 0, (size_t)D * sizeof(double));
+        memset(hess, 0, (size_t)D * (size_t)D * sizeof(double));
+
+        for (int b = 0; b < B; ++b)
+        {
+            for (int h = 0; h < H; ++h)
+            {
+                double diff = MATRIX_AT(phi, b, h) - MATRIX_AT_PTR(responsibilities, b, h);
+                for (int a = 0; a < A; ++a)
+                {
+                    int idx = h * A + a;
+                    double va = MATRIX_AT_PTR(V, b, a);
+                    grad[idx] += diff * va;
+                }
+            }
+
+            for (int h1 = 0; h1 < H; ++h1)
+            {
+                double p1 = MATRIX_AT(phi, b, h1);
+                for (int h2 = 0; h2 < H; ++h2)
+                {
+                    double p2 = MATRIX_AT(phi, b, h2);
+                    double factor = p1 * ((h1 == h2 ? 1.0 : 0.0) - p2);
+                    for (int a1 = 0; a1 < A; ++a1)
+                    {
+                        int row = h1 * A + a1;
+                        double v1 = MATRIX_AT_PTR(V, b, a1);
+                        for (int a2 = 0; a2 < A; ++a2)
+                        {
+                            int col = h2 * A + a2;
+                            double v2 = MATRIX_AT_PTR(V, b, a2);
+                            hess[(size_t)col * (size_t)D + (size_t)row] += factor * v1 * v2;
+                        }
+                    }
+                }
+            }
+        }
+
+        for (int i = 0; i < D; ++i)
+            hess[(size_t)i * (size_t)D + (size_t)i] += ridge;
+
+        solve_linear_system(D, hess, grad, step);
+        double gdot = 0.0;
+        double step_inf = 0.0;
+        for (int i = 0; i < D; ++i)
+        {
+            gdot += grad[i] * step[i];
+            step_inf = fmax(step_inf, fabs(step[i]));
+        }
+        if (step_inf < 1e-8)
+            break;
+
+        double f0 = membership_negative_loglik(V, responsibilities, beta);
+        double t = 1.0;
+        const double c1 = 1e-4;
+        bool accepted = false;
+        while (t >= 1e-8)
+        {
+            memcpy(trial.data, beta->data, (size_t)A * (size_t)H * sizeof(double));
+            for (int h = 0; h < H; ++h)
+                for (int a = 0; a < A; ++a)
+                    MATRIX_AT(trial, a, h) += t * step[h * A + a];
+
+            double ft = membership_negative_loglik(V, responsibilities, &trial);
+            if (isfinite(ft) && ft <= f0 + c1 * t * gdot)
+            {
+                memcpy(beta->data, trial.data, (size_t)A * (size_t)H * sizeof(double));
+                accepted = true;
+                break;
+            }
+            t *= 0.5;
+        }
+        if (!accepted)
+            break;
+    }
+
+    freeMatrix(&phi);
+    freeMatrix(&trial);
+    Free(grad);
+    Free(hess);
+    Free(step);
+}
+
+static void compute_matrix_component_mult(Matrix *X, Matrix *W, Matrix *P, double *q, double *ballot_loglik)
+{
+    const int B = X->rows;
+    const int C = X->cols;
+    const int G = W->cols;
+    const double eps = 1e-12;
+
+    for (int b = 0; b < B; ++b)
+    {
+        double wsum = 0.0;
+        for (int g = 0; g < G; ++g)
+            wsum += MATRIX_AT_PTR(W, b, g);
+        if (!isfinite(wsum) || wsum <= eps)
+            wsum = 1.0;
+
+        double ll_b = 0.0;
+        for (int c = 0; c < C; ++c)
+        {
+            double s = 0.0;
+            for (int g = 0; g < G; ++g)
+                s += MATRIX_AT_PTR(W, b, g) * MATRIX_AT_PTR(P, g, c);
+            double marginal = s / wsum;
+            if (!isfinite(marginal) || marginal < eps)
+                marginal = eps;
+            ll_b += MATRIX_AT_PTR(X, b, c) * log(marginal);
+
+            for (int g = 0; g < G; ++g)
+            {
+                double num = MATRIX_AT_PTR(P, g, c) * MATRIX_AT_PTR(X, b, c);
+                double den = s - MATRIX_AT_PTR(P, g, c);
+                double val = (isfinite(den) && fabs(den) > eps) ? num / den : 0.0;
+                if (!isfinite(val) || val < 0.0)
+                    val = 0.0;
+                Q_3D(q, b, g, c, G, C) = val;
+            }
+        }
+        ballot_loglik[b] = ll_b;
+
+        for (int g = 0; g < G; ++g)
+        {
+            double qsum = 0.0;
+            for (int c = 0; c < C; ++c)
+                qsum += Q_3D(q, b, g, c, G, C);
+            if (!isfinite(qsum) || qsum <= eps)
+            {
+                for (int c = 0; c < C; ++c)
+                    Q_3D(q, b, g, c, G, C) = MATRIX_AT_PTR(P, g, c);
+            }
+            else
+            {
+                for (int c = 0; c < C; ++c)
+                    Q_3D(q, b, g, c, G, C) /= qsum;
+            }
+        }
+    }
+}
+
+static void compute_matrix_component_mvn(Matrix *X, Matrix *W, Matrix *P, double *q, double *ballot_loglik,
+                                         bool use_cdf, QMethodInput *q_params)
+{
+    const int B = X->rows;
+    const int C = X->cols;
+    const int G = W->cols;
+
+    Matrix X_ctx = createMatrix(C, B);
+    for (int b = 0; b < B; ++b)
+        for (int c = 0; c < C; ++c)
+            MATRIX_AT(X_ctx, c, b) = MATRIX_AT_PTR(X, b, c);
+
+    Matrix *prob_by_ballot = (Matrix *)Calloc((size_t)B, Matrix);
+    for (int b = 0; b < B; ++b)
+        prob_by_ballot[b] = *P;
+
+    EMContext ctx = {0};
+    ctx.X = X_ctx;
+    ctx.W = *W;
+    ctx.probabilities = *P;
+    ctx.q = q;
+    ctx.ballot_loglik = ballot_loglik;
+    ctx.B = (uint32_t)B;
+    ctx.G = (uint16_t)G;
+    ctx.C = (uint16_t)C;
+
+    uint32_t old_total_ballots = TOTAL_BALLOTS;
+    uint16_t old_total_candidates = TOTAL_CANDIDATES;
+    uint16_t old_total_groups = TOTAL_GROUPS;
+    TOTAL_BALLOTS = (uint32_t)B;
+    TOTAL_CANDIDATES = (uint16_t)C;
+    TOTAL_GROUPS = (uint16_t)G;
+
+    QMethodInput params = {0};
+    if (q_params != NULL)
+        params = *q_params;
+    params.computeLL = true;
+    if (use_cdf)
+    {
+        if (params.monteCarloIter <= 0)
+            params.monteCarloIter = 1000;
+        if (!(params.errorThreshold > 0.0) || !isfinite(params.errorThreshold))
+            params.errorThreshold = 1e-6;
+        if (params.simulationMethod == NULL)
+            params.simulationMethod = "genz";
+        allocateSeed(&ctx, params);
+    }
+
+    double ll = 0.0;
+    if (use_cdf)
+        computeQMultivariateCDFByBallot(&ctx, prob_by_ballot, params, &ll);
+    else
+        computeQMultivariatePDFByBallot(&ctx, prob_by_ballot, params, &ll);
+
+    if (ctx.cdf_seeds != NULL)
+        Free(ctx.cdf_seeds);
+    TOTAL_BALLOTS = old_total_ballots;
+    TOTAL_CANDIDATES = old_total_candidates;
+    TOTAL_GROUPS = old_total_groups;
+    Free(prob_by_ballot);
+    freeMatrix(&X_ctx);
+}
+
+static void compute_matrix_component_estep(Matrix *X, Matrix *W, Matrix *P, double *q, double *ballot_loglik,
+                                           const char *q_method, QMethodInput *q_params)
+{
+    if (q_method != NULL && strcmp(q_method, "mvn_pdf") == 0)
+        compute_matrix_component_mvn(X, W, P, q, ballot_loglik, false, q_params);
+    else if (q_method != NULL && strcmp(q_method, "mvn_cdf") == 0)
+        compute_matrix_component_mvn(X, W, P, q, ballot_loglik, true, q_params);
+    else
+        compute_matrix_component_mult(X, W, P, q, ballot_loglik);
+}
+
+EMParametricMixtureResult *EM_Algorithm_Parametric_Mixture(
+    Matrix *X, Matrix *W, Matrix *V, Matrix *component_prob_init, Matrix *membership_beta_init, int mixture_h,
+    const int maxiter, const int miniter, const double maxtime, const double convergence, const double ll_threshold,
+    const int maxnewton, const bool verbose, const char *q_method, QMethodInput *q_params,
+    const char *adjust_prob_cond_method, bool adjust_prob_cond_every)
+{
+    (void)adjust_prob_cond_method;
+    (void)adjust_prob_cond_every;
+    const double eps = 1e-12;
+    if (mixture_h < 1)
+        error("run_em: Invalid 'mixture'. Must be a positive integer.");
+
+    int B = V->rows;
+    int A = V->cols;
+    int G = W->cols;
+    int C = X->cols;
+    int K = mixture_h;
+
+    Matrix *components = alloc_matrix_array(K, G, C);
+    Matrix beta = copMatrix(membership_beta_init);
+    Matrix prev_beta = createMatrix(A, K - 1);
+    double **q_components = (double **)Calloc((size_t)K, double *);
+    double **ballot_scores = (double **)Calloc((size_t)K, double *);
+    Matrix score = createMatrix(B, mixture_h);
+    Matrix phi = createMatrix(B, mixture_h);
+    Matrix responsibilities = createMatrix(B, mixture_h);
+    double *row_counts = (double *)Calloc((size_t)C, double);
+    double *row_scores = (double *)Calloc((size_t)mixture_h, double);
+    double *prev_component_prob = (double *)Calloc((size_t)G * (size_t)C * (size_t)K, double);
+
+    for (int k = 0; k < K; ++k)
+    {
+        memcpy(components[k].data, component_prob_init[k].data, (size_t)G * (size_t)C * sizeof(double));
+        normalize_matrix_mixture_component(&components[k]);
+        q_components[k] = (double *)Calloc((size_t)B * (size_t)G * (size_t)C, double);
+        ballot_scores[k] = (double *)Calloc((size_t)B, double);
+    }
+    compute_membership_phi(V, &beta, &phi);
+    for (int b = 0; b < B; ++b)
+        for (int k = 0; k < K; ++k)
+            MATRIX_AT(responsibilities, b, k) = MATRIX_AT(phi, b, k);
+
+    struct timespec start, now;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &start);
+    double elapsed_total = 0.0;
+    double final_ll = -INFINITY;
+    double prev_ll = -INFINITY;
+    int iter_done = 0;
+    int finish_id = 2;
+
+    for (int iter = 1; iter <= maxiter; ++iter)
+    {
+        iter_done = iter;
+
+        memcpy(prev_beta.data, beta.data, (size_t)A * (size_t)(K - 1) * sizeof(double));
+        for (int k = 0; k < K; ++k)
+        {
+            for (int c = 0; c < C; ++c)
+                for (int g = 0; g < G; ++g)
+                    prev_component_prob[(size_t)g + (size_t)G * ((size_t)c + (size_t)C * (size_t)k)] =
+                        MATRIX_AT(components[k], g, c);
+        }
+
+        compute_membership_phi(V, &beta, &phi);
+        for (int k = 0; k < K; ++k)
+        {
+            compute_matrix_component_estep(X, W, &components[k], q_components[k], ballot_scores[k], q_method,
+                                           q_params);
+            for (int b = 0; b < B; ++b)
+                MATRIX_AT(score, b, k) = ballot_scores[k][b];
+        }
+
+        final_ll = update_matrix_parametric_responsibilities(&score, &phi, &responsibilities, row_scores);
+
+        for (int k = 0; k < K; ++k)
+        {
+            for (int g = 0; g < G; ++g)
+            {
+                memset(row_counts, 0, (size_t)C * sizeof(double));
+                double den = 0.0;
+                for (int b = 0; b < B; ++b)
+                {
+                    double w = MATRIX_AT(responsibilities, b, k) * MATRIX_AT_PTR(W, b, g);
+                    if (w <= 0.0 || !isfinite(w))
+                        continue;
+                    den += w;
+                    for (int c = 0; c < C; ++c)
+                        row_counts[c] += w * Q_3D(q_components[k], b, g, c, G, C);
+                }
+                if (den <= eps || !isfinite(den))
+                    continue;
+                double rowsum = 0.0;
+                for (int c = 0; c < C; ++c)
+                {
+                    double v = row_counts[c] / den;
+                    if (!isfinite(v) || v < eps)
+                        v = eps;
+                    row_counts[c] = v;
+                    rowsum += v;
+                }
+                if (!isfinite(rowsum) || rowsum <= 0.0)
+                    rowsum = 1.0;
+                for (int c = 0; c < C; ++c)
+                    MATRIX_AT(components[k], g, c) = row_counts[c] / rowsum;
+            }
+        }
+
+        newton_membership_beta(V, &responsibilities, &beta, maxnewton, 1e-8);
+
+        double delta = 0.0;
+        delta = fmax(delta, matrix_max_delta(&beta, &prev_beta));
+        for (int k = 0; k < K; ++k)
+        {
+            for (int c = 0; c < C; ++c)
+            {
+                for (int g = 0; g < G; ++g)
+                {
+                    double prev = prev_component_prob[(size_t)g + (size_t)G * ((size_t)c + (size_t)C * (size_t)k)];
+                    double d = fabs(MATRIX_AT(components[k], g, c) - prev);
+                    if (isfinite(d) && d > delta)
+                        delta = d;
+                }
+            }
+        }
+
+        if (verbose)
+        {
+            Rprintf("Iteration %d: parametric mixture log-likelihood = %.4f, delta = %.10f\n", iter, final_ll,
+                    delta);
+        }
+
+        if (iter % 5 == 0)
+            R_CheckUserInterrupt();
+
+        clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+        elapsed_total = (now.tv_sec - start.tv_sec) + (now.tv_nsec - start.tv_nsec) / 1e9;
+        if (elapsed_total >= maxtime)
+        {
+            finish_id = 1;
+            break;
+        }
+        if (iter > 1 && iter >= miniter &&
+            (delta < convergence || (isfinite(prev_ll) && fabs(final_ll - prev_ll) <= ll_threshold)))
+        {
+            finish_id = 0;
+            break;
+        }
+        prev_ll = final_ll;
+    }
+
+    compute_membership_phi(V, &beta, &phi);
+    for (int k = 0; k < K; ++k)
+    {
+        compute_matrix_component_estep(X, W, &components[k], q_components[k], ballot_scores[k], q_method, q_params);
+        for (int b = 0; b < B; ++b)
+            MATRIX_AT(score, b, k) = ballot_scores[k][b];
+    }
+    final_ll = update_matrix_parametric_responsibilities(&score, &phi, &responsibilities, row_scores);
+    clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+    elapsed_total = (now.tv_sec - start.tv_sec) + (now.tv_nsec - start.tv_nsec) / 1e9;
+
+    EMParametricMixtureResult *res = (EMParametricMixtureResult *)Calloc(1, EMParametricMixtureResult);
+    res->probabilities = alloc_matrix_array(B, G, C);
+    res->q = alloc_matrix_array(B, G, C);
+    res->expected = alloc_matrix_array(B, G, C);
+    res->beta = copMatrix(&beta);
+    res->phi = copMatrix(&phi);
+    res->component_prob = (double *)Calloc((size_t)G * (size_t)C * (size_t)K, double);
+
+    for (int k = 0; k < K; ++k)
+    {
+        for (int c = 0; c < C; ++c)
+        {
+            for (int g = 0; g < G; ++g)
+            {
+                size_t idx = (size_t)g + (size_t)G * ((size_t)c + (size_t)C * (size_t)k);
+                res->component_prob[idx] = MATRIX_AT(components[k], g, c);
+            }
+        }
+    }
+
+    for (int b = 0; b < B; ++b)
+    {
+        for (int g = 0; g < G; ++g)
+        {
+            for (int c = 0; c < C; ++c)
+            {
+                double p = 0.0;
+                double q = 0.0;
+                for (int k = 0; k < mixture_h; ++k)
+                {
+                    double r = MATRIX_AT(responsibilities, b, k);
+                    p += r * MATRIX_AT(components[k], g, c);
+                    q += r * Q_3D(q_components[k], b, g, c, G, C);
+                }
+                MATRIX_AT(res->probabilities[b], g, c) = p;
+                MATRIX_AT(res->q[b], g, c) = q;
+                MATRIX_AT(res->expected[b], g, c) = MATRIX_AT_PTR(W, b, g) * q;
+            }
+        }
+    }
+
+    res->responsibilities = responsibilities;
+    res->mixture_h = mixture_h;
+    res->total_iterations = iter_done;
+    res->total_time = elapsed_total;
+    res->log_likelihood = final_ll;
+    res->finish_id = finish_id;
+
+    for (int k = 0; k < K; ++k)
+    {
+        freeMatrix(&components[k]);
+        Free(q_components[k]);
+        Free(ballot_scores[k]);
+    }
+    Free(components);
+    Free(q_components);
+    Free(ballot_scores);
+    freeMatrix(&beta);
+    freeMatrix(&prev_beta);
+    freeMatrix(&phi);
+    freeMatrix(&score);
+    Free(row_counts);
+    Free(row_scores);
+    Free(prev_component_prob);
+
+    return res;
+}
+
+void cleanupParametricMixtureResult(EMParametricMixtureResult *res)
+{
+    if (res == NULL)
+        return;
+
+    if (res->probabilities != NULL)
+    {
+        int B = res->responsibilities.rows;
+        for (int b = 0; b < B; ++b)
+            freeMatrix(&res->probabilities[b]);
+        Free(res->probabilities);
+    }
+    if (res->q != NULL)
+    {
+        int B = res->responsibilities.rows;
+        for (int b = 0; b < B; ++b)
+            freeMatrix(&res->q[b]);
+        Free(res->q);
+    }
+    if (res->expected != NULL)
+    {
+        int B = res->responsibilities.rows;
+        for (int b = 0; b < B; ++b)
+            freeMatrix(&res->expected[b]);
+        Free(res->expected);
+    }
+    if (res->beta.data != NULL)
+        freeMatrix(&res->beta);
+    if (res->phi.data != NULL)
+        freeMatrix(&res->phi);
+    if (res->responsibilities.data != NULL)
+        freeMatrix(&res->responsibilities);
+    if (res->component_prob != NULL)
+        Free(res->component_prob);
+    Free(res);
 }

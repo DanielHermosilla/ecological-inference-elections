@@ -82,6 +82,13 @@ double EMLogLikFromProb(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatri
                         Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
                         Rcpp::LogicalVector project_every);
 
+double EMLogLikFromProbMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                               Rcpp::NumericVector probability_array, Rcpp::String em_method,
+                               Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples,
+                               Rcpp::String monte_method, Rcpp::NumericVector monte_error,
+                               Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations,
+                               Rcpp::String LP_method, Rcpp::LogicalVector project_every);
+
 Rcpp::List EMAlgorithmMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
                               Rcpp::String em_method, Rcpp::String probability_method,
                               Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds,
@@ -89,7 +96,7 @@ Rcpp::List EMAlgorithmMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::Numeri
                               Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size,
                               Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error,
                               Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
-                              Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities,
+                              Rcpp::LogicalVector project_every, Rcpp::RObject initial_probabilities,
                               Rcpp::IntegerVector mixture_h, Rcpp::LogicalVector symmetric,
                               Rcpp::String symmetric_weight_method);
 Rcpp::List EMAlgorithmRowMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
@@ -157,7 +164,21 @@ Rcpp::List EMAlgorithmParametric(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
                                  Rcpp::NumericMatrix alpha, Rcpp::IntegerVector maximum_iterations,
                                  Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector log_stopping_threshold,
                                  Rcpp::IntegerVector maximum_newton, Rcpp::LogicalVector verbose,
-                                 Rcpp::String LP_method, Rcpp::LogicalVector project_every);
+                                 Rcpp::String LP_method, Rcpp::LogicalVector project_every,
+                                 Rcpp::String em_method, Rcpp::String monte_method,
+                                 Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter);
+
+Rcpp::List EMAlgorithmParametricMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                                        Rcpp::NumericMatrix attribute_matrix, Rcpp::NumericVector beta,
+                                        Rcpp::NumericVector alpha, Rcpp::IntegerVector maximum_iterations,
+                                        Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold,
+                                        Rcpp::NumericVector log_stopping_threshold,
+                                        Rcpp::IntegerVector maximum_newton, Rcpp::LogicalVector compute_ll,
+                                        Rcpp::LogicalVector verbose, Rcpp::String em_method,
+                                        Rcpp::String monte_method, Rcpp::NumericVector monte_error,
+                                        Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations,
+                                        Rcpp::String LP_method, Rcpp::LogicalVector project_every,
+                                        Rcpp::IntegerVector mixture_h);
 
 /**
  * @brief Runs the parametric bootstrapping routine.

@@ -85,7 +85,7 @@ extern "C"
     EMMixtureResult *EMAlgoritmMixture(Matrix *X, Matrix *W, const char *p_method, const char *q_method,
                                        const double convergence, const double LLconvergence, const int maxIter,
                                        const double maxSeconds, const bool verbose, Matrix *probMatrix,
-                                       QMethodInput *inputParams, int mixture_h);
+                                       Matrix *componentProbInit, QMethodInput *inputParams, int mixture_h);
     EMMixtureResult *EMAlgoritmRowMixture(Matrix *X, Matrix *W, const char *p_method, const char *q_method,
                                           const double convergence, const double LLconvergence, const int maxIter,
                                           const double maxSeconds, const bool verbose, Matrix *probMatrix,
@@ -95,6 +95,8 @@ extern "C"
 
     double computeLogLikForProbability(Matrix *X, Matrix *W, Matrix *probMatrix, const char *q_method,
                                        QMethodInput *inputParams);
+    double computeLogLikForMixtureProbability(Matrix *X, Matrix *W, Matrix *componentProb, int mixture_h,
+                                              const char *q_method, QMethodInput *inputParams);
 
     Matrix precomputeNorm(double *scale_factors, Matrix *X, Matrix *W);
 

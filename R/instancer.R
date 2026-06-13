@@ -51,6 +51,16 @@
 #' @param num_districts
 #'   Number of districts used to assign ballot boxes, when `num_covariates` isn't zero.
 #'
+#' @param mixture
+#'   Positive integer. If greater than 1 in parametric mode, simulates latent
+#'   ballot-box voting profiles using the matrix-mixture parametric model.
+#'
+#' @param L
+#'   Positive numeric or `Inf`. Controls ballot-box deviations around the latent
+#'   profile probabilities in matrix-mixture parametric mode. `Inf` uses the
+#'   selected profile exactly; finite values draw local probabilities from a
+#'   Dirichlet distribution centered at the selected profile.
+#'
 #' @section Shuffling Mechanism:
 #' Without loss of generality, consider an order relation of groups and ballot-boxes. The shuffling step is controlled by the `lambda` parameter and operates as follows:
 #'
@@ -139,10 +149,20 @@ simulate_election <- function(num_ballots,
                               group_proportions = rep(1 / num_groups, num_groups),
                               prob = NULL,
                               num_covariates = 0,
-                              num_districts = 0) {
+                              num_districts = 0,
+                              mixture = 1,
+                              L = Inf) {
     # If user provides a seed, override the current global seed
     if (!is.null(seed)) {
         set.seed(seed)
+    }
+
+    if (length(mixture) != 1 || !is.numeric(mixture) || !is.finite(mixture) || mixture < 1 || mixture != as.integer(mixture)) {
+        stop("`mixture` must be a positive integer.")
+    }
+    mixture <- as.integer(mixture)
+    if (length(L) != 1 || !is.numeric(L) || is.na(L) || L <= 0) {
+        stop("`L` must be a positive numeric value or Inf.")
     }
 
     # If the user gives num_covariates and num_districts > 0, set parametric to TRUE
@@ -150,7 +170,6 @@ simulate_election <- function(num_ballots,
     if (num_covariates > 0 && num_districts == 0 || num_districts > 0 && num_covariates == 0) {
         stop("`num_covariates` and `num_districts` must both be greater than 0 to enable parametric mode.")
     }
-
     if (parametric) {
         if (length(ballot_voters) != 1 && length(ballot_voters) != num_ballots) {
             stop("`ballot_voters` must be length 1 or length `num_ballots` in parametric mode.")
@@ -178,21 +197,10 @@ simulate_election <- function(num_ballots,
     }
 
     if (parametric) {
-        if (!is.null(prob)) {
+        if (!is.null(prob) && mixture == 1L) {
             warning("simulate_election: 'prob' is ignored in parametric mode.")
         }
         num_voters <- ballot_voters[1]
-
-        alpha <- matrix(
-            rnorm((num_candidates - 1) * num_covariates),
-            nrow = num_candidates - 1,
-            ncol = num_covariates
-        )
-        beta <- matrix(
-            rnorm(num_groups * (num_candidates - 1)),
-            nrow = num_groups,
-            ncol = num_candidates - 1
-        )
 
         random_one_in_each_row <- function(n, m) {
             mat <- matrix(0L, nrow = n, ncol = m)
@@ -204,6 +212,171 @@ simulate_election <- function(num_ballots,
         }
 
         e_bd <- random_one_in_each_row(num_ballots, num_districts)
+
+        if (mixture > 1L) {
+            rdirichlet <- function(alpha) {
+                alpha <- pmax(alpha, .Machine$double.eps)
+                x <- rgamma(length(alpha), shape = alpha)
+                x / sum(x)
+            }
+
+            u_da <- matrix(
+                rnorm(num_districts * num_covariates),
+                nrow = num_districts,
+                ncol = num_covariates
+            )
+            v_ba <- e_bd %*% u_da
+
+            real_beta <- matrix(
+                rnorm(num_covariates * (mixture - 1L)),
+                nrow = num_covariates,
+                ncol = mixture - 1L
+            )
+
+            eta <- v_ba %*% real_beta
+            eta <- cbind(eta, 0)
+            row_max <- apply(eta, 1, max)
+            exp_eta <- exp(eta - row_max)
+            real_phi <- exp_eta / rowSums(exp_eta)
+
+            latent_profile <- vapply(seq_len(num_ballots), function(b) {
+                sample.int(mixture, 1, prob = real_phi[b, ])
+            }, integer(1))
+            latent_matrix <- matrix(0L, nrow = num_ballots, ncol = mixture)
+            latent_matrix[cbind(seq_len(num_ballots), latent_profile)] <- 1L
+
+            if (is.null(prob)) {
+                component_prob <- array(0, dim = c(num_groups, num_candidates, mixture))
+                for (k in seq_len(mixture)) {
+                    for (g in seq_len(num_groups)) {
+                        component_prob[g, , k] <- rdirichlet(rep(1, num_candidates))
+                    }
+                }
+            } else if (is.matrix(prob)) {
+                if (!all(dim(prob) == c(num_groups, num_candidates))) {
+                    stop("`prob` must be a matrix with dimensions (num_groups x num_candidates).")
+                }
+                if (any(!is.finite(prob)) || any(prob < 0) || any(rowSums(prob) <= 0)) {
+                    stop("`prob` rows must contain finite non-negative values and have positive sums.")
+                }
+                prob <- sweep(prob, 1, rowSums(prob), "/")
+                component_prob <- array(rep(prob, mixture), dim = c(num_groups, num_candidates, mixture))
+            } else if (is.array(prob) && length(dim(prob)) == 3L) {
+                if (!all(dim(prob) == c(num_groups, num_candidates, mixture))) {
+                    stop("`prob` must be an array with dimensions (num_groups x num_candidates x mixture).")
+                }
+                component_prob <- prob
+                for (k in seq_len(mixture)) {
+                    profile_prob <- component_prob[, , k]
+                    if (any(!is.finite(profile_prob)) || any(profile_prob < 0) || any(rowSums(profile_prob) <= 0)) {
+                        stop("`prob` rows must contain finite non-negative values and have positive sums.")
+                    }
+                    component_prob[, , k] <- sweep(profile_prob, 1, rowSums(profile_prob), "/")
+                }
+            } else {
+                stop("`prob` must be NULL, a matrix, or a 3d array in matrix-mixture parametric mode.")
+            }
+
+            real_prob <- array(0, dim = c(num_groups, num_candidates, num_ballots))
+            for (b in seq_len(num_ballots)) {
+                k <- latent_profile[b]
+                for (g in seq_len(num_groups)) {
+                    if (is.infinite(L)) {
+                        real_prob[g, , b] <- component_prob[g, , k]
+                    } else {
+                        real_prob[g, , b] <- rdirichlet(component_prob[g, , k] * L)
+                    }
+                }
+            }
+
+            W <- matrix(0L, nrow = num_ballots, ncol = num_groups)
+            X <- matrix(0L, nrow = num_ballots, ncol = num_candidates)
+            outcome <- array(
+                0L,
+                dim = c(num_groups, num_candidates, num_ballots),
+                dimnames = list(
+                    group = seq_len(num_groups),
+                    candidate = seq_len(num_candidates),
+                    `ballot box` = seq_len(num_ballots)
+                )
+            )
+
+            for (d in seq_len(num_districts)) {
+                boxes <- which(e_bd[, d] == 1L)
+                B_d <- length(boxes)
+                I_d <- num_voters * B_d
+
+                base_counts <- floor(I_d * group_proportions)
+                remainder <- I_d - sum(base_counts)
+                if (remainder > 0) {
+                    fractional_parts <- I_d * group_proportions - base_counts
+                    indices <- order(fractional_parts, decreasing = TRUE)
+                    base_counts[indices[seq_len(remainder)]] <- base_counts[indices[seq_len(remainder)]] + 1
+                }
+
+                omega0 <- rep(seq_len(num_groups), times = base_counts)
+                if (length(omega0) > I_d) {
+                    omega0 <- omega0[seq_len(I_d)]
+                }
+                if (length(omega0) < I_d) {
+                    omega0 <- c(
+                        omega0,
+                        sample(seq_len(num_groups), I_d - length(omega0), replace = TRUE)
+                    )
+                }
+                omega <- omega0
+
+                n_mix <- round(lambda * I_d)
+                if (n_mix > 0) {
+                    idx <- sample.int(I_d, n_mix)
+                    vals_to_mix <- omega0[idx]
+                    omega[idx] <- sample(vals_to_mix, length(vals_to_mix))
+                }
+
+                for (j in seq_along(boxes)) {
+                    b <- boxes[j]
+                    start <- (j - 1) * num_voters + 1
+                    end <- j * num_voters
+                    G_b <- omega[start:end]
+                    W[b, ] <- tabulate(G_b, nbins = num_groups)
+                    for (g in seq_len(num_groups)) {
+                        w_bg <- W[b, g]
+                        if (w_bg > 0) {
+                            z_draw <- rmultinom(1, size = w_bg, prob = real_prob[g, , b])
+                            outcome[g, , b] <- as.integer(z_draw)
+                            X[b, ] <- X[b, ] + z_draw
+                        }
+                    }
+                }
+            }
+
+            toReturn <- list(
+                W = W,
+                X = X,
+                V = v_ba,
+                real_prob = real_prob,
+                component_prob = component_prob,
+                real_beta = real_beta,
+                real_phi = real_phi,
+                latent_profile = latent_profile,
+                latent_matrix = latent_matrix,
+                outcome = outcome
+            )
+
+            class(toReturn) <- "eim"
+            return(toReturn)
+        }
+
+        alpha <- matrix(
+            rnorm((num_candidates - 1) * num_covariates),
+            nrow = num_candidates - 1,
+            ncol = num_covariates
+        )
+        beta <- matrix(
+            rnorm(num_groups * (num_candidates - 1)),
+            nrow = num_groups,
+            ncol = num_candidates - 1
+        )
 
         v_da <- matrix(
             runif(num_districts * num_covariates, min = 0, max = 1),
@@ -333,6 +506,100 @@ simulate_election <- function(num_ballots,
         sub_omega <- omega[start_idx:end_idx]
         counts_bg <- tabulate(sub_omega, nbins = num_groups)
         W[b_idx, ] <- counts_bg
+    }
+
+    if (mixture > 1L) {
+        rdirichlet <- function(alpha) {
+            alpha <- pmax(alpha, .Machine$double.eps)
+            x <- rgamma(length(alpha), shape = alpha)
+            x / sum(x)
+        }
+
+        latent_profile <- sample.int(mixture, num_ballots, replace = TRUE)
+        latent_matrix <- matrix(0L, nrow = num_ballots, ncol = mixture)
+        latent_matrix[cbind(seq_len(num_ballots), latent_profile)] <- 1L
+        real_phi <- latent_matrix
+
+        if (is.null(prob)) {
+            component_prob <- array(0, dim = c(num_groups, num_candidates, mixture))
+            for (k in seq_len(mixture)) {
+                for (g in seq_len(num_groups)) {
+                    component_prob[g, , k] <- rdirichlet(rep(1, num_candidates))
+                }
+            }
+        } else if (is.matrix(prob)) {
+            if (!all(dim(prob) == c(num_groups, num_candidates))) {
+                stop("`prob` must be a matrix with dimensions (num_groups x num_candidates).")
+            }
+            if (any(!is.finite(prob)) || any(prob < 0) || any(rowSums(prob) <= 0)) {
+                stop("`prob` rows must contain finite non-negative values and have positive sums.")
+            }
+            prob <- sweep(prob, 1, rowSums(prob), "/")
+            component_prob <- array(rep(prob, mixture), dim = c(num_groups, num_candidates, mixture))
+        } else if (is.array(prob) && length(dim(prob)) == 3L) {
+            if (!all(dim(prob) == c(num_groups, num_candidates, mixture))) {
+                stop("`prob` must be an array with dimensions (num_groups x num_candidates x mixture).")
+            }
+            component_prob <- prob
+            for (k in seq_len(mixture)) {
+                profile_prob <- component_prob[, , k]
+                if (any(!is.finite(profile_prob)) || any(profile_prob < 0) || any(rowSums(profile_prob) <= 0)) {
+                    stop("`prob` rows must contain finite non-negative values and have positive sums.")
+                }
+                component_prob[, , k] <- sweep(profile_prob, 1, rowSums(profile_prob), "/")
+            }
+        } else {
+            stop("`prob` must be NULL, a matrix, or a 3d array in matrix-mixture mode.")
+        }
+
+        real_prob <- array(0, dim = c(num_groups, num_candidates, num_ballots))
+        for (b in seq_len(num_ballots)) {
+            k <- latent_profile[b]
+            for (g in seq_len(num_groups)) {
+                if (is.infinite(L)) {
+                    real_prob[g, , b] <- component_prob[g, , k]
+                } else {
+                    real_prob[g, , b] <- rdirichlet(component_prob[g, , k] * L)
+                }
+            }
+        }
+
+        z_bgc <- array(
+            0L,
+            dim = c(num_groups, num_candidates, num_ballots),
+            dimnames = list(
+                group = seq_len(num_groups),
+                candidate = seq_len(num_candidates),
+                `ballot box` = seq_len(num_ballots)
+            )
+        )
+        X <- matrix(0, nrow = num_ballots, ncol = num_candidates)
+        for (b_idx in seq_len(num_ballots)) {
+            for (g_idx in seq_len(num_groups)) {
+                w_bg <- W[b_idx, g_idx]
+                if (w_bg > 0) {
+                    z_draw <- rmultinom(1, size = w_bg, prob = real_prob[g_idx, , b_idx])
+                    z_bgc[g_idx, , b_idx] <- as.integer(z_draw)
+                    X[b_idx, ] <- X[b_idx, ] + z_draw
+                }
+            }
+        }
+
+        toReturn <- list(
+            W = W,
+            X = X,
+            V = latent_matrix,
+            real_prob = real_prob,
+            component_prob = component_prob,
+            real_phi = real_phi,
+            latent_profile = latent_profile,
+            latent_matrix = latent_matrix,
+            outcome = z_bgc
+        )
+
+        class(toReturn) <- "eim"
+
+        return(toReturn)
     }
 
     # Build the probality matrix (g x c)

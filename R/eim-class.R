@@ -224,7 +224,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #' - `mcmc`: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the E-step.
 #' - `exact`: Solves the E-step using the Total Probability Law.
 #'
-#' When `V` is supplied (covariate mode), only `mult` is supported.
+#' When `V` is supplied (covariate mode), `mult`, `mvn_pdf`, and `mvn_cdf` are supported.
 #'
 #' For a detailed description of each method, see [fastei-package] and **References**.
 #'
@@ -234,11 +234,28 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #' - `proportional`: Assigns probabilities to each group based on the proportion of candidates votes.
 #' - `group_proportional`: Computes the probability matrix by taking into account both group and candidate proportions. This is the default method.
 #' - `random`: Use randomized values to fill the probability matrix.
-#' This argument is ignored if `V` is supplied (covariate mode), as the initial probabilities are computed with `alpha_init` and `beta_init`.
+#' In covariate mode with `mixture = 1`, this argument is ignored because
+#' probabilities are computed from `alpha_init` and `beta_init`. In covariate
+#' mode with `mixture > 1`, it initializes the component probability matrices
+#' `p_{kgc}`; it may be a `g x c` matrix or a `g x c x mixture` array.
 #'
 #' @param mixture Positive integer indicating the number of latent voting profiles.
 #'   If `mixture = 1` (default), the standard EM is used. If `mixture > 1`,
-#'   a finite-mixture EM extension is applied with that number of components.
+#'   a finite-mixture EM extension is applied with that number of components. In
+#'   covariate mode (`V` supplied) with `mixture > 1`, a matrix-mixture
+#'   parametric model is used: component vote profiles `p_{kgc}` are estimated,
+#'   and the unit-level prior profile probabilities are modeled from `V`.
+#'
+#' @param S Optional positive integer controlling multistart initialization for
+#'   non-parametric finite mixtures (`mixture > 1`). If `NULL` (default),
+#'   `run_em()` uses the usual single initialization. If supplied, `run_em()`
+#'   generates `S` structured `g x c x mixture` initial probability arrays from
+#'   `X` and `W`, scores each initial array with the finite-mixture
+#'   log-likelihood, and runs the mixture EM once from the best-scoring array.
+#'   Explicit `initial_prob` is ignored when `S` is supplied. The returned
+#'   object stores the sampled initial log-likelihoods in
+#'   `initial_prob_multistart_logLik` and the selected sample index in
+#'   `initial_prob_multistart_best`.
 #'
 #' @param row_mixture Positive integer indicating the number of latent profiles at the group
 #'   level (row-level mixture). If `row_mixture = 1` (default), row-level mixture is disabled.
@@ -263,9 +280,16 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'
 #' @param compute_ll An optional boolean indicating whether to compute the log-likelihood at each iteration. The default value is `TRUE`.
 #'
-#' @param beta_init Optional `g x (c-1)` matrix of initial group coefficients. Ignored if no covariates are provided (i.e., `V = NULL`).
+#' @param beta_init Optional `g x (c-1)` matrix of initial group coefficients
+#'   for covariate mode with `mixture = 1`. For covariate mode with
+#'   `mixture > 1`, this is instead an optional `a x (mixture - 1)` matrix of
+#'   initial coefficients for the multinomial logit of component membership.
+#'   Ignored if no covariates are provided (i.e., `V = NULL`).
 #'
-#' @param alpha_init Optional `(c-1) x a` matrix of initial attribute coefficients used for initialization. Ignored if no covariates are provided (`V = NULL`).
+#' @param alpha_init Optional `(c-1) x a` matrix of initial attribute coefficients
+#'   used for initialization in covariate mode with `mixture = 1`. Ignored in
+#'   covariate mode with `mixture > 1`; use `initial_prob` to initialize
+#'   component vote profiles. Ignored if no covariates are provided (`V = NULL`).
 #'
 #' @param maxnewton Maximum number of Newton iterations used in the parametric M-step. Default is 1. Ignored if no covariates are provided (i.e., `V = NULL`).
 #'
@@ -421,6 +445,7 @@ run_em <- function(object = NULL,
                    method = "mult",
                    initial_prob = "group_proportional",
                    mixture = 1,
+                   S = NULL,
                    row_mixture = 1,
                    HET = NULL,
                    AE = NULL,
@@ -458,6 +483,14 @@ run_em <- function(object = NULL,
         set.seed(seed)
     }
 
+    if (!is.null(S)) {
+        if (!is.numeric(S) || length(S) != 1 || !is.finite(S) || as.integer(S) != S || S < 1) {
+            stop("run_em: Invalid 'S'. Must be NULL or a positive integer.")
+        }
+        S <- as.integer(S)
+        initial_prob <- "group_proportional"
+        all_params$initial_prob <- initial_prob
+    }
     mixture <- as.integer(mixture)
     row_mixture <- as.integer(row_mixture)
     if ("H" %in% names(all_params) && !is.null(all_params$H)) {
@@ -535,6 +568,7 @@ run_em <- function(object = NULL,
         method = method,
         initial_prob = initial_prob,
         mixture = mixture,
+        S = S,
         row_mixture = row_mixture,
         HET = HET,
         AE = AE,

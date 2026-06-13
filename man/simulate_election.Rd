@@ -14,7 +14,9 @@ simulate_election(
   group_proportions = rep(1/num_groups, num_groups),
   prob = NULL,
   num_covariates = 0,
-  num_districts = 0
+  num_districts = 0,
+  mixture = 1,
+  L = Inf
 )
 }
 \arguments{
@@ -45,6 +47,14 @@ If provided, this matrix is used as the underlying voting probability distributi
 \item{num_covariates}{Optional. Number of covariates (\code{a}) used to build the parametric covariates matrix \code{V}.}
 
 \item{num_districts}{Number of districts used to assign ballot boxes, when \code{num_covariates} isn't zero.}
+
+\item{mixture}{Positive integer. If greater than 1 in parametric mode, simulates latent
+ballot-box voting profiles using the matrix-mixture parametric model.}
+
+\item{L}{Positive numeric or \code{Inf}. Controls ballot-box deviations around the latent
+profile probabilities in matrix-mixture parametric mode. \code{Inf} uses the
+selected profile exactly; finite values draw local probabilities from a
+Dirichlet distribution centered at the selected profile.}
 }
 \value{
 An eim object. For the non-parametric case it contains:
@@ -63,6 +73,20 @@ When \code{num_attributes} and \code{num_districts} are not zero, it returns:
 \item{\code{real_prob}}{A \code{(g x c x b)} array with ballot-box probabilities.}
 \item{\code{real_alpha}}{A \code{((c-1) x a)} matrix of true attribute parameters.}
 \item{\code{real_beta}}{A \code{(g x (c-1))} matrix of true group parameters.}
+}
+
+When \code{mixture > 1} in parametric mode, it returns:
+\describe{
+\item{\code{X}}{A \code{(b x c)} matrix with candidates' votes for each ballot box.}
+\item{\code{W}}{A \code{(b x g)} matrix with voters' groups for each ballot-box.}
+\item{\code{V}}{A \code{(b x a)} matrix with ballot-box attributes.}
+\item{\code{real_prob}}{A \code{(g x c x b)} array with effective ballot-box probabilities.}
+\item{\code{component_prob}}{A \code{(g x c x k)} array with latent voting profiles.}
+\item{\code{real_beta}}{A \code{(a x (k-1))} matrix of true profile-membership parameters.}
+\item{\code{real_phi}}{A \code{(b x k)} matrix with ballot-box profile probabilities.}
+\item{\code{latent_profile}}{A length-\code{b} vector with the sampled latent profile for each ballot box.}
+\item{\code{latent_matrix}}{A \code{(b x k)} one-hot matrix encoding \code{latent_profile}.}
+\item{\code{outcome}}{A \code{(g x c x b)} array with votes by group, candidate, and ballot box.}
 }
 }
 \description{

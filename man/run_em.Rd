@@ -14,6 +14,7 @@ run_em(
   method = "mult",
   initial_prob = "group_proportional",
   mixture = 1,
+  S = NULL,
   row_mixture = 1,
   HET = NULL,
   AE = NULL,
@@ -65,7 +66,7 @@ options are:
 \item \code{exact}: Solves the E-step using the Total Probability Law.
 }
 
-When \code{V} is supplied (covariate mode), only \code{mult} is supported.
+When \code{V} is supplied (covariate mode), \code{mult}, \code{mvn_pdf}, and \code{mvn_cdf} are supported.
 
 For a detailed description of each method, see \link{fastei-package} and \strong{References}.}
 
@@ -76,12 +77,30 @@ probability. Accepted values are:
 \item \code{proportional}: Assigns probabilities to each group based on the proportion of candidates votes.
 \item \code{group_proportional}: Computes the probability matrix by taking into account both group and candidate proportions. This is the default method.
 \item \code{random}: Use randomized values to fill the probability matrix.
-This argument is ignored if \code{V} is supplied (covariate mode), as the initial probabilities are computed with \code{alpha_init} and \code{beta_init}.
+In covariate mode with \code{mixture = 1}, this argument is ignored because
+probabilities are computed from \code{alpha_init} and \code{beta_init}. In
+covariate mode with \code{mixture > 1}, it initializes the component
+probability matrices \code{p_{kgc}}; it may be a \verb{g x c} matrix or a
+\verb{g x c x mixture} array.
 }}
 
 \item{mixture}{Positive integer indicating the number of latent voting profiles.
 If \code{mixture = 1} (default), the standard EM is used. If \code{mixture > 1},
-a finite-mixture EM extension is applied with that number of components.}
+a finite-mixture EM extension is applied with that number of components. In
+covariate mode (\code{V} supplied), a matrix-mixture parametric model is used:
+component vote profiles \code{p_{kgc}} are estimated, and unit-level prior
+profile probabilities are modeled from \code{V}.}
+
+\item{S}{Optional positive integer controlling multistart initialization for
+non-parametric finite mixtures (\code{mixture > 1}). If \code{NULL} (default),
+\code{run_em()} uses the usual single initialization. If supplied, \code{run_em()}
+generates \code{S} structured \verb{g x c x mixture} initial probability arrays from
+\code{X} and \code{W}, scores each initial array with the finite-mixture
+log-likelihood, and runs the mixture EM once from the best-scoring array.
+Explicit \code{initial_prob} is ignored when \code{S} is supplied. The returned
+object stores the sampled initial log-likelihoods in
+\code{initial_prob_multistart_logLik} and the selected sample index in
+\code{initial_prob_multistart_best}.}
 
 \item{row_mixture}{Positive integer indicating the number of latent profiles at the group
 level (row-level mixture). If \code{row_mixture = 1} (default), row-level mixture is disabled.
@@ -138,9 +157,16 @@ samples for the \code{mvn_cdf} method. The default value is \code{5000}. This ar
 
 \item{maxnewton}{Maximum number of Newton iterations used in the parametric M-step. Default is 1. Ignored if no covariates are provided (i.e., \code{V = NULL}).}
 
-\item{beta_init}{Optional \verb{g x (c-1)} matrix of initial group coefficients. Ignored if no covariates are provided (i.e., \code{V = NULL}).}
+\item{beta_init}{Optional \verb{g x (c-1)} matrix of initial group coefficients
+for covariate mode with \code{mixture = 1}. For covariate mode with
+\code{mixture > 1}, this is instead an optional \verb{a x (mixture - 1)}
+matrix of initial coefficients for the multinomial logit of component
+membership. Ignored if no covariates are provided (i.e., \code{V = NULL}).}
 
-\item{alpha_init}{Optional \verb{(c-1) x a} matrix of initial attribute coefficients used for initialization. Ignored if no covariates are provided (\code{V = NULL}).}
+\item{alpha_init}{Optional \verb{(c-1) x a} matrix of initial attribute coefficients
+used for initialization in covariate mode with \code{mixture = 1}. Ignored in
+covariate mode with \code{mixture > 1}; use \code{initial_prob} to initialize
+component vote profiles. Ignored if no covariates are provided (\code{V = NULL}).}
 
 \item{scale_factor}{An optional numeric value used to scale down the \code{X} and \code{W} matrices before executing the EM algorithm. This scaling can help improve performance when dealing with large vote counts. For example if \code{scale_factor = 2} all elements of \code{X} and \code{W} are divided by two and rounded. The default value is \code{1}, which means no scaling is applied. In case the scaling results in mismatch between \code{W} and \code{X}, ensure that \code{allow_mismatch = TRUE}.}
 

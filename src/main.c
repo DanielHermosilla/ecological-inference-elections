@@ -809,9 +809,20 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
         }
         // ---...--- //
 
+        *logLLarr = newLL;
+        bool decreasing = isfinite(oldLL) && isfinite(newLL) && newLL < oldLL;
+        if (decreasing)
+        {
+            if (verbose)
+            {
+                Rprintf("Stopping: log-likelihood decreased.\n");
+            }
+            *finishing_reason = 0;
+            goto results;
+        }
+
         memcpy(oldProbabilities.data, ctx->probabilities.data,
                sizeof(double) * oldProbabilities.rows * oldProbabilities.cols);
-        *logLLarr = newLL;
         getP(ctx); // M-Step
         double delta_parameters = matrixParameterDelta(&oldProbabilities, &ctx->probabilities);
 
@@ -827,17 +838,10 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
             }
         }
         // ---...--- //
-        /*
-         * For avoiding loops between same iterations (such as in the case of mvn_cdf), we impose that the
-         * log-likelihood shouldn't decrease from the 50th iteration and on.
-         */
-        bool decreasing = oldLL > newLL ? true : false;
-        bool early_stop = decreasing && strcmp(q_method, "exact") == 0 ? true : false;
 
         // ---- Check convergence ---- //
         if (i >= 1 && i >= config.params.miniter &&
-            (fabs(newLL - oldLL) < LLconvergence ||
-             (convergence > 0 && delta_parameters < convergence) || early_stop))
+            (fabs(newLL - oldLL) < LLconvergence || (convergence > 0 && delta_parameters < convergence)))
         {
             // ---- End timer ----
             clock_gettime(CLOCK_MONOTONIC_RAW, &end);
@@ -895,6 +899,7 @@ results:
 
     *logLLarr = newLL;
     *time = elapsed_total;
+    freeMatrix(&oldProbabilities);
     return ctx;
 }
 

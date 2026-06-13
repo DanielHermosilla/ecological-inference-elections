@@ -411,6 +411,43 @@ void computeQMultivariatePDF(EMContext *ctx, QMethodInput params, double *ll)
     }
 }
 
+void computeQMultivariatePDFByBallot(EMContext *ctx, Matrix *probabilities_by_ballot, QMethodInput params, double *ll)
+{
+    *ll = 0.0;
+    if (ctx->ballot_loglik != NULL)
+    {
+        memset(ctx->ballot_loglik, 0, (size_t)ctx->B * sizeof(double));
+    }
+
+    Arena A = Arena_init((int)ctx->G, (int)ctx->C);
+
+    for (uint32_t b = 0; b < ctx->B; ++b)
+    {
+        Matrix *probabilities = &probabilities_by_ballot[b];
+        Matrix probabilitiesReduced = removeLastColumn(probabilities);
+        double ll_b = 0.0;
+
+        computeQforABallot(ctx, (int)b, probabilities, &probabilitiesReduced, &ll_b, params, &A);
+        if (params.computeLL)
+        {
+            if (ctx->ballot_loglik != NULL)
+            {
+                ctx->ballot_loglik[b] = ll_b;
+            }
+            *ll += ll_b;
+        }
+
+        freeMatrix(&probabilitiesReduced);
+    }
+
+    Arena_free(&A, (int)ctx->G);
+
+    if (isnan(*ll) || isinf(*ll))
+    {
+        *ll = 0.0;
+    }
+}
+
 double computeLogLikMultivariatePDF(EMContext *ctx, QMethodInput params)
 {
     double ll = 0.0;

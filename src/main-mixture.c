@@ -509,6 +509,53 @@ static double computeMixtureParameterDelta(EMContext **components, const double 
     return delta;
 }
 
+double computeLogLikForMixtureProbability(Matrix *X, Matrix *W, Matrix *componentProb, int mixture_h,
+                                          const char *q_method, QMethodInput *inputParams)
+{
+    if (X == NULL || W == NULL || componentProb == NULL || inputParams == NULL)
+        error("computeLogLikForMixtureProbability: inputs must not be NULL.");
+    if (mixture_h < 1)
+        error("computeLogLikForMixtureProbability: 'mixture_h' must be positive.");
+
+    QMethodInput ctx_params = *inputParams;
+    ctx_params.computeLL = true;
+    QMethodConfig config = getQMethodConfig(q_method, ctx_params);
+    QMethodInput mix_params = config.params;
+    mix_params.computeLL = true;
+
+    EMContext **components = (EMContext **)Calloc((size_t)mixture_h, EMContext *);
+    for (int k = 0; k < mixture_h; ++k)
+    {
+        components[k] = createEMContext(X, W, q_method, ctx_params);
+        if (componentProb[k].rows != components[k]->G || componentProb[k].cols != components[k]->C)
+            error("computeLogLikForMixtureProbability: component probability dimensions are incompatible.");
+        memcpy(components[k]->probabilities.data, componentProb[k].data,
+               (size_t)components[k]->G * (size_t)components[k]->C * sizeof(double));
+        normalizeProbabilityRows(&components[k]->probabilities);
+    }
+
+    const int B = components[0]->B;
+    Matrix score = createMatrix(B, mixture_h);
+    Matrix responsibilities = createMatrix(B, mixture_h);
+    double *phi = (double *)Calloc((size_t)mixture_h, double);
+    double *d_row = (double *)Calloc((size_t)mixture_h, double);
+    for (int k = 0; k < mixture_h; ++k)
+        phi[k] = 1.0 / (double)mixture_h;
+
+    computeMixtureScores(components, mixture_h, config, mix_params, inputParams, &score);
+    double ll = updateMixtureResponsibilities(&score, phi, &responsibilities, d_row, 1e-12, false, 0);
+
+    Free(phi);
+    Free(d_row);
+    freeMatrix(&score);
+    freeMatrix(&responsibilities);
+    for (int k = 0; k < mixture_h; ++k)
+        cleanup(components[k]);
+    Free(components);
+
+    return ll;
+}
+
 static void normalizeContextQRows(EMContext *ctx)
 {
     const int B = (int)ctx->B;
@@ -969,7 +1016,7 @@ static EMMixtureResult *EMAlgoritmMixtureSymmetric(Matrix *X, Matrix *W, const c
 EMMixtureResult *EMAlgoritmMixture(Matrix *X, Matrix *W, const char *p_method, const char *q_method,
                                    const double convergence, const double LLconvergence, const int maxIter,
                                    const double maxSeconds, const bool verbose, Matrix *probMatrix,
-                                   QMethodInput *inputParams, int mixture_h)
+                                   Matrix *componentProbInit, QMethodInput *inputParams, int mixture_h)
 {
     const double eps = 1e-12;
     if (mixture_h < 1)
@@ -979,6 +1026,10 @@ EMMixtureResult *EMAlgoritmMixture(Matrix *X, Matrix *W, const char *p_method, c
 
     if (shouldRunSymmetricMixtureEMWeight(inputParams, mixture_h))
     {
+        if (componentProbInit != NULL)
+        {
+            error("run_em: array 'initial_prob' is not supported with symmetric finite-mixture estimation.");
+        }
         return EMAlgoritmMixtureSymmetric(X, W, p_method, q_method, convergence, LLconvergence, maxIter, maxSeconds,
                                           verbose, probMatrix, inputParams, mixture_h);
     }
@@ -988,7 +1039,8 @@ EMMixtureResult *EMAlgoritmMixture(Matrix *X, Matrix *W, const char *p_method, c
         double t = 0.0, ll = 0.0;
         int it = 0, finish = 2;
         EMContext *ctx = EMAlgoritm(X, W, p_method, q_method, convergence, LLconvergence, maxIter, maxSeconds, verbose,
-                                    &t, &it, &ll, &finish, probMatrix, inputParams);
+                                    &t, &it, &ll, &finish,
+                                    componentProbInit != NULL ? &componentProbInit[0] : probMatrix, inputParams);
 
         EMMixtureResult *res = Calloc(1, EMMixtureResult);
         res->probabilities = copMatrix(&ctx->probabilities);
@@ -1037,27 +1089,43 @@ EMMixtureResult *EMAlgoritmMixture(Matrix *X, Matrix *W, const char *p_method, c
     }
 
     // ---- Initialize probabilities for each component ---- //
-    getInitialP(components[0], p_method, probMatrix);
-    normalizeProbabilityRows(&components[0]->probabilities);
-    for (int k = 1; k < mixture_h; ++k)
+    if (componentProbInit != NULL)
     {
-        memcpy(components[k]->probabilities.data, components[0]->probabilities.data,
-               (size_t)components[0]->G * (size_t)components[0]->C * sizeof(double));
-    }
-    GetRNGstate();
-    for (int k = 1; k < mixture_h; ++k)
-    {
-        for (int g = 0; g < components[k]->G; ++g)
+        for (int k = 0; k < mixture_h; ++k)
         {
-            for (int c = 0; c < components[k]->C; ++c)
+            if (componentProbInit[k].rows != components[k]->G || componentProbInit[k].cols != components[k]->C)
             {
-                double jit = 0.9 + 0.2 * unif_rand();
-                MATRIX_AT(components[k]->probabilities, g, c) *= jit;
+                error("run_em: array 'initial_prob' has incompatible component dimensions.");
             }
+            memcpy(components[k]->probabilities.data, componentProbInit[k].data,
+                   (size_t)components[k]->G * (size_t)components[k]->C * sizeof(double));
+            normalizeProbabilityRows(&components[k]->probabilities);
         }
-        normalizeProbabilityRows(&components[k]->probabilities);
     }
-    PutRNGstate();
+    else
+    {
+        getInitialP(components[0], p_method, probMatrix);
+        normalizeProbabilityRows(&components[0]->probabilities);
+        for (int k = 1; k < mixture_h; ++k)
+        {
+            memcpy(components[k]->probabilities.data, components[0]->probabilities.data,
+                   (size_t)components[0]->G * (size_t)components[0]->C * sizeof(double));
+        }
+        GetRNGstate();
+        for (int k = 1; k < mixture_h; ++k)
+        {
+            for (int g = 0; g < components[k]->G; ++g)
+            {
+                for (int c = 0; c < components[k]->C; ++c)
+                {
+                    double jit = 0.9 + 0.2 * unif_rand();
+                    MATRIX_AT(components[k]->probabilities, g, c) *= jit;
+                }
+            }
+            normalizeProbabilityRows(&components[k]->probabilities);
+        }
+        PutRNGstate();
+    }
 
     const int B = components[0]->B;
     const int G = components[0]->G;
@@ -1206,6 +1274,16 @@ EMMixtureResult *EMAlgoritmMixture(Matrix *X, Matrix *W, const char *p_method, c
                     fallback_underflow_count, fallback_phi_prior_count, fallback_uniform_count);
         }
 
+        if (isfinite(prev_ll) && isfinite(final_ll) && final_ll < prev_ll)
+        {
+            if (verbose)
+            {
+                Rprintf("Stopping: log-likelihood decreased.\n");
+            }
+            finish_id = 0;
+            break;
+        }
+
         // M-step for each component p_{kgc}
         double delta = 0.0;
         for (int k = 0; k < mixture_h; ++k)
@@ -1329,17 +1407,6 @@ EMMixtureResult *EMAlgoritmMixture(Matrix *X, Matrix *W, const char *p_method, c
                 Rprintf("Delta log-likelihood: %.10f\n", fabs(final_ll - prev_ll));
             }
             Rprintf("Delta parameters: %.10f\n", delta);
-        }
-
-        // Early stop safeguard: after 50 iterations, stop if log-likelihood decreases.
-        if (iter > 10000000 && isfinite(prev_ll) && isfinite(final_ll) && final_ll < prev_ll)
-        {
-            if (verbose)
-            {
-                Rprintf("Stopping: log-likelihood decreased after iteration 50.\n");
-            }
-            finish_id = 0;
-            break;
         }
 
         struct timespec now;
@@ -1758,7 +1825,7 @@ EMMixtureResult *EMAlgoritmRowMixture(Matrix *X, Matrix *W, const char *p_method
     if (H == 1)
     {
         return EMAlgoritmMixture(X, W, p_method, q_method, convergence, LLconvergence, maxIter, maxSeconds, verbose,
-                                 probMatrix, inputParams, 1);
+                                 probMatrix, NULL, inputParams, 1);
     }
 
     struct timespec start;
@@ -2024,16 +2091,15 @@ EMMixtureResult *EMAlgoritmRowMixture(Matrix *X, Matrix *W, const char *p_method
             Rprintf("Delta parameters: %.10f\n", delta);
         }
 
-        // Early stop safeguard: after 50 iterations, stop if log-likelihood decreases.
-        // if (iter > 50 && isfinite(prev_ll) && isfinite(final_ll) && final_ll < prev_ll)
-        // {
-        //     if (verbose)
-        //     {
-        //         Rprintf("Stopping: log-likelihood decreased after iteration 50.\n");
-        //     }
-        //     finish_id = 0;
-        //     break;
-        // }
+        if (isfinite(prev_ll) && isfinite(final_ll) && final_ll < prev_ll)
+        {
+            if (verbose)
+            {
+                Rprintf("Stopping: log-likelihood decreased.\n");
+            }
+            finish_id = 0;
+            break;
+        }
 
         struct timespec now;
         clock_gettime(CLOCK_MONOTONIC_RAW, &now);

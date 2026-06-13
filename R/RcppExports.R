@@ -9,6 +9,10 @@ EMLogLikFromProb <- function(candidate_matrix, group_matrix, probability_matrix,
     .Call(`_fastei_EMLogLikFromProb`, candidate_matrix, group_matrix, probability_matrix, em_method, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every)
 }
 
+EMLogLikFromProbMixture <- function(candidate_matrix, group_matrix, probability_array, em_method, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every) {
+    .Call(`_fastei_EMLogLikFromProbMixture`, candidate_matrix, group_matrix, probability_array, em_method, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every)
+}
+
 EMAlgorithmMixture <- function(candidate_matrix, group_matrix, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, initial_probabilities, mixture_h, symmetric, symmetric_weight_method) {
     .Call(`_fastei_EMAlgorithmMixture`, candidate_matrix, group_matrix, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, initial_probabilities, mixture_h, symmetric, symmetric_weight_method)
 }
@@ -21,8 +25,12 @@ bootstrapAlg <- function(candidate_matrix, group_matrix, nboot, em_method, proba
     .Call(`_fastei_bootstrapAlg`, candidate_matrix, group_matrix, nboot, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, initial_probabilities)
 }
 
-EMAlgorithmParametric <- function(candidate_matrix, group_matrix, attribute_matrix, beta, alpha, maximum_iterations, maximum_seconds, log_stopping_threshold, maximum_newton, verbose, LP_method, project_every) {
-    .Call(`_fastei_EMAlgorithmParametric`, candidate_matrix, group_matrix, attribute_matrix, beta, alpha, maximum_iterations, maximum_seconds, log_stopping_threshold, maximum_newton, verbose, LP_method, project_every)
+EMAlgorithmParametric <- function(candidate_matrix, group_matrix, attribute_matrix, beta, alpha, maximum_iterations, maximum_seconds, log_stopping_threshold, maximum_newton, verbose, LP_method, project_every, em_method, monte_method, monte_error, monte_iter) {
+    .Call(`_fastei_EMAlgorithmParametric`, candidate_matrix, group_matrix, attribute_matrix, beta, alpha, maximum_iterations, maximum_seconds, log_stopping_threshold, maximum_newton, verbose, LP_method, project_every, em_method, monte_method, monte_error, monte_iter)
+}
+
+EMAlgorithmParametricMixture <- function(candidate_matrix, group_matrix, attribute_matrix, beta, alpha, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, maximum_newton, compute_ll, verbose, em_method, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, mixture_h) {
+    .Call(`_fastei_EMAlgorithmParametricMixture`, candidate_matrix, group_matrix, attribute_matrix, beta, alpha, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, maximum_newton, compute_ll, verbose, em_method, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, mixture_h)
 }
 
 bootstrapParametricAlg <- function(candidate_matrix, group_matrix, attribute_matrix, beta, alpha, maximum_iterations, nboot, maximum_seconds, log_stopping_threshold, maximum_newton, verbose, LP_method, project_every) {

@@ -393,7 +393,13 @@
     )
     object$X <- object$X[, keep_cols, drop = FALSE]
 
-    if (is.matrix(initial_prob)) {
+    if (is.array(initial_prob) && length(dim(initial_prob)) == 3L) {
+        initial_prob <- initial_prob[, keep_cols, , drop = FALSE]
+        for (k in seq_len(dim(initial_prob)[3])) {
+            initial_prob[, , k] <- .normalize_prob_rows_zero_columns(initial_prob[, , k])
+        }
+        all_params$initial_prob <- initial_prob
+    } else if (is.matrix(initial_prob)) {
         initial_prob <- .normalize_prob_rows_zero_columns(initial_prob[, keep_cols, drop = FALSE])
         all_params$initial_prob <- initial_prob
     }
@@ -401,10 +407,18 @@
     if (is_parametric && state$can_restore_coefficients) {
         coef_keep_cols <- keep_cols[-length(keep_cols)]
         if (!is.null(beta_init)) {
-            beta_init <- beta_init[, coef_keep_cols, drop = FALSE]
+            if (is.array(beta_init) && length(dim(beta_init)) == 3L) {
+                beta_init <- beta_init[, coef_keep_cols, , drop = FALSE]
+            } else {
+                beta_init <- beta_init[, coef_keep_cols, drop = FALSE]
+            }
         }
         if (!is.null(alpha_init)) {
-            alpha_init <- alpha_init[coef_keep_cols, , drop = FALSE]
+            if (is.array(alpha_init) && length(dim(alpha_init)) == 3L) {
+                alpha_init <- alpha_init[coef_keep_cols, , , drop = FALSE]
+            } else {
+                alpha_init <- alpha_init[coef_keep_cols, , drop = FALSE]
+            }
         }
     } else if (is_parametric && (!is.null(beta_init) || !is.null(alpha_init))) {
         beta_init <- NULL
@@ -464,6 +478,17 @@
         restored
     }
 
+    restore_candidate_second_array4 <- function(arr) {
+        if (is.null(arr) || !is.array(arr) || length(dim(arr)) != 4) {
+            return(arr)
+        }
+        arr_dimnames <- dimnames(arr)
+        restored <- array(0, dim = c(dim(arr)[1], total_candidates, dim(arr)[3], dim(arr)[4]))
+        restored[, keep_cols, , ] <- arr
+        dimnames(restored) <- list(arr_dimnames[[1]], candidate_names, arr_dimnames[[3]], arr_dimnames[[4]])
+        restored
+    }
+
     restore_candidate_first_array <- function(arr) {
         if (is.null(arr) || !is.array(arr) || length(dim(arr)) != 3) {
             return(arr)
@@ -483,7 +508,11 @@
     }
     fit_object$cond_prob <- restore_candidate_second_array(fit_object$cond_prob)
     fit_object$expected_outcome <- restore_candidate_second_array(fit_object$expected_outcome)
-    fit_object$component_prob <- restore_candidate_second_array(fit_object$component_prob)
+    fit_object$component_prob <- if (is.array(fit_object$component_prob) && length(dim(fit_object$component_prob)) == 4) {
+        restore_candidate_second_array4(fit_object$component_prob)
+    } else {
+        restore_candidate_second_array(fit_object$component_prob)
+    }
     fit_object$prob_inv <- if (is.array(fit_object$prob_inv) && length(dim(fit_object$prob_inv)) == 3) {
         restore_candidate_first_array(fit_object$prob_inv)
     } else {
@@ -505,6 +534,14 @@
         rownames(restored_beta) <- rownames(fit_object$beta)
         colnames(restored_beta) <- candidate_names[-total_candidates]
         fit_object$beta <- restored_beta
+    } else if (isTRUE(state$can_restore_coefficients) && is.array(fit_object$beta) && length(dim(fit_object$beta)) == 3) {
+        coef_keep_cols <- keep_cols[-length(keep_cols)]
+        restored_beta <- array(0, dim = c(dim(fit_object$beta)[1], total_candidates - 1, dim(fit_object$beta)[3]))
+        if (length(coef_keep_cols) > 0 && dim(fit_object$beta)[2] > 0) {
+            restored_beta[, coef_keep_cols, ] <- fit_object$beta
+        }
+        dimnames(restored_beta) <- list(dimnames(fit_object$beta)[[1]], candidate_names[-total_candidates], dimnames(fit_object$beta)[[3]])
+        fit_object$beta <- restored_beta
     }
 
     if (isTRUE(state$can_restore_coefficients) && is.matrix(fit_object$alpha)) {
@@ -515,6 +552,14 @@
         }
         rownames(restored_alpha) <- candidate_names[-total_candidates]
         colnames(restored_alpha) <- colnames(fit_object$alpha)
+        fit_object$alpha <- restored_alpha
+    } else if (isTRUE(state$can_restore_coefficients) && is.array(fit_object$alpha) && length(dim(fit_object$alpha)) == 3) {
+        coef_keep_cols <- keep_cols[-length(keep_cols)]
+        restored_alpha <- array(0, dim = c(total_candidates - 1, dim(fit_object$alpha)[2], dim(fit_object$alpha)[3]))
+        if (length(coef_keep_cols) > 0 && dim(fit_object$alpha)[1] > 0) {
+            restored_alpha[coef_keep_cols, , ] <- fit_object$alpha
+        }
+        dimnames(restored_alpha) <- list(candidate_names[-total_candidates], dimnames(fit_object$alpha)[[2]], dimnames(fit_object$alpha)[[3]])
         fit_object$alpha <- restored_alpha
     }
 
@@ -733,6 +778,58 @@
     }
 
     object
+}
+
+#' Populate method-specific defaults for parametric EM runs.
+#'
+#' @param object An `eim` object.
+#' @param method Character string with the selected EM method.
+#' @param all_params List of evaluated `run_em()` arguments.
+#' @return The updated `eim` object with method-specific defaults.
+#' @noRd
+.run_em_apply_parametric_defaults <- function(object, method, all_params) {
+    if (method == "mvn_cdf") {
+        object$mvncdf_method <- if ("mvncdf_method" %in% names(all_params)) all_params$mvncdf_method else "genz"
+        object$mvncdf_samples <- if ("mvncdf_samples" %in% names(all_params)) all_params$mvncdf_samples else 5000
+        object$mvncdf_error <- if ("mvncdf_error" %in% names(all_params)) all_params$mvncdf_error else 1e-3
+    }
+
+    object
+}
+
+#' Build component-wise initial parameters for parametric mixtures.
+#'
+#' @param value Optional matrix or 3d array.
+#' @param rows Expected first dimension.
+#' @param cols Expected second dimension.
+#' @param K Number of components.
+#' @param name Parameter name used in errors.
+#' @return A 3d array with dimensions `rows x cols x K`.
+#' @noRd
+.run_em_parametric_component_array <- function(value, rows, cols, K, name) {
+    if (is.null(value)) {
+        value <- matrix(0, nrow = rows, ncol = cols)
+    }
+
+    if (is.array(value) && length(dim(value)) == 3L) {
+        if (!identical(dim(value), c(rows, cols, K))) {
+            stop(sprintf("run_em: '%s' must have dimensions (%d x %d x %d).", name, rows, cols, K))
+        }
+        return(value)
+    }
+
+    if (!is.matrix(value) || nrow(value) != rows || ncol(value) != cols) {
+        stop(sprintf("run_em: '%s' must be a matrix with dimensions (%d x %d) or an array with dimensions (%d x %d x %d).", name, rows, cols, rows, cols, K))
+    }
+
+    out <- array(0, dim = c(rows, cols, K))
+    out[, , 1L] <- value
+    if (K > 1L) {
+        for (k in 2:K) {
+            out[, , k] <- value + matrix(runif(rows * cols, min = -0.05, max = 0.05), nrow = rows, ncol = cols)
+        }
+    }
+    out
 }
 
 #' Internal function!
@@ -975,6 +1072,121 @@
     object
 }
 
+#' Copy parametric mixture EM results back into an `eim` object.
+#'
+#' @param object An `eim` object.
+#' @param resulting_values Output list returned by `EMAlgorithmParametricMixture`.
+#' @param W_matrix Group matrix used in the fit.
+#' @param V_matrix Attribute matrix used in the fit.
+#' @param control List with active `run_em()` controls.
+#' @return The updated `eim` object.
+#' @noRd
+.run_em_assign_parametric_mixture_results <- function(object, resulting_values, W_matrix, V_matrix, control) {
+    dimnames_3d <- .run_em_dimnames(object, W_matrix)
+    component_names <- paste0("H", seq_len(control$K))
+    coefficient_names <- paste0("H", seq_len(control$K - 1L))
+
+    object$prob <- resulting_values$prob
+    dimnames(object$prob) <- dimnames_3d
+    object$cond_prob <- resulting_values$cond_prob
+    dimnames(object$cond_prob) <- dimnames_3d
+    object$expected_outcome <- resulting_values$expected_outcome
+    dimnames(object$expected_outcome) <- dimnames_3d
+
+    object$beta <- resulting_values$beta
+    dimnames(object$beta) <- list(colnames(V_matrix), coefficient_names)
+
+    object$alpha <- NULL
+
+    object$phi <- as.matrix(resulting_values$phi)
+    dimnames(object$phi) <- list(rownames(object$X), component_names)
+    object$responsibilities <- as.matrix(resulting_values$responsibilities)
+    dimnames(object$responsibilities) <- list(rownames(object$X), component_names)
+    object$component_prob <- resulting_values$component_prob
+    dimnames(object$component_prob) <- list(colnames(W_matrix), colnames(object$X), component_names)
+
+    object$iterations <- as.numeric(resulting_values$iter)
+    object$logLik <- as.numeric(resulting_values$logLik)
+    object$time <- resulting_values$time
+    object$message <- resulting_values$stopping_reason
+    object$status <- as.integer(resulting_values$finish_id)
+    object$maxiter <- control$maxiter
+    object$miniter <- control$miniter
+    object$maxtime <- control$maxtime
+    object$param_threshold <- control$param_threshold
+    object$ll_threshold <- control$ll_threshold
+    object$maxnewton <- control$maxnewton
+    object$adjust_prob_cond_method <- control$adjust_prob_cond_method
+    object$adjust_prob_cond_every <- control$adjust_prob_cond_every
+    object$mixture <- as.integer(control$mixture)
+    object$K <- as.integer(control$K)
+    object$row_mixture <- as.integer(control$row_mixture)
+
+    object
+}
+
+#' Build initial component probability matrices for parametric matrix-mixture.
+#'
+#' @noRd
+.run_em_matrix_mixture_component_prob_array <- function(object, W_matrix, control) {
+    num_groups <- ncol(W_matrix)
+    num_candidates <- ncol(object$X)
+    K <- control$K
+
+    if (is.array(control$initial_prob) && length(dim(control$initial_prob)) == 3L) {
+        dims <- dim(control$initial_prob)
+        if (!identical(as.integer(dims), as.integer(c(num_groups, num_candidates, K)))) {
+            stop("run_em: array 'initial_prob' must have dimensions (g x c x K) in parametric matrix-mixture mode.")
+        }
+        out <- control$initial_prob
+        for (k in seq_len(K)) {
+            out[, , k] <- .normalize_prob_rows(out[, , k])
+        }
+        return(out)
+    }
+
+    if (is.matrix(control$initial_prob)) {
+        if (!all(dim(control$initial_prob) == c(num_groups, num_candidates))) {
+            stop("run_em: matrix 'initial_prob' must have dimensions (g x c).")
+        }
+        base <- .normalize_prob_rows(control$initial_prob)
+    } else {
+        candidate_share <- colSums(object$X)
+        if (!is.finite(sum(candidate_share)) || sum(candidate_share) <= 0) {
+            candidate_share <- rep(1 / num_candidates, num_candidates)
+        } else {
+            candidate_share <- candidate_share / sum(candidate_share)
+        }
+
+        row_totals <- rowSums(W_matrix)
+        valid_rows <- is.finite(row_totals) & row_totals > 0
+        group_weights <- W_matrix
+        group_weights[!valid_rows, ] <- 0
+        group_weights[valid_rows, ] <- sweep(group_weights[valid_rows, , drop = FALSE], 1, row_totals[valid_rows], "/")
+
+        base_counts <- crossprod(group_weights, object$X)
+        group_totals <- colSums(W_matrix)
+        base <- matrix(rep(candidate_share, each = num_groups), nrow = num_groups, ncol = num_candidates)
+        for (g in seq_len(num_groups)) {
+            if (is.finite(group_totals[g]) && group_totals[g] > 0 && all(is.finite(base_counts[g, ])) && sum(base_counts[g, ]) > 0) {
+                base[g, ] <- base_counts[g, ] / sum(base_counts[g, ])
+            }
+        }
+        base <- .normalize_prob_rows(base)
+    }
+
+    out <- array(0, dim = c(num_groups, num_candidates, K))
+    for (k in seq_len(K)) {
+        jitter <- matrix(
+            1 + 0.05 * sin(seq_len(num_groups * num_candidates) + k),
+            nrow = num_groups,
+            ncol = num_candidates
+        )
+        out[, , k] <- .normalize_prob_rows(base * jitter)
+    }
+    out
+}
+
 #' Internal function!
 #'
 #' Build the recursive call used for the reverse symmetric run.
@@ -1207,14 +1419,12 @@
 #' @return The updated `eim` object.
 #' @noRd
 .run_em_parametric <- function(object, control) {
-    if (!identical(control$method, "mult")) {
-        stop("run_em: Parametric mode only supports method = \"mult\".")
+    valid_parametric_methods <- c("mult", "mvn_pdf", "mvn_cdf")
+    if (!control$method %in% valid_parametric_methods) {
+        stop("run_em: Parametric mode only supports method = \"mult\", \"mvn_pdf\", or \"mvn_cdf\".")
     }
     if (isTRUE(control$symmetric) && identical(control$symmetric_weight_method, "EM_weight")) {
         stop("run_em: `symmetric_weight_method = \"EM_weight\"` is currently supported only for non-parametric models (`V = NULL`).")
-    }
-    if (control$mixture > 1L) {
-        stop("run_em: `mixture > 1` is currently supported only for non-parametric models (`V = NULL`).")
     }
     if (!is.null(control$HET)) {
         stop("run_em: `HET` is currently supported only for non-parametric models (`V = NULL`).")
@@ -1232,6 +1442,8 @@
     num_groups <- ncol(W_matrix)
     num_attributes <- ncol(V_matrix)
 
+    object <- .run_em_apply_parametric_defaults(object, control$method, control$all_params)
+
     beta <- if (is.null(control$beta_init)) {
         matrix(0, nrow = num_groups, ncol = num_candidates - 1)
     } else {
@@ -1243,29 +1455,77 @@
         control$alpha_init
     }
 
-    if (!is.matrix(beta) || nrow(beta) != num_groups || ncol(beta) != num_candidates - 1) {
-        stop("run_em: 'beta' must be a matrix with dimensions (g x (c-1)).")
-    }
-    if (!is.matrix(alpha) || nrow(alpha) != num_candidates - 1 || ncol(alpha) != num_attributes) {
-        stop("run_em: 'alpha' must be a matrix with dimensions ((c-1) x a).")
+    if (control$K == 1L) {
+        if (!is.matrix(beta) || nrow(beta) != num_groups || ncol(beta) != num_candidates - 1) {
+            stop("run_em: 'beta' must be a matrix with dimensions (g x (c-1)).")
+        }
+        if (!is.matrix(alpha) || nrow(alpha) != num_candidates - 1 || ncol(alpha) != num_attributes) {
+            stop("run_em: 'alpha' must be a matrix with dimensions ((c-1) x a).")
+        }
     }
 
-    resulting_values <- EMAlgorithmParametric(
-        as.matrix(object$X),
-        as.matrix(W_matrix),
-        as.matrix(V_matrix),
-        as.matrix(beta),
-        as.matrix(alpha),
-        control$maxiter,
-        control$maxtime,
-        control$ll_threshold,
-        control$maxnewton,
-        control$verbose,
-        control$adjust_prob_cond_method,
-        control$adjust_prob_cond_every
-    )
+    if (control$K > 1L) {
+        if (!is.null(control$alpha_init)) {
+            warning("run_em: 'alpha_init' is ignored in parametric matrix-mixture mode; use 'initial_prob' to initialize component probabilities.")
+        }
+        membership_beta <- if (is.null(control$beta_init)) {
+            matrix(0, nrow = num_attributes, ncol = control$K - 1L)
+        } else {
+            control$beta_init
+        }
+        if (!is.matrix(membership_beta) ||
+            nrow(membership_beta) != num_attributes ||
+            ncol(membership_beta) != control$K - 1L) {
+            stop("run_em: in parametric matrix-mixture mode, 'beta_init' must have dimensions (a x (K-1)).")
+        }
+        component_prob_init <- .run_em_matrix_mixture_component_prob_array(object, W_matrix, control)
 
-    object <- .run_em_assign_parametric_results(object, resulting_values, W_matrix, V_matrix, control)
+        resulting_values <- EMAlgorithmParametricMixture(
+            as.matrix(object$X),
+            as.matrix(W_matrix),
+            as.matrix(V_matrix),
+            membership_beta,
+            component_prob_init,
+            control$maxiter,
+            control$maxtime,
+            control$param_threshold,
+            control$ll_threshold,
+            control$maxnewton,
+            control$compute_ll,
+            control$verbose,
+            control$method,
+            if (!is.null(object$mvncdf_method)) object$mvncdf_method else "genz",
+            as.numeric(if (!is.null(object$mvncdf_error)) object$mvncdf_error else 1e-3),
+            as.integer(if (!is.null(object$mvncdf_samples)) object$mvncdf_samples else 5000),
+            control$miniter,
+            control$adjust_prob_cond_method,
+            control$adjust_prob_cond_every,
+            control$K
+        )
+
+        object <- .run_em_assign_parametric_mixture_results(object, resulting_values, W_matrix, V_matrix, control)
+    } else {
+        resulting_values <- EMAlgorithmParametric(
+            as.matrix(object$X),
+            as.matrix(W_matrix),
+            as.matrix(V_matrix),
+            as.matrix(beta),
+            as.matrix(alpha),
+            control$maxiter,
+            control$maxtime,
+            control$ll_threshold,
+            control$maxnewton,
+            control$verbose,
+            control$adjust_prob_cond_method,
+            control$adjust_prob_cond_every,
+            control$method,
+            if (!is.null(object$mvncdf_method)) object$mvncdf_method else "genz",
+            as.numeric(if (!is.null(object$mvncdf_error)) object$mvncdf_error else 1e-3),
+            as.integer(if (!is.null(object$mvncdf_samples)) object$mvncdf_samples else 5000)
+        )
+
+        object <- .run_em_assign_parametric_results(object, resulting_values, W_matrix, V_matrix, control)
+    }
 
     if (isTRUE(control$symmetric)) {
         object <- .run_em_symmetric_helper(
@@ -1445,17 +1705,192 @@
     .run_em_finalize_fit_object(object, control$zero_vote_state)
 }
 
-#' Internal function!
+#' Prepare finite-mixture initial probabilities for the non-parametric backend.
 #'
-#' Execute the finite-mixture branch of `run_em()`.
-#'
-#' @param object An `eim` object.
-#' @param control List with active `run_em()` controls.
-#' @return The updated object.
 #' @noRd
-.run_em_mixture <- function(object, control) {
-    W_matrix <- .run_em_working_group_matrix(object)
-    resulting_values <- EMAlgorithmMixture(
+.run_em_permutations <- function(n) {
+    if (n == 1L) {
+        return(matrix(1L, nrow = 1L))
+    }
+
+    previous <- .run_em_permutations(n - 1L)
+    out <- vector("list", n * nrow(previous))
+    idx <- 1L
+    for (row in seq_len(nrow(previous))) {
+        current <- previous[row, ]
+        for (pos in seq_len(n)) {
+            out[[idx]] <- append(current, n, after = pos - 1L)
+            idx <- idx + 1L
+        }
+    }
+    do.call(rbind, out)
+}
+
+#' @noRd
+.run_em_mixture_base_prob <- function(X_matrix, W_matrix) {
+    eps <- 1e-8
+    row_totals <- rowSums(X_matrix)
+    valid_rows <- is.finite(row_totals) & row_totals > 0
+    if (any(valid_rows)) {
+        global <- colSums(X_matrix[valid_rows, , drop = FALSE])
+    } else {
+        global <- rep(1, ncol(X_matrix))
+    }
+    global <- pmax(global, eps)
+    global <- global / sum(global)
+
+    X_share <- matrix(rep(global, each = nrow(X_matrix)), nrow = nrow(X_matrix))
+    X_share[valid_rows, ] <- sweep(X_matrix[valid_rows, , drop = FALSE], 1L, row_totals[valid_rows], "/")
+
+    base <- matrix(0, nrow = ncol(W_matrix), ncol = ncol(X_matrix))
+    for (g in seq_len(ncol(W_matrix))) {
+        weights <- W_matrix[, g]
+        if (any(is.finite(weights) & weights > 0)) {
+            weighted <- colSums(X_share * weights)
+            base[g, ] <- weighted / sum(weights)
+        } else {
+            base[g, ] <- global
+        }
+    }
+
+    .normalize_prob_rows(pmax(base, eps))
+}
+
+#' @noRd
+.run_em_mixture_initial_prob_from_orders <- function(base_prob, orders, K, amplitude, noise_sd = 0) {
+    G <- nrow(base_prob)
+    C <- ncol(base_prob)
+    scores <- array(0, dim = c(G, C, K))
+    contrast_idx <- 1L
+    profile_scores <- seq(amplitude, -amplitude, length.out = K)
+
+    for (g in seq_len(G)) {
+        for (c in seq_len(C - 1L)) {
+            order <- orders[[contrast_idx]]
+            scores[g, c, order] <- profile_scores
+            contrast_idx <- contrast_idx + 1L
+        }
+    }
+
+    out <- array(0, dim = c(G, C, K))
+    log_base <- log(pmax(base_prob, 1e-12))
+    for (g in seq_len(G)) {
+        for (k in seq_len(K)) {
+            logits <- log_base[g, ] + scores[g, , k]
+            if (noise_sd > 0) {
+                logits[seq_len(C - 1L)] <- logits[seq_len(C - 1L)] + rnorm(C - 1L, sd = noise_sd)
+            }
+            logits <- logits - max(logits)
+            probs <- exp(logits)
+            out[g, , k] <- probs / sum(probs)
+        }
+    }
+
+    out
+}
+
+#' @noRd
+.run_em_mixture_initial_prob_samples <- function(X_matrix, W_matrix, K, S, amplitude, noise_sd = 1e-4) {
+    G <- ncol(W_matrix)
+    C <- ncol(X_matrix)
+    if (C < 2L) {
+        stop("run_em: multistart mixture initialization requires at least two candidates.")
+    }
+
+    base_prob <- .run_em_mixture_base_prob(X_matrix, W_matrix)
+    num_contrasts <- G * (C - 1L)
+    num_perms <- gamma(K + 1L)
+    free_contrasts <- max(0L, num_contrasts - 1L)
+    total_patterns <- num_perms^free_contrasts
+    enumerate_all <- is.finite(total_patterns) && total_patterns <= S
+    total_unique <- if (enumerate_all) as.integer(total_patterns) else S
+
+    pattern_orders <- vector("list", total_unique)
+    if (free_contrasts == 0L) {
+        pattern_orders[[1L]] <- list(seq_len(K))
+    } else if (enumerate_all) {
+        perms <- .run_em_permutations(K)
+        num_perms <- nrow(perms)
+        for (pattern in seq_len(total_unique)) {
+            remainder <- pattern - 1L
+            orders <- vector("list", num_contrasts)
+            orders[[1L]] <- seq_len(K)
+            for (contrast in seq_len(free_contrasts)) {
+                perm_idx <- (remainder %% num_perms) + 1L
+                orders[[contrast + 1L]] <- perms[perm_idx, ]
+                remainder <- remainder %/% num_perms
+            }
+            pattern_orders[[pattern]] <- orders
+        }
+    } else {
+        seen <- new.env(parent = emptyenv())
+        pattern <- 1L
+        attempts <- 0L
+        while (pattern <= S && attempts < S * 100L) {
+            attempts <- attempts + 1L
+            draw <- replicate(free_contrasts, sample.int(K), simplify = FALSE)
+            key <- paste(vapply(draw, paste, character(1), collapse = ","), collapse = ":")
+            if (exists(key, envir = seen, inherits = FALSE)) {
+                next
+            }
+            assign(key, TRUE, envir = seen)
+            orders <- vector("list", num_contrasts)
+            orders[[1L]] <- seq_len(K)
+            for (contrast in seq_len(free_contrasts)) {
+                orders[[contrast + 1L]] <- draw[[contrast]]
+            }
+            pattern_orders[[pattern]] <- orders
+            pattern <- pattern + 1L
+        }
+        if (pattern <= S) {
+            stop("run_em: Could not sample enough unique multistart patterns.")
+        }
+    }
+
+    out <- array(0, dim = c(G, C, K, S))
+    for (s in seq_len(S)) {
+        pattern_idx <- ((s - 1L) %% total_unique) + 1L
+        repeated <- s > total_unique
+        out[, , , s] <- .run_em_mixture_initial_prob_from_orders(
+            base_prob,
+            pattern_orders[[pattern_idx]],
+            K,
+            amplitude,
+            noise_sd = if (repeated) noise_sd else 0
+        )
+    }
+
+    out
+}
+
+#' @noRd
+.run_em_mixture_initial_prob <- function(initial_prob, num_groups, num_candidates, K) {
+    if (is.array(initial_prob) && length(dim(initial_prob)) == 3L) {
+        dims <- dim(initial_prob)
+        if (!identical(as.integer(dims), as.integer(c(num_groups, num_candidates, K)))) {
+            stop("run_em: array 'initial_prob' must have dimensions (g x c x K) in finite-mixture mode.")
+        }
+
+        out <- initial_prob
+        for (k in seq_len(K)) {
+            out[, , k] <- .normalize_prob_rows(out[, , k])
+        }
+        return(out)
+    }
+
+    if (is.matrix(initial_prob)) {
+        if (!identical(as.integer(dim(initial_prob)), as.integer(c(num_groups, num_candidates)))) {
+            stop("run_em: matrix 'initial_prob' must have dimensions (g x c) in finite-mixture mode.")
+        }
+        return(.normalize_prob_rows(initial_prob))
+    }
+
+    matrix(-1, nrow = 1, ncol = 1)
+}
+
+#' @noRd
+.run_em_mixture_backend <- function(object, W_matrix, control, initial_prob_payload) {
+    EMAlgorithmMixture(
         t(object$X),
         W_matrix,
         control$method,
@@ -1474,13 +1909,119 @@
         control$miniter,
         control$adjust_prob_cond_method,
         control$adjust_prob_cond_every,
-        if (is.matrix(control$initial_prob)) control$initial_prob else matrix(-1, nrow = 1, ncol = 1),
+        initial_prob_payload,
         control$K,
         control$use_joint_symmetric_em,
         if (control$use_joint_symmetric_em) "EM_weight" else "average"
     )
+}
+
+#' @noRd
+.run_em_mixture_score_initial_prob <- function(object, W_matrix, control, initial_prob_payload) {
+    ll <- EMLogLikFromProbMixture(
+        t(object$X),
+        W_matrix,
+        initial_prob_payload,
+        control$method,
+        as.integer(if (!is.null(object$mcmc_stepsize)) object$mcmc_stepsize else 3000),
+        as.integer(if (!is.null(object$mcmc_samples)) object$mcmc_samples else 1000),
+        if (!is.null(object$mvncdf_method)) object$mvncdf_method else "genz",
+        as.numeric(if (!is.null(object$mvncdf_error)) object$mvncdf_error else 1e-3),
+        as.integer(if (!is.null(object$mvncdf_samples)) object$mvncdf_samples else 5000),
+        as.integer(control$miniter),
+        as.character(control$adjust_prob_cond_method),
+        as.logical(control$adjust_prob_cond_every)
+    )
+
+    as.numeric(ll)
+}
+
+#' @noRd
+.run_em_mixture_multistart <- function(object, W_matrix, control) {
+    if (isTRUE(control$symmetric) || isTRUE(control$use_joint_symmetric_em)) {
+        stop("run_em: 'S' multistart initialization is not supported with symmetric finite-mixture estimation.")
+    }
+
+    multistart_amplitude <- 1
+
+    if (isTRUE(control$verbose)) {
+        cat(sprintf("Sampling between %d samples for an initial probability\n", control$S))
+    }
+
+    samples <- .run_em_mixture_initial_prob_samples(
+        X_matrix = object$X,
+        W_matrix = W_matrix,
+        K = control$K,
+        S = control$S,
+        amplitude = multistart_amplitude
+    )
+
+    scores <- rep(NA_real_, control$S)
+    best_idx <- NA_integer_
+    best_ll <- -Inf
+    best_initial_prob <- NULL
+
+    for (s in seq_len(control$S)) {
+        initial_prob_payload <- samples[, , , s, drop = FALSE]
+        dim(initial_prob_payload) <- dim(samples)[1:3]
+        scores[s] <- .run_em_mixture_score_initial_prob(object, W_matrix, control, initial_prob_payload)
+        if (is.finite(scores[s]) && scores[s] > best_ll) {
+            best_ll <- scores[s]
+            best_idx <- s
+            best_initial_prob <- initial_prob_payload
+        }
+    }
+
+    if (is.null(best_initial_prob)) {
+        stop("run_em: No finite log-likelihood found among multistart initial probabilities.")
+    }
+
+    if (isTRUE(control$verbose)) {
+        cat(sprintf("Staying with the biggest log-likelihood sample (ll = %.10f)\n", best_ll))
+    }
+
+    list(
+        initial_prob = best_initial_prob,
+        logLik = scores,
+        best = best_idx
+    )
+}
+
+#' Internal function!
+#'
+#' Execute the finite-mixture branch of `run_em()`.
+#'
+#' @param object An `eim` object.
+#' @param control List with active `run_em()` controls.
+#' @return The updated object.
+#' @noRd
+.run_em_mixture <- function(object, control) {
+    W_matrix <- .run_em_working_group_matrix(object)
+
+    multistart <- NULL
+    if (!is.null(control$S)) {
+        multistart <- .run_em_mixture_multistart(object, W_matrix, control)
+        control$initial_prob <- multistart$initial_prob
+        resulting_values <- .run_em_mixture_backend(object, W_matrix, control, control$initial_prob)
+    } else {
+        initial_prob_payload <- .run_em_mixture_initial_prob(
+            initial_prob = control$initial_prob,
+            num_groups = ncol(W_matrix),
+            num_candidates = ncol(object$X),
+            K = control$K
+        )
+        if (is.array(initial_prob_payload) && length(dim(initial_prob_payload)) == 3L &&
+            (isTRUE(control$symmetric) || isTRUE(control$use_joint_symmetric_em))) {
+            stop("run_em: array 'initial_prob' is not supported with symmetric finite-mixture estimation.")
+        }
+        resulting_values <- .run_em_mixture_backend(object, W_matrix, control, initial_prob_payload)
+    }
 
     object <- .run_em_assign_mixture_results(object, resulting_values, W_matrix, control)
+    if (!is.null(multistart)) {
+        object$initial_prob_multistart_logLik <- multistart$logLik
+        object$initial_prob_multistart_best <- as.integer(multistart$best)
+    }
 
     if (control$use_joint_symmetric_em) {
         object$cond_prob_inv <- resulting_values$q_inv
