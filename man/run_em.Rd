@@ -95,6 +95,9 @@ non-parametric finite mixtures (\code{mixture > 1}). If \code{NULL} (default),
 generates \code{S} structured \verb{g x c x mixture} initial probability arrays from
 \code{X} and \code{W}, scores each initial array with the finite-mixture
 log-likelihood, and runs the mixture EM once from the best-scoring array.
+With \code{symmetric = TRUE} and \code{symmetric_weight_method = "EM_weight"}, the
+score combines the forward and reverse finite-mixture log-likelihoods for
+each sampled initialization.
 Explicit \code{initial_prob} is ignored when \code{S} is supplied. The returned
 object stores the sampled initial log-likelihoods in
 \code{initial_prob_multistart_logLik} and the selected sample index in

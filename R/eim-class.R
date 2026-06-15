@@ -250,6 +250,9 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'   generates `S` structured `g x c x mixture` initial probability arrays from
 #'   `X` and `W`, scores each initial array with the finite-mixture
 #'   log-likelihood, and runs the mixture EM once from the best-scoring array.
+#'   With `symmetric = TRUE` and `symmetric_weight_method = "EM_weight"`, the
+#'   score combines the forward and reverse finite-mixture log-likelihoods for
+#'   each sampled initialization.
 #'   Explicit `initial_prob` is ignored when `S` is supplied. The returned
 #'   object stores the sampled initial log-likelihoods in
 #'   `initial_prob_multistart_logLik` and the selected sample index in

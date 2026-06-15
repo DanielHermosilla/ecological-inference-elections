@@ -412,3 +412,80 @@ test_that("run_em finite mixture multistart returns the best sampled initializat
     expect_true(all(is.finite(fit$initial_prob_multistart_logLik)))
     expect_true(fit$initial_prob_multistart_best %in% seq_len(2))
 })
+
+test_that("run_em finite mixture multistart supports symmetric averaging", {
+    X <- matrix(c(
+        32, 18,
+        28, 22,
+        22, 28,
+        18, 32
+    ), nrow = 4, byrow = TRUE)
+    W <- matrix(c(
+        35, 15,
+        30, 20,
+        20, 30,
+        15, 35
+    ), nrow = 4, byrow = TRUE)
+
+    fit <- run_em(
+        X = X,
+        W = W,
+        method = "mult",
+        mixture = 2,
+        symmetric = TRUE,
+        S = 2,
+        maxiter = 3,
+        miniter = 1,
+        maxtime = 5,
+        compute_ll = TRUE,
+        seed = 321
+    )
+
+    expect_equal(fit$mixture, 2L)
+    expect_false(is.null(fit$cond_prob_inv))
+    expect_false(is.null(fit$prob_inv))
+    expect_equal(dim(fit$initial_prob), c(2L, 2L, 2L))
+    expect_equal(length(fit$initial_prob_multistart_logLik), 2L)
+    expect_true(all(is.finite(fit$initial_prob_multistart_logLik)))
+    expect_true(fit$initial_prob_multistart_best %in% seq_len(2))
+})
+
+test_that("run_em finite mixture multistart supports symmetric EM_weight", {
+    X <- matrix(c(
+        32, 18,
+        28, 22,
+        22, 28,
+        18, 32
+    ), nrow = 4, byrow = TRUE)
+    W <- matrix(c(
+        35, 15,
+        30, 20,
+        20, 30,
+        15, 35
+    ), nrow = 4, byrow = TRUE)
+
+    fit <- run_em(
+        X = X,
+        W = W,
+        method = "mult",
+        mixture = 2,
+        symmetric = TRUE,
+        symmetric_weight_method = "EM_weight",
+        S = 2,
+        maxiter = 3,
+        miniter = 1,
+        maxtime = 5,
+        compute_ll = TRUE,
+        seed = 321
+    )
+
+    expect_equal(fit$mixture, 2L)
+    expect_equal(fit$symmetric_weight_method, "EM_weight")
+    expect_equal(fit$symmetric_weights, c(original = 0.5, reverse = 0.5))
+    expect_equal(dim(fit$initial_prob), c(2L, 2L, 2L))
+    expect_equal(dim(fit$cond_prob_inv), c(2L, 2L, 4L))
+    expect_equal(dim(fit$prob_inv), c(2L, 2L))
+    expect_equal(length(fit$initial_prob_multistart_logLik), 2L)
+    expect_true(all(is.finite(fit$initial_prob_multistart_logLik)))
+    expect_true(fit$initial_prob_multistart_best %in% seq_len(2))
+})

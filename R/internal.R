@@ -1761,9 +1761,40 @@
 }
 
 #' @noRd
-.run_em_mixture_score_initial_prob <- function(object, W_matrix, control, initial_prob_payload) {
+.run_em_mixture_reverse_initial_prob <- function(initial_prob_payload, X_matrix) {
+    dims <- dim(initial_prob_payload)
+    if (length(dims) != 3L) {
+        stop("run_em: internal symmetric multistart expected a 3d initial probability array.")
+    }
+
+    G <- dims[1L]
+    C <- dims[2L]
+    K <- dims[3L]
+    candidate_totals <- colSums(X_matrix)
+    out <- array(0, dim = c(C, G, K))
+
+    for (k in seq_len(K)) {
+        forward_prob <- initial_prob_payload[, , k, drop = FALSE]
+        dim(forward_prob) <- c(G, C)
+        denominator <- as.numeric(forward_prob %*% candidate_totals)
+        reverse_prob <- matrix(0, nrow = C, ncol = G)
+
+        for (g in seq_len(G)) {
+            if (is.finite(denominator[g]) && denominator[g] > 0) {
+                reverse_prob[, g] <- forward_prob[g, ] * candidate_totals / denominator[g]
+            }
+        }
+
+        out[, , k] <- .normalize_prob_rows(reverse_prob)
+    }
+
+    out
+}
+
+#' @noRd
+.run_em_mixture_score_initial_prob <- function(X_matrix, W_matrix, object, control, initial_prob_payload) {
     ll <- EMLogLikFromProbMixture(
-        t(object$X),
+        t(X_matrix),
         W_matrix,
         initial_prob_payload,
         control$method,
@@ -1782,10 +1813,6 @@
 
 #' @noRd
 .run_em_mixture_multistart <- function(object, W_matrix, control) {
-    if (isTRUE(control$symmetric) || isTRUE(control$use_joint_symmetric_em)) {
-        stop("run_em: 'S' multistart initialization is not supported with symmetric finite-mixture estimation.")
-    }
-
     multistart_amplitude <- 1
 
     if (isTRUE(control$verbose)) {
@@ -1808,7 +1835,18 @@
     for (s in seq_len(control$S)) {
         initial_prob_payload <- samples[, , , s, drop = FALSE]
         dim(initial_prob_payload) <- dim(samples)[1:3]
-        scores[s] <- .run_em_mixture_score_initial_prob(object, W_matrix, control, initial_prob_payload)
+        scores[s] <- .run_em_mixture_score_initial_prob(object$X, W_matrix, object, control, initial_prob_payload)
+        if (isTRUE(control$use_joint_symmetric_em)) {
+            reverse_initial_prob <- .run_em_mixture_reverse_initial_prob(initial_prob_payload, object$X)
+            reverse_score <- .run_em_mixture_score_initial_prob(
+                W_matrix,
+                object$X,
+                object,
+                control,
+                reverse_initial_prob
+            )
+            scores[s] <- scores[s] + reverse_score
+        }
         if (is.finite(scores[s]) && scores[s] > best_ll) {
             best_ll <- scores[s]
             best_idx <- s
@@ -1855,7 +1893,7 @@
             K = control$K
         )
         if (is.array(initial_prob_payload) && length(dim(initial_prob_payload)) == 3L &&
-            (isTRUE(control$symmetric) || isTRUE(control$use_joint_symmetric_em))) {
+            isTRUE(control$symmetric) && !isTRUE(control$use_joint_symmetric_em)) {
             stop("run_em: array 'initial_prob' is not supported with symmetric finite-mixture estimation.")
         }
         resulting_values <- .run_em_mixture_backend(object, W_matrix, control, initial_prob_payload)

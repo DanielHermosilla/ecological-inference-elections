@@ -797,7 +797,8 @@ static double *flattenMixtureComponentProbabilities(EMContext **components, int 
 static EMMixtureResult *EMAlgoritmMixtureSymmetric(Matrix *X, Matrix *W, const char *p_method, const char *q_method,
                                                    const double convergence, const double LLconvergence,
                                                    const int maxIter, const double maxSeconds, const bool verbose,
-                                                   Matrix *probMatrix, QMethodInput *inputParams, int mixture_h)
+                                                   Matrix *probMatrix, Matrix *componentProbInit,
+                                                   QMethodInput *inputParams, int mixture_h)
 {
     (void)LLconvergence;
     const double eps = 1e-12;
@@ -823,22 +824,44 @@ static EMMixtureResult *EMAlgoritmMixtureSymmetric(Matrix *X, Matrix *W, const c
     freeMatrix(&reverse_x);
     freeMatrix(&reverse_w);
 
-    setGlobalsFromCtx(components_forward[0]);
-    getInitialP(components_forward[0], p_method, probMatrix);
-    copyBaseProbabilitiesAndJitter(components_forward, mixture_h);
-
-    setGlobalsFromCtx(components_reverse[0]);
-    if (strcmp(p_method, "custom") == 0)
+    if (componentProbInit != NULL)
     {
-        reverse_prob_custom = buildReverseCustomInitialProb(probMatrix, components_forward[0]);
-        getInitialP(components_reverse[0], "custom", &reverse_prob_custom);
-        freeMatrix(&reverse_prob_custom);
+        for (int k = 0; k < mixture_h; ++k)
+        {
+            if (componentProbInit[k].rows != components_forward[k]->G ||
+                componentProbInit[k].cols != components_forward[k]->C)
+            {
+                error("run_em: array 'initial_prob' has incompatible component dimensions.");
+            }
+            memcpy(components_forward[k]->probabilities.data, componentProbInit[k].data,
+                   (size_t)components_forward[k]->G * (size_t)components_forward[k]->C * sizeof(double));
+            normalizeProbabilityRows(&components_forward[k]->probabilities);
+
+            reverse_prob_custom = buildReverseCustomInitialProb(&componentProbInit[k], components_forward[k]);
+            setGlobalsFromCtx(components_reverse[k]);
+            getInitialP(components_reverse[k], "custom", &reverse_prob_custom);
+            freeMatrix(&reverse_prob_custom);
+        }
     }
     else
     {
-        getInitialP(components_reverse[0], p_method, probMatrix);
+        setGlobalsFromCtx(components_forward[0]);
+        getInitialP(components_forward[0], p_method, probMatrix);
+        copyBaseProbabilitiesAndJitter(components_forward, mixture_h);
+
+        setGlobalsFromCtx(components_reverse[0]);
+        if (strcmp(p_method, "custom") == 0)
+        {
+            reverse_prob_custom = buildReverseCustomInitialProb(probMatrix, components_forward[0]);
+            getInitialP(components_reverse[0], "custom", &reverse_prob_custom);
+            freeMatrix(&reverse_prob_custom);
+        }
+        else
+        {
+            getInitialP(components_reverse[0], p_method, probMatrix);
+        }
+        copyBaseProbabilitiesAndJitter(components_reverse, mixture_h);
     }
-    copyBaseProbabilitiesAndJitter(components_reverse, mixture_h);
 
     if (components_forward[0]->B != components_reverse[0]->B || components_forward[0]->G != components_reverse[0]->C ||
         components_forward[0]->C != components_reverse[0]->G)
@@ -1026,12 +1049,8 @@ EMMixtureResult *EMAlgoritmMixture(Matrix *X, Matrix *W, const char *p_method, c
 
     if (shouldRunSymmetricMixtureEMWeight(inputParams, mixture_h))
     {
-        if (componentProbInit != NULL)
-        {
-            error("run_em: array 'initial_prob' is not supported with symmetric finite-mixture estimation.");
-        }
         return EMAlgoritmMixtureSymmetric(X, W, p_method, q_method, convergence, LLconvergence, maxIter, maxSeconds,
-                                          verbose, probMatrix, inputParams, mixture_h);
+                                          verbose, probMatrix, componentProbInit, inputParams, mixture_h);
     }
 
     if (mixture_h == 1)
