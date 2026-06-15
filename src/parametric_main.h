@@ -37,6 +37,12 @@ extern "C"
                                 double *logLikelihood, Matrix **out_q, Matrix **out_expected,
                                 const char *q_method, QMethodInput *q_params,
                                 const char *adjust_prob_cond_method, bool adjust_prob_cond_every);
+    Matrix *EM_Algorithm_Symmetric_Method(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alpha,
+                                          const int maxiter, const double maxtime, const double ll_threshold,
+                                          const int maxnewton, const bool verbose, double *out_elapsed,
+                                          int *total_iterations, double *logLikelihood, Matrix **out_q,
+                                          Matrix **out_expected, const char *q_method, QMethodInput *q_params,
+                                          const char *adjust_prob_cond_method, bool adjust_prob_cond_every);
     EMParametricMixtureResult *EM_Algorithm_Parametric_Mixture(
         Matrix *X, Matrix *W, Matrix *V, Matrix *component_prob_init, Matrix *membership_beta_init, int mixture_h,
         const int maxiter, const int miniter, const double maxtime, const double convergence, const double ll_threshold,

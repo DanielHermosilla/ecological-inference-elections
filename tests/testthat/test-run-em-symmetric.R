@@ -167,3 +167,39 @@ test_that("run_em symmetric works in parametric mode", {
     sums_inv <- apply(fit$cond_prob_inv, c(1, 3), sum)
     expect_true(all(abs(sums_inv - 1) < 1e-6))
 })
+
+test_that("run_em symmetric supports EM_weight in parametric single-profile mode", {
+    sim <- simulate_election(
+        num_ballots = 6,
+        num_candidates = 3,
+        num_groups = 2,
+        ballot_voters = 40,
+        num_covariates = 2,
+        num_districts = 2,
+        seed = 144
+    )
+
+    fit <- run_em(
+        X = sim$X,
+        W = sim$W,
+        V = sim$V,
+        method = "mult",
+        symmetric = TRUE,
+        symmetric_weight_method = "EM_weight",
+        maxiter = 4,
+        maxtime = 2
+    )
+
+    expect_equal(fit$symmetric_weight_method, "EM_weight")
+    expect_equal(fit$symmetric_weights, c(original = 0.5, reverse = 0.5))
+    expect_true(is.array(fit$prob))
+    expect_true(is.array(fit$cond_prob))
+    expect_null(fit$prob_inv)
+    expect_null(fit$cond_prob_inv)
+    expect_null(fit$expected_outcome_inv)
+
+    expect_equal(dim(fit$prob), c(ncol(sim$W), ncol(sim$X), nrow(sim$X)))
+    expect_equal(dim(fit$cond_prob), c(ncol(sim$W), ncol(sim$X), nrow(sim$X)))
+    expect_prob_array(fit$prob)
+    expect_prob_array(fit$cond_prob)
+})

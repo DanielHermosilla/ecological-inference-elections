@@ -1273,12 +1273,12 @@
     if (!control$method %in% valid_parametric_methods) {
         stop("run_em: Parametric mode only supports method = \"mult\", \"mvn_pdf\", or \"mvn_cdf\".")
     }
-    if (isTRUE(control$symmetric) && identical(control$symmetric_weight_method, "EM_weight")) {
-        stop("run_em: `symmetric_weight_method = \"EM_weight\"` is currently supported only for non-parametric models (`V = NULL`).")
-    }
     if (control$row_mixture > 1L) {
         stop("run_em: `row_mixture > 1` is currently supported only for non-parametric models (`V = NULL`).")
     }
+    use_joint_symmetric_em <- isTRUE(control$symmetric) &&
+        identical(control$symmetric_weight_method, "EM_weight") &&
+        control$K == 1L
 
     W_matrix <- .run_em_working_group_matrix(object)
     V_matrix <- object$V
@@ -1309,6 +1309,9 @@
     }
 
     if (control$K > 1L) {
+        if (isTRUE(control$symmetric) && identical(control$symmetric_weight_method, "EM_weight")) {
+            stop("run_em: `symmetric_weight_method = \"EM_weight\"` is currently supported only for parametric single-profile models (`mixture = 1`).")
+        }
         if (!is.null(control$alpha_init)) {
             warning("run_em: 'alpha_init' is ignored in parametric matrix-mixture mode; use 'initial_prob' to initialize component probabilities.")
         }
@@ -1349,7 +1352,12 @@
 
         object <- .run_em_assign_parametric_mixture_results(object, resulting_values, W_matrix, V_matrix, control)
     } else {
-        resulting_values <- EMAlgorithmParametric(
+        em_parametric_fun <- if (use_joint_symmetric_em) {
+            EMAlgorithmParametricSymmetric
+        } else {
+            EMAlgorithmParametric
+        }
+        resulting_values <- em_parametric_fun(
             as.matrix(object$X),
             as.matrix(W_matrix),
             as.matrix(V_matrix),
@@ -1371,7 +1379,13 @@
         object <- .run_em_assign_parametric_results(object, resulting_values, W_matrix, V_matrix, control)
     }
 
-    if (isTRUE(control$symmetric)) {
+    if (use_joint_symmetric_em) {
+        object$cond_prob_inv <- NULL
+        object$prob_inv <- NULL
+        object$expected_outcome_inv <- NULL
+        object$symmetric_weight_method <- "EM_weight"
+        object$symmetric_weights <- c(original = 0.5, reverse = 0.5)
+    } else if (isTRUE(control$symmetric)) {
         object <- .run_em_symmetric_helper(
             object = object,
             control = control,

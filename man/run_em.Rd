@@ -173,7 +173,7 @@ component vote profiles. Ignored if no covariates are provided (\code{V = NULL})
 
 \item{symmetric}{A boolean indicating whether to perform a symmetric estimation. If \code{TRUE}, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. The final probabilities are obtained by combining the expected outcomes from both runs (equal average by default; see \code{symmetric_weight_method}). This approach can provide a more balanced estimation in certain scenarios. The default value is \code{FALSE}.}
 
-\item{symmetric_weight_method}{Character string indicating how to combine both directions when \code{symmetric = TRUE}. Valid values are \code{"average"} (default, equal weights \code{0.5/0.5}), \code{"delta_ll"} (weights proportional to \code{dLL = LL - LL_ind} and \code{dLL_rev = LL_rev - LL_rev_ind}), and \code{"EM_weight"} (joint EM where forward and reverse E-steps are coupled by averaging expected counts at each iteration; supported for non-parametric models when \code{row_mixture = 1}, including the default single-profile case \code{mixture = 1}).}
+\item{symmetric_weight_method}{Character string indicating how to combine both directions when \code{symmetric = TRUE}. Valid values are \code{"average"} (default, equal weights \code{0.5/0.5}), \code{"delta_ll"} (weights proportional to \code{dLL = LL - LL_ind} and \code{dLL_rev = LL_rev - LL_rev_ind}), and \code{"EM_weight"} (joint EM where forward and reverse E-steps are coupled by averaging expected counts at each iteration; supported for non-parametric models when \code{row_mixture = 1}, including the default single-profile case \code{mixture = 1}, and for parametric single-profile models).}
 
 \item{...}{Added for compability}
 }
@@ -219,7 +219,7 @@ Furthermore, if \code{symmetric = TRUE}, the following additional attributes are
 \item{cond_prob_inv}{A \verb{(c x g x b)} 3d-array with the probability that at each ballot-box a voter of each candidate voted for each group, given the observed outcome at the particular ballot-box.}
 }
 If \code{symmetric_weight_method = "delta_ll"} and the model is non-parametric with a single profile (\code{K = row_mixture = 1}), the object also includes \code{LL_ind}, \code{LL_rev_ind}, \code{dLL}, \code{dLL_rev}, and \code{symmetric_weights}.
-If \code{symmetric_weight_method = "EM_weight"}, the object includes \code{symmetric_weights = c(original = 0.5, reverse = 0.5)} and the inverse outputs come from the joint reverse run rather than from a post-hoc symmetric helper.
+If \code{symmetric_weight_method = "EM_weight"}, the object includes \code{symmetric_weights = c(original = 0.5, reverse = 0.5)}. For non-parametric fits, the inverse outputs come from the joint reverse run rather than from a post-hoc symmetric helper.
 Under this argument, the conditional probabilities will be obtained by dividing new expected outcomes by \code{W}. The probabilities will be calculated by performing an M-step.
 }
 \description{

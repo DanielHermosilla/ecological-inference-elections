@@ -29,6 +29,10 @@ EMAlgorithmParametric <- function(candidate_matrix, group_matrix, attribute_matr
     .Call(`_fastei_EMAlgorithmParametric`, candidate_matrix, group_matrix, attribute_matrix, beta, alpha, maximum_iterations, maximum_seconds, log_stopping_threshold, maximum_newton, verbose, LP_method, project_every, em_method, monte_method, monte_error, monte_iter)
 }
 
+EMAlgorithmParametricSymmetric <- function(candidate_matrix, group_matrix, attribute_matrix, beta, alpha, maximum_iterations, maximum_seconds, log_stopping_threshold, maximum_newton, verbose, LP_method, project_every, em_method, monte_method, monte_error, monte_iter) {
+    .Call(`_fastei_EMAlgorithmParametricSymmetric`, candidate_matrix, group_matrix, attribute_matrix, beta, alpha, maximum_iterations, maximum_seconds, log_stopping_threshold, maximum_newton, verbose, LP_method, project_every, em_method, monte_method, monte_error, monte_iter)
+}
+
 EMAlgorithmParametricMixture <- function(candidate_matrix, group_matrix, attribute_matrix, beta, alpha, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, maximum_newton, compute_ll, verbose, em_method, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, mixture_h) {
     .Call(`_fastei_EMAlgorithmParametricMixture`, candidate_matrix, group_matrix, attribute_matrix, beta, alpha, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, maximum_newton, compute_ll, verbose, em_method, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, mixture_h)
 }

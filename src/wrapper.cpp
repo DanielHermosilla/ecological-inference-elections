@@ -782,6 +782,112 @@ Rcpp::List EMAlgorithmParametric(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
                               Rcpp::_["iter"] = total_iter, Rcpp::_["logLik"] = logLikelihood);
 }
 
+// ---- Run Symmetric Parametric EM Algorithm ---- //
+// [[Rcpp::export]]
+Rcpp::List EMAlgorithmParametricSymmetric(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                                          Rcpp::NumericMatrix attribute_matrix, Rcpp::NumericMatrix beta,
+                                          Rcpp::NumericMatrix alpha, Rcpp::IntegerVector maximum_iterations,
+                                          Rcpp::NumericVector maximum_seconds,
+                                          Rcpp::NumericVector log_stopping_threshold,
+                                          Rcpp::IntegerVector maximum_newton, Rcpp::LogicalVector verbose,
+                                          Rcpp::String LP_method, Rcpp::LogicalVector project_every,
+                                          Rcpp::String em_method, Rcpp::String monte_method,
+                                          Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter)
+{
+    if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
+        Rcpp::stop("Error: X matrix has zero dimensions!");
+
+    if (group_matrix.nrow() == 0 || group_matrix.ncol() == 0)
+        Rcpp::stop("Error: W matrix has zero dimensions!");
+
+    if (attribute_matrix.nrow() == 0 || attribute_matrix.ncol() == 0)
+        Rcpp::stop("Error: V matrix has zero dimensions!");
+
+    Matrix XR = convertToMatrix(candidate_matrix);
+    Matrix WR = convertToMatrix(group_matrix);
+    Matrix VR = convertToMatrix(attribute_matrix);
+    Matrix BetaR = convertToMatrix(beta);
+    Matrix AlphaR = convertToMatrix(alpha);
+    std::string adjust_prob_cond_method = LP_method;
+    std::string EMAlg = em_method;
+    std::string monteMethod = monte_method;
+    QMethodInput inputParams =
+        initializeQMethodInput(EMAlg, 1000, 3000, monte_iter[0], monte_error[0], 0, monteMethod, true,
+                               adjust_prob_cond_method, project_every[0], true, "EM_weight");
+
+    double elapsed = 0.0;
+    int total_iter = 0;
+    double logLikelihood = 0.0;
+    Matrix *condProbMat = NULL;
+    Matrix *expectedMat = NULL;
+    Matrix *finalProb = EM_Algorithm_Symmetric_Method(
+        &XR, &WR, &VR, &BetaR, &AlphaR, maximum_iterations[0], maximum_seconds[0], log_stopping_threshold[0],
+        maximum_newton[0], verbose[0], &elapsed, &total_iter, &logLikelihood, &condProbMat, &expectedMat,
+        EMAlg.c_str(), &inputParams, adjust_prob_cond_method.c_str(), project_every[0]);
+
+    int S = VR.rows;
+    int R = finalProb[0].rows;
+    int C = finalProb[0].cols;
+
+    Rcpp::NumericVector probArr(R * C * S);
+    probArr.attr("dim") = Rcpp::IntegerVector::create(R, C, S);
+
+    Rcpp::NumericVector condProb(R * C * S);
+    condProb.attr("dim") = Rcpp::IntegerVector::create(R, C, S);
+
+    Rcpp::NumericVector expectedOut(R * C * S);
+    expectedOut.attr("dim") = Rcpp::IntegerVector::create(R, C, S);
+
+    for (int s = 0; s < S; ++s)
+    {
+        for (int i = 0; i < R; ++i)
+        {
+            for (int j = 0; j < C; ++j)
+            {
+                int idx = i + R * (j + C * s);
+                probArr[idx] = MATRIX_AT(finalProb[s], i, j);
+                if (condProbMat != NULL)
+                    condProb[idx] = MATRIX_AT(condProbMat[s], i, j);
+                if (expectedMat != NULL)
+                    expectedOut[idx] = MATRIX_AT(expectedMat[s], i, j);
+            }
+        }
+        freeMatrix(&finalProb[s]);
+        if (condProbMat != NULL)
+            freeMatrix(&condProbMat[s]);
+        if (expectedMat != NULL)
+            freeMatrix(&expectedMat[s]);
+    }
+    Free(finalProb);
+    if (condProbMat != NULL)
+        Free(condProbMat);
+    if (expectedMat != NULL)
+        Free(expectedMat);
+
+    Rcpp::NumericMatrix Rbeta(BetaR.rows, BetaR.cols);
+    std::memcpy(Rbeta.begin(), BetaR.data, sizeof(double) * BetaR.rows * BetaR.cols);
+
+    Rcpp::NumericMatrix Ralpha(AlphaR.rows, AlphaR.cols);
+    std::memcpy(Ralpha.begin(), AlphaR.data, sizeof(double) * AlphaR.rows * AlphaR.cols);
+
+    releaseMatrix(&XR);
+    releaseMatrix(&WR);
+    releaseMatrix(&VR);
+    releaseMatrix(&BetaR);
+    releaseMatrix(&AlphaR);
+    if (inputParams.simulationMethod != nullptr)
+        free((void *)inputParams.simulationMethod);
+    if (inputParams.prob_cond != nullptr)
+        free((void *)inputParams.prob_cond);
+    if (inputParams.symmetric_weight_method != nullptr)
+        free((void *)inputParams.symmetric_weight_method);
+
+    return Rcpp::List::create(Rcpp::_["prob"] = probArr, Rcpp::_["cond_prob"] = condProb,
+                              Rcpp::_["expected_outcome"] = expectedOut, Rcpp::_["beta"] = Rbeta,
+                              Rcpp::_["alpha"] = Ralpha, Rcpp::_["time"] = elapsed,
+                              Rcpp::_["iter"] = total_iter, Rcpp::_["logLik"] = logLikelihood);
+}
+
 // ---- Run Parametric Finite-Mixture EM Algorithm ---- //
 // [[Rcpp::export]]
 Rcpp::List EMAlgorithmParametricMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,

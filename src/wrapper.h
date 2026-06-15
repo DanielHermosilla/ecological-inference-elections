@@ -168,6 +168,16 @@ Rcpp::List EMAlgorithmParametric(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
                                  Rcpp::String em_method, Rcpp::String monte_method,
                                  Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter);
 
+Rcpp::List EMAlgorithmParametricSymmetric(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                                          Rcpp::NumericMatrix attribute_matrix, Rcpp::NumericMatrix beta,
+                                          Rcpp::NumericMatrix alpha, Rcpp::IntegerVector maximum_iterations,
+                                          Rcpp::NumericVector maximum_seconds,
+                                          Rcpp::NumericVector log_stopping_threshold,
+                                          Rcpp::IntegerVector maximum_newton, Rcpp::LogicalVector verbose,
+                                          Rcpp::String LP_method, Rcpp::LogicalVector project_every,
+                                          Rcpp::String em_method, Rcpp::String monte_method,
+                                          Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter);
+
 Rcpp::List EMAlgorithmParametricMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
                                         Rcpp::NumericMatrix attribute_matrix, Rcpp::NumericVector beta,
                                         Rcpp::NumericVector alpha, Rcpp::IntegerVector maximum_iterations,

@@ -328,7 +328,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'
 #' @param symmetric A boolean indicating whether to perform a symmetric estimation. If `TRUE`, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. The final probabilities are obtained by combining the expected outcomes from both runs (equal average by default; see `symmetric_weight_method`). This approach can provide a more balanced estimation in certain scenarios. The default value is `FALSE`.
 #'
-#' @param symmetric_weight_method Character string indicating how to combine both directions when `symmetric = TRUE`. Valid values are `"average"` (default, equal weights `0.5/0.5`), `"delta_ll"` (weights proportional to `dLL = LL - LL_ind` and `dLL_rev = LL_rev - LL_rev_ind`), and `"EM_weight"` (joint EM where forward and reverse E-steps are coupled by averaging expected counts at each iteration; supported for non-parametric models when `row_mixture = 1`, including the default single-profile case `mixture = 1`).
+#' @param symmetric_weight_method Character string indicating how to combine both directions when `symmetric = TRUE`. Valid values are `"average"` (default, equal weights `0.5/0.5`), `"delta_ll"` (weights proportional to `dLL = LL - LL_ind` and `dLL_rev = LL_rev - LL_rev_ind`), and `"EM_weight"` (joint EM where forward and reverse E-steps are coupled by averaging expected counts at each iteration; supported for non-parametric models when `row_mixture = 1`, including the default single-profile case `mixture = 1`, and for parametric single-profile models).
 #'
 #' @param ... Added for compability
 #'
@@ -395,7 +395,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #' 		\item{cond_prob_inv}{A `(c x g x b)` 3d-array with the probability that at each ballot-box a voter of each candidate voted for each group, given the observed outcome at the particular ballot-box.}
 #' }
 #' If `symmetric_weight_method = "delta_ll"` and the model is non-parametric with a single profile (`K = row_mixture = 1`), the object also includes `LL_ind`, `LL_rev_ind`, `dLL`, `dLL_rev`, and `symmetric_weights`.
-#' If `symmetric_weight_method = "EM_weight"`, the object includes `symmetric_weights = c(original = 0.5, reverse = 0.5)` and the inverse outputs come from the joint reverse run rather than from a post-hoc symmetric helper.
+#' If `symmetric_weight_method = "EM_weight"`, the object includes `symmetric_weights = c(original = 0.5, reverse = 0.5)`. For non-parametric fits, the inverse outputs come from the joint reverse run rather than from a post-hoc symmetric helper.
 #' Under this argument, the conditional probabilities will be obtained by dividing new expected outcomes by `W`. The probabilities will be calculated by performing an M-step.
 #'
 #' @examples
