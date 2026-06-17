@@ -768,6 +768,61 @@
 #' @param control List with the active `run_em()` controls.
 #' @return A list with the updated object and the two symmetric weights.
 #' @noRd
+.run_em_clip_symmetric_weight_terms <- function(term_a, term_b, epsilon = .Machine$double.eps) {
+    if (!is.finite(term_a) || !is.finite(term_b)) {
+        return(list(
+            term_a = term_a,
+            term_b = term_b,
+            valid = FALSE
+        ))
+    }
+
+    term_a <- max(term_a, epsilon)
+    term_b <- max(term_b, epsilon)
+    denominator <- term_a + term_b
+
+    if (!is.finite(denominator) || denominator <= 0) {
+        return(list(
+            term_a = term_a,
+            term_b = term_b,
+            valid = FALSE
+        ))
+    }
+
+    list(
+        term_a = term_a,
+        term_b = term_b,
+        denominator = denominator,
+        valid = TRUE
+    )
+}
+
+.run_em_delta_ll_weight <- function(tau, tau_rev, epsilon = .Machine$double.eps) {
+    terms <- .run_em_clip_symmetric_weight_terms(tau, tau_rev, epsilon)
+    if (!terms$valid) {
+        return(c(original = 0.5, reverse = 0.5, tau = terms$term_a, tau_rev = terms$term_b))
+    }
+    c(
+        original = terms$term_a / terms$denominator,
+        reverse = terms$term_b / terms$denominator,
+        tau = terms$term_a,
+        tau_rev = terms$term_b
+    )
+}
+
+.run_em_mae_inverse_weight <- function(nu, nu_rev, epsilon = .Machine$double.eps) {
+    terms <- .run_em_clip_symmetric_weight_terms(nu, nu_rev, epsilon)
+    if (!terms$valid) {
+        return(c(original = 0.5, reverse = 0.5, nu = terms$term_a, nu_rev = terms$term_b))
+    }
+    c(
+        original = terms$term_b / terms$denominator,
+        reverse = terms$term_a / terms$denominator,
+        nu = terms$term_a,
+        nu_rev = terms$term_b
+    )
+}
+
 .run_em_nonparametric_weights <- function(object, inverse, W_sym, control) {
     weight_original <- 0.5
     weight_reverse <- 0.5
@@ -812,14 +867,13 @@
             dLL <- forward_ll - LL_ind
             dLL_rev <- reverse_ll - LL_rev_ind
 
-            tau <- if (abs(forward_ll) > .Machine$double.eps) max(0, dLL / abs(forward_ll)) else 0
-            tau_rev <- if (abs(reverse_ll) > .Machine$double.eps) max(0, dLL_rev / abs(reverse_ll)) else 0
-            denominator <- tau + tau_rev
-
-            if (is.finite(denominator) && denominator > 0) {
-                weight_original <- tau_rev / denominator
-                weight_reverse <- tau / denominator
-            }
+            tau <- if (abs(forward_ll) > .Machine$double.eps) dLL / abs(forward_ll) else 0
+            tau_rev <- if (abs(reverse_ll) > .Machine$double.eps) dLL_rev / abs(reverse_ll) else 0
+            symmetric_weight <- .run_em_delta_ll_weight(tau, tau_rev)
+            tau <- symmetric_weight[["tau"]]
+            tau_rev <- symmetric_weight[["tau_rev"]]
+            weight_original <- symmetric_weight[["original"]]
+            weight_reverse <- symmetric_weight[["reverse"]]
 
             object$LL_ind <- LL_ind
             object$LL_rev_ind <- LL_rev_ind
@@ -844,12 +898,11 @@
             w_hat_reverse <- object$X %*% prob_reverse
             tau <- sum(abs(object$X - x_hat_forward))
             tau_rev <- sum(abs(W_sym - w_hat_reverse))
-            denominator <- tau + tau_rev
-
-            if (is.finite(denominator) && denominator > 0) {
-                weight_original <- tau_rev / denominator
-                weight_reverse <- 1 - weight_original
-            }
+            symmetric_weight <- .run_em_mae_inverse_weight(tau, tau_rev)
+            tau <- symmetric_weight[["nu"]]
+            tau_rev <- symmetric_weight[["nu_rev"]]
+            weight_original <- symmetric_weight[["original"]]
+            weight_reverse <- symmetric_weight[["reverse"]]
 
             object$err_forward <- tau
             object$err_inverse <- tau_rev

@@ -220,6 +220,40 @@ test_that("run_em symmetric supports delta_ll weighting", {
     expect_true(is.numeric(fit$nu_rev))
 })
 
+test_that("symmetric delta_ll weights follow L40 with epsilon", {
+    weights <- .run_em_delta_ll_weight(tau = 2, tau_rev = 6, epsilon = 0.1)
+    expect_equal(weights[["tau"]], 2)
+    expect_equal(weights[["tau_rev"]], 6)
+    expect_equal(weights[["original"]], 2 / 8)
+    expect_equal(weights[["reverse"]], 6 / 8)
+
+    clipped <- .run_em_delta_ll_weight(tau = -2, tau_rev = 3, epsilon = 0.1)
+    expect_equal(clipped[["tau"]], 0.1)
+    expect_equal(clipped[["tau_rev"]], 3)
+    expect_equal(clipped[["original"]], 0.1 / 3.1)
+    expect_equal(clipped[["reverse"]], 3 / 3.1)
+})
+
+test_that("symmetric mae_inverse weights follow L41 with epsilon", {
+    weights <- .run_em_mae_inverse_weight(nu = 2, nu_rev = 6, epsilon = 0.1)
+    expect_equal(weights[["nu"]], 2)
+    expect_equal(weights[["nu_rev"]], 6)
+    expect_equal(weights[["original"]], 6 / 8)
+    expect_equal(weights[["reverse"]], 2 / 8)
+
+    clipped <- .run_em_mae_inverse_weight(nu = -2, nu_rev = 3, epsilon = 0.1)
+    expect_equal(clipped[["nu"]], 0.1)
+    expect_equal(clipped[["nu_rev"]], 3)
+    expect_equal(clipped[["original"]], 3 / 3.1)
+    expect_equal(clipped[["reverse"]], 0.1 / 3.1)
+
+    both_zero <- .run_em_mae_inverse_weight(nu = 0, nu_rev = 0, epsilon = 0.1)
+    expect_equal(both_zero[["nu"]], 0.1)
+    expect_equal(both_zero[["nu_rev"]], 0.1)
+    expect_equal(both_zero[["original"]], 0.5)
+    expect_equal(both_zero[["reverse"]], 0.5)
+})
+
 test_that("run_em symmetric supports mae_inverse weighting", {
     sim <- simulate_election(
         num_ballots = 6,
