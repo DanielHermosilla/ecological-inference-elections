@@ -223,9 +223,8 @@ extern "C"
     /**
      * @brief Checks if the difference of two matrices converge to a value
      *
-     * Given two matrices, it performs de absolute difference and evaluate the convergence towards a given
-     * arbitrary values: |x1 - x2| < epsilon. If there's a value whom convergence is greater than epsilon, the
-     * convergence is not achieved.
+     * Given two matrices, it computes the Frobenius norm of their difference and evaluates convergence
+     * towards a given arbitrary value: ||x1 - x2||_F < epsilon.
      *
      * @param[in] matrix Matrix to perform the substraction.
      * @param[in] matrix Matrix to perform the substraction.
@@ -266,6 +265,10 @@ extern "C"
      * @endcode
      */
     bool convergeMatrix(const Matrix *matrixA, const Matrix *matrixB, const double convergence);
+
+    /**
+     * @brief Computes the Frobenius norm of the parameter change.
+     */
     double matrixParameterDelta(const Matrix *matrixA, const Matrix *matrixB);
 
     /**

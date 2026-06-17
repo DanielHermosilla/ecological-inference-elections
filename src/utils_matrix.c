@@ -415,17 +415,15 @@ void fillMatrix(Matrix *matrix, const double value)
 }
 
 /**
- * @brief Checks if the difference of two matrices converge to a value
+ * @brief Computes the Frobenius norm of the difference between two matrices.
  *
- * Given two matrices, it performs de absolute difference and evaluate the convergence towards a given
- * arbitrary values: |x1 - x2| < epsilon. If there's a value whom convergence is greater than epsilon, the convergence
- * is not achieved.
+ * Given two matrices, it computes ||x1 - x2||_F.
  *
  * @param[in] matrix Matrix to perform the substraction.
  * @param[in] matrix Matrix to perform the substraction.
  * @param[in] double Arbitrary value to evaluate the convergence
  *
- * @return bool Boolean value to see if it converges.
+ * @return double Frobenius norm of the matrix difference.
  *
  * @warning:
  * - Both matrices should be from the same dimention.
@@ -470,23 +468,23 @@ double matrixParameterDelta(const Matrix *matrixA, const Matrix *matrixB)
     }
 
     int size = matrixA->rows * matrixA->cols;
-    double delta = 0.0;
+    double sum_squares = 0.0;
     for (int i = 0; i < size; ++i)
     {
-        double d = fabs(matrixA->data[i] - matrixB->data[i]);
+        double d = matrixA->data[i] - matrixB->data[i];
         if (!isfinite(d))
         {
             return INFINITY;
         }
-        if (d > delta)
-        {
-            delta = d;
-        }
+        sum_squares += d * d;
     }
 
-    return delta;
+    return sqrt(sum_squares);
 }
 
+/**
+ * @brief Checks if the Frobenius norm of the difference of two matrices is below a threshold.
+ */
 bool convergeMatrix(const Matrix *matrixA, const Matrix *matrixB, const double convergence)
 {
     if (convergence <= 0)
