@@ -118,6 +118,35 @@ test_that("run_em validates mixture argument", {
     )
 })
 
+test_that("S is ignored for explicit single-profile mixture", {
+    sim <- simulate_election(
+        num_ballots = 5,
+        num_candidates = 3,
+        num_groups = 2,
+        ballot_voters = rep(30, 5),
+        seed = 903
+    )
+
+    output <- capture.output(
+        fit <- run_em(
+            X = sim$X,
+            W = sim$W,
+            method = "mvn_pdf",
+            mixture = 1,
+            S = 3,
+            maxiter = 2,
+            verbose = TRUE
+        )
+    )
+
+    expect_false(any(grepl("Sampling between", output, fixed = TRUE)))
+    expect_equal(fit$mixture, 1L)
+    expect_equal(fit$K, 1L)
+    expect_null(fit$component_prob)
+    expect_null(fit$initial_prob_multistart_logLik)
+    expect_null(fit$initial_prob_multistart_best)
+})
+
 test_that("run_em allows row_mixture > G without truncation", {
     sim <- simulate_election(
         num_ballots = 6,

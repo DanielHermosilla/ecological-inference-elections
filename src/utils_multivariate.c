@@ -65,10 +65,17 @@ void getParams(EMContext *ctx, int b, const Matrix *probabilitiesReduced, double
 {
     Matrix *W = &ctx->W;
     Matrix *X = &ctx->X;
+    const int G = (int)ctx->G;
+    const int C = (int)ctx->C;
+    const int Cminus1 = C - 1;
 
     // ---- Check parameters ---- //
     // ---- Note: Mu must be of size TOTAL_CANDIDATES-1 and sigma of size (TOTAL_CANDIDATES-1xTOTAL_CANDIDATES-1) ----
-    if (probabilitiesReduced->cols != TOTAL_CANDIDATES - 1)
+    if (C < 2)
+    {
+        error("Multivariate utils: At least two candidates are required.\n");
+    }
+    if (probabilitiesReduced->cols != Cminus1)
     {
         error("Multivariate utils: The probability matrix handed should consider C-1 candidates, but it has %d "
               "columns. Consider using the "
@@ -89,8 +96,8 @@ void getParams(EMContext *ctx, int b, const Matrix *probabilitiesReduced, double
     // ---- Performing the matrix multiplication of p^T * w_b
 
     char trans = 'T';
-    int m = TOTAL_GROUPS;         // G
-    int n = TOTAL_CANDIDATES - 1; // C - 1
+    int m = G;       // G
+    int n = Cminus1; // C - 1
     double alpha = 1.0;
     double beta = 0.0;
     int incx = 1, incy = 1;
@@ -108,20 +115,20 @@ void getParams(EMContext *ctx, int b, const Matrix *probabilitiesReduced, double
 
     // ---- Computation of sigma ----
     // ---- Get a diagonal matrix with the group votes on a given ballot ----
-    Matrix diagonalVotesPerBallot = createDiagonalMatrix(groupVotesPerBallot, TOTAL_GROUPS);
+    Matrix diagonalVotesPerBallot = createDiagonalMatrix(groupVotesPerBallot, G);
     // ---- Temporary matrix to store results ----
-    Matrix temp = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_GROUPS);
+    Matrix temp = createMatrix(Cminus1, G);
     // ---- Calculates the matrix multiplication of p^T * diag(w_b); result must be (C-1 x G) ----
 
     char transA = 'T';        // p^T
     char transB = 'N';        // diag(w_b) as-is
-    m = TOTAL_CANDIDATES - 1; // (C-1)
-    n = TOTAL_GROUPS;         // G
-    int k = TOTAL_GROUPS;     // G
+    m = Cminus1;              // (C-1)
+    n = G;                    // G
+    int k = G;                // G
 
     // Leading dimensions in column-major:
-    lda = TOTAL_GROUPS;     // p is G x (C-1) => LDA = G
-    int ldb = TOTAL_GROUPS; // diag(w_b) is G x G => LDB = G
+    lda = G;     // p is G x (C-1) => LDA = G
+    int ldb = G; // diag(w_b) is G x G => LDB = G
     int ldc = m;            // = C-1, for the result which is (C-1) x G in column-major
 
     F77_CALL(dgemm)
@@ -130,14 +137,14 @@ void getParams(EMContext *ctx, int b, const Matrix *probabilitiesReduced, double
 
     transA = 'N';             // no transpose
     transB = 'N';             // no transpose
-    m = TOTAL_CANDIDATES - 1; // C-1
-    n = TOTAL_CANDIDATES - 1; // C-1
-    k = TOTAL_GROUPS;         // G
+    m = Cminus1;              // C-1
+    n = Cminus1;              // C-1
+    k = G;                    // G
     alpha = 1.0;
     beta = 0.0;
 
     lda = m;            // = C-1, A is (C-1) x G
-    ldb = TOTAL_GROUPS; // B is G x (C-1)
+    ldb = G; // B is G x (C-1)
     ldc = m;            // = C-1, C is (C-1) x (C-1)
 
     F77_CALL(dgemm)
@@ -147,9 +154,9 @@ void getParams(EMContext *ctx, int b, const Matrix *probabilitiesReduced, double
     // ---- Substract the diagonal with the average ----
     // ---- Note: This could be optimized with a cBLAS call too ----
 
-    for (int j = 0; j < TOTAL_CANDIDATES - 1; j++)
+    for (int j = 0; j < Cminus1; j++)
     { // ---- For each candidate
-        for (int i = 0; i < TOTAL_CANDIDATES - 1; i++)
+        for (int i = 0; i < Cminus1; i++)
         { // ---- For each candidate given another candidate
             if (i == j)
             { // ---- If it corresponds to a diagonal, substract diagonal
@@ -189,16 +196,20 @@ void getParams(EMContext *ctx, int b, const Matrix *probabilitiesReduced, double
 void getAverageConditional(EMContext *ctx, int b, const Matrix *probabilitiesReduced, Matrix *conditionalMu,
                            Matrix **conditionalSigma)
 {
+    const int G = (int)ctx->G;
+    const int C = (int)ctx->C;
+    const int Cminus1 = C - 1;
+
     // ---- Get the parameters of the unconditional probability ---- //
-    double *newMu = (double *)Calloc((TOTAL_CANDIDATES - 1), double);
-    Matrix newSigma = createMatrix(TOTAL_CANDIDATES - 1, TOTAL_CANDIDATES - 1);
+    double *newMu = (double *)Calloc(Cminus1, double);
+    Matrix newSigma = createMatrix(Cminus1, Cminus1);
     getParams(ctx, b, probabilitiesReduced, newMu, &newSigma);
     // ---- ... ----
 
     // ---- Computation for mu ---- //
-    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+    for (int g = 0; g < G; g++)
     { // ---- For each group
-        for (uint16_t c = 0; c < TOTAL_CANDIDATES - 1; c++)
+        for (int c = 0; c < Cminus1; c++)
         { // ---- For each candidate given a group
             MATRIX_AT_PTR(conditionalMu, g, c) = newMu[c] - MATRIX_AT_PTR(probabilitiesReduced, g, c);
         }
@@ -211,33 +222,33 @@ void getAverageConditional(EMContext *ctx, int b, const Matrix *probabilitiesRed
 
     // ---- Get the diagonal probabilities ----
     // ---- Create an array of size `TOTAL_GROUPS` that will store the probabilities for a given group ----
-    double **probabilitiesForG = (double **)Calloc(TOTAL_GROUPS, double *);
+    double **probabilitiesForG = (double **)Calloc(G, double *);
     // ---- Create an array of size `TOTAL_GROUPS` that will store diagonal matrices with the probabilities ----
-    Matrix *diagonalProbabilities = (Matrix *)Calloc((TOTAL_GROUPS), Matrix);
+    Matrix *diagonalProbabilities = (Matrix *)Calloc(G, Matrix);
 
-    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+    for (int g = 0; g < G; g++)
     { // ---- For each group
         probabilitiesForG[g] = getRow(probabilitiesReduced, g);
-        diagonalProbabilities[g] = createDiagonalMatrix(probabilitiesForG[g], TOTAL_CANDIDATES - 1);
+        diagonalProbabilities[g] = createDiagonalMatrix(probabilitiesForG[g], Cminus1);
     }
     // --- ... --- //
 
     // ---- Get the matrix multiplications ---- //
     // ---- This multiplications are esentially outer products ----
     // ---- Create an array of size `TOTAL_GROUPS` that will store each outer product ----
-    Matrix *matrixMultiplications = (Matrix *)Calloc((TOTAL_GROUPS), Matrix);
+    Matrix *matrixMultiplications = (Matrix *)Calloc(G, Matrix);
 
     char trans = 'N';             // (There's no separate transpose flag in dger,
                                   //  but we keep a placeholder for clarity)
-    int m = TOTAL_CANDIDATES - 1; // M
-    int n = TOTAL_CANDIDATES - 1; // N
+    int m = Cminus1;              // M
+    int n = Cminus1;              // N
     double alpha = 1.0;
     int incx = 1, incy = 1;
 
     // For column-major, LDA = #rows = m
     int lda = m;
 
-    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+    for (int g = 0; g < G; g++)
     {
         matrixMultiplications[g] = createMatrix(m, n);
 
@@ -251,11 +262,11 @@ void getAverageConditional(EMContext *ctx, int b, const Matrix *probabilitiesRed
 
     // ---- Add the results to the final array of matrices ----
     // ---- Esentially computes: $$\sigma_b = diag(p_{g}^{t})-p^{t}_{g}p_{g}$$ ----
-    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+    for (int g = 0; g < G; g++)
     { // ---- For each group
-        for (uint16_t i = 0; i < TOTAL_CANDIDATES - 1; i++)
+        for (int i = 0; i < Cminus1; i++)
         { // ---- For each candidate given a group
-            for (uint16_t j = 0; j < TOTAL_CANDIDATES - 1; j++)
+            for (int j = 0; j < Cminus1; j++)
             { // ---- For each candidate given a group and a candidate
                 // ---- Add the multiplication of probabilities ----
                 MATRIX_AT_PTR(conditionalSigma[g], i, j) =

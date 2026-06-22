@@ -1831,6 +1831,71 @@ static void compute_matrix_component_estep(Matrix *X, Matrix *W, Matrix *P, doub
         compute_matrix_component_mult(X, W, P, q, ballot_loglik);
 }
 
+double computeLogLikForParametricMixtureProbability(Matrix *X, Matrix *W, Matrix *V, Matrix *component_prob,
+                                                    Matrix *membership_beta, int mixture_h, const char *q_method,
+                                                    QMethodInput *q_params)
+{
+    if (X == NULL || W == NULL || V == NULL || component_prob == NULL || membership_beta == NULL)
+        error("computeLogLikForParametricMixtureProbability: inputs must not be NULL.");
+    if (mixture_h < 1)
+        error("computeLogLikForParametricMixtureProbability: 'mixture_h' must be positive.");
+
+    const int B = V->rows;
+    const int G = W->cols;
+    const int C = X->cols;
+    const int K = mixture_h;
+
+    if (X->rows != B || W->rows != B)
+        error("computeLogLikForParametricMixtureProbability: X, W, and V must have the same number of rows.");
+    if (membership_beta->rows != V->cols || membership_beta->cols != K - 1)
+        error("computeLogLikForParametricMixtureProbability: membership beta dimensions are incompatible.");
+
+    Matrix *components = alloc_matrix_array(K, G, C);
+    double **q_components = (double **)Calloc((size_t)K, double *);
+    double **ballot_scores = (double **)Calloc((size_t)K, double *);
+    Matrix score = createMatrix(B, K);
+    Matrix phi = createMatrix(B, K);
+    Matrix responsibilities = createMatrix(B, K);
+    double *row_scores = (double *)Calloc((size_t)K, double);
+
+    for (int k = 0; k < K; ++k)
+    {
+        if (component_prob[k].rows != G || component_prob[k].cols != C)
+            error("computeLogLikForParametricMixtureProbability: component probability dimensions are incompatible.");
+        memcpy(components[k].data, component_prob[k].data, (size_t)G * (size_t)C * sizeof(double));
+        normalize_matrix_mixture_component(&components[k]);
+        q_components[k] = (double *)Calloc((size_t)B * (size_t)G * (size_t)C, double);
+        ballot_scores[k] = (double *)Calloc((size_t)B, double);
+    }
+
+    compute_membership_phi(V, membership_beta, &phi);
+    for (int k = 0; k < K; ++k)
+    {
+        compute_matrix_component_estep(X, W, &components[k], q_components[k], ballot_scores[k], q_method, q_params);
+        for (int b = 0; b < B; ++b)
+            MATRIX_AT(score, b, k) = ballot_scores[k][b];
+    }
+
+    double ll = update_matrix_parametric_responsibilities(&score, &phi, &responsibilities, row_scores);
+
+    for (int k = 0; k < K; ++k)
+    {
+        Free(q_components[k]);
+        Free(ballot_scores[k]);
+    }
+    Free(q_components);
+    Free(ballot_scores);
+    Free(row_scores);
+    freeMatrix(&score);
+    freeMatrix(&phi);
+    freeMatrix(&responsibilities);
+    for (int k = 0; k < K; ++k)
+        freeMatrix(&components[k]);
+    Free(components);
+
+    return ll;
+}
+
 EMParametricMixtureResult *EM_Algorithm_Parametric_Mixture(
     Matrix *X, Matrix *W, Matrix *V, Matrix *component_prob_init, Matrix *membership_beta_init, int mixture_h,
     const int maxiter, const int miniter, const double maxtime, const double convergence, const double ll_threshold,

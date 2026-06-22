@@ -318,6 +318,59 @@ test_that("parametric matrix mixtures respect minimum EM iterations", {
     expect_gte(fit$iterations, 5)
 })
 
+test_that("parametric matrix mixtures support multistart initial probabilities", {
+    sim <- simulate_election(
+        num_ballots = 8,
+        num_candidates = 2,
+        num_groups = 2,
+        ballot_voters = 30,
+        mixture = 2,
+        num_covariates = 2,
+        num_districts = 2,
+        seed = 208
+    )
+
+    output <- capture.output(
+        fit <- run_em(
+            X = sim$X,
+            W = sim$W,
+            V = sim$V,
+            method = "mult",
+            mixture = 2,
+            S = 2,
+            maxiter = 2,
+            maxnewton = 1,
+            verbose = TRUE
+        )
+    )
+
+    expect_match(paste(output, collapse = "\n"), "Sampling between 2 samples for an initial probability")
+    expect_match(paste(output, collapse = "\n"), "Staying with the biggest log-likelihood sample")
+    expect_equal(dim(fit$initial_prob), c(2L, 2L, 2L))
+    expect_equal(length(fit$initial_prob_multistart_logLik), 2L)
+    expect_true(all(is.finite(fit$initial_prob_multistart_logLik)))
+    expect_true(fit$initial_prob_multistart_best %in% seq_len(2))
+    expect_equal(dim(fit$component_prob), c(2L, 2L, 2L))
+
+    selected_ll <- EMLogLikFromProbParametricMixture(
+        as.matrix(sim$X),
+        sim$W,
+        sim$V,
+        matrix(0, nrow = ncol(sim$V), ncol = 1),
+        fit$initial_prob,
+        "mult",
+        as.integer(3000),
+        as.integer(1000),
+        "genz",
+        as.numeric(1e-3),
+        as.integer(5000),
+        as.integer(0),
+        "project_lp",
+        FALSE
+    )
+    expect_equal(max(fit$initial_prob_multistart_logLik), selected_ll, tolerance = 1e-8)
+})
+
 test_that("parametric run_em rejects row mixtures", {
     sim <- simulate_election(
         num_ballots = 6,

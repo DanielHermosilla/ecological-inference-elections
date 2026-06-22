@@ -90,9 +90,10 @@ component vote profiles \code{p_{kgc}} are estimated, and unit-level prior
 profile probabilities are modeled from \code{V}.}
 
 \item{S}{Optional positive integer controlling multistart initialization for
-non-parametric finite mixtures (\code{mixture > 1}). If \code{NULL} (default),
-\code{run_em()} uses the usual single initialization. If supplied, \code{run_em()}
-generates \code{S} structured \verb{g x c x mixture} initial probability arrays from
+finite mixtures (\code{mixture > 1}), including non-parametric mixtures and
+parametric matrix-mixtures with covariates. If \code{NULL} (default), \code{run_em()}
+uses the usual single initialization. If supplied, \code{run_em()} generates
+\code{S} structured \verb{g x c x mixture} initial probability arrays from
 \code{X} and \code{W}, scores each initial array with the finite-mixture
 log-likelihood, and runs the mixture EM once from the best-scoring array.
 With \code{symmetric = TRUE} and \code{symmetric_weight_method = "EM_weight"}, the

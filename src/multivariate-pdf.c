@@ -49,6 +49,7 @@ typedef struct
     double *muG;     // size C-1
     double *QC;      // size C
     double *maha;    // size G*C
+    double *logw;    // size C
     // scratch:
     double *diff;      // size C-1
     double *y;         // size C-1
@@ -71,6 +72,7 @@ static Arena Arena_init(int G, int C)
     A.muG = (double *)Calloc(C - 1, double);
     A.QC = (double *)Calloc(C, double);
     A.maha = (double *)Calloc((size_t)G * (size_t)C, double);
+    A.logw = (double *)Calloc(C, double);
 
     A.diff = (double *)Calloc(C - 1, double);
     A.y = (double *)Calloc(C - 1, double);
@@ -103,6 +105,8 @@ static void Arena_free(Arena *A, int G)
         Free(A->QC);
     if (A->maha)
         Free(A->maha);
+    if (A->logw)
+        Free(A->logw);
     if (A->diff)
         Free(A->diff);
     if (A->y)
@@ -281,19 +285,17 @@ static void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilitie
     {
         double *ma = &A->maha[(size_t)g * (size_t)C];
 
-        double logw[C];
-
         // --- Numerators in log-space ---
         for (int c = 0; c < C; ++c)
         {
             double prior = MATRIX_AT_PTR(probabilities, g, c);
             double logP = (prior > 0.0 && isfinite(prior)) ? log(prior) : -INFINITY;
             double m = ma[c];
-            logw[c] = (isfinite(m) && isfinite(logP)) ? (-0.5 * m + logP) : -INFINITY;
+            A->logw[c] = (isfinite(m) && isfinite(logP)) ? (-0.5 * m + logP) : -INFINITY;
         }
 
         // Numerically stable normalization in log-space.
-        double logden = log_sum_exp_vec(logw, C);
+        double logden = log_sum_exp_vec(A->logw, C);
         double ll_logden = logden;
 
         // Fallback if logden is invalid: use priors (or uniform as last resort).
@@ -326,7 +328,7 @@ static void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilitie
         {
             for (int c = 0; c < C; ++c)
             {
-                A->QC[c] = isfinite(logw[c]) ? exp(logw[c] - logden) : 0.0;
+                A->QC[c] = isfinite(A->logw[c]) ? exp(A->logw[c] - logden) : 0.0;
             }
         }
 

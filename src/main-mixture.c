@@ -1200,6 +1200,7 @@ EMMixtureResult *EMAlgoritmMixture(Matrix *X, Matrix *W, const char *p_method, c
         {
             EMContext *ctxk = components[k];
             double ll_dummy = 0.0;
+            setGlobalsFromCtx(ctxk);
             config.computeQ(ctxk, mix_params, &ll_dummy); // Aproximation
             if (inputParams->prob_cond_every)
             {
@@ -1450,6 +1451,7 @@ EMMixtureResult *EMAlgoritmMixture(Matrix *X, Matrix *W, const char *p_method, c
     {
         EMContext *ctxk = components[k];
         double ll_dummy = 0.0;
+        setGlobalsFromCtx(ctxk);
         config.computeQ(ctxk, mix_params, &ll_dummy);
         if (inputParams->prob_cond_every)
         {

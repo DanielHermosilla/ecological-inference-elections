@@ -315,6 +315,65 @@ double EMLogLikFromProbMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::Numer
     return ll;
 }
 
+// [[Rcpp::export]]
+double EMLogLikFromProbParametricMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
+                                         Rcpp::NumericMatrix attribute_matrix, Rcpp::NumericMatrix beta,
+                                         Rcpp::NumericVector probability_array, Rcpp::String em_method,
+                                         Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples,
+                                         Rcpp::String monte_method, Rcpp::NumericVector monte_error,
+                                         Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations,
+                                         Rcpp::String LP_method, Rcpp::LogicalVector project_every)
+{
+    std::string EMAlg = em_method;
+
+    Matrix X = convertToMatrix(candidate_matrix);
+    Matrix W = convertToMatrix(group_matrix);
+    Matrix V = convertToMatrix(attribute_matrix);
+    Matrix Beta = convertToMatrix(beta);
+
+    Rcpp::IntegerVector dims = probability_array.attr("dim");
+    if (dims.size() != 3)
+    {
+        releaseMatrix(&X);
+        releaseMatrix(&W);
+        releaseMatrix(&V);
+        releaseMatrix(&Beta);
+        Rcpp::stop("probability_array must be a 3d array with dimensions (g x c x K).");
+    }
+    int K = dims[2];
+    Matrix *componentProb =
+        convertNumericArrayToMatrixArray(probability_array, group_matrix.ncol(), candidate_matrix.ncol(), K,
+                                         "probability_array");
+
+    QMethodInput inputParams = initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0],
+                                                      miniterations[0], monte_method, true, LP_method,
+                                                      project_every[0], false, "average");
+
+    double ll = computeLogLikForParametricMixtureProbability(&X, &W, &V, componentProb, &Beta, K, EMAlg.c_str(),
+                                                             &inputParams);
+
+    if (inputParams.simulationMethod != nullptr)
+    {
+        free((void *)inputParams.simulationMethod);
+    }
+    if (inputParams.prob_cond != nullptr)
+    {
+        free((void *)inputParams.prob_cond);
+    }
+    if (inputParams.symmetric_weight_method != nullptr)
+    {
+        free((void *)inputParams.symmetric_weight_method);
+    }
+
+    releaseMatrixArray(componentProb, K);
+    releaseMatrix(&X);
+    releaseMatrix(&W);
+    releaseMatrix(&V);
+    releaseMatrix(&Beta);
+
+    return ll;
+}
+
 // ---- Run Finite-Mixture EM (non-parametric only) ---- //
 // [[Rcpp::export]]
 Rcpp::List EMAlgorithmMixture(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,

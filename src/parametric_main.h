@@ -48,6 +48,9 @@ extern "C"
         const int maxiter, const int miniter, const double maxtime, const double convergence, const double ll_threshold,
         const int maxnewton, const bool verbose, const char *q_method, QMethodInput *q_params,
         const char *adjust_prob_cond_method, bool adjust_prob_cond_every);
+    double computeLogLikForParametricMixtureProbability(Matrix *X, Matrix *W, Matrix *V, Matrix *component_prob,
+                                                        Matrix *membership_beta, int mixture_h, const char *q_method,
+                                                        QMethodInput *q_params);
     void cleanupParametricMixtureResult(EMParametricMixtureResult *res);
 #ifdef __cplusplus
 }

@@ -955,6 +955,7 @@
     object$component_prob <- resulting_values$component_prob
     dimnames(object$component_prob) <- list(colnames(W_matrix), colnames(object$X), component_names)
 
+    object$initial_prob <- control$initial_prob
     object$iterations <- as.numeric(resulting_values$iter)
     object$logLik <- as.numeric(resulting_values$logLik)
     object$time <- resulting_values$time
@@ -1325,6 +1326,18 @@
             ncol(membership_beta) != control$K - 1L) {
             stop("run_em: in parametric matrix-mixture mode, 'beta_init' must have dimensions (a x (K-1)).")
         }
+
+        multistart <- NULL
+        if (!is.null(control$S)) {
+            multistart <- .run_em_parametric_mixture_multistart(
+                object,
+                W_matrix,
+                V_matrix,
+                membership_beta,
+                control
+            )
+            control$initial_prob <- multistart$initial_prob
+        }
         component_prob_init <- .run_em_matrix_mixture_component_prob_array(object, W_matrix, control)
 
         resulting_values <- EMAlgorithmParametricMixture(
@@ -1351,6 +1364,10 @@
         )
 
         object <- .run_em_assign_parametric_mixture_results(object, resulting_values, W_matrix, V_matrix, control)
+        if (!is.null(multistart)) {
+            object$initial_prob_multistart_logLik <- multistart$logLik
+            object$initial_prob_multistart_best <- as.integer(multistart$best)
+        }
     } else {
         em_parametric_fun <- if (use_joint_symmetric_em) {
             EMAlgorithmParametricSymmetric
@@ -1861,6 +1878,87 @@
             )
             scores[s] <- scores[s] + reverse_score
         }
+        if (is.finite(scores[s]) && scores[s] > best_ll) {
+            best_ll <- scores[s]
+            best_idx <- s
+            best_initial_prob <- initial_prob_payload
+        }
+    }
+
+    if (is.null(best_initial_prob)) {
+        stop("run_em: No finite log-likelihood found among multistart initial probabilities.")
+    }
+
+    if (isTRUE(control$verbose)) {
+        cat(sprintf("Staying with the biggest log-likelihood sample (ll = %.10f)\n", best_ll))
+    }
+
+    list(
+        initial_prob = best_initial_prob,
+        logLik = scores,
+        best = best_idx
+    )
+}
+
+#' @noRd
+.run_em_parametric_mixture_score_initial_prob <- function(object,
+                                                          W_matrix,
+                                                          V_matrix,
+                                                          membership_beta,
+                                                          control,
+                                                          initial_prob_payload) {
+    ll <- EMLogLikFromProbParametricMixture(
+        as.matrix(object$X),
+        W_matrix,
+        V_matrix,
+        membership_beta,
+        initial_prob_payload,
+        control$method,
+        as.integer(if (!is.null(object$mcmc_stepsize)) object$mcmc_stepsize else 3000),
+        as.integer(if (!is.null(object$mcmc_samples)) object$mcmc_samples else 1000),
+        if (!is.null(object$mvncdf_method)) object$mvncdf_method else "genz",
+        as.numeric(if (!is.null(object$mvncdf_error)) object$mvncdf_error else 1e-3),
+        as.integer(if (!is.null(object$mvncdf_samples)) object$mvncdf_samples else 5000),
+        as.integer(control$miniter),
+        as.character(control$adjust_prob_cond_method),
+        as.logical(control$adjust_prob_cond_every)
+    )
+
+    as.numeric(ll)
+}
+
+#' @noRd
+.run_em_parametric_mixture_multistart <- function(object, W_matrix, V_matrix, membership_beta, control) {
+    multistart_amplitude <- 1
+
+    if (isTRUE(control$verbose)) {
+        cat(sprintf("Sampling between %d samples for an initial probability\n", control$S))
+    }
+
+    samples <- .run_em_mixture_initial_prob_samples(
+        X_matrix = object$X,
+        W_matrix = W_matrix,
+        K = control$K,
+        S = control$S,
+        amplitude = multistart_amplitude
+    )
+
+    scores <- rep(NA_real_, control$S)
+    best_idx <- NA_integer_
+    best_ll <- -Inf
+    best_initial_prob <- NULL
+
+    for (s in seq_len(control$S)) {
+        initial_prob_payload <- samples[, , , s, drop = FALSE]
+        dim(initial_prob_payload) <- dim(samples)[1:3]
+        scores[s] <- .run_em_parametric_mixture_score_initial_prob(
+            object,
+            W_matrix,
+            V_matrix,
+            membership_beta,
+            control,
+            initial_prob_payload
+        )
         if (is.finite(scores[s]) && scores[s] > best_ll) {
             best_ll <- scores[s]
             best_idx <- s

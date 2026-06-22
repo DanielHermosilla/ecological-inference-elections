@@ -245,11 +245,12 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'   and the unit-level prior profile probabilities are modeled from `V`.
 #'
 #' @param S Optional positive integer controlling multistart initialization for
-#'   non-parametric finite mixtures (`mixture > 1`). If `NULL` (default),
-#'   `run_em()` uses the usual single initialization. If supplied, `run_em()`
-#'   generates `S` structured `g x c x mixture` initial probability arrays from
-#'   `X` and `W`, scores each initial array with the finite-mixture
-#'   log-likelihood, and runs the mixture EM once from the best-scoring array.
+#'   finite mixtures (`mixture > 1`), including non-parametric mixtures and
+#'   parametric matrix-mixtures with covariates. If `NULL` (default), `run_em()`
+#'   uses the usual single initialization. If supplied, `run_em()` generates
+#'   `S` structured `g x c x mixture` initial probability arrays from `X` and
+#'   `W`, scores each initial array with the finite-mixture log-likelihood, and
+#'   runs the mixture EM once from the best-scoring array.
 #'   With `symmetric = TRUE` and `symmetric_weight_method = "EM_weight"`, the
 #'   score combines the forward and reverse finite-mixture log-likelihoods for
 #'   each sampled initialization.
@@ -485,8 +486,6 @@ run_em <- function(object = NULL,
             stop("run_em: Invalid 'S'. Must be NULL or a positive integer.")
         }
         S <- as.integer(S)
-        initial_prob <- "group_proportional"
-        all_params$initial_prob <- initial_prob
     }
     mixture <- as.integer(mixture)
     row_mixture <- as.integer(row_mixture)
@@ -544,11 +543,19 @@ run_em <- function(object = NULL,
 
     H_group <- as.integer(row_mixture)
     K <- as.integer(mixture)
+    if (!is.null(S)) {
+        if (K > 1L) {
+            initial_prob <- "group_proportional"
+            all_params$initial_prob <- initial_prob
+        } else {
+            S <- NULL
+        }
+    }
     use_row_mixture <- H_group > 1L
     use_joint_symmetric_em <- isTRUE(symmetric) &&
         identical(symmetric_weight_method, "EM_weight") &&
         !use_row_mixture
-    use_mixture <- (K > 1L) || (K == 1L && mixture_explicit) || use_joint_symmetric_em
+    use_mixture <- (K > 1L) || use_joint_symmetric_em
 
     control <- list(
         base_call = base_call,

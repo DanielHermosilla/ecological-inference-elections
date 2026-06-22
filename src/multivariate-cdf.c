@@ -451,9 +451,9 @@ static void getMainParameters(EMContext *ctx, int b, const Matrix probabilitiesR
     getAverageConditional(ctx, b, &probabilitiesReduced, mu, cholesky);
 
     // ---- Cholesky factorization (if applicable) ---- //
-    if (TOTAL_CANDIDATES != 2)
+    if (ctx->C != 2)
     {
-        for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+        for (uint16_t g = 0; g < ctx->G; g++)
         {
             choleskyMat(cholesky[g]);
         }
