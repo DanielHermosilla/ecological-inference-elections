@@ -409,8 +409,13 @@ CREDITS
 #define Realloc(p, n, type) ((type *)R_chk_realloc((void *)(p), (R_SIZE_T)((n) * sizeof(type))))
 #endif
 
+static inline void stbds_free_wrapper(void *p)
+{
+    R_chk_free(p);
+}
+
 #define STBDS_REALLOC(context, ptr, size) Realloc((ptr), (size), char)
-#define STBDS_FREE(context, ptr) Free((ptr))
+#define STBDS_FREE(context, ptr) stbds_free_wrapper((void *)(ptr))
 #endif
 
 #ifndef STBDS_NO_SHORT_NAMES
