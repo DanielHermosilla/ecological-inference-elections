@@ -39,6 +39,52 @@ test_that("run_em returns consistent non-parametric outputs", {
     expect_equal(expected_by_group, t(sim$W), tolerance = 1e-6)
 })
 
+test_that("run_em returns finite outputs for ballot boxes with zero totals", {
+    base_X <- matrix(c(4, 3, 3, 3, 2, 5, 2, 5, 3), nrow = 3, byrow = TRUE)
+    base_W <- matrix(c(6, 4, 7, 3, 5, 5), nrow = 3, byrow = TRUE)
+
+    scenarios <- list(
+        both_zero = list(X = base_X, W = base_W),
+        W_zero = list(X = base_X, W = base_W),
+        X_zero = list(X = base_X, W = base_W)
+    )
+    scenarios$both_zero$X[2, ] <- 0
+    scenarios$both_zero$W[2, ] <- 0
+    scenarios$W_zero$W[2, ] <- 0
+    scenarios$X_zero$X[2, ] <- 0
+
+    for (method in c("mult", "mvn_pdf")) {
+        for (scenario_name in names(scenarios)) {
+            scenario <- scenarios[[scenario_name]]
+            fit <- run_em(
+                X = scenario$X,
+                W = scenario$W,
+                method = method,
+                maxiter = 2,
+                miniter = 1,
+                maxtime = 2,
+                compute_ll = FALSE
+            )
+
+            info <- paste("method:", method, "scenario:", scenario_name)
+            expect_true(all(is.finite(fit$cond_prob)), info = info)
+            expect_true(all(is.finite(fit$expected_outcome)), info = info)
+            expect_true(all(is.finite(fit$prob)), info = info)
+            expect_equal(
+                fit$cond_prob[, , 2],
+                matrix(0, nrow = ncol(scenario$W), ncol = ncol(scenario$X)),
+                info = info
+            )
+            expect_equal(
+                fit$expected_outcome[, , 2],
+                matrix(0, nrow = ncol(scenario$W), ncol = ncol(scenario$X)),
+                info = info
+            )
+            expect_prob_matrix(fit$prob)
+        }
+    }
+})
+
 test_that("run_em approximates simulated probabilities", {
     sim <- simulate_election(
         num_ballots = 20,
