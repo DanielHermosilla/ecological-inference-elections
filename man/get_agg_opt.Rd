@@ -64,13 +64,11 @@ It returns an eim object with the same attributes as the output of \link{run_em}
 Additionally, it will create the \code{W_agg} attribute with the aggregated groups, along with the attributes corresponding to running \link{run_em} with the aggregated groups.
 }
 \description{
-Runs the EM algorithm \strong{over all possible group aggregating}, returning the one with higher likelihood while constraining the standard deviation of the probabilities.
-}
-\note{
 This function estimates the voting probabilities (computed using \link{run_em}) by trying all group aggregations (of adjacent groups), choosing
 the one that achieves the higher likelihood as long as the standard deviation (computed using \link{bootstrap}) of the estimated probabilities
 is below a given threshold. See \strong{Details} for more informacion on adjacent groups.
-
+}
+\details{
 Groups of consecutive column indices in the matrix \code{W} are considered adjacent. For example, consider the following seven groups defined by voters' age
 ranges: 20-29, 30-39, 40-49, 50-59, 60-69, 70-79, and 80+. A possible group aggregation can be a macro-group composed of the three following age
 ranges: 20-39, 40-59, and 60+. Since there are multiple group aggregations, the method evaluates all possible group aggregations (merging only adjacent groups).

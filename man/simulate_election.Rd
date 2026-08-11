@@ -40,7 +40,6 @@ Default value is set to \code{0.5}. See \strong{Shuffling Mechanish} for more de
 \item{prob}{Optional. A user-supplied probability matrix of dimension \verb{(g x c)}.
 If provided, this matrix is used as the underlying voting probability distribution. If not supplied, each row is sampled from a Dirichlet distribution with each parameter set to one.}
 }
-
 \value{
 An eim object containing:
 \describe{
@@ -126,5 +125,5 @@ result4$real_prob == custom_prob
 # The attribute of the output real_prob matches the input custom_prob.
 }
 \references{
-The algorithm is fully explained in \href{https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834}{'Thraves, C. Ubilla, P. and Hermosilla, D.: \emph{"A Fast Ecological Inference Algorithm for the R×C Case"}}.
+The algorithm is fully explained in \href{https://link.springer.com/article/10.1007/s11222-026-10946-1}{'Thraves, C. Ubilla, P. and Hermosilla, D.: \emph{"An accurate, fast and scalable ecological inference algorithm for the R×C Case"}.}
 }

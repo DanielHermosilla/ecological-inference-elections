@@ -75,7 +75,8 @@ The default value is \code{1000}.}
 \item{maxtime}{An optional numeric specifying the maximum running time (in seconds) for the
 algorithm. This is checked at every iteration of the EM algorithm. The default value is \code{3600}, which corresponds to an hour.}
 
-\item{param_threshold}{An optional numeric value indicating the maximum Frobenius norm of the difference between consecutive probability matrices required to stop iterating. The default value is \code{0.001}. Note that the algorithm will stop if either \code{ll_threshold} \strong{or} \code{param_threshold} is accomplished.}
+\item{param_threshold}{An optional numeric value indicating the maximum Frobenius norm
+of the difference between consecutive probability matrices required to stop iterating. The default value is \code{0.001}. Note that the algorithm will stop if either \code{ll_threshold} \strong{or} \code{param_threshold} is accomplished.}
 
 \item{ll_threshold}{An optional numeric value indicating the minimum difference between consecutive log-likelihood values to stop iterating. The default value is \code{inf}, essentially deactivating
 the threshold. Note that the algorithm will stop if either \code{ll_threshold} \strong{or} \code{param_threshold} is accomplished.}
@@ -116,7 +117,7 @@ samples for the \code{mvn_cdf} method. The default value is \code{5000}. This ar
 
 \item{symmetric}{A boolean indicating whether to perform a symmetric estimation. If \code{TRUE}, the algorithm runs twice: first estimating the probabilities of candidates given groups, and then estimating the probabilities of groups given candidates. The final probabilities are obtained by combining both directions using \code{symmetric_weight_method} (\code{"joint"} by default). The default value is \code{FALSE}.}
 
-\item{symmetric_weight_method}{Character string indicating how to combine both directions when \code{symmetric = TRUE}. Valid values are \code{"joint"} (default behavior: joint EM where forward and reverse E-steps are averaged each iteration using equal weights), \code{"average"} (preserves the historical two-run average), \code{"delta_ll"} (weights based on the relative likelihood gaps \code{tau = (LL - LL_ind) / abs(LL)} and \code{tau_rev = (LL_rev - LL_rev_ind) / abs(LL_rev)}), and \code{"mae_inverse"} (weights based on reconstruction errors \code{tau = sum(abs(X - W \%*\% p))} and \code{tau_rev = sum(abs(W - X \%*\% p_rev))}).}
+\item{symmetric_weight_method}{Character string indicating how to combine both directions when \code{symmetric = TRUE}. Valid values are \code{"joint"} (default behavior: joint EM where forward/reverse E-steps are averaged each iteration using equal weights), \code{"average"}, \code{"delta_ll"} (weights based on the relative likelihood gaps), and \code{"mae_inverse"} (weights based on reconstruction errors).}
 
 \item{...}{Added for compability}
 }

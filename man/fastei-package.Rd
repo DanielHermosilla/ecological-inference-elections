@@ -4,16 +4,16 @@
 \name{fastei-package}
 \alias{fastei}
 \alias{fastei-package}
-\title{fastei: Methods for "A Fast Ecological Inference Algorithm for the R\eqn{\times}C case"}
+\title{fastei: Methods for "An accurate, fast, and scalable ecological inference algorithm for the R\eqn{\times}C case"}
 \description{
-Package that implements the methods of \href{https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834}{Thraves, C.,Ubilla, P. and Hermosilla, D. (2024): \emph{"A Fast Ecological Inference Algorithm for the R×C Case"}.}
+Package that implements the methods of \href{https://link.springer.com/article/10.1007/s11222-026-10946-1}{Thraves, C.,Ubilla, P. and Hermosilla, D. (2024): \emph{"An accurate, fast and scalable ecological inference algorithm for the R×C Case"}.}
 }
 \details{
 Includes a method (\link{run_em}) to solve the R\eqn{\times}C ecological inference problem using the EM algorithm with different approximation methods for the E-step. Covariates are supported but not required. Standard errors of the estimated probabilities can be computed via bootstrapping (\link{bootstrap}).
 
 It also provides a function that generates synthetic election data (\link{simulate_election}) and a function that imports real election data (\link{chile_election_2021}) from the Chilean first-round presidential election of 2021.
 
-The setting in which the documentation presents the Ecological Inference problem is an election context where for a set of ballot-boxes we observe (i) the votes obtained by each candidate and (ii) the number of voters of each demographic group (for example, these can be defined by age ranges or sex). See \href{https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834}{Thraves, C.,Ubilla, P. and Hermosilla, D. (2024): \emph{"A Fast Ecological Inference Algorithm for the R×C Case"}.}
+The setting in which the documentation presents the Ecological Inference problem is an election context where for a set of ballot-boxes we observe (i) the votes obtained by each candidate and (ii) the number of voters of each demographic group (for example, these can be defined by age ranges or sex). See \href{https://link.springer.com/article/10.1007/s11222-026-10946-1}{Thraves, C.,Ubilla, P. and Hermosilla, D. (2024): \emph{"An accurate, fast and scalable ecological inference algorithm for the R×C Case"}.}
 
 The methods to compute the conditional probabilities of the E-Step included in this package are the following:
 \itemize{
@@ -41,7 +41,7 @@ browseVignettes("fastei")
 }
 }
 \references{
-\href{https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834}{Thraves, C., Ubilla, P and Hermosilla D. (2024): \emph{"A Fast Ecological Inference Algorithm for the R×C Case"}.}
+\href{https://link.springer.com/article/10.1007/s11222-026-10946-1}{Thraves, C., Ubilla, P and Hermosilla D. (2024): \emph{"An accurate, fast and scalable ecological inference algorithm for the R×C Case"}.}
 }
 \seealso{
 Useful links:
@@ -52,7 +52,7 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Daniel Hermosilla \email{daniel.hermosilla.r@ug.uchile.cl}
+\strong{Maintainer}: Daniel Hermosilla \email{daniel.hermosilla.r@ug.uchile.cl} (\href{https://orcid.org/0009-0009-1627-8924}{ORCID})
 
 Authors:
 \itemize{
