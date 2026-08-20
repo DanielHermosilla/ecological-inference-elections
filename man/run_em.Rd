@@ -174,6 +174,8 @@ Furthermore, if \code{symmetric = TRUE}, the following additional attributes are
 \describe{
 \item{prob_inv}{The estimated probability matrix \verb{(c x g)}, obtained by swapping \code{X} and \code{W}, when the symmetric scheme performs an explicit reverse run (for example \code{"average"}, \code{"delta_ll"}, and \code{"mae_inverse"}).}
 \item{cond_prob_inv}{A \verb{(c x g x b)} 3d-array with the probability that at each ballot-box a voter of each candidate voted for each group, given the observed outcome at the particular ballot-box, when the symmetric scheme performs an explicit reverse run.}
+\item{beta_inv}{For parametric non-joint symmetric fits, the reverse-direction coefficient matrix \verb{(c x (g-1))}. The forward-direction coefficients remain in \code{beta}; the two matrices are not averaged.}
+\item{alpha_inv}{For parametric non-joint symmetric fits, the reverse-direction covariate coefficient matrix \verb{((g-1) x a)}. The forward-direction coefficients remain in \code{alpha}; the two matrices are not averaged.}
 }
 If \code{symmetric_weight_method = "delta_ll"} and both \code{logLik} values are available, the object also includes \code{LL_ind}, \code{LL_rev_ind}, \code{dLL}, \code{dLL_rev}, \code{nu}, \code{nu_rev}, and \code{symmetric_weights}.
 If \code{symmetric_weight_method = "mae_inverse"}, the object also includes \code{err_forward}, \code{err_inverse}, and \code{symmetric_weights}.

@@ -64,8 +64,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // bootstrapAlg
-Rcpp::List bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix, Rcpp::IntegerVector nboot, Rcpp::String em_method, Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold, Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method, Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities);
-RcppExport SEXP _fastei_bootstrapAlg(SEXP candidate_matrixSEXP, SEXP group_matrixSEXP, SEXP nbootSEXP, SEXP em_methodSEXP, SEXP probability_methodSEXP, SEXP maximum_iterationsSEXP, SEXP maximum_secondsSEXP, SEXP stopping_thresholdSEXP, SEXP log_stopping_thresholdSEXP, SEXP compute_llSEXP, SEXP verboseSEXP, SEXP step_sizeSEXP, SEXP samplesSEXP, SEXP monte_methodSEXP, SEXP monte_errorSEXP, SEXP monte_iterSEXP, SEXP miniterationsSEXP, SEXP LP_methodSEXP, SEXP project_everySEXP, SEXP initial_probabilitiesSEXP) {
+Rcpp::List bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix, Rcpp::IntegerVector nboot, Rcpp::String em_method, Rcpp::String probability_method, Rcpp::IntegerVector maximum_iterations, Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector stopping_threshold, Rcpp::NumericVector log_stopping_threshold, Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size, Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method, Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities, Rcpp::LogicalVector symmetric, Rcpp::String symmetric_weight_method);
+RcppExport SEXP _fastei_bootstrapAlg(SEXP candidate_matrixSEXP, SEXP group_matrixSEXP, SEXP nbootSEXP, SEXP em_methodSEXP, SEXP probability_methodSEXP, SEXP maximum_iterationsSEXP, SEXP maximum_secondsSEXP, SEXP stopping_thresholdSEXP, SEXP log_stopping_thresholdSEXP, SEXP compute_llSEXP, SEXP verboseSEXP, SEXP step_sizeSEXP, SEXP samplesSEXP, SEXP monte_methodSEXP, SEXP monte_errorSEXP, SEXP monte_iterSEXP, SEXP miniterationsSEXP, SEXP LP_methodSEXP, SEXP project_everySEXP, SEXP initial_probabilitiesSEXP, SEXP symmetricSEXP, SEXP symmetric_weight_methodSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -89,7 +89,9 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::String >::type LP_method(LP_methodSEXP);
     Rcpp::traits::input_parameter< Rcpp::LogicalVector >::type project_every(project_everySEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type initial_probabilities(initial_probabilitiesSEXP);
-    rcpp_result_gen = Rcpp::wrap(bootstrapAlg(candidate_matrix, group_matrix, nboot, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, initial_probabilities));
+    Rcpp::traits::input_parameter< Rcpp::LogicalVector >::type symmetric(symmetricSEXP);
+    Rcpp::traits::input_parameter< Rcpp::String >::type symmetric_weight_method(symmetric_weight_methodSEXP);
+    rcpp_result_gen = Rcpp::wrap(bootstrapAlg(candidate_matrix, group_matrix, nboot, em_method, probability_method, maximum_iterations, maximum_seconds, stopping_threshold, log_stopping_threshold, compute_ll, verbose, step_size, samples, monte_method, monte_error, monte_iter, miniterations, LP_method, project_every, initial_probabilities, symmetric, symmetric_weight_method));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -146,8 +148,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // bootstrapParametricAlg
-Rcpp::List bootstrapParametricAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix, Rcpp::NumericMatrix attribute_matrix, Rcpp::NumericMatrix beta, Rcpp::NumericMatrix alpha, Rcpp::IntegerVector maximum_iterations, Rcpp::IntegerVector nboot, Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector log_stopping_threshold, Rcpp::IntegerVector maximum_newton, Rcpp::LogicalVector verbose, Rcpp::String LP_method, Rcpp::LogicalVector project_every, Rcpp::String em_method);
-RcppExport SEXP _fastei_bootstrapParametricAlg(SEXP candidate_matrixSEXP, SEXP group_matrixSEXP, SEXP attribute_matrixSEXP, SEXP betaSEXP, SEXP alphaSEXP, SEXP maximum_iterationsSEXP, SEXP nbootSEXP, SEXP maximum_secondsSEXP, SEXP log_stopping_thresholdSEXP, SEXP maximum_newtonSEXP, SEXP verboseSEXP, SEXP LP_methodSEXP, SEXP project_everySEXP, SEXP em_methodSEXP) {
+Rcpp::List bootstrapParametricAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix, Rcpp::NumericMatrix attribute_matrix, Rcpp::NumericMatrix beta, Rcpp::NumericMatrix alpha, Rcpp::IntegerVector maximum_iterations, Rcpp::IntegerVector nboot, Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector log_stopping_threshold, Rcpp::IntegerVector maximum_newton, Rcpp::LogicalVector verbose, Rcpp::String LP_method, Rcpp::LogicalVector project_every, Rcpp::String em_method, Rcpp::LogicalVector symmetric, Rcpp::String symmetric_weight_method);
+RcppExport SEXP _fastei_bootstrapParametricAlg(SEXP candidate_matrixSEXP, SEXP group_matrixSEXP, SEXP attribute_matrixSEXP, SEXP betaSEXP, SEXP alphaSEXP, SEXP maximum_iterationsSEXP, SEXP nbootSEXP, SEXP maximum_secondsSEXP, SEXP log_stopping_thresholdSEXP, SEXP maximum_newtonSEXP, SEXP verboseSEXP, SEXP LP_methodSEXP, SEXP project_everySEXP, SEXP em_methodSEXP, SEXP symmetricSEXP, SEXP symmetric_weight_methodSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -165,7 +167,9 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::String >::type LP_method(LP_methodSEXP);
     Rcpp::traits::input_parameter< Rcpp::LogicalVector >::type project_every(project_everySEXP);
     Rcpp::traits::input_parameter< Rcpp::String >::type em_method(em_methodSEXP);
-    rcpp_result_gen = Rcpp::wrap(bootstrapParametricAlg(candidate_matrix, group_matrix, attribute_matrix, beta, alpha, maximum_iterations, nboot, maximum_seconds, log_stopping_threshold, maximum_newton, verbose, LP_method, project_every, em_method));
+    Rcpp::traits::input_parameter< Rcpp::LogicalVector >::type symmetric(symmetricSEXP);
+    Rcpp::traits::input_parameter< Rcpp::String >::type symmetric_weight_method(symmetric_weight_methodSEXP);
+    rcpp_result_gen = Rcpp::wrap(bootstrapParametricAlg(candidate_matrix, group_matrix, attribute_matrix, beta, alpha, maximum_iterations, nboot, maximum_seconds, log_stopping_threshold, maximum_newton, verbose, LP_method, project_every, em_method, symmetric, symmetric_weight_method));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -237,10 +241,10 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_fastei_EMAlgorithmFull", (DL_FUNC) &_fastei_EMAlgorithmFull, 21},
     {"_fastei_EMLogLikFromProb", (DL_FUNC) &_fastei_EMLogLikFromProb, 12},
-    {"_fastei_bootstrapAlg", (DL_FUNC) &_fastei_bootstrapAlg, 20},
+    {"_fastei_bootstrapAlg", (DL_FUNC) &_fastei_bootstrapAlg, 22},
     {"_fastei_EMAlgorithmParametric", (DL_FUNC) &_fastei_EMAlgorithmParametric, 16},
     {"_fastei_EMAlgorithmParametricSymmetric", (DL_FUNC) &_fastei_EMAlgorithmParametricSymmetric, 16},
-    {"_fastei_bootstrapParametricAlg", (DL_FUNC) &_fastei_bootstrapParametricAlg, 14},
+    {"_fastei_bootstrapParametricAlg", (DL_FUNC) &_fastei_bootstrapParametricAlg, 16},
     {"_fastei_groupAgg", (DL_FUNC) &_fastei_groupAgg, 23},
     {"_fastei_groupAggGreedy", (DL_FUNC) &_fastei_groupAggGreedy, 21},
     {NULL, NULL, 0}

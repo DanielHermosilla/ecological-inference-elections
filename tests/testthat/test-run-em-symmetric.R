@@ -127,12 +127,48 @@ test_that("run_em symmetric average preserves legacy parametric inverse outputs"
     expect_true(is.array(fit$prob_inv))
     expect_true(is.array(fit$cond_prob_inv))
     expect_true(is.array(fit$expected_outcome_inv))
+    expect_equal(dim(fit$beta), c(ncol(sim$W), ncol(sim$X) - 1))
+    expect_equal(dim(fit$alpha), c(ncol(sim$X) - 1, ncol(sim$V)))
+    expect_equal(dim(fit$beta_inv), c(ncol(sim$X), ncol(sim$W) - 1))
+    expect_equal(dim(fit$alpha_inv), c(ncol(sim$W) - 1, ncol(sim$V)))
     expect_equal(dim(fit$prob_inv), c(ncol(sim$X), ncol(sim$W), nrow(sim$X)))
     expect_equal(dim(fit$cond_prob_inv), c(ncol(sim$X), ncol(sim$W), nrow(sim$X)))
 
     expect_prob_array(fit$prob)
     expect_prob_array(fit$cond_prob)
     expect_prob_array(fit$cond_prob_inv)
+})
+
+test_that("run_em keeps directional coefficients for every non-joint parametric method", {
+    sim <- simulate_election(
+        num_ballots = 5,
+        num_candidates = 3,
+        num_groups = 2,
+        ballot_voters = 35,
+        num_covariates = 2,
+        num_districts = 2,
+        seed = 142
+    )
+
+    for (weight_method in c("average", "delta_ll", "mae_inverse")) {
+        fit <- run_em(
+            X = sim$X,
+            W = sim$W,
+            V = sim$V,
+            method = "mult",
+            symmetric = TRUE,
+            symmetric_weight_method = weight_method,
+            maxiter = 2,
+            maxtime = 2
+        )
+
+        expect_equal(dim(fit$beta), c(2, 2), info = weight_method)
+        expect_equal(dim(fit$alpha), c(2, 2), info = weight_method)
+        expect_equal(dim(fit$beta_inv), c(3, 1), info = weight_method)
+        expect_equal(dim(fit$alpha_inv), c(1, 2), info = weight_method)
+        expect_true(all(is.finite(fit$beta_inv)), info = weight_method)
+        expect_true(all(is.finite(fit$alpha_inv)), info = weight_method)
+    }
 })
 
 test_that("run_em parametric joint supports lp with adjust_prob_cond_every TRUE/FALSE", {

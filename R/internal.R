@@ -719,6 +719,8 @@
 #' @return The symmetric parametric `eim` object.
 #' @noRd
 .run_em_apply_parametric_symmetry <- function(object, inverse, W_matrix) {
+    object$beta_inv <- inverse$beta
+    object$alpha_inv <- inverse$alpha
     object$cond_prob_inv <- inverse$cond_prob
     object$prob_inv <- inverse$prob
     object$expected_outcome_inv <- inverse$expected_outcome
@@ -1073,10 +1075,14 @@
 
     object <- .run_em_assign_parametric_results(object, resulting_values, W_matrix, V_matrix, control)
     if (!control$symmetric) {
+        object$beta_inv <- NULL
+        object$alpha_inv <- NULL
         return(object)
     }
 
     if (use_joint_parametric) {
+        object$beta_inv <- NULL
+        object$alpha_inv <- NULL
         object$cond_prob_inv <- NULL
         object$prob_inv <- NULL
         object$expected_outcome_inv <- NULL

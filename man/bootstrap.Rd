@@ -15,6 +15,8 @@ bootstrap(
   allow_mismatch = TRUE,
   seed = NULL,
   maxnewton = 1,
+  symmetric = FALSE,
+  symmetric_weight_method = "joint",
   ...
 )
 }
@@ -38,16 +40,23 @@ EM algorithm.}
 
 \item{maxnewton}{Maximum number of Newton iterations used in the parametric M-step. Default is 1. Ignored if no covariates are provided (i.e., \code{V = NULL}).}
 
+\item{symmetric}{A boolean indicating whether every bootstrap replicate uses symmetric estimation. The default value is \code{FALSE}.}
+
+\item{symmetric_weight_method}{Character string indicating the symmetric combination method. Parametric bootstrap supports \code{"joint"}, \code{"average"}, \code{"delta_ll"}, and \code{"mae_inverse"}; non-parametric symmetric bootstrap supports only \code{"joint"}.}
+
 \item{...}{Additional arguments passed to the \link{run_em} function that will execute the EM algorithm.}
 }
 \value{
 Returns an \code{eim} object with the \code{sd} field containing the estimated standard deviations of the probabilities and the \code{avg_prob} field with the average bootstrapped probability matrix. If an \code{eim} object is provided, its attributes (see \link{run_em}) are retained in the returned object.
 
-For parametric models, it returns \code{sd_beta} and \code{sd_alpha} instead of \code{sd} and \code{avg_prob}.
+For parametric models, it returns \code{sd_beta} and \code{sd_alpha} instead of \code{sd} and \code{avg_prob}. For non-joint symmetric parametric models, it additionally returns \code{sd_beta_inv} and \code{sd_alpha_inv}, computed from the reverse-direction coefficients across the same bootstrap samples. Directional coefficient matrices are never averaged.
+
+The returned object records the active bootstrap symmetry controls in \code{bootstrap_symmetric} and \code{bootstrap_symmetric_weight_method}.
 }
 \description{
 This function computes the Expected-Maximization (EM) algorithm "\code{nboot}" times. It then computes the standard deviation from the \code{nboot} estimated probability matrices on each component.
 It supports both non-parametric and parametric models; the parametric mode is enabled by providing \code{V} and supports \code{method = "mult"} and \code{method = "exact"}.
+With \code{symmetric = TRUE} and \code{symmetric_weight_method = "joint"}, every parametric bootstrap replicate runs the joint symmetric EM. With a non-joint method, each replicate runs separate forward and reverse parametric fits. Non-parametric symmetric bootstrap supports only \code{"joint"}.
 }
 \note{
 This function can be executed using one of three mutually exclusive approaches:

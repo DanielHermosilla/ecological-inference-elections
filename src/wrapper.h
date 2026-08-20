@@ -124,7 +124,8 @@ Rcpp::List bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatri
                         Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size,
                         Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error,
                         Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
-                        Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities);
+                        Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities,
+                        Rcpp::LogicalVector symmetric, Rcpp::String symmetric_weight_method);
 
 /**
  * @brief Runs the parametric EM algorithm.
@@ -162,7 +163,8 @@ Rcpp::List bootstrapParametricAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Nu
                                   Rcpp::IntegerVector nboot, Rcpp::NumericVector maximum_seconds,
                                   Rcpp::NumericVector log_stopping_threshold, Rcpp::IntegerVector maximum_newton,
                                   Rcpp::LogicalVector verbose, Rcpp::String LP_method,
-                                  Rcpp::LogicalVector project_every, Rcpp::String em_method);
+                                  Rcpp::LogicalVector project_every, Rcpp::String em_method,
+                                  Rcpp::LogicalVector symmetric, Rcpp::String symmetric_weight_method);
 
 /*
  * Returns a list with an heuristic-optimal bootstrapped matrix with an ideal group aggregation.

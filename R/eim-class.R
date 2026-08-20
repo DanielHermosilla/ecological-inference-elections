@@ -158,8 +158,12 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
             "W_agg",
             "beta",
             "alpha",
+            "beta_inv",
+            "alpha_inv",
             "sd_beta",
             "sd_alpha",
+            "sd_beta_inv",
+            "sd_alpha_inv",
             "mcmc_samples",
             "mcmc_stepsize",
             "mvncdf_method",
@@ -357,6 +361,8 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #' \describe{
 #' 		\item{prob_inv}{The estimated probability matrix `(c x g)`, obtained by swapping `X` and `W`, when the symmetric scheme performs an explicit reverse run (for example `"average"`, `"delta_ll"`, and `"mae_inverse"`).}
 #' 		\item{cond_prob_inv}{A `(c x g x b)` 3d-array with the probability that at each ballot-box a voter of each candidate voted for each group, given the observed outcome at the particular ballot-box, when the symmetric scheme performs an explicit reverse run.}
+#' 		\item{beta_inv}{For parametric non-joint symmetric fits, the reverse-direction coefficient matrix `(c x (g-1))`. The forward-direction coefficients remain in `beta`; the two matrices are not averaged.}
+#' 		\item{alpha_inv}{For parametric non-joint symmetric fits, the reverse-direction covariate coefficient matrix `((g-1) x a)`. The forward-direction coefficients remain in `alpha`; the two matrices are not averaged.}
 #' }
 #' If `symmetric_weight_method = "delta_ll"` and both `logLik` values are available, the object also includes `LL_ind`, `LL_rev_ind`, `dLL`, `dLL_rev`, `nu`, `nu_rev`, and `symmetric_weights`.
 #' If `symmetric_weight_method = "mae_inverse"`, the object also includes `err_forward`, `err_inverse`, and `symmetric_weights`.
@@ -490,6 +496,7 @@ run_em <- function(object = NULL,
 #' @description
 #' This function computes the Expected-Maximization (EM) algorithm "`nboot`" times. It then computes the standard deviation from the `nboot` estimated probability matrices on each component.
 #' It supports both non-parametric and parametric models; the parametric mode is enabled by providing `V` and supports `method = "mult"` and `method = "exact"`.
+#' With `symmetric = TRUE` and `symmetric_weight_method = "joint"`, every parametric bootstrap replicate runs the joint symmetric EM. With a non-joint method, each replicate runs separate forward and reverse parametric fits. Non-parametric symmetric bootstrap supports only `"joint"`.
 #'
 #' @param nboot Integer specifying how many times to run the
 #'   EM algorithm.
@@ -509,7 +516,8 @@ run_em <- function(object = NULL,
 #' @return
 #' Returns an `eim` object with the `sd` field containing the estimated standard deviations of the probabilities and the `avg_prob` field with the average bootstrapped probability matrix. If an `eim` object is provided, its attributes (see [run_em]) are retained in the returned object.
 #'
-#' For parametric models, it returns `sd_beta` and `sd_alpha` instead of `sd` and `avg_prob`.
+#' For parametric models, it returns `sd_beta` and `sd_alpha` instead of `sd` and `avg_prob`. For non-joint symmetric parametric models, it additionally returns `sd_beta_inv` and `sd_alpha_inv`, computed from the reverse-direction coefficients across the same bootstrap samples. Directional coefficient matrices are never averaged.
+#' The returned object records the active bootstrap symmetry controls in `bootstrap_symmetric` and `bootstrap_symmetric_weight_method`.
 #'
 #' @examples
 #' \donttest{
@@ -573,6 +581,8 @@ bootstrap <- function(object = NULL,
                       allow_mismatch = TRUE,
                       seed = NULL,
                       maxnewton = 1,
+                      symmetric = FALSE,
+                      symmetric_weight_method = "joint",
                       ...) {
     # Retrieve the default values from run_em() as a list
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
@@ -606,6 +616,16 @@ bootstrap <- function(object = NULL,
 
     # I need to define the method before on this case
     method <- if (!is.null(all_params$method)) all_params$method else "mult"
+
+    if (!is.logical(symmetric) || length(symmetric) != 1L || is.na(symmetric)) {
+        stop("bootstrap: 'symmetric' must be a single non-missing logical value.")
+    }
+    if (symmetric && !is_parametric && !identical(symmetric_weight_method, "joint")) {
+        stop(
+            "bootstrap: Symmetric bootstrap currently supports only ",
+            "symmetric_weight_method = \"joint\"."
+        )
+    }
 
     if (is_parametric) {
         if (!(method %in% c("mult", "exact"))) {
@@ -681,7 +701,9 @@ bootstrap <- function(object = NULL,
             as.logical(verbose),
             as.character(adjust_prob_cond_method),
             as.logical(adjust_prob_cond_every),
-            method
+            method,
+            as.logical(symmetric),
+            as.character(symmetric_weight_method)
         )
 
         object$sd_beta <- result$sd_beta
@@ -700,7 +722,29 @@ bootstrap <- function(object = NULL,
             colnames(object$sd_alpha) <- colnames(V)
         }
 
+        object$sd_beta_inv <- result$sd_beta_inv
+        if (!is.null(object$sd_beta_inv)) {
+            if (!is.null(colnames(object$X))) {
+                rownames(object$sd_beta_inv) <- colnames(object$X)
+            }
+            if (!is.null(colnames(W))) {
+                colnames(object$sd_beta_inv) <- colnames(W)[-ncol(W)]
+            }
+        }
+
+        object$sd_alpha_inv <- result$sd_alpha_inv
+        if (!is.null(object$sd_alpha_inv)) {
+            if (!is.null(colnames(W))) {
+                rownames(object$sd_alpha_inv) <- colnames(W)[-ncol(W)]
+            }
+            if (!is.null(colnames(V))) {
+                colnames(object$sd_alpha_inv) <- colnames(V)
+            }
+        }
+
         object$nboot <- nboot
+        object$bootstrap_symmetric <- symmetric
+        object$bootstrap_symmetric_weight_method <- if (symmetric) symmetric_weight_method else NULL
         class(object) <- "eim"
         return(object)
     }
@@ -789,7 +833,9 @@ bootstrap <- function(object = NULL,
         as.integer(miniter),
         as.character(adjust_prob_cond_method),
         as.logical(adjust_prob_cond_every),
-        if (is.matrix(initial_prob)) initial_prob else matrix(-1, nrow = 1, ncol = 1)
+        if (is.matrix(initial_prob)) initial_prob else matrix(-1, nrow = 1, ncol = 1),
+        as.logical(symmetric),
+        as.character(symmetric_weight_method)
     )
 
     object$sd <- result$sd
@@ -797,6 +843,8 @@ bootstrap <- function(object = NULL,
     object$avg_prob <- result$avg_prob
     dimnames(object$avg_prob) <- list(colnames(W), colnames(object$X))
     object$nboot <- nboot
+    object$bootstrap_symmetric <- symmetric
+    object$bootstrap_symmetric_weight_method <- if (symmetric) symmetric_weight_method else NULL
     object$sd[object$sd == 9999] <- Inf
     object$avg_prob[object$avg_prob == 9999] <- Inf
 

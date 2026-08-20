@@ -235,7 +235,8 @@ Rcpp::List bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatri
                         Rcpp::LogicalVector compute_ll, Rcpp::LogicalVector verbose, Rcpp::IntegerVector step_size,
                         Rcpp::IntegerVector samples, Rcpp::String monte_method, Rcpp::NumericVector monte_error,
                         Rcpp::IntegerVector monte_iter, Rcpp::IntegerVector miniterations, Rcpp::String LP_method,
-                        Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities)
+                        Rcpp::LogicalVector project_every, Rcpp::NumericMatrix initial_probabilities,
+                        Rcpp::LogicalVector symmetric, Rcpp::String symmetric_weight_method)
 {
     if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
         Rcpp::stop("Error: X matrix has zero dimensions!");
@@ -253,7 +254,8 @@ Rcpp::List bootstrapAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatri
 
     QMethodInput inputParams =
         initializeQMethodInput(EMAlg, samples[0], step_size[0], monte_iter[0], monte_error[0], miniterations[0],
-                               monte_method, compute_ll[0], LP_method, project_every[0], false, "average");
+                               monte_method, compute_ll[0], LP_method, project_every[0], symmetric[0],
+                               std::string(symmetric_weight_method));
 
     Matrix avgProb = {NULL, 0, 0};
     Matrix sdResult = bootstrapA(&XR, &WR, nboot[0], EMAlg.c_str(), probabilityM.c_str(), stopping_threshold[0],
@@ -516,7 +518,8 @@ Rcpp::List bootstrapParametricAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Nu
                                   Rcpp::IntegerVector nboot, Rcpp::NumericVector maximum_seconds,
                                   Rcpp::NumericVector log_stopping_threshold, Rcpp::IntegerVector maximum_newton,
                                   Rcpp::LogicalVector verbose, Rcpp::String LP_method,
-                                  Rcpp::LogicalVector project_every, Rcpp::String em_method)
+                                  Rcpp::LogicalVector project_every, Rcpp::String em_method,
+                                  Rcpp::LogicalVector symmetric, Rcpp::String symmetric_weight_method)
 {
     if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
         Rcpp::stop("Error: X matrix has zero dimensions!");
@@ -534,13 +537,18 @@ Rcpp::List bootstrapParametricAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Nu
     Matrix AlphaR = convertToMatrix(alpha);
     std::string adjust_prob_cond_method = LP_method;
     std::string EMAlg = em_method;
+    std::string symmetricWeightMethod = symmetric_weight_method;
 
     Matrix sdBeta = {NULL, 0, 0};
     Matrix sdAlpha = {NULL, 0, 0};
+    Matrix sdBetaInv = {NULL, 0, 0};
+    Matrix sdAlphaInv = {NULL, 0, 0};
 
     bootstrapParametric(&XR, &WR, &VR, &BetaR, &AlphaR, nboot[0], maximum_iterations[0], maximum_seconds[0],
                         log_stopping_threshold[0], maximum_newton[0], verbose[0], &sdBeta, &sdAlpha,
-                        adjust_prob_cond_method.c_str(), project_every[0], EMAlg.c_str());
+                        &sdBetaInv, &sdAlphaInv,
+                        adjust_prob_cond_method.c_str(), project_every[0], EMAlg.c_str(), symmetric[0],
+                        symmetricWeightMethod.c_str());
 
     // ---- Convert outputs to R matrices ---- //
     Rcpp::NumericMatrix RsdBeta(sdBeta.rows, sdBeta.cols);
@@ -549,15 +557,35 @@ Rcpp::List bootstrapParametricAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Nu
     Rcpp::NumericMatrix RsdAlpha(sdAlpha.rows, sdAlpha.cols);
     std::memcpy(RsdAlpha.begin(), sdAlpha.data, sizeof(double) * sdAlpha.rows * sdAlpha.cols);
 
+    Rcpp::List result = Rcpp::List::create(
+        Rcpp::_["sd_beta"] = RsdBeta,
+        Rcpp::_["sd_alpha"] = RsdAlpha);
+    if (sdBetaInv.data != NULL)
+    {
+        Rcpp::NumericMatrix RsdBetaInv(sdBetaInv.rows, sdBetaInv.cols);
+        std::memcpy(RsdBetaInv.begin(), sdBetaInv.data, sizeof(double) * sdBetaInv.rows * sdBetaInv.cols);
+        result["sd_beta_inv"] = RsdBetaInv;
+    }
+    if (sdAlphaInv.data != NULL)
+    {
+        Rcpp::NumericMatrix RsdAlphaInv(sdAlphaInv.rows, sdAlphaInv.cols);
+        std::memcpy(RsdAlphaInv.begin(), sdAlphaInv.data, sizeof(double) * sdAlphaInv.rows * sdAlphaInv.cols);
+        result["sd_alpha_inv"] = RsdAlphaInv;
+    }
+
     freeMatrix(&sdBeta);
     freeMatrix(&sdAlpha);
+    if (sdBetaInv.data != NULL)
+        freeMatrix(&sdBetaInv);
+    if (sdAlphaInv.data != NULL)
+        freeMatrix(&sdAlphaInv);
     releaseMatrix(&XR);
     releaseMatrix(&WR);
     releaseMatrix(&VR);
     releaseMatrix(&BetaR);
     releaseMatrix(&AlphaR);
 
-    return Rcpp::List::create(Rcpp::_["sd_beta"] = RsdBeta, Rcpp::_["sd_alpha"] = RsdAlpha);
+    return result;
 }
 
 // ---- Run Group Aggregation Algorithm ---- //

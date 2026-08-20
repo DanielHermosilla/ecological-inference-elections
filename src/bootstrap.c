@@ -130,9 +130,17 @@ Matrix standardDeviations(Matrix *bootstrapResults, Matrix *sumMatrix, int total
 
 void bootstrapParametric(const Matrix *X, const Matrix *W, const Matrix *V, Matrix *beta, Matrix *alpha, int bootiter,
                          const int maxiter, const double maxtime, const double ll_threshold, const int maxnewton,
-                         const bool verbose, Matrix *sdBeta, Matrix *sdAlpha,
-                         const char *adjust_prob_cond_method, bool adjust_prob_cond_every, const char *q_method)
+                         const bool verbose, Matrix *sdBeta, Matrix *sdAlpha, Matrix *sdBetaInv, Matrix *sdAlphaInv,
+                         const char *adjust_prob_cond_method, bool adjust_prob_cond_every, const char *q_method,
+                         bool symmetric, const char *symmetric_weight_method)
 {
+    if (symmetric && symmetric_weight_method == NULL)
+        error("Parametric symmetric bootstrap requires a symmetric weighting method.");
+
+    const bool use_joint_symmetric =
+        symmetric && strcmp(symmetric_weight_method, "joint") == 0;
+    const bool use_separate_directions = symmetric && !use_joint_symmetric;
+
     // ---- Initial variables
     int bdim = W->rows;
     int samples = bdim * bootiter;
@@ -146,6 +154,15 @@ void bootstrapParametric(const Matrix *X, const Matrix *W, const Matrix *V, Matr
         fillMatrix(&infAlpha, 9999);
         *sdBeta = infBetas;
         *sdAlpha = infAlpha;
+        if (use_separate_directions)
+        {
+            Matrix infBetasInv = createMatrix(X->cols, W->cols - 1);
+            Matrix infAlphaInv = createMatrix(W->cols - 1, V->cols);
+            fillMatrix(&infBetasInv, 9999);
+            fillMatrix(&infAlphaInv, 9999);
+            *sdBetaInv = infBetasInv;
+            *sdAlphaInv = infAlphaInv;
+        }
         return;
     }
 
@@ -177,6 +194,17 @@ sampling:
     Matrix *resultsBeta = Calloc(bootiter, Matrix);
     Matrix sumMatAlpha = createMatrix(alpha->rows, alpha->cols);
     Matrix *resultsAlpha = Calloc(bootiter, Matrix);
+    Matrix sumMatBetaInv = {NULL, 0, 0};
+    Matrix sumMatAlphaInv = {NULL, 0, 0};
+    Matrix *resultsBetaInv = NULL;
+    Matrix *resultsAlphaInv = NULL;
+    if (use_separate_directions)
+    {
+        sumMatBetaInv = createMatrix(X->cols, W->cols - 1);
+        sumMatAlphaInv = createMatrix(W->cols - 1, V->cols);
+        resultsBetaInv = Calloc(bootiter, Matrix);
+        resultsAlphaInv = Calloc(bootiter, Matrix);
+    }
 
     for (int i = 0; i < bootiter; i++)
     {
@@ -199,10 +227,34 @@ sampling:
         double elapsed = 0.0;
         int total_iter = 0;
         double log_likelihood = 0.0;
-        Matrix *finalProb =
-            EM_Algorithm(&iterX, &iterW, &iterV, &BetaR, &AlphaR, maxiter, maxtime, ll_threshold, maxnewton, false,
-                         &elapsed, &total_iter, &log_likelihood, NULL, NULL,
-                         adjust_prob_cond_method, adjust_prob_cond_every, q_method, NULL);
+        Matrix *finalProb = NULL;
+        Matrix *finalProbInv = NULL;
+        Matrix BetaInvR = {NULL, 0, 0};
+        Matrix AlphaInvR = {NULL, 0, 0};
+        if (use_joint_symmetric)
+        {
+            finalProb = EM_Algorithm_Symmetric(
+                &iterX, &iterW, &iterV, &BetaR, &AlphaR, maxiter, maxtime, ll_threshold, maxnewton, false,
+                &elapsed, &total_iter, &log_likelihood, NULL, NULL,
+                adjust_prob_cond_method, adjust_prob_cond_every, q_method, NULL);
+        }
+        else
+        {
+            finalProb = EM_Algorithm(
+                &iterX, &iterW, &iterV, &BetaR, &AlphaR, maxiter, maxtime, ll_threshold, maxnewton, false,
+                &elapsed, &total_iter, &log_likelihood, NULL, NULL,
+                adjust_prob_cond_method, adjust_prob_cond_every, q_method, NULL);
+
+            if (use_separate_directions)
+            {
+                BetaInvR = createMatrix(iterX.cols, iterW.cols - 1);
+                AlphaInvR = createMatrix(iterW.cols - 1, iterV.cols);
+                finalProbInv = EM_Algorithm(
+                    &iterW, &iterX, &iterV, &BetaInvR, &AlphaInvR, maxiter, maxtime, ll_threshold, maxnewton, false,
+                    &elapsed, &total_iter, &log_likelihood, NULL, NULL,
+                    adjust_prob_cond_method, adjust_prob_cond_every, q_method, NULL);
+            }
+        }
 
         // Sum each value so later we can get the mean
         for (int g = 0; g < BetaR.rows; g++)
@@ -223,6 +275,27 @@ sampling:
         }
         resultsAlpha[i] = AlphaR;
 
+        if (use_separate_directions)
+        {
+            for (int c = 0; c < BetaInvR.rows; c++)
+            {
+                for (int g = 0; g < BetaInvR.cols; g++)
+                {
+                    MATRIX_AT(sumMatBetaInv, c, g) += MATRIX_AT(BetaInvR, c, g);
+                }
+            }
+            resultsBetaInv[i] = BetaInvR;
+
+            for (int g = 0; g < AlphaInvR.rows; g++)
+            {
+                for (int a = 0; a < AlphaInvR.cols; a++)
+                {
+                    MATRIX_AT(sumMatAlphaInv, g, a) += MATRIX_AT(AlphaInvR, g, a);
+                }
+            }
+            resultsAlphaInv[i] = AlphaInvR;
+        }
+
         // ---- Release loop allocated variables ---- //
         if (finalProb != NULL)
         {
@@ -232,6 +305,14 @@ sampling:
             }
             Free(finalProb);
         }
+        if (finalProbInv != NULL)
+        {
+            for (int b = 0; b < iterV.rows; b++)
+            {
+                freeMatrix(&finalProbInv[b]);
+            }
+            Free(finalProbInv);
+        }
         freeMatrix(&iterX);
         freeMatrix(&iterW);
         freeMatrix(&iterV);
@@ -240,6 +321,11 @@ sampling:
 
     *sdBeta = standardDeviations(resultsBeta, &sumMatBeta, bootiter);
     *sdAlpha = standardDeviations(resultsAlpha, &sumMatAlpha, bootiter);
+    if (use_separate_directions)
+    {
+        *sdBetaInv = standardDeviations(resultsBetaInv, &sumMatBetaInv, bootiter);
+        *sdAlphaInv = standardDeviations(resultsAlphaInv, &sumMatAlphaInv, bootiter);
+    }
 
     if (verbose)
     {
@@ -247,19 +333,41 @@ sampling:
         printMatrix(sdBeta);
         Rprintf("The estimated standard deviation matrix for alpha is:\n");
         printMatrix(sdAlpha);
+        if (use_separate_directions)
+        {
+            Rprintf("The estimated standard deviation matrix for reverse beta is:\n");
+            printMatrix(sdBetaInv);
+            Rprintf("The estimated standard deviation matrix for reverse alpha is:\n");
+            printMatrix(sdAlphaInv);
+        }
     }
 
     Free(indices);
     freeMatrix(&sumMatBeta);
     freeMatrix(&sumMatAlpha);
+    if (use_separate_directions)
+    {
+        freeMatrix(&sumMatBetaInv);
+        freeMatrix(&sumMatAlphaInv);
+    }
 
     for (int i = 0; i < bootiter; i++)
     {
         freeMatrix(&resultsBeta[i]);
         freeMatrix(&resultsAlpha[i]);
+        if (use_separate_directions)
+        {
+            freeMatrix(&resultsBetaInv[i]);
+            freeMatrix(&resultsAlphaInv[i]);
+        }
     }
     Free(resultsBeta);
     Free(resultsAlpha);
+    if (use_separate_directions)
+    {
+        Free(resultsBetaInv);
+        Free(resultsAlphaInv);
+    }
 }
 /**
  *  Returns an array of col-major matrices with bootstrapped matrices.
