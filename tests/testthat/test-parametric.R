@@ -32,7 +32,7 @@ test_that("run_em works in parametric mode", {
     model <- eim(X = sim$X, W = sim$W, V = sim$V)
     fit <- run_em(
         object = model,
-        method = "mult",
+        method = "mvn_pdf",
         beta_init = sim$real_beta,
         alpha_init = sim$real_alpha,
         maxiter = 3,

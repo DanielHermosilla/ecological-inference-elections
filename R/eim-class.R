@@ -495,7 +495,7 @@ run_em <- function(object = NULL,
 #'
 #' @description
 #' This function computes the Expected-Maximization (EM) algorithm "`nboot`" times. It then computes the standard deviation from the `nboot` estimated probability matrices on each component.
-#' It supports both non-parametric and parametric models; the parametric mode is enabled by providing `V` and supports `method = "mult"` and `method = "exact"`.
+#' It supports both non-parametric and parametric models; the parametric mode is enabled by providing `V` and supports `method = "mult"`, `method = "mvn_pdf"`, `method = "mvn_cdf"`, and `method = "exact"`.
 #' With `symmetric = TRUE` and `symmetric_weight_method = "joint"`, every parametric bootstrap replicate runs the joint symmetric EM. With a non-joint method, each replicate runs separate forward and reverse parametric fits. Non-parametric symmetric bootstrap supports only `"joint"`.
 #'
 #' @param nboot Integer specifying how many times to run the
@@ -628,8 +628,11 @@ bootstrap <- function(object = NULL,
     }
 
     if (is_parametric) {
-        if (!(method %in% c("mult", "exact"))) {
-            stop("bootstrap: Parametric mode only supports method = \"mult\" or method = \"exact\".")
+        if (!(method %in% c("mult", "mvn_pdf", "mvn_cdf", "exact"))) {
+            stop(
+                "bootstrap: Parametric mode only supports method = \"mult\", ",
+                "\"mvn_pdf\", \"mvn_cdf\", or \"exact\"."
+            )
         }
 
         # Applies a scaling

@@ -55,7 +55,7 @@ The returned object records the active bootstrap symmetry controls in \code{boot
 }
 \description{
 This function computes the Expected-Maximization (EM) algorithm "\code{nboot}" times. It then computes the standard deviation from the \code{nboot} estimated probability matrices on each component.
-It supports both non-parametric and parametric models; the parametric mode is enabled by providing \code{V} and supports \code{method = "mult"} and \code{method = "exact"}.
+It supports both non-parametric and parametric models; the parametric mode is enabled by providing \code{V} and supports \code{method = "mult"}, \code{method = "mvn_pdf"}, \code{method = "mvn_cdf"}, and \code{method = "exact"}.
 With \code{symmetric = TRUE} and \code{symmetric_weight_method = "joint"}, every parametric bootstrap replicate runs the joint symmetric EM. With a non-joint method, each replicate runs separate forward and reverse parametric fits. Non-parametric symmetric bootstrap supports only \code{"joint"}.
 }
 \note{

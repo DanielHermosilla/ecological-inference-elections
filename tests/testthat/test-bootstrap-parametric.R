@@ -14,7 +14,7 @@ test_that("parametric bootstrap returns beta and alpha deviations", {
         W = sim$W,
         V = sim$V,
         nboot = 3,
-        method = "mult",
+        method = "mvn_pdf",
         beta = sim$real_beta,
         alpha = sim$real_alpha,
         maxiter = 3,
@@ -110,6 +110,80 @@ test_that("non-joint parametric bootstrap returns deviations for both directions
         expect_equal(dim(boot$sd_alpha_inv), c(1, 2), info = weight_method)
         expect_true(all(is.finite(boot$sd_beta_inv)), info = weight_method)
         expect_true(all(is.finite(boot$sd_alpha_inv)), info = weight_method)
+    }
+})
+
+test_that("parametric bootstrap supports the mvn_pdf and mvn_cdf E-steps", {
+    sim <- simulate_election(
+        num_ballots = 6,
+        num_candidates = 3,
+        num_groups = 2,
+        ballot_voters = 40,
+        num_covariates = 2,
+        num_districts = 2,
+        seed = 160
+    )
+
+    for (em_method in c("mvn_pdf", "mvn_cdf")) {
+        boot <- bootstrap(
+            X = sim$X,
+            W = sim$W,
+            V = sim$V,
+            nboot = 3,
+            method = em_method,
+            beta = sim$real_beta,
+            alpha = sim$real_alpha,
+            maxiter = 3,
+            maxtime = 2,
+            maxnewton = 1
+        )
+
+        expect_s3_class(boot, "eim")
+        expect_equal(dim(boot$sd_beta), c(2, 2), info = em_method)
+        expect_equal(dim(boot$sd_alpha), c(2, 2), info = em_method)
+        expect_true(all(is.finite(boot$sd_beta)), info = em_method)
+        expect_true(all(is.finite(boot$sd_alpha)), info = em_method)
+    }
+})
+
+test_that("non-joint parametric bootstrap with mvn E-steps returns deviations for both directions", {
+    sim <- simulate_election(
+        num_ballots = 7,
+        num_candidates = 3,
+        num_groups = 2,
+        ballot_voters = rep(40, 7),
+        num_covariates = 2,
+        num_districts = 2,
+        seed = 163
+    )
+
+    for (em_method in c("mvn_pdf", "mvn_cdf")) {
+        for (weight_method in c("average", "delta_ll", "mae_inverse")) {
+            boot <- bootstrap(
+                X = sim$X,
+                W = sim$W,
+                V = sim$V,
+                nboot = 3,
+                method = em_method,
+                maxiter = 2,
+                maxtime = 2,
+                maxnewton = 1,
+                adjust_prob_cond_method = "",
+                symmetric = TRUE,
+                symmetric_weight_method = weight_method,
+                seed = 903
+            )
+
+            info <- paste(em_method, weight_method)
+            expect_true(boot$bootstrap_symmetric, info = info)
+            expect_equal(boot$bootstrap_symmetric_weight_method, weight_method, info = info)
+            expect_equal(dim(boot$sd_beta), c(2, 2), info = info)
+            expect_equal(dim(boot$sd_alpha), c(2, 2), info = info)
+            expect_equal(dim(boot$sd_beta_inv), c(3, 1), info = info)
+            expect_equal(dim(boot$sd_alpha_inv), c(1, 2), info = info)
+            expect_true(all(is.finite(boot$sd_beta_inv)), info = info)
+            expect_true(all(is.finite(boot$sd_alpha_inv)), info = info)
+        }
     }
 })
 
