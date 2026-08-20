@@ -472,13 +472,13 @@ static void getMainParameters(EMContext *ctx, int b, const Matrix probabilitiesR
  *
  * @return A contiguos array with all the new probabilities
  */
-void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
+static void computeQMultivariateCDFInternal(EMContext *ctx, Matrix *probabilities_by_ballot,
+                                            QMethodInput params, double *ll)
 {
     *ll = 0.0;
 
     Matrix *X = &ctx->X;
     double *q = ctx->q;
-    Matrix *P = &ctx->probabilities;
 
     const int B = (int)ctx->B;
     const int G = (int)ctx->G;
@@ -490,7 +490,9 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
     const char *method = params.simulationMethod;
 
     // ---- Remove last column (needed for getAverageConditional) ---- //
-    Matrix P_red = removeLastColumn(P);
+    Matrix P_red_shared = (Matrix){0};
+    if (probabilities_by_ballot == NULL)
+        P_red_shared = removeLastColumn(&ctx->probabilities);
     // allocateSeed(ctx, params);
 
     // ---- Optional log-likelihood array ---- //
@@ -506,6 +508,15 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
     // #endif
     for (uint32_t b = 0; b < (uint32_t)B; b++)
     {
+        Matrix *P = probabilities_by_ballot == NULL ? &ctx->probabilities : &probabilities_by_ballot[b];
+        Matrix P_red_ballot = (Matrix){0};
+        Matrix *P_red = &P_red_shared;
+        if (probabilities_by_ballot != NULL)
+        {
+            P_red_ballot = removeLastColumn(P);
+            P_red = &P_red_ballot;
+        }
+
         // ---- Create per-ballot structures ---- //
         Matrix **L = (Matrix **)Calloc(G, Matrix *);
         for (int g = 0; g < G; g++)
@@ -516,7 +527,7 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
         Matrix mu = createMatrix(G, d); // Mu matrix of dimension G x C-1
 
         // ---- Fill mu and cholesky (no alloc inside) ---- //
-        getMainParameters(ctx, b, P_red, L, &mu);
+        getMainParameters(ctx, b, *P_red, L, &mu);
 
         // ---- feature = X[, b] into Arena buffer ---- //
         getColumn_into(X, b, A.feature);
@@ -533,7 +544,7 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
                 // ---- Copy and adjust hypercube bounds ---- //
                 memcpy(A.featureA, A.feature, d * sizeof(double));
                 memcpy(A.featureB, A.feature, d * sizeof(double));
-                // Rprintf("Los valores de featureA y featureB son:\n");
+                // Rprintf("The values of featureA and featureB are:\n");
                 for (uint16_t k = 0; k < d; k++) // d = C-1
                 {
                     A.featureA[k] -= 0.5;
@@ -565,7 +576,7 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
                 // if (true)
                 {
                     val = pdf_midpoint(Lg, A.mu_row, A.featureA, A.featureB, d);
-                    // Rprintf("La pdf es %.16f y val2 es %.4f\n", pdf, val2);
+                    // Rprintf("The PDF is %.16f and val2 is %.4f\n", pdf, val2);
                     // Rprintf("Fallback!\n");
                 }
 
@@ -595,10 +606,13 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
         }
         Free(L);
         freeMatrix(&mu);
+        if (P_red_ballot.data != NULL)
+            freeMatrix(&P_red_ballot);
     }
 
     // ---- Cleanup global ---- //
-    freeMatrix(&P_red);
+    if (P_red_shared.data != NULL)
+        freeMatrix(&P_red_shared);
     ArenaCDF_free(&A);
 
     if (params.computeLL)
@@ -609,6 +623,17 @@ void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
         *ll = finalLL;
         Free(logArray);
     }
+}
+
+void computeQMultivariateCDF(EMContext *ctx, QMethodInput params, double *ll)
+{
+    computeQMultivariateCDFInternal(ctx, NULL, params, ll);
+}
+
+void computeQMultivariateCDFByBallot(EMContext *ctx, Matrix *probabilities_by_ballot, QMethodInput params,
+                                     double *ll)
+{
+    computeQMultivariateCDFInternal(ctx, probabilities_by_ballot, params, ll);
 }
 
 double computeLogLikMultivariateCDF(EMContext *ctx, QMethodInput params)

@@ -129,7 +129,7 @@ IntMatrix startingPoint3(EMContext *ctx, int b)
     return toReturn;
 }
 
-// 0 y C*(C-1), G(G-1)-1, o sea, sin los divididos por 2, la razón, es porque creo que es más sencillo encodear y
+// 0 and C*(C-1), G*(G-1)-1; that is, without dividing by 2, because this is easier to encode and
 // decodear de la segunda manera
 void allocateRandoms(int M, int S, uint8_t **c1, uint8_t **c2, uint8_t **g1, uint8_t **g2)
 {
@@ -519,14 +519,14 @@ double computeQ(EMContext *ctx)
     // double thirdTerm = underflowSum(q);
     // double total = -thirdTerm;
     double total = 0;
-    double borrar = 0;
-    double borrar2 = 0;
+    double debug_gamma_sum = 0;
+    double debug_first_term_sum = 0;
     for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
     {
         for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
         {
             int w_bg = MATRIX_AT_PTR(intW, b, g);
-            borrar += w_bg == 0 ? 0 : ctx->logGamma[w_bg];
+            debug_gamma_sum += w_bg == 0 ? 0 : ctx->logGamma[w_bg];
             // total += w_bg == 0 ? 0 : logGammaArr[w_bg]; // Second term
             double qsum = 0;
             double firstTerm = 0;
@@ -538,10 +538,10 @@ double computeQ(EMContext *ctx)
             }
             // First term
             total += firstTerm * w_bg;
-            borrar2 += firstTerm * w_bg;
+            debug_first_term_sum += firstTerm * w_bg;
         }
     }
-    // Rprintf("----------\nQ: %f + %f + %f\n", borrar2, borrar, -thirdTerm);
+    // Rprintf("----------\nQ: %f + %f + %f\n", debug_first_term_sum, debug_gamma_sum, -thirdTerm);
 
     return total;
 }

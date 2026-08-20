@@ -317,7 +317,7 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
             continue;
         }
 
-        // --- Log-likelihood contribution (ahora sí den existe) ---
+        // --- Log-likelihood contribution (the denominator is now available). ---
         if (g == 0 && params.computeLL && den > 0.0 && isfinite(logw_max))
         {
             double logden = logw_max + log(den);
@@ -343,27 +343,49 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
  * @return A pointer towards the flattened tensor.
  *
  */
-void computeQMultivariatePDF(EMContext *ctx, QMethodInput params, double *ll)
+static void computeQMultivariatePDFInternal(EMContext *ctx, Matrix *probabilities_by_ballot,
+                                            QMethodInput params, double *ll)
 {
     *ll = 0.0;
-
-    Matrix *probabilities = &ctx->probabilities;
-    Matrix probabilitiesReduced = removeLastColumn(probabilities);
 
     // ---- Make only one big allocation ---- //
     Arena A = Arena_init((int)ctx->G, (int)ctx->C);
 
-    for (uint32_t b = 0; b < ctx->B; ++b)
+    if (probabilities_by_ballot == NULL)
     {
-        computeQforABallot(ctx, b, probabilities, &probabilitiesReduced, ll, params, &A);
+        Matrix *probabilities = &ctx->probabilities;
+        Matrix probabilitiesReduced = removeLastColumn(probabilities);
+        for (uint32_t b = 0; b < ctx->B; ++b)
+            computeQforABallot(ctx, b, probabilities, &probabilitiesReduced, ll, params, &A);
+        freeMatrix(&probabilitiesReduced);
+    }
+    else
+    {
+        for (uint32_t b = 0; b < ctx->B; ++b)
+        {
+            Matrix *probabilities = &probabilities_by_ballot[b];
+            Matrix probabilitiesReduced = removeLastColumn(probabilities);
+            computeQforABallot(ctx, b, probabilities, &probabilitiesReduced, ll, params, &A);
+            freeMatrix(&probabilitiesReduced);
+        }
     }
 
     // ---- Free the arena ---- //
     Arena_free(&A, (int)ctx->G);
-    freeMatrix(&probabilitiesReduced);
 
     if (isnan(*ll) || isinf(*ll))
         *ll = 0.0;
+}
+
+void computeQMultivariatePDF(EMContext *ctx, QMethodInput params, double *ll)
+{
+    computeQMultivariatePDFInternal(ctx, NULL, params, ll);
+}
+
+void computeQMultivariatePDFByBallot(EMContext *ctx, Matrix *probabilities_by_ballot, QMethodInput params,
+                                     double *ll)
+{
+    computeQMultivariatePDFInternal(ctx, probabilities_by_ballot, params, ll);
 }
 
 double computeLogLikMultivariatePDF(EMContext *ctx, QMethodInput params)

@@ -28,6 +28,8 @@ extern "C"
      *
      */
     void computeQExact(EMContext *ctx, QMethodInput params, double *ll);
+    void computeQExactBallot(EMContext *ctx, uint32_t b, const Matrix *probabilities, Matrix *q_out, double *ll);
+    void freeExactCandidateArrays(uint32_t B);
 
     /**
      * @brief Cleans all of the allocated memory associated with the exact method

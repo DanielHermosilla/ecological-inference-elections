@@ -845,7 +845,7 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
     *finishing_reason = 2;
     // ---...--- //
 results:
-    config.computeQ(ctx, config.params, &newLL);           // Acá se calcula el Q, con el método respectivo
+    config.computeQ(ctx, config.params, &newLL);           // Compute Q here using the selected method.
     if (strcmp(inputParams->prob_cond, "project_lp") == 0) // Si, prob_cond == project_lp
     {
         projectQ(ctx, *inputParams);
@@ -1015,10 +1015,10 @@ void cleanup(EMContext *ctx)
         ctx->Qconstant = NULL;
     }
 
-    // ---- hset: debe ser B*G si lo indexás como [b * G + g]
+    // ---- hset must have size B*G when indexed as [b * G + g].
     if (ctx->hset != NULL)
     {
-        size_t total = (size_t)ctx->B * (size_t)ctx->G; // asegurate que así se alocó
+        size_t total = (size_t)ctx->B * (size_t)ctx->G; // Ensure it was allocated with this size.
         for (size_t idx = 0; idx < total; ++idx)
         {
             Set *s = &ctx->hset[idx];
@@ -1044,7 +1044,7 @@ void cleanup(EMContext *ctx)
     // ---- kset: idem B*G
     if (ctx->kset != NULL)
     {
-        size_t total = (size_t)ctx->B * (size_t)ctx->G; // asegurate que así se alocó
+        size_t total = (size_t)ctx->B * (size_t)ctx->G; // Ensure it was allocated with this size.
         for (size_t idx = 0; idx < total; ++idx)
         {
             Set *s = &ctx->kset[idx];

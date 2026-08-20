@@ -224,7 +224,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #' - `mcmc`: Uses MCMC to sample vote outcomes. This is used to estimate the conditional probability of the E-step.
 #' - `exact`: Solves the E-step using the Total Probability Law.
 #'
-#' When `V` is supplied (covariate mode), only `mult` is supported.
+#' When `V` is supplied (covariate mode), `mult`, `mvn_pdf`, `mvn_cdf`, and `exact` are supported.
 #'
 #' For a detailed description of each method, see [fastei-package] and **References**.
 #'
@@ -467,6 +467,9 @@ run_em <- function(object = NULL,
         adjust_prob_cond_method = adjust_prob_cond_method,
         adjust_prob_cond_every = adjust_prob_cond_every,
         maxnewton = maxnewton,
+        mvncdf_method = mvncdf_method,
+        mvncdf_error = mvncdf_error,
+        mvncdf_samples = mvncdf_samples,
         beta_init = beta_init,
         alpha_init = alpha_init,
         symmetric = symmetric,
@@ -486,7 +489,7 @@ run_em <- function(object = NULL,
 #'
 #' @description
 #' This function computes the Expected-Maximization (EM) algorithm "`nboot`" times. It then computes the standard deviation from the `nboot` estimated probability matrices on each component.
-#' It supports both non-parametric and parametric models; the parametric mode is enabled by providing `V` and only supports `method = "mult"`.
+#' It supports both non-parametric and parametric models; the parametric mode is enabled by providing `V` and supports `method = "mult"` and `method = "exact"`.
 #'
 #' @param nboot Integer specifying how many times to run the
 #'   EM algorithm.
@@ -605,8 +608,8 @@ bootstrap <- function(object = NULL,
     method <- if (!is.null(all_params$method)) all_params$method else "mult"
 
     if (is_parametric) {
-        if (method != "mult") {
-            stop("bootstrap: Parametric mode only supports method = \"mult\".")
+        if (!(method %in% c("mult", "exact"))) {
+            stop("bootstrap: Parametric mode only supports method = \"mult\" or method = \"exact\".")
         }
 
         # Applies a scaling
@@ -615,14 +618,17 @@ bootstrap <- function(object = NULL,
             object$W <- round(object$W / all_params$scale_factor)
         }
 
-        if (!allow_mismatch) {
-            mismatch_rows <- which(rowSums(object$X) != rowSums(object$W))
-            if (length(mismatch_rows) > 0) {
+        mismatch_rows <- which(rowSums(object$X) != rowSums(object$W))
+        if (length(mismatch_rows) > 0) {
+            if (!allow_mismatch) {
                 stop(
                     "bootstrap: Row-wise mismatch in vote totals detected.\n",
                     "Rows with mismatches: ", paste(mismatch_rows, collapse = ", "), "\n",
                     "To allow mismatches, set `allow_mismatch = TRUE`."
                 )
+            } else if (method == "exact") {
+                object$W <- .dhondt_correction(object$W, object$X)
+                message("Applying a D'Hondt correction for correcting mismatches in W")
             }
         }
 
@@ -674,7 +680,8 @@ bootstrap <- function(object = NULL,
             as.integer(maxnewton),
             as.logical(verbose),
             as.character(adjust_prob_cond_method),
-            as.logical(adjust_prob_cond_every)
+            as.logical(adjust_prob_cond_every),
+            method
         )
 
         object$sd_beta <- result$sd_beta

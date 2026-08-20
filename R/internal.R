@@ -568,7 +568,7 @@
     }
 
     if (method == "exact" && length(mismatch_rows) > 0) {
-        .dhondt_correction(object$W, object$X)
+        object$W <- .dhondt_correction(object$W, object$X)
         message("Applying a D'Hondt correction for correcting mismatches in W")
     }
 
@@ -1008,8 +1008,17 @@
 #' @return An updated `eim` object with parametric EM results.
 #' @noRd
 .run_em_parametric <- function(object, control) {
-    if (control$method != "mult") {
-        stop("run_em: Parametric mode only supports method = \"mult\".")
+    if (!(control$method %in% c("mult", "mvn_pdf", "mvn_cdf", "exact"))) {
+        stop(paste0(
+            "run_em: Parametric mode only supports method = \"mult\", ",
+            "\"mvn_pdf\", \"mvn_cdf\", or \"exact\"."
+        ))
+    }
+
+    if (control$method == "mvn_cdf") {
+        object$mvncdf_method <- control$mvncdf_method
+        object$mvncdf_samples <- control$mvncdf_samples
+        object$mvncdf_error <- control$mvncdf_error
     }
 
     W_matrix <- .run_em_working_group_matrix(object)
@@ -1055,7 +1064,11 @@
         control$maxnewton,
         control$verbose,
         control$adjust_prob_cond_method,
-        control$adjust_prob_cond_every
+        control$adjust_prob_cond_every,
+        control$method,
+        if (!is.null(object$mvncdf_method)) object$mvncdf_method else "genz",
+        as.numeric(if (!is.null(object$mvncdf_error)) object$mvncdf_error else 1e-3),
+        as.integer(if (!is.null(object$mvncdf_samples)) object$mvncdf_samples else 5000)
     )
 
     object <- .run_em_assign_parametric_results(object, resulting_values, W_matrix, V_matrix, control)

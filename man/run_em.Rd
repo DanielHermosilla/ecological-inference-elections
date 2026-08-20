@@ -60,7 +60,7 @@ options are:
 \item \code{exact}: Solves the E-step using the Total Probability Law.
 }
 
-When \code{V} is supplied (covariate mode), only \code{mult} is supported.
+When \code{V} is supplied (covariate mode), \code{mult}, \code{mvn_pdf}, \code{mvn_cdf}, and \code{exact} are supported.
 
 For a detailed description of each method, see \link{fastei-package} and \strong{References}.}
 

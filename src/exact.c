@@ -63,6 +63,28 @@ static inline void freeCandidateArrays(uint32_t B)
         CANDIDATEARRAYS = NULL;
     }
 }
+
+static inline void ensureCandidateArrays(EMContext *ctx)
+{
+    if (CANDIDATEARRAYS != NULL)
+        return;
+
+    Matrix *X = &ctx->X;
+    CANDIDATEARRAYS = Calloc(TOTAL_BALLOTS, size_t *);
+    for (uint32_t b = 0; b < TOTAL_BALLOTS; b++)
+    {
+        CANDIDATEARRAYS[b] = Calloc(TOTAL_CANDIDATES, size_t);
+        for (uint32_t c = 0; c < TOTAL_CANDIDATES; c++)
+        {
+            CANDIDATEARRAYS[b][c] = (size_t)MATRIX_AT_PTR(X, c, b);
+        }
+    }
+}
+
+void freeExactCandidateArrays(uint32_t B)
+{
+    freeCandidateArrays(B);
+}
 /**
  * @brief Calculate the difference between two vectors.
  *
@@ -727,22 +749,10 @@ double computeExactLoglikelihood(EMContext *ctx)
 void computeQExact(EMContext *ctx, QMethodInput params, double *ll)
 {
     Matrix *probabilities = &ctx->probabilities;
-    Matrix *X = &ctx->X;
     double *q = ctx->q;
 
     // ---------- Build CANDIDATEARRAYS once ----------
-    if (CANDIDATEARRAYS == NULL)
-    {
-        CANDIDATEARRAYS = Calloc(TOTAL_BALLOTS, size_t *);
-        for (uint16_t b = 0; b < TOTAL_BALLOTS; b++)
-        {
-            CANDIDATEARRAYS[b] = Calloc(TOTAL_CANDIDATES, size_t);
-            for (uint32_t c = 0; c < TOTAL_CANDIDATES; c++)
-            {
-                CANDIDATEARRAYS[b][c] = (size_t)MATRIX_AT_PTR(X, c, b);
-            }
-        }
-    }
+    ensureCandidateArrays(ctx);
 
     double ll_sum = 0.0;
 
@@ -796,6 +806,63 @@ void computeQExact(EMContext *ctx, QMethodInput params, double *ll)
         *ll = ll_sum;
 
     freeCandidateArrays(TOTAL_BALLOTS);
+}
+
+void computeQExactBallot(EMContext *ctx, uint32_t b, const Matrix *probabilities, Matrix *q_out, double *ll)
+{
+    uint32_t old_total_ballots = TOTAL_BALLOTS;
+    uint16_t old_total_candidates = TOTAL_CANDIDATES;
+    uint16_t old_total_groups = TOTAL_GROUPS;
+    TOTAL_BALLOTS = ctx->B;
+    TOTAL_CANDIDATES = ctx->C;
+    TOTAL_GROUPS = ctx->G;
+
+    if (b >= TOTAL_BALLOTS)
+        error("computeQExactBallot: ballot index out of bounds.");
+    if (probabilities->rows != TOTAL_GROUPS || probabilities->cols != TOTAL_CANDIDATES)
+        error("computeQExactBallot: probabilities must have dimensions G x C.");
+    if (q_out->rows != TOTAL_GROUPS || q_out->cols != TOTAL_CANDIDATES)
+        error("computeQExactBallot: q_out must have dimensions G x C.");
+
+    ensureCandidateArrays(ctx);
+    memcpy(ctx->probabilities.data, probabilities->data,
+           (size_t)TOTAL_GROUPS * (size_t)TOTAL_CANDIDATES * sizeof(double));
+
+    MemoizationTable *memo_b = initMemo();
+    recursion_one_b(ctx, b, memo_b);
+
+    double ll_b = 0.0;
+    for (uint16_t g = 0; g < TOTAL_GROUPS; g++)
+    {
+        double den = 0.0;
+        double num[TOTAL_CANDIDATES];
+
+        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+        {
+            double m = getMemoValue(memo_b, b, TOTAL_GROUPS - 1, g, c, CANDIDATEARRAYS[b], TOTAL_CANDIDATES);
+            num[c] = m * MATRIX_AT_PTR(probabilities, g, c);
+            den += num[c];
+        }
+
+        for (uint16_t c = 0; c < TOTAL_CANDIDATES; c++)
+        {
+            double result = (den != 0.0) ? (num[c] / den) : 0.0;
+            if (isnan(result) || isinf(result))
+                result = 0.0;
+            MATRIX_AT_PTR(q_out, g, c) = result;
+        }
+    }
+
+    if (ll != NULL)
+        ll_b = exactLL_one_b(memo_b, b);
+    freeMemo(memo_b);
+
+    if (ll != NULL)
+        *ll = ll_b;
+
+    TOTAL_BALLOTS = old_total_ballots;
+    TOTAL_CANDIDATES = old_total_candidates;
+    TOTAL_GROUPS = old_total_groups;
 }
 
 double computeLogLikExact(EMContext *ctx, QMethodInput params)

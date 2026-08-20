@@ -131,7 +131,7 @@ Matrix standardDeviations(Matrix *bootstrapResults, Matrix *sumMatrix, int total
 void bootstrapParametric(const Matrix *X, const Matrix *W, const Matrix *V, Matrix *beta, Matrix *alpha, int bootiter,
                          const int maxiter, const double maxtime, const double ll_threshold, const int maxnewton,
                          const bool verbose, Matrix *sdBeta, Matrix *sdAlpha,
-                         const char *adjust_prob_cond_method, bool adjust_prob_cond_every)
+                         const char *adjust_prob_cond_method, bool adjust_prob_cond_every, const char *q_method)
 {
     // ---- Initial variables
     int bdim = W->rows;
@@ -202,7 +202,7 @@ sampling:
         Matrix *finalProb =
             EM_Algorithm(&iterX, &iterW, &iterV, &BetaR, &AlphaR, maxiter, maxtime, ll_threshold, maxnewton, false,
                          &elapsed, &total_iter, &log_likelihood, NULL, NULL,
-                         adjust_prob_cond_method, adjust_prob_cond_every);
+                         adjust_prob_cond_method, adjust_prob_cond_every, q_method, NULL);
 
         // Sum each value so later we can get the mean
         for (int g = 0; g < BetaR.rows; g++)

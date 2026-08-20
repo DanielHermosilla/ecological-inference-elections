@@ -19,6 +19,8 @@ extern "C"
      * @return A pointer to a flattened 3D array (b x g x c) representing the probabilities.
      */
     void computeQMultivariatePDF(EMContext *ctx, QMethodInput params, double *ll);
+    void computeQMultivariatePDFByBallot(EMContext *ctx, Matrix *probabilities_by_ballot, QMethodInput params,
+                                         double *ll);
     double computeLogLikMultivariatePDF(EMContext *ctx, QMethodInput params);
 
 #ifdef __cplusplus

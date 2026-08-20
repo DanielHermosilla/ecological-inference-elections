@@ -47,7 +47,7 @@ For parametric models, it returns \code{sd_beta} and \code{sd_alpha} instead of 
 }
 \description{
 This function computes the Expected-Maximization (EM) algorithm "\code{nboot}" times. It then computes the standard deviation from the \code{nboot} estimated probability matrices on each component.
-It supports both non-parametric and parametric models; the parametric mode is enabled by providing \code{V} and only supports \code{method = "mult"}.
+It supports both non-parametric and parametric models; the parametric mode is enabled by providing \code{V} and supports \code{method = "mult"} and \code{method = "exact"}.
 }
 \note{
 This function can be executed using one of three mutually exclusive approaches:

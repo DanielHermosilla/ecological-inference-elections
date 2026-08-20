@@ -21,8 +21,11 @@ SOFTWARE.
 */
 
 #include "parametric_main.h"
+#include "exact.h"
 #include "LP.h"
 #include "globals.h"
+#include "multivariate-cdf.h"
+#include "multivariate-pdf.h"
 #include "utils_matrix.h"
 #include <R.h>
 #include <R_ext/BLAS.h>
@@ -72,6 +75,9 @@ typedef struct
     double *gvec;      // length D
     double *vvec;      // length D
 } EMBuffers;
+
+extern EMContext *createEMContext(Matrix *X, Matrix *W, const char *method, QMethodInput params);
+extern void cleanup(EMContext *ctx);
 
 void init_EMBuffers(EMBuffers *buf, int B, int G, int Cminus1, int A)
 {
@@ -152,6 +158,26 @@ static void copy_matrix_array(Matrix *dest, const Matrix *src, int B)
         size_t n = (size_t)src[b].rows * (size_t)src[b].cols;
         memcpy(dest[b].data, src[b].data, n * sizeof(double));
     }
+}
+
+static Matrix transpose_for_exact_context(const Matrix *X)
+{
+    Matrix transposed = createMatrix(X->cols, X->rows);
+    for (int b = 0; b < X->rows; ++b)
+    {
+        for (int c = 0; c < X->cols; ++c)
+        {
+            MATRIX_AT(transposed, c, b) = MATRIX_AT_PTR(X, b, c);
+        }
+    }
+    return transposed;
+}
+
+static EMContext *create_parametric_exact_context(Matrix *X, Matrix *W, Matrix *X_transposed)
+{
+    QMethodInput params = {0};
+    *X_transposed = transpose_for_exact_context(X);
+    return createEMContext(X_transposed, W, "exact", params);
 }
 
 static void compute_expected_outcome(const Matrix *W, Matrix *q_bgc, Matrix *expected, int B, int G, int C)
@@ -377,13 +403,110 @@ void getProbability(EMBuffers *buf,
     }
 }
 
-void E_step(Matrix *X, Matrix *W, Matrix *V, EMBuffers *buf)
+static void E_step_mvn(Matrix *X, Matrix *W, Matrix *V, EMBuffers *buf, bool use_cdf,
+                       QMethodInput *q_params, double *log_likelihood)
+{
+    const int B = buf->B;
+    const int G = buf->G;
+    const int C = buf->C;
+
+    getProbability(buf, V, &buf->alpha, &buf->beta);
+
+    Matrix X_ctx = createMatrix(C, B);
+    for (int b = 0; b < B; ++b)
+        for (int c = 0; c < C; ++c)
+            MATRIX_AT(X_ctx, c, b) = MATRIX_AT_PTR(X, b, c);
+
+    double *q_flat = (double *)Calloc((size_t)B * (size_t)G * (size_t)C, double);
+    EMContext ctx = {0};
+    ctx.X = X_ctx;
+    ctx.W = *W;
+    ctx.probabilities = buf->prob[0];
+    ctx.q = q_flat;
+    ctx.B = (uint32_t)B;
+    ctx.G = (uint16_t)G;
+    ctx.C = (uint16_t)C;
+
+    uint32_t old_total_ballots = TOTAL_BALLOTS;
+    uint16_t old_total_candidates = TOTAL_CANDIDATES;
+    uint16_t old_total_groups = TOTAL_GROUPS;
+    TOTAL_BALLOTS = (uint32_t)B;
+    TOTAL_CANDIDATES = (uint16_t)C;
+    TOTAL_GROUPS = (uint16_t)G;
+
+    QMethodInput params = {0};
+    if (q_params != NULL)
+        params = *q_params;
+    params.computeLL = log_likelihood != NULL;
+    if (use_cdf)
+    {
+        if (params.monteCarloIter <= 0)
+            params.monteCarloIter = 5000;
+        if (!(params.errorThreshold > 0.0) || !isfinite(params.errorThreshold))
+            params.errorThreshold = 1e-3;
+        if (params.simulationMethod == NULL)
+            params.simulationMethod = "genz";
+        allocateSeed(&ctx, params);
+    }
+
+    double ignored_ll = 0.0;
+    double *ll = log_likelihood != NULL ? log_likelihood : &ignored_ll;
+    if (use_cdf)
+        computeQMultivariateCDFByBallot(&ctx, buf->prob, params, ll);
+    else
+        computeQMultivariatePDFByBallot(&ctx, buf->prob, params, ll);
+
+    for (int b = 0; b < B; ++b)
+        for (int g = 0; g < G; ++g)
+            for (int c = 0; c < C; ++c)
+                MATRIX_AT(buf->q_bgc[b], g, c) = Q_3D(q_flat, b, g, c, G, C);
+
+    if (ctx.cdf_seeds != NULL)
+        Free(ctx.cdf_seeds);
+    TOTAL_BALLOTS = old_total_ballots;
+    TOTAL_CANDIDATES = old_total_candidates;
+    TOTAL_GROUPS = old_total_groups;
+    freeMatrix(&X_ctx);
+    Free(q_flat);
+}
+
+void E_step(Matrix *X, Matrix *W, Matrix *V, EMBuffers *buf, const char *q_method, QMethodInput *q_params,
+            EMContext *exact_ctx, double *log_likelihood)
 {
 
     int B = buf->B, G = buf->G, C = buf->C;
 
+    if (q_method != NULL && strcmp(q_method, "mvn_pdf") == 0)
+    {
+        E_step_mvn(X, W, V, buf, false, q_params, log_likelihood);
+        return;
+    }
+    if (q_method != NULL && strcmp(q_method, "mvn_cdf") == 0)
+    {
+        E_step_mvn(X, W, V, buf, true, q_params, log_likelihood);
+        return;
+    }
+
     // ---- Get the probabilities
     getProbability(buf, V, &buf->alpha, &buf->beta);
+
+    if (q_method != NULL && strcmp(q_method, "exact") == 0)
+    {
+        if (exact_ctx == NULL)
+            error("E_step: exact method requires an exact EM context.");
+        double total_ll = 0.0;
+        for (int b = 0; b < B; ++b)
+        {
+            double ll_b = 0.0;
+            computeQExactBallot(exact_ctx, (uint32_t)b, &buf->prob[b], &buf->q_bgc[b],
+                                log_likelihood != NULL ? &ll_b : NULL);
+            total_ll += ll_b;
+        }
+        freeExactCandidateArrays((uint32_t)B);
+        if (log_likelihood != NULL)
+            *log_likelihood = total_ll;
+        return;
+    }
 
     for (int b = 0; b < B; ++b)
     {
@@ -851,6 +974,18 @@ static double compute_ll_multinomial_log(const Matrix *X, // BxC
     return total_ll;
 }
 
+static double compute_ll_parametric(const char *q_method, Matrix *X, Matrix *W, Matrix *V, EMBuffers *buf,
+                                    EMContext *exact_ctx, QMethodInput *q_params)
+{
+    if (q_method != NULL && strcmp(q_method, "mult") != 0)
+    {
+        double ll = 0.0;
+        E_step(X, W, V, buf, q_method, q_params, exact_ctx, &ll);
+        return ll;
+    }
+    return compute_ll_multinomial_log(X, W, V, buf);
+}
+
 void M_step(Matrix *X, Matrix *W, Matrix *V, EMBuffers *buf, const double tol, const int maxnewton, const bool verbose)
 {
     int newton_iterations = Newton_damped(W, V, buf, tol, maxnewton, 0.5, 0.5);
@@ -959,7 +1094,8 @@ static void apply_joint_or_separate_lp(Matrix *X, Matrix *W, EMBuffers *forward,
 Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alpha, const int maxiter,
                      const double maxtime, const double ll_threshold, const int maxnewton, const bool verbose,
                      double *out_elapsed, int *total_iterations, double *logLikelihood, Matrix **out_q,
-                     Matrix **out_expected, const char *adjust_prob_cond_method, bool adjust_prob_cond_every)
+                     Matrix **out_expected, const char *adjust_prob_cond_method, bool adjust_prob_cond_every,
+                     const char *q_method, QMethodInput *q_params)
 {
     int B = V->rows;
     int A = V->cols;
@@ -971,6 +1107,10 @@ Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alph
     init_EMBuffers(&buf, B, G, Cm, A);
     buf.alpha = copMatrix(alpha);
     buf.beta = copMatrix(beta);
+    Matrix X_exact = (Matrix){0};
+    EMContext *exact_ctx = NULL;
+    if (q_method != NULL && strcmp(q_method, "exact") == 0)
+        exact_ctx = create_parametric_exact_context(X, W, &X_exact);
 
     bool use_project_lp = (adjust_prob_cond_method != NULL && strcmp(adjust_prob_cond_method, "project_lp") == 0);
     bool use_lp = (adjust_prob_cond_method != NULL && strcmp(adjust_prob_cond_method, "lp") == 0);
@@ -995,7 +1135,7 @@ Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alph
     {
         *total_iterations += 1;
         tol = 1.0 / (iter + 1);
-        E_step(X, W, V, &buf);
+        E_step(X, W, V, &buf, q_method, q_params, exact_ctx, NULL);
         if (adjust_prob_cond_every)
         {
             if (use_project_lp)
@@ -1005,7 +1145,7 @@ Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alph
                     LPW(X, W, buf.q_bgc, b);
         }
         M_step(X, W, V, &buf, tol, maxnewton, verbose);
-        new_ll = compute_ll_multinomial_log(X, W, V, &buf);
+        new_ll = compute_ll_parametric(q_method, X, W, V, &buf, exact_ctx, q_params);
 
         // Check if the user want to interrupt the process
         if (iter % 5 == 0)
@@ -1030,19 +1170,19 @@ Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alph
         }
         current_ll = new_ll;
     }
-    E_step(X, W, V, &buf);
+    E_step(X, W, V, &buf, q_method, q_params, exact_ctx, NULL);
     if (use_project_lp)
     {
         projectQ(X, W, &buf, &norm, scale_factors);
         M_step(X, W, V, &buf, tol, maxnewton, verbose);
-        new_ll = compute_ll_multinomial_log(X, W, V, &buf);
+        new_ll = compute_ll_parametric(q_method, X, W, V, &buf, exact_ctx, q_params);
     }
     else if (use_lp)
     {
         for (int b = 0; b < B; b++)
             LPW(X, W, buf.q_bgc, b);
         M_step(X, W, V, &buf, tol, maxnewton, verbose);
-        new_ll = compute_ll_multinomial_log(X, W, V, &buf);
+        new_ll = compute_ll_parametric(q_method, X, W, V, &buf, exact_ctx, q_params);
     }
 
     clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
@@ -1078,6 +1218,10 @@ Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alph
         Free(scale_factors);
     if (norm.data != NULL)
         freeMatrix(&norm);
+    if (exact_ctx != NULL)
+        cleanup(exact_ctx);
+    if (X_exact.data != NULL)
+        freeMatrix(&X_exact);
 
     // Matrix *finalProbability = getProbability(V, beta, alpha);
     return finalProb; // Return the final probabilities
@@ -1086,7 +1230,8 @@ Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alph
 Matrix *EM_Algorithm_Symmetric(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alpha, const int maxiter,
                                const double maxtime, const double ll_threshold, const int maxnewton, const bool verbose,
                                double *out_elapsed, int *total_iterations, double *logLikelihood, Matrix **out_q,
-                               Matrix **out_expected, const char *adjust_prob_cond_method, bool adjust_prob_cond_every)
+                               Matrix **out_expected, const char *adjust_prob_cond_method, bool adjust_prob_cond_every,
+                               const char *q_method, QMethodInput *q_params)
 {
     int B = V->rows;
     int A = V->cols;
@@ -1106,6 +1251,15 @@ Matrix *EM_Algorithm_Symmetric(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Ma
     forward.beta = copMatrix(beta);
     reverse.alpha = createMatrix(Gm, A);
     reverse.beta = createMatrix(C, Gm);
+    Matrix X_exact_forward = (Matrix){0};
+    Matrix X_exact_reverse = (Matrix){0};
+    EMContext *exact_forward = NULL;
+    EMContext *exact_reverse = NULL;
+    if (q_method != NULL && strcmp(q_method, "exact") == 0)
+    {
+        exact_forward = create_parametric_exact_context(X, W, &X_exact_forward);
+        exact_reverse = create_parametric_exact_context(W, X, &X_exact_reverse);
+    }
 
     bool use_project_lp = (adjust_prob_cond_method != NULL && strcmp(adjust_prob_cond_method, "project_lp") == 0);
     bool use_lp = (adjust_prob_cond_method != NULL && strcmp(adjust_prob_cond_method, "lp") == 0);
@@ -1144,11 +1298,11 @@ Matrix *EM_Algorithm_Symmetric(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Ma
         *total_iterations += 1;
         tol = 1.0 / (iter + 1);
 
-        E_step(X, W, V, &forward);
+        E_step(X, W, V, &forward, q_method, q_params, exact_forward, NULL);
         if (adjust_prob_cond_every && use_project_lp)
             projectQ(X, W, &forward, &norm_forward, scale_forward);
 
-        E_step(W, X, V, &reverse);
+        E_step(W, X, V, &reverse, q_method, q_params, exact_reverse, NULL);
         if (adjust_prob_cond_every && use_project_lp)
             projectQ(W, X, &reverse, &norm_reverse, scale_reverse);
 
@@ -1160,8 +1314,8 @@ Matrix *EM_Algorithm_Symmetric(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Ma
         M_step(X, W, V, &forward, tol, maxnewton, verbose);
         M_step(W, X, V, &reverse, tol, maxnewton, verbose);
 
-        new_ll_forward = compute_ll_multinomial_log(X, W, V, &forward);
-        new_ll_reverse = compute_ll_multinomial_log(W, X, V, &reverse);
+        new_ll_forward = compute_ll_parametric(q_method, X, W, V, &forward, exact_forward, q_params);
+        new_ll_reverse = compute_ll_parametric(q_method, W, X, V, &reverse, exact_reverse, q_params);
 
         if (iter % 5 == 0)
             R_CheckUserInterrupt();
@@ -1187,8 +1341,8 @@ Matrix *EM_Algorithm_Symmetric(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Ma
         old_ll_reverse = new_ll_reverse;
     }
 
-    E_step(X, W, V, &forward);
-    E_step(W, X, V, &reverse);
+    E_step(X, W, V, &forward, q_method, q_params, exact_forward, NULL);
+    E_step(W, X, V, &reverse, q_method, q_params, exact_reverse, NULL);
     average_expected_outcomes_update_q(X, W, &forward, &reverse);
     if (use_project_lp)
     {
@@ -1202,8 +1356,8 @@ Matrix *EM_Algorithm_Symmetric(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Ma
 
     M_step(X, W, V, &forward, tol, maxnewton, verbose);
     M_step(W, X, V, &reverse, tol, maxnewton, verbose);
-    new_ll_forward = compute_ll_multinomial_log(X, W, V, &forward);
-    new_ll_reverse = compute_ll_multinomial_log(W, X, V, &reverse);
+    new_ll_forward = compute_ll_parametric(q_method, X, W, V, &forward, exact_forward, q_params);
+    new_ll_reverse = compute_ll_parametric(q_method, W, X, V, &reverse, exact_reverse, q_params);
 
     clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
 
@@ -1247,6 +1401,14 @@ Matrix *EM_Algorithm_Symmetric(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Ma
         freeMatrix(&norm_forward);
     if (norm_reverse.data != NULL)
         freeMatrix(&norm_reverse);
+    if (exact_forward != NULL)
+        cleanup(exact_forward);
+    if (exact_reverse != NULL)
+        cleanup(exact_reverse);
+    if (X_exact_forward.data != NULL)
+        freeMatrix(&X_exact_forward);
+    if (X_exact_reverse.data != NULL)
+        freeMatrix(&X_exact_reverse);
 
     return finalProb;
 }

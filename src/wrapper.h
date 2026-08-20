@@ -137,7 +137,9 @@ Rcpp::List EMAlgorithmParametric(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
                                  Rcpp::NumericMatrix alpha, Rcpp::IntegerVector maximum_iterations,
                                  Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector log_stopping_threshold,
                                  Rcpp::IntegerVector maximum_newton, Rcpp::LogicalVector verbose,
-                                 Rcpp::String LP_method, Rcpp::LogicalVector project_every);
+                                 Rcpp::String LP_method, Rcpp::LogicalVector project_every,
+                                 Rcpp::String em_method, Rcpp::String monte_method,
+                                 Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter);
 
 Rcpp::List EMAlgorithmParametricSymmetric(Rcpp::NumericMatrix candidate_matrix, Rcpp::NumericMatrix group_matrix,
                                           Rcpp::NumericMatrix attribute_matrix, Rcpp::NumericMatrix beta,
@@ -145,7 +147,9 @@ Rcpp::List EMAlgorithmParametricSymmetric(Rcpp::NumericMatrix candidate_matrix, 
                                           Rcpp::NumericVector maximum_seconds,
                                           Rcpp::NumericVector log_stopping_threshold,
                                           Rcpp::IntegerVector maximum_newton, Rcpp::LogicalVector verbose,
-                                          Rcpp::String LP_method, Rcpp::LogicalVector project_every);
+                                          Rcpp::String LP_method, Rcpp::LogicalVector project_every,
+                                          Rcpp::String em_method, Rcpp::String monte_method,
+                                          Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter);
 
 /**
  * @brief Runs the parametric bootstrapping routine.
@@ -158,7 +162,7 @@ Rcpp::List bootstrapParametricAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Nu
                                   Rcpp::IntegerVector nboot, Rcpp::NumericVector maximum_seconds,
                                   Rcpp::NumericVector log_stopping_threshold, Rcpp::IntegerVector maximum_newton,
                                   Rcpp::LogicalVector verbose, Rcpp::String LP_method,
-                                  Rcpp::LogicalVector project_every);
+                                  Rcpp::LogicalVector project_every, Rcpp::String em_method);
 
 /*
  * Returns a list with an heuristic-optimal bootstrapped matrix with an ideal group aggregation.

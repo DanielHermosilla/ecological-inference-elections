@@ -45,7 +45,8 @@ extern "C"
     void bootstrapParametric(const Matrix *X, const Matrix *W, const Matrix *V, Matrix *beta, Matrix *alpha,
                              int bootiter, const int maxiter, const double maxtime, const double ll_threshold,
                              const int maxnewton, const bool verbose, Matrix *sdBeta, Matrix *sdAlpha,
-                             const char *adjust_prob_cond_method, bool adjust_prob_cond_every);
+                             const char *adjust_prob_cond_method, bool adjust_prob_cond_every,
+                             const char *q_method);
 
 #ifdef __cplusplus
 }

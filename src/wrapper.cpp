@@ -301,7 +301,9 @@ Rcpp::List EMAlgorithmParametric(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
                                  Rcpp::NumericMatrix alpha, Rcpp::IntegerVector maximum_iterations,
                                  Rcpp::NumericVector maximum_seconds, Rcpp::NumericVector log_stopping_threshold,
                                  Rcpp::IntegerVector maximum_newton, Rcpp::LogicalVector verbose,
-                                 Rcpp::String LP_method, Rcpp::LogicalVector project_every)
+                                 Rcpp::String LP_method, Rcpp::LogicalVector project_every,
+                                 Rcpp::String em_method, Rcpp::String monte_method,
+                                 Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter)
 {
     if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
         Rcpp::stop("Error: X matrix has zero dimensions!");
@@ -318,6 +320,11 @@ Rcpp::List EMAlgorithmParametric(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
     Matrix BetaR = convertToMatrix(beta);
     Matrix AlphaR = convertToMatrix(alpha);
     std::string adjust_prob_cond_method = LP_method;
+    std::string EMAlg = em_method;
+    std::string monteMethod = monte_method;
+    QMethodInput inputParams =
+        initializeQMethodInput(EMAlg, 1000, 3000, monte_iter[0], monte_error[0], 0, monteMethod, false,
+                               adjust_prob_cond_method, project_every[0], false, "average");
 
     double elapsed = 0.0;
     int total_iter = 0;
@@ -327,7 +334,8 @@ Rcpp::List EMAlgorithmParametric(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
     Matrix *finalProb =
         EM_Algorithm(&XR, &WR, &VR, &BetaR, &AlphaR, maximum_iterations[0], maximum_seconds[0],
                      log_stopping_threshold[0], maximum_newton[0], verbose[0], &elapsed, &total_iter, &logLikelihood,
-                     &condProbMat, &expectedMat, adjust_prob_cond_method.c_str(), project_every[0]);
+                     &condProbMat, &expectedMat, adjust_prob_cond_method.c_str(), project_every[0], EMAlg.c_str(),
+                     &inputParams);
 
     // ---- Build the probability array (g x c x b) ---- //
     int S = VR.rows;
@@ -381,6 +389,12 @@ Rcpp::List EMAlgorithmParametric(Rcpp::NumericMatrix candidate_matrix, Rcpp::Num
     releaseMatrix(&VR);
     releaseMatrix(&BetaR);
     releaseMatrix(&AlphaR);
+    if (inputParams.simulationMethod != nullptr)
+        free((void *)inputParams.simulationMethod);
+    if (inputParams.prob_cond != nullptr)
+        free((void *)inputParams.prob_cond);
+    if (inputParams.symmetric_weight_method != nullptr)
+        free((void *)inputParams.symmetric_weight_method);
 
     return Rcpp::List::create(Rcpp::_["prob"] = probArr, Rcpp::_["cond_prob"] = condProb,
                               Rcpp::_["expected_outcome"] = expectedOut, Rcpp::_["beta"] = Rbeta,
@@ -396,7 +410,9 @@ Rcpp::List EMAlgorithmParametricSymmetric(Rcpp::NumericMatrix candidate_matrix, 
                                           Rcpp::NumericVector maximum_seconds,
                                           Rcpp::NumericVector log_stopping_threshold,
                                           Rcpp::IntegerVector maximum_newton, Rcpp::LogicalVector verbose,
-                                          Rcpp::String LP_method, Rcpp::LogicalVector project_every)
+                                          Rcpp::String LP_method, Rcpp::LogicalVector project_every,
+                                          Rcpp::String em_method, Rcpp::String monte_method,
+                                          Rcpp::NumericVector monte_error, Rcpp::IntegerVector monte_iter)
 {
     if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
         Rcpp::stop("Error: X matrix has zero dimensions!");
@@ -413,6 +429,11 @@ Rcpp::List EMAlgorithmParametricSymmetric(Rcpp::NumericMatrix candidate_matrix, 
     Matrix BetaR = convertToMatrix(beta);
     Matrix AlphaR = convertToMatrix(alpha);
     std::string adjust_prob_cond_method = LP_method;
+    std::string EMAlg = em_method;
+    std::string monteMethod = monte_method;
+    QMethodInput inputParams =
+        initializeQMethodInput(EMAlg, 1000, 3000, monte_iter[0], monte_error[0], 0, monteMethod, false,
+                               adjust_prob_cond_method, project_every[0], true, "joint");
 
     double elapsed = 0.0;
     int total_iter = 0;
@@ -422,7 +443,7 @@ Rcpp::List EMAlgorithmParametricSymmetric(Rcpp::NumericMatrix candidate_matrix, 
     Matrix *finalProb = EM_Algorithm_Symmetric(
         &XR, &WR, &VR, &BetaR, &AlphaR, maximum_iterations[0], maximum_seconds[0], log_stopping_threshold[0],
         maximum_newton[0], verbose[0], &elapsed, &total_iter, &logLikelihood, &condProbMat, &expectedMat,
-        adjust_prob_cond_method.c_str(), project_every[0]);
+        adjust_prob_cond_method.c_str(), project_every[0], EMAlg.c_str(), &inputParams);
 
     int S = VR.rows;
     int R = finalProb[0].rows;
@@ -474,6 +495,12 @@ Rcpp::List EMAlgorithmParametricSymmetric(Rcpp::NumericMatrix candidate_matrix, 
     releaseMatrix(&VR);
     releaseMatrix(&BetaR);
     releaseMatrix(&AlphaR);
+    if (inputParams.simulationMethod != nullptr)
+        free((void *)inputParams.simulationMethod);
+    if (inputParams.prob_cond != nullptr)
+        free((void *)inputParams.prob_cond);
+    if (inputParams.symmetric_weight_method != nullptr)
+        free((void *)inputParams.symmetric_weight_method);
 
     return Rcpp::List::create(Rcpp::_["prob"] = probArr, Rcpp::_["cond_prob"] = condProb,
                               Rcpp::_["expected_outcome"] = expectedOut, Rcpp::_["beta"] = Rbeta,
@@ -489,7 +516,7 @@ Rcpp::List bootstrapParametricAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Nu
                                   Rcpp::IntegerVector nboot, Rcpp::NumericVector maximum_seconds,
                                   Rcpp::NumericVector log_stopping_threshold, Rcpp::IntegerVector maximum_newton,
                                   Rcpp::LogicalVector verbose, Rcpp::String LP_method,
-                                  Rcpp::LogicalVector project_every)
+                                  Rcpp::LogicalVector project_every, Rcpp::String em_method)
 {
     if (candidate_matrix.nrow() == 0 || candidate_matrix.ncol() == 0)
         Rcpp::stop("Error: X matrix has zero dimensions!");
@@ -506,13 +533,14 @@ Rcpp::List bootstrapParametricAlg(Rcpp::NumericMatrix candidate_matrix, Rcpp::Nu
     Matrix BetaR = convertToMatrix(beta);
     Matrix AlphaR = convertToMatrix(alpha);
     std::string adjust_prob_cond_method = LP_method;
+    std::string EMAlg = em_method;
 
     Matrix sdBeta = {NULL, 0, 0};
     Matrix sdAlpha = {NULL, 0, 0};
 
     bootstrapParametric(&XR, &WR, &VR, &BetaR, &AlphaR, nboot[0], maximum_iterations[0], maximum_seconds[0],
                         log_stopping_threshold[0], maximum_newton[0], verbose[0], &sdBeta, &sdAlpha,
-                        adjust_prob_cond_method.c_str(), project_every[0]);
+                        adjust_prob_cond_method.c_str(), project_every[0], EMAlg.c_str());
 
     // ---- Convert outputs to R matrices ---- //
     Rcpp::NumericMatrix RsdBeta(sdBeta.rows, sdBeta.cols);
