@@ -22,6 +22,7 @@ SOFTWARE.
 
 #include "parametric_main.h"
 #include "exact.h"
+#include "KL.h"
 #include "LP.h"
 #include "globals.h"
 #include "multivariate-cdf.h"
@@ -1091,6 +1092,21 @@ static void apply_joint_or_separate_lp(Matrix *X, Matrix *W, EMBuffers *forward,
     }
 }
 
+static void apply_joint_kl_or_lp(Matrix *X, Matrix *W, EMBuffers *forward, EMBuffers *reverse)
+{
+    for (int b = 0; b < forward->B; ++b)
+    {
+        int status = KL_joint_symmetric(X, W, forward->q_bgc, reverse->q_bgc, b);
+        if (status != 0)
+            status = LPW_joint_symmetric(X, W, forward->q_bgc, reverse->q_bgc, b);
+        if (status != 0)
+        {
+            LPW(X, W, forward->q_bgc, b);
+            LPW(W, X, reverse->q_bgc, b);
+        }
+    }
+}
+
 Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alpha, const int maxiter,
                      const double maxtime, const double ll_threshold, const int maxnewton, const bool verbose,
                      double *out_elapsed, int *total_iterations, double *logLikelihood, Matrix **out_q,
@@ -1264,27 +1280,6 @@ Matrix *EM_Algorithm_Symmetric(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Ma
     bool use_project_lp = (adjust_prob_cond_method != NULL && strcmp(adjust_prob_cond_method, "project_lp") == 0);
     bool use_lp = (adjust_prob_cond_method != NULL && strcmp(adjust_prob_cond_method, "lp") == 0);
 
-    double *scale_forward = NULL;
-    double *scale_reverse = NULL;
-    Matrix norm_forward = (Matrix){0};
-    Matrix norm_reverse = (Matrix){0};
-    if (use_project_lp)
-    {
-        scale_forward = (double *)Calloc(B, double);
-        scale_reverse = (double *)Calloc(B, double);
-        for (int b = 0; b < B; ++b)
-        {
-            scale_forward[b] = 1.0;
-            scale_reverse[b] = 1.0;
-        }
-        if (hasMismatch(X, W))
-            precomputeScaleFactors(scale_forward, X, W);
-        if (hasMismatch(W, X))
-            precomputeScaleFactors(scale_reverse, W, X);
-        norm_forward = precomputeNorm(scale_forward, W);
-        norm_reverse = precomputeNorm(scale_reverse, X);
-    }
-
     struct timespec t0, t1;
     clock_gettime(CLOCK_MONOTONIC_RAW, &t0);
     double old_ll_forward = -DBL_MAX;
@@ -1299,14 +1294,11 @@ Matrix *EM_Algorithm_Symmetric(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Ma
         tol = 1.0 / (iter + 1);
 
         E_step(X, W, V, &forward, q_method, q_params, exact_forward, NULL);
-        if (adjust_prob_cond_every && use_project_lp)
-            projectQ(X, W, &forward, &norm_forward, scale_forward);
-
         E_step(W, X, V, &reverse, q_method, q_params, exact_reverse, NULL);
-        if (adjust_prob_cond_every && use_project_lp)
-            projectQ(W, X, &reverse, &norm_reverse, scale_reverse);
 
-        if (adjust_prob_cond_every && use_lp)
+        if (adjust_prob_cond_every && use_project_lp)
+            apply_joint_kl_or_lp(X, W, &forward, &reverse);
+        else if (adjust_prob_cond_every && use_lp)
             apply_joint_or_separate_lp(X, W, &forward, &reverse);
 
         average_expected_outcomes_update_q(X, W, &forward, &reverse);
@@ -1343,16 +1335,11 @@ Matrix *EM_Algorithm_Symmetric(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Ma
 
     E_step(X, W, V, &forward, q_method, q_params, exact_forward, NULL);
     E_step(W, X, V, &reverse, q_method, q_params, exact_reverse, NULL);
-    average_expected_outcomes_update_q(X, W, &forward, &reverse);
     if (use_project_lp)
-    {
-        projectQ(X, W, &forward, &norm_forward, scale_forward);
-        projectQ(W, X, &reverse, &norm_reverse, scale_reverse);
-    }
-    else if (use_lp)
-    {
+        apply_joint_kl_or_lp(X, W, &forward, &reverse);
+    average_expected_outcomes_update_q(X, W, &forward, &reverse);
+    if (use_lp)
         apply_joint_or_separate_lp(X, W, &forward, &reverse);
-    }
 
     M_step(X, W, V, &forward, tol, maxnewton, verbose);
     M_step(W, X, V, &reverse, tol, maxnewton, verbose);
@@ -1393,14 +1380,6 @@ Matrix *EM_Algorithm_Symmetric(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Ma
     freeMatrix(&reverse.beta);
     free_EMBuffers(&forward);
     free_EMBuffers(&reverse);
-    if (scale_forward != NULL)
-        Free(scale_forward);
-    if (scale_reverse != NULL)
-        Free(scale_reverse);
-    if (norm_forward.data != NULL)
-        freeMatrix(&norm_forward);
-    if (norm_reverse.data != NULL)
-        freeMatrix(&norm_reverse);
     if (exact_forward != NULL)
         cleanup(exact_forward);
     if (exact_reverse != NULL)

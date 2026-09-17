@@ -20,6 +20,7 @@ test_that("run_em symmetric uses joint by default", {
 
     expect_equal(fit$symmetric_weight_method, "joint")
     expect_equal(fit$symmetric_weights, c(original = 0.5, reverse = 0.5))
+    expect_equal(fit$adjust_prob_cond_method, "lp")
     expect_null(fit$prob_inv)
     expect_null(fit$cond_prob_inv)
     expect_null(fit$expected_outcome_inv)
@@ -84,6 +85,7 @@ test_that("run_em symmetric uses joint by default in parametric mode", {
 
     expect_equal(fit$symmetric_weight_method, "joint")
     expect_equal(fit$symmetric_weights, c(original = 0.5, reverse = 0.5))
+    expect_equal(fit$adjust_prob_cond_method, "lp")
     expect_true(is.array(fit$prob))
     expect_true(is.array(fit$cond_prob))
     expect_null(fit$prob_inv)
@@ -348,6 +350,64 @@ test_that("run_em symmetric supports joint", {
     expect_false(isTRUE(fit$adjust_prob_cond_every))
     expect_prob_matrix(fit$prob)
     expect_prob_array(fit$cond_prob)
+})
+
+test_that("joint EM project_lp uses joint KL when G differs from C", {
+    sim <- simulate_election(
+        num_ballots = 8,
+        num_candidates = 4,
+        num_groups = 3,
+        ballot_voters = rep(50, 8),
+        lambda = 1,
+        seed = 148
+    )
+
+    for (adjust_every in c(FALSE, TRUE)) {
+        fit <- run_em(
+            X = sim$X,
+            W = sim$W,
+            method = "mult",
+            symmetric = TRUE,
+            symmetric_weight_method = "joint",
+            adjust_prob_cond_method = "project_lp",
+            adjust_prob_cond_every = adjust_every,
+            maxiter = 3,
+            maxtime = 2,
+            compute_ll = FALSE
+        )
+
+        expect_equal(expected_votes_from_q(sim$W, fit$cond_prob), sim$X, tolerance = 1e-7)
+    }
+})
+
+test_that("parametric joint EM project_lp uses joint KL", {
+    sim <- simulate_election(
+        num_ballots = 6,
+        num_candidates = 4,
+        num_groups = 3,
+        ballot_voters = rep(50, 6),
+        num_covariates = 2,
+        num_districts = 2,
+        seed = 149
+    )
+
+    for (adjust_every in c(FALSE, TRUE)) {
+        fit <- run_em(
+            X = sim$X,
+            W = sim$W,
+            V = sim$V,
+            method = "mult",
+            symmetric = TRUE,
+            symmetric_weight_method = "joint",
+            adjust_prob_cond_method = "project_lp",
+            adjust_prob_cond_every = adjust_every,
+            maxiter = 3,
+            maxtime = 2,
+            compute_ll = FALSE
+        )
+
+        expect_equal(expected_votes_from_q(sim$W, fit$cond_prob), sim$X, tolerance = 1e-7)
+    }
 })
 
 test_that("run_em joint supports lp with adjust_prob_cond_every TRUE/FALSE", {

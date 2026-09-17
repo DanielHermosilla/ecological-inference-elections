@@ -1,4 +1,5 @@
 #include "main_symmetric.h"
+#include "KL.h"
 #include "globals.h"
 #include "utils_matrix.h"
 #include <R.h>
@@ -24,47 +25,18 @@ static void setGlobalsFromCtx(const EMContext *ctx)
     TOTAL_VOTES = (uint32_t)ctx->total_votes;
 }
 
-static void applyProbabilityCondition(EMContext *ctx, QMethodInput inputParams, bool force_every)
+static void applyJointProbabilityCondition(EMContext *ctx_forward, EMContext *ctx_reverse, bool use_kl)
 {
-    if (((!force_every) && !inputParams.prob_cond_every) || inputParams.prob_cond == NULL ||
-        strlen(inputParams.prob_cond) == 0)
-        return;
-
-    if (strcmp(inputParams.prob_cond, "project_lp") == 0)
+    for (int b = 0; b < (int)ctx_forward->B; ++b)
     {
-        projectQ(ctx, inputParams);
-    }
-    else if (strcmp(inputParams.prob_cond, "lp") == 0)
-    {
-        for (int b = 0; b < (int)ctx->B; ++b)
-            LPW_ctx(ctx, b);
-    }
-
-    // Keep q as a proper conditional probability after any adjustment method.
-    for (int b = 0; b < (int)ctx->B; ++b)
-    {
-        for (int g = 0; g < (int)ctx->G; ++g)
+        int status = use_kl ? KL_joint_symmetric_ctx(ctx_forward, ctx_reverse, b)
+                            : LPW_joint_symmetric_ctx(ctx_forward, ctx_reverse, b);
+        if (status != 0 && use_kl)
+            status = LPW_joint_symmetric_ctx(ctx_forward, ctx_reverse, b);
+        if (status != 0)
         {
-            double sum = 0.0;
-            for (int c = 0; c < (int)ctx->C; ++c)
-            {
-                double v = Q_3D(ctx->q, b, g, c, ctx->G, ctx->C);
-                if (!isfinite(v) || v < 0.0)
-                    v = 0.0;
-                Q_3D(ctx->q, b, g, c, ctx->G, ctx->C) = v;
-                sum += v;
-            }
-            if (!isfinite(sum) || sum <= 0.0)
-            {
-                const double uniform = 1.0 / (double)ctx->C;
-                for (int c = 0; c < (int)ctx->C; ++c)
-                    Q_3D(ctx->q, b, g, c, ctx->G, ctx->C) = uniform;
-            }
-            else
-            {
-                for (int c = 0; c < (int)ctx->C; ++c)
-                    Q_3D(ctx->q, b, g, c, ctx->G, ctx->C) /= sum;
-            }
+            LPW_ctx(ctx_forward, b);
+            LPW_ctx(ctx_reverse, b);
         }
     }
 }
@@ -335,27 +307,12 @@ void runSymmetricEMWeight(EMContext *ctx_forward, const char *p_method, const ch
 
         setGlobalsFromCtx(ctx_forward);
         config_forward.computeQ(ctx_forward, config_forward.params, &newLL_forward);
-        if (run_prob_cond_each_iter && is_project_lp)
-            projectQ(ctx_forward, *inputParams);
 
         setGlobalsFromCtx(ctx_reverse);
         config_reverse.computeQ(ctx_reverse, config_reverse.params, &newLL_reverse);
-        if (run_prob_cond_each_iter && is_project_lp)
-            projectQ(ctx_reverse, *inputParams);
 
-        if (run_prob_cond_each_iter && is_lp)
-        {
-            for (int b = 0; b < (int)ctx_forward->B; ++b)
-            {
-                int status = LPW_joint_symmetric_ctx(ctx_forward, ctx_reverse, b);
-                if (status != 0)
-                {
-                    // Safety fallback: keep the original behavior if the joint LP fails.
-                    LPW_ctx(ctx_forward, b);
-                    LPW_ctx(ctx_reverse, b);
-                }
-            }
-        }
+        if (run_prob_cond_each_iter && (is_lp || is_project_lp))
+            applyJointProbabilityCondition(ctx_forward, ctx_reverse, is_project_lp);
 
         averageEstimatedVotesAndUpdateQ(ctx_forward, ctx_reverse);
 
@@ -435,29 +392,17 @@ void runSymmetricEMWeight(EMContext *ctx_forward, const char *p_method, const ch
     setGlobalsFromCtx(ctx_reverse);
     config_reverse.computeQ(ctx_reverse, config_reverse.params, &newLL_reverse);
 
+    const bool run_final_adjustment = shouldRunFinalMStep(*inputParams);
+    const bool final_project_lp = run_final_adjustment && strcmp(inputParams->prob_cond, "project_lp") == 0;
+    const bool final_lp = run_final_adjustment && strcmp(inputParams->prob_cond, "lp") == 0;
+
+    if (final_project_lp)
+        applyJointProbabilityCondition(ctx_forward, ctx_reverse, true);
+
     averageEstimatedVotesAndUpdateQ(ctx_forward, ctx_reverse);
 
-    if (shouldRunFinalMStep(*inputParams))
-    {
-        if (strcmp(inputParams->prob_cond, "lp") == 0)
-        {
-            for (int b = 0; b < (int)ctx_forward->B; ++b)
-            {
-                int status = LPW_joint_symmetric_ctx(ctx_forward, ctx_reverse, b);
-                if (status != 0)
-                {
-                    // Safety fallback: keep the original behavior if the joint LP fails.
-                    LPW_ctx(ctx_forward, b);
-                    LPW_ctx(ctx_reverse, b);
-                }
-            }
-        }
-        else
-        {
-            applyProbabilityCondition(ctx_forward, *inputParams, true);
-            applyProbabilityCondition(ctx_reverse, *inputParams, true);
-        }
-    }
+    if (final_lp)
+        applyJointProbabilityCondition(ctx_forward, ctx_reverse, false);
 
     setGlobalsFromCtx(ctx_forward);
     getP(ctx_forward);
