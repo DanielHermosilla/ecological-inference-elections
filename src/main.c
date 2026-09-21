@@ -150,7 +150,7 @@ void precomputeScaleFactors(double *scale_factors, Matrix *X, Matrix *W)
             sum_x += MATRIX_AT_PTR(X, c, b);
         for (int g = 0; g < TOTAL_GROUPS; g++)
             sum_w += MATRIX_AT_PTR(W, b, g);
-        double escala = sum_x / sum_w;
+        double escala = sum_w > 0.0 ? sum_x / sum_w : 1.0;
         scale_factors[b] = escala;
     }
 }
@@ -169,6 +169,8 @@ Matrix precomputeNorm(double *scale_factors, Matrix *X, Matrix *W)
             sum += MATRIX_AT_PTR(W, b, g) * MATRIX_AT_PTR(W, b, g);
         }
         sum *= scale_factors[b];
+        if (!(sum > 0.0) || !isfinite(sum))
+            continue;
         for (int g = 0; g < TOTAL_GROUPS; g++)
         {
             MATRIX_AT(returnMat, b, g) = MATRIX_AT_PTR(W, b, g) / sum;

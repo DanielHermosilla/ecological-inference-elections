@@ -28,6 +28,7 @@ SOFTWARE.
 #include <R_ext/RS.h> /* for R_Calloc/R_Free, F77_CALL */
 #include <Rinternals.h>
 #include <Rmath.h>
+#include <float.h>
 #include <math.h>
 #include <stdint.h>
 #include <unistd.h>
@@ -127,6 +128,106 @@ static inline void getRow_into(const Matrix *M, int row, double *out)
         out[c] = MATRIX_AT_PTR(M, row, c);
 }
 
+static double logMultivariateNormalDensity(const Matrix *sigma, const double *diff, Arena *A, int n)
+{
+    Matrix factor = copMatrix(sigma);
+    char lower = 'L';
+    int info = 0;
+    F77_CALL(dpotrf)(&lower, &n, factor.data, &n, &info FCONE);
+
+    if (info < 0)
+    {
+        freeMatrix(&factor);
+        error("Multivariate PDF: invalid argument %d in the Cholesky factorization.", -info);
+    }
+    if (info == 0)
+    {
+        double log_determinant = 0.0;
+        for (int i = 0; i < n; ++i)
+            log_determinant += 2.0 * log(MATRIX_AT(factor, i, i));
+        double mahalanobis = getMahanalobisDist2(&factor, diff, A->y, A->z, A->ec, NULL, n,
+                                                 /*need_z*/ false, /*need_diag*/ false);
+        freeMatrix(&factor);
+        return -0.5 * ((double)n * log(2.0 * M_PI) + log_determinant + mahalanobis);
+    }
+    freeMatrix(&factor);
+
+    // Degenerate Gaussian: evaluate the density on the covariance support.
+    Matrix eigenvectors = copMatrix(sigma);
+    double *eigenvalues = (double *)Calloc(n, double);
+    char vectors = 'V';
+    char upper = 'U';
+    int lwork = -1;
+    double query = 0.0;
+    F77_CALL(dsyev)(&vectors, &upper, &n, eigenvectors.data, &n, eigenvalues, &query, &lwork, &info FCONE FCONE);
+    if (info != 0)
+    {
+        freeMatrix(&eigenvectors);
+        Free(eigenvalues);
+        return R_NegInf;
+    }
+
+    lwork = (int)query;
+    if (lwork < 1)
+        lwork = 1;
+    double *work = (double *)Calloc(lwork, double);
+    F77_CALL(dsyev)
+    (&vectors, &upper, &n, eigenvectors.data, &n, eigenvalues, work, &lwork, &info FCONE FCONE);
+    Free(work);
+    if (info != 0)
+    {
+        freeMatrix(&eigenvectors);
+        Free(eigenvalues);
+        return R_NegInf;
+    }
+
+    double max_eigenvalue = 0.0;
+    double diff_norm = 0.0;
+    for (int i = 0; i < n; ++i)
+    {
+        max_eigenvalue = fmax(max_eigenvalue, fabs(eigenvalues[i]));
+        diff_norm += diff[i] * diff[i];
+    }
+    const double eigen_tolerance = fmax(1.0, max_eigenvalue) * DBL_EPSILON * 100.0 * (double)n;
+    const double support_tolerance = 1e-8 * (1.0 + sqrt(diff_norm));
+    double residual = 0.0;
+    double log_pseudodeterminant = 0.0;
+    double mahalanobis = 0.0;
+    int rank = 0;
+
+    for (int k = 0; k < n; ++k)
+    {
+        double projection = 0.0;
+        for (int i = 0; i < n; ++i)
+            projection += MATRIX_AT(eigenvectors, i, k) * diff[i];
+
+        if (eigenvalues[k] > eigen_tolerance)
+        {
+            ++rank;
+            log_pseudodeterminant += log(eigenvalues[k]);
+            mahalanobis += projection * projection / eigenvalues[k];
+        }
+        else if (eigenvalues[k] < -eigen_tolerance)
+        {
+            residual = INFINITY;
+            break;
+        }
+        else
+        {
+            residual += projection * projection;
+        }
+    }
+
+    freeMatrix(&eigenvectors);
+    Free(eigenvalues);
+
+    if (!isfinite(residual) || sqrt(residual) > support_tolerance)
+        return R_NegInf;
+    if (rank == 0)
+        return 0.0;
+    return -0.5 * ((double)rank * log(2.0 * M_PI) + log_pseudodeterminant + mahalanobis);
+}
+
 /**
  * @brief Computes the `q` values for a given ballot box.
  *
@@ -156,6 +257,19 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
     // ---- Feature vector (candidate results) ---- //
     getColumn_into(X, b, A->feature);
 
+    // ---- Unconditional MVN log-likelihood ---- //
+    if (params.computeLL)
+    {
+        Matrix likelihoodSigma = createMatrix(n, n);
+        getParams(ctx, b, probabilitiesReduced, A->muG, &likelihoodSigma);
+
+        for (int i = 0; i < n; ++i)
+            A->diff[i] = A->feature[i] - A->muG[i];
+
+        *ll += logMultivariateNormalDensity(&likelihoodSigma, A->diff, A, n);
+        freeMatrix(&likelihoodSigma);
+    }
+
     // ---- Sigma preparation depending on C ---- //
     if (C == 2)
     {
@@ -171,42 +285,6 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
         for (int g = 0; g < G; ++g)
         {
             choleskyMat(A->sigma[g]); // store L (lower) in A->sigma[g]
-        }
-    }
-
-    // ---- Log-normalization constant for log-likelihood ---- //
-    // Uses the same covariance for all groups in this ballot (`sigma[0]`), as in the existing approximation.
-    double logNormalizeConstant = 0.0;
-    if (params.computeLL)
-    {
-        if (C == 2)
-        {
-            // For C=2, sigma is 1x1 and has already been inverted in-place: sigma^{-1} = 1/var.
-            double inv_var = MATRIX_AT_PTR(A->sigma[0], 0, 0);
-            if (inv_var > 0.0 && isfinite(inv_var))
-            {
-                logNormalizeConstant = -0.5 * log(2.0 * M_PI) + 0.5 * log(inv_var);
-            }
-        }
-        else
-        {
-            // For C>2, sigma stores Cholesky L after factorization: |Sigma| = prod(diag(L))^2.
-            double sum_log_diag = 0.0;
-            bool valid_diag = true;
-            for (int c = 0; c < n; ++c)
-            {
-                double d = MATRIX_AT_PTR(A->sigma[0], c, c);
-                if (!(d > 0.0) || !isfinite(d))
-                {
-                    valid_diag = false;
-                    break;
-                }
-                sum_log_diag += log(d);
-            }
-            if (valid_diag)
-            {
-                logNormalizeConstant = -0.5 * ((double)n) * log(2.0 * M_PI) - sum_log_diag;
-            }
         }
     }
 
@@ -317,13 +395,6 @@ void computeQforABallot(EMContext *ctx, int b, const Matrix *probabilities, cons
             continue;
         }
 
-        // --- Log-likelihood contribution (ahora sí den existe) ---
-        if (g == 0 && params.computeLL && den > 0.0 && isfinite(logw_max))
-        {
-            double logden = logw_max + log(den);
-            *ll += logNormalizeConstant + logden;
-        }
-
         // --- Normalize and store q (normal path) ---
         for (int c = 0; c < C; ++c)
         {
@@ -362,8 +433,8 @@ void computeQMultivariatePDF(EMContext *ctx, QMethodInput params, double *ll)
     Arena_free(&A, (int)ctx->G);
     freeMatrix(&probabilitiesReduced);
 
-    if (isnan(*ll) || isinf(*ll))
-        *ll = 0.0;
+    if (isnan(*ll))
+        *ll = R_NegInf;
 }
 
 double computeLogLikMultivariatePDF(EMContext *ctx, QMethodInput params)

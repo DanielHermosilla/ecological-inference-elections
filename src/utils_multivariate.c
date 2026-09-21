@@ -84,6 +84,18 @@ void getParams(EMContext *ctx, int b, const Matrix *probabilitiesReduced, double
     // --- Calculations --- //
     // ---- The votes that a group has made on a given ballot ----
     double *groupVotesPerBallot = getRow(W, b);
+    double sum_x = 0.0;
+    double sum_w = 0.0;
+    for (int c = 0; c < (int)ctx->C; ++c)
+        sum_x += MATRIX_AT_PTR(X, c, b);
+    for (int g = 0; g < (int)ctx->G; ++g)
+        sum_w += groupVotesPerBallot[g];
+
+    // Preserve within-ballot group proportions while matching the observed vote total.
+    // If W is entirely zero, no proportional rescaling exists and it remains a degenerate row.
+    const double scale = sum_w > 0.0 ? sum_x / sum_w : 1.0;
+    for (int g = 0; g < (int)ctx->G; ++g)
+        groupVotesPerBallot[g] *= scale;
 
     // ---- Computation of mu ----
     // ---- Performing the matrix multiplication of p^T * w_b
