@@ -28,7 +28,7 @@ test_that("run_em symmetric uses joint by default", {
     expect_prob_array(fit$cond_prob)
 })
 
-test_that("joint EM project_lp uses joint KL when G differs from C", {
+test_that("joint EM project_lp warns and uses lp when G differs from C", {
     sim <- simulate_election(
         num_ballots = 8,
         num_candidates = 4,
@@ -39,19 +39,25 @@ test_that("joint EM project_lp uses joint KL when G differs from C", {
     )
 
     for (adjust_every in c(FALSE, TRUE)) {
-        fit <- run_em(
-            X = sim$X,
-            W = sim$W,
-            method = "mult",
-            symmetric = TRUE,
-            symmetric_weight_method = "joint",
-            adjust_prob_cond_method = "project_lp",
-            adjust_prob_cond_every = adjust_every,
-            maxiter = 3,
-            maxtime = 2,
-            compute_ll = FALSE
+        fit <- NULL
+        expect_warning(
+            fit <- run_em(
+                X = sim$X,
+                W = sim$W,
+                method = "mult",
+                symmetric = TRUE,
+                symmetric_weight_method = "joint",
+                adjust_prob_cond_method = "project_lp",
+                adjust_prob_cond_every = adjust_every,
+                maxiter = 3,
+                maxtime = 2,
+                compute_ll = FALSE
+            ),
+            "'project_lp' is not supported in 'joint_em'. Running the default with 'lp'.",
+            fixed = TRUE
         )
 
+        expect_equal(fit$adjust_prob_cond_method, "lp")
         expect_equal(expected_votes_from_q(sim$W, fit$cond_prob), sim$X, tolerance = 1e-7)
     }
 })
