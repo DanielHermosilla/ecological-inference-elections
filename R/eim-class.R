@@ -264,7 +264,7 @@ eim <- function(X = NULL, W = NULL, V = NULL, json_path = NULL) {
 #'
 #' @param maxnewton Maximum number of Newton iterations used in the parametric M-step. Default is 1. Ignored if no covariates are provided (i.e., `V = NULL`).
 #'
-#' @param adjust_prob_cond_method An optional string indicating the method to adjust the conditional probability so that for each candidate, the sum product of voters and conditional probabilities across groups equals the votes obtained by the candidate. It can take values: `""` if no adjusting is made, `"lp"` if the adjustment is based on a linear programming that penalizes with L1-norm, or `"project_lp"`. The default is `"lp"` for Joint-EM (`symmetric = TRUE` and `symmetric_weight_method = "joint"`) and `"project_lp"` otherwise. In Joint-EM, an explicit `"project_lp"` jointly projects the forward and reverse estimated-count tables in KL divergence using iterative proportional fitting; in the other modes it keeps the projection-plus-LP adjustment.
+#' @param adjust_prob_cond_method An optional string indicating the method to adjust the conditional probability so that for each candidate, the sum product of voters and conditional probabilities across groups equals the votes obtained by the candidate. It can take values: `""` if no adjusting is made, `"lp"` if the adjustment is based on a linear programming that penalizes with L1-norm, or `"project_lp"`. The default is `"lp"` for Joint-EM (`symmetric = TRUE` and `symmetric_weight_method = "joint"`) and `"project_lp"` otherwise. `"project_lp"` is not supported in Joint-EM: requesting it issues a warning and runs `"lp"` instead. In the other modes it keeps the projection-plus-LP adjustment.
 #'
 #' @param adjust_prob_cond_every An optional boolean indicating whether to adjust the conditional probability on every iteration (if `TRUE`), or only at the conditional probabilities obtained at the end of the EM algorithm (if `FALSE`, this is the default). This parameter applies only if `adjust_prob_conditional_method` is `lp` or `project_lp`.
 #'
@@ -441,10 +441,18 @@ run_em <- function(object = NULL,
     all_params <- lapply(as.list(match.call(expand.dots = TRUE)), eval, parent.frame())
     .validate_compute(all_params) # nolint
 
-    if (!("adjust_prob_cond_method" %in% names(all_params)) &&
-        isTRUE(symmetric) && identical(symmetric_weight_method, "joint")) {
-        adjust_prob_cond_method <- "lp"
-        all_params$adjust_prob_cond_method <- adjust_prob_cond_method
+    if (isTRUE(symmetric) && identical(symmetric_weight_method, "joint")) {
+        if (!("adjust_prob_cond_method" %in% names(all_params))) {
+            adjust_prob_cond_method <- "lp"
+            all_params$adjust_prob_cond_method <- adjust_prob_cond_method
+        } else if (identical(adjust_prob_cond_method, "project_lp")) {
+            warning(
+                "'project_lp' is not supported in 'joint_em'. Running the default with 'lp'.",
+                call. = FALSE
+            )
+            adjust_prob_cond_method <- "lp"
+            all_params$adjust_prob_cond_method <- adjust_prob_cond_method
+        }
     }
 
     if (!is.null(seed)) {
