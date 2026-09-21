@@ -228,7 +228,7 @@ static void precomputeScaleFactors(double *scale_factors, const Matrix *X, const
             sum_x += MATRIX_AT_PTR(X, b, c);
         for (int g = 0; g < G; g++)
             sum_w += MATRIX_AT_PTR(W, b, g);
-        scale_factors[b] = sum_x / sum_w;
+        scale_factors[b] = sum_w > 0.0 ? sum_x / sum_w : 1.0;
     }
 }
 
@@ -246,6 +246,8 @@ static Matrix precomputeNorm(const double *scale_factors, const Matrix *W)
             sum += w * w;
         }
         sum *= scale_factors[b];
+        if (!(sum > 0.0) || !isfinite(sum))
+            continue;
         for (int g = 0; g < G; g++)
             MATRIX_AT(norm, b, g) = MATRIX_AT_PTR(W, b, g) / sum;
     }
