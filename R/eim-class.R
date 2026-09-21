@@ -403,7 +403,8 @@ run_em <- function(object = NULL,
         } else if (identical(adjust_prob_cond_method, "project_lp")) {
             warning(
                 "'project_lp' is not supported in 'joint_em'. Running the default with 'lp'.",
-                call. = FALSE
+                call. = FALSE,
+                immediate. = TRUE
             )
             adjust_prob_cond_method <- "lp"
             all_params$adjust_prob_cond_method <- adjust_prob_cond_method
