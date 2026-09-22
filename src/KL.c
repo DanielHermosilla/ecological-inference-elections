@@ -76,6 +76,7 @@ static int project_ballot_kl(const KLJointInput *input, int b)
 {
     const int G = input->G;
     const int C = input->C;
+    const bool use_reverse = input->q_reverse_bcg != NULL || input->q_reverse != NULL;
     double sum_w = 0.0;
     double sum_x = 0.0;
 
@@ -130,14 +131,18 @@ static int project_ballot_kl(const KLJointInput *input, int b)
             }
 
             double z_forward = w[g] * kl_get_q_forward(input, b, g, c);
-            double z_reverse = x[c] * kl_get_q_reverse(input, b, c, g);
             if (!isfinite(z_forward) || z_forward < KL_EPS)
                 z_forward = KL_EPS;
-            if (!isfinite(z_reverse) || z_reverse < KL_EPS)
-                z_reverse = KL_EPS;
-            // The equal-weight joint KL objective is an I-projection from this
-            // geometric mean of the forward and reverse estimated counts.
-            z[gc] = exp(0.5 * (log(z_forward) + log(z_reverse)));
+            z[gc] = z_forward;
+            if (use_reverse)
+            {
+                double z_reverse = x[c] * kl_get_q_reverse(input, b, c, g);
+                if (!isfinite(z_reverse) || z_reverse < KL_EPS)
+                    z_reverse = KL_EPS;
+                // The equal-weight joint KL objective is an I-projection from this
+                // geometric mean of the forward and reverse estimated counts.
+                z[gc] = exp(0.5 * (log(z_forward) + log(z_reverse)));
+            }
         }
     }
 
@@ -215,7 +220,7 @@ static int project_ballot_kl(const KLJointInput *input, int b)
             const double value = z[g * C + c];
             if (w[g] > 0.0)
                 kl_set_q_forward(input, b, g, c, value / w[g]);
-            if (x[c] > 0.0)
+            if (use_reverse && x[c] > 0.0)
                 kl_set_q_reverse(input, b, c, g, value / x[c]);
         }
     }
@@ -230,6 +235,38 @@ cleanup:
     Free(x);
     Free(z);
     return -100;
+}
+
+int KL_project(const Matrix *X, const Matrix *W, Matrix *q_forward, int b)
+{
+    if (X == NULL || W == NULL || q_forward == NULL)
+        return -1;
+    if (X->rows != W->rows || b < 0 || b >= X->rows)
+        return -1;
+
+    KLJointInput input = {0};
+    input.X = X;
+    input.W = W;
+    input.q_forward_bgc = q_forward;
+    input.G = W->cols;
+    input.C = X->cols;
+    input.x_is_cb = false;
+    return project_ballot_kl(&input, b);
+}
+
+int KL_project_ctx(EMContext *ctx, int b)
+{
+    if (ctx == NULL || b < 0 || b >= (int)ctx->B)
+        return -1;
+
+    KLJointInput input = {0};
+    input.X = &ctx->X;
+    input.W = &ctx->W;
+    input.q_forward = ctx->q;
+    input.G = (int)ctx->G;
+    input.C = (int)ctx->C;
+    input.x_is_cb = true;
+    return project_ballot_kl(&input, b);
 }
 
 int KL_joint_symmetric(const Matrix *X, const Matrix *W, Matrix *q_forward, Matrix *q_reverse, int b)

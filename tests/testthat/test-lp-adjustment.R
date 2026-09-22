@@ -30,11 +30,24 @@ test_that("LP adjustment matches candidate totals", {
         adjust_prob_cond_every = TRUE
     )
 
+    fit_kl <- run_em(
+        X = sim$X,
+        W = sim$W,
+        method = "mult",
+        maxiter = 4,
+        maxtime = 2,
+        compute_ll = FALSE,
+        adjust_prob_cond_method = "kl",
+        adjust_prob_cond_every = TRUE
+    )
+
     xhat_lp <- expected_votes_from_q(sim$W, fit_lp$cond_prob)
     xhat_project <- expected_votes_from_q(sim$W, fit_project$cond_prob)
+    xhat_kl <- expected_votes_from_q(sim$W, fit_kl$cond_prob)
 
     expect_equal(xhat_lp, sim$X, tolerance = 1e-4)
     expect_equal(xhat_project, sim$X, tolerance = 1e-4)
+    expect_equal(xhat_kl, sim$X, tolerance = 1e-7)
 }) 
 
 test_that("symmetric LP adjustment is stable with large ballot counts", {

@@ -62,6 +62,35 @@ test_that("joint EM project_lp warns and uses lp when G differs from C", {
     }
 })
 
+test_that("joint EM supports kl when G differs from C", {
+    sim <- simulate_election(
+        num_ballots = 8,
+        num_candidates = 4,
+        num_groups = 3,
+        ballot_voters = rep(50, 8),
+        lambda = 1,
+        seed = 148
+    )
+
+    for (adjust_every in c(FALSE, TRUE)) {
+        fit <- run_em(
+            X = sim$X,
+            W = sim$W,
+            method = "mult",
+            symmetric = TRUE,
+            symmetric_weight_method = "joint",
+            adjust_prob_cond_method = "kl",
+            adjust_prob_cond_every = adjust_every,
+            maxiter = 3,
+            maxtime = 2,
+            compute_ll = FALSE
+        )
+
+        expect_equal(fit$adjust_prob_cond_method, "kl")
+        expect_equal(expected_votes_from_q(sim$W, fit$cond_prob), sim$X, tolerance = 1e-7)
+    }
+})
+
 test_that("run_em symmetric average preserves inverse outputs", {
     sim <- simulate_election(
         num_ballots = 6,
