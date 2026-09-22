@@ -12,7 +12,7 @@ The following library includes a method (`run_em`) to solve the R×C Ecological 
 
 It also provides a function that generates synthetic election data (`simulate_election`) and a function that imports real election data (`chilean_election_2021`) from the Chilean first-round presidential election of 2021.
 
-The setting in which the documentation presents the Ecological Inference problem is an election context where for a set of ballot-boxes we observe (i) the votes obtained by each candidate and (ii) the number of voters of each demographic group (for example, these can be defined by age ranges or sex). See [Thraves, C., Ubilla, P., Hermosilla, D. (2024): "A Fast Ecological Inference Algorithm for the R×C Case".](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834).
+The setting in which the documentation presents the Ecological Inference problem is an election context where for a set of ballot-boxes we observe (i) the votes obtained by each candidate and (ii) the number of voters of each demographic group (for example, these can be defined by age ranges or sex). See [Ubilla Pavez, P., Hermosilla, D. and Thraves, C. (2026): "An accurate, fast, and scalable ecological inference algorithm for the R×C case". Statistics and Computing, 36, Article 195.](https://link.springer.com/article/10.1007/s11222-026-10946-1).
 
 The methods to compute the conditional probabilities of the E-Step included in this package are the following:
 
