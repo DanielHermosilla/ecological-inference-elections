@@ -30,12 +30,64 @@ test_that("LP adjustment matches candidate totals", {
         adjust_prob_cond_every = TRUE
     )
 
+    fit_kl <- run_em(
+        X = sim$X,
+        W = sim$W,
+        method = "mult",
+        maxiter = 4,
+        maxtime = 2,
+        compute_ll = FALSE,
+        adjust_prob_cond_method = "kl",
+        adjust_prob_cond_every = TRUE
+    )
+
     xhat_lp <- expected_votes_from_q(sim$W, fit_lp$cond_prob)
     xhat_project <- expected_votes_from_q(sim$W, fit_project$cond_prob)
+    xhat_kl <- expected_votes_from_q(sim$W, fit_kl$cond_prob)
 
     expect_equal(xhat_lp, sim$X, tolerance = 1e-4)
     expect_equal(xhat_project, sim$X, tolerance = 1e-4)
+    expect_equal(xhat_kl, sim$X, tolerance = 1e-7)
 }) 
+
+test_that("parametric KL adjustment matches candidate totals", {
+    sim <- simulate_election(
+        num_ballots = 4,
+        num_candidates = 3,
+        num_groups = 2,
+        ballot_voters = rep(20, 4),
+        num_covariates = 2,
+        num_districts = 2,
+        seed = 131
+    )
+
+    for (method in c("mult", "mvn_pdf", "mvn_cdf", "exact")) {
+        for (symmetric in c(FALSE, TRUE)) {
+            fit <- run_em(
+                X = sim$X,
+                W = sim$W,
+                V = sim$V,
+                method = method,
+                symmetric = symmetric,
+                symmetric_weight_method = "joint",
+                maxiter = 2,
+                maxtime = 2,
+                compute_ll = FALSE,
+                mvncdf_samples = 100,
+                adjust_prob_cond_method = "kl",
+                adjust_prob_cond_every = TRUE
+            )
+
+            expect_equal(fit$adjust_prob_cond_method, "kl")
+            expect_equal(
+                expected_votes_from_q(sim$W, fit$cond_prob),
+                sim$X,
+                tolerance = 1e-7,
+                info = paste(method, if (symmetric) "joint" else "one-direction")
+            )
+        }
+    }
+})
 
 test_that("symmetric LP adjustment is stable with large ballot counts", {
     set.seed(1)

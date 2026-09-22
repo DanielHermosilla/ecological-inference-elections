@@ -1130,6 +1130,7 @@ Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alph
     if (q_method != NULL && strcmp(q_method, "exact") == 0)
         exact_ctx = create_parametric_exact_context(X, W, &X_exact);
 
+    bool use_kl = (adjust_prob_cond_method != NULL && strcmp(adjust_prob_cond_method, "kl") == 0);
     bool use_project_lp = (adjust_prob_cond_method != NULL && strcmp(adjust_prob_cond_method, "project_lp") == 0);
     bool use_lp = (adjust_prob_cond_method != NULL && strcmp(adjust_prob_cond_method, "lp") == 0);
     double *scale_factors = NULL;
@@ -1158,6 +1159,10 @@ Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alph
         {
             if (use_project_lp)
                 projectQ(X, W, &buf, &norm, scale_factors);
+            else if (use_kl)
+                for (int b = 0; b < B; b++)
+                    if (KL_project(X, W, buf.q_bgc, b) != 0)
+                        LPW(X, W, buf.q_bgc, b);
             else if (use_lp)
                 for (int b = 0; b < B; b++)
                     LPW(X, W, buf.q_bgc, b);
@@ -1195,12 +1200,35 @@ Matrix *EM_Algorithm(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Matrix *alph
         M_step(X, W, V, &buf, tol, maxnewton, verbose);
         new_ll = compute_ll_parametric(q_method, X, W, V, &buf, exact_ctx, q_params);
     }
+    else if (use_kl)
+    {
+        for (int b = 0; b < B; b++)
+            if (KL_project(X, W, buf.q_bgc, b) != 0)
+                LPW(X, W, buf.q_bgc, b);
+        M_step(X, W, V, &buf, tol, maxnewton, verbose);
+        new_ll = compute_ll_parametric(q_method, X, W, V, &buf, exact_ctx, q_params);
+    }
     else if (use_lp)
     {
         for (int b = 0; b < B; b++)
             LPW(X, W, buf.q_bgc, b);
         M_step(X, W, V, &buf, tol, maxnewton, verbose);
         new_ll = compute_ll_parametric(q_method, X, W, V, &buf, exact_ctx, q_params);
+    }
+
+    // Non-multinomial likelihood evaluation runs an E-step and overwrites q.
+    // Reapply the requested final adjustment before returning q.
+    if (q_method != NULL && strcmp(q_method, "mult") != 0)
+    {
+        if (use_project_lp)
+            projectQ(X, W, &buf, &norm, scale_factors);
+        else if (use_kl)
+            for (int b = 0; b < B; b++)
+                if (KL_project(X, W, buf.q_bgc, b) != 0)
+                    LPW(X, W, buf.q_bgc, b);
+        else if (use_lp)
+            for (int b = 0; b < B; b++)
+                LPW(X, W, buf.q_bgc, b);
     }
 
     clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
@@ -1279,6 +1307,7 @@ Matrix *EM_Algorithm_Symmetric(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Ma
         exact_reverse = create_parametric_exact_context(W, X, &X_exact_reverse);
     }
 
+    bool use_kl = (adjust_prob_cond_method != NULL && strcmp(adjust_prob_cond_method, "kl") == 0);
     bool use_project_lp = (adjust_prob_cond_method != NULL && strcmp(adjust_prob_cond_method, "project_lp") == 0);
     bool use_lp = (adjust_prob_cond_method != NULL && strcmp(adjust_prob_cond_method, "lp") == 0);
 
@@ -1298,7 +1327,7 @@ Matrix *EM_Algorithm_Symmetric(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Ma
         E_step(X, W, V, &forward, q_method, q_params, exact_forward, NULL);
         E_step(W, X, V, &reverse, q_method, q_params, exact_reverse, NULL);
 
-        if (adjust_prob_cond_every && use_project_lp)
+        if (adjust_prob_cond_every && (use_kl || use_project_lp))
             apply_joint_kl_or_lp(X, W, &forward, &reverse);
         else if (adjust_prob_cond_every && use_lp)
             apply_joint_or_separate_lp(X, W, &forward, &reverse);
@@ -1337,7 +1366,7 @@ Matrix *EM_Algorithm_Symmetric(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Ma
 
     E_step(X, W, V, &forward, q_method, q_params, exact_forward, NULL);
     E_step(W, X, V, &reverse, q_method, q_params, exact_reverse, NULL);
-    if (use_project_lp)
+    if (use_kl || use_project_lp)
         apply_joint_kl_or_lp(X, W, &forward, &reverse);
     average_expected_outcomes_update_q(X, W, &forward, &reverse);
     if (use_lp)
@@ -1347,6 +1376,17 @@ Matrix *EM_Algorithm_Symmetric(Matrix *X, Matrix *W, Matrix *V, Matrix *beta, Ma
     M_step(W, X, V, &reverse, tol, maxnewton, verbose);
     new_ll_forward = compute_ll_parametric(q_method, X, W, V, &forward, exact_forward, q_params);
     new_ll_reverse = compute_ll_parametric(q_method, W, X, V, &reverse, exact_reverse, q_params);
+
+    // Non-multinomial likelihood evaluation runs an E-step and overwrites q.
+    // Restore the requested joint adjustment before returning q.
+    if (q_method != NULL && strcmp(q_method, "mult") != 0)
+    {
+        if (use_kl || use_project_lp)
+            apply_joint_kl_or_lp(X, W, &forward, &reverse);
+        average_expected_outcomes_update_q(X, W, &forward, &reverse);
+        if (use_lp)
+            apply_joint_or_separate_lp(X, W, &forward, &reverse);
+    }
 
     clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
 

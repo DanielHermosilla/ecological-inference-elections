@@ -231,7 +231,8 @@ static bool shouldRunFinalMStep(QMethodInput inputParams)
 {
     if (inputParams.prob_cond == NULL)
         return false;
-    return strcmp(inputParams.prob_cond, "project_lp") == 0 || strcmp(inputParams.prob_cond, "lp") == 0;
+    return strcmp(inputParams.prob_cond, "project_lp") == 0 || strcmp(inputParams.prob_cond, "lp") == 0 ||
+           strcmp(inputParams.prob_cond, "kl") == 0;
 }
 
 bool shouldRunSymmetricEMWeight(const QMethodInput *inputParams)
@@ -303,6 +304,7 @@ void runSymmetricEMWeight(EMContext *ctx_forward, const char *p_method, const ch
         const bool has_prob_cond = inputParams->prob_cond != NULL && strlen(inputParams->prob_cond) > 0;
         const bool run_prob_cond_each_iter = has_prob_cond && inputParams->prob_cond_every;
         const bool is_lp = has_prob_cond && strcmp(inputParams->prob_cond, "lp") == 0;
+        const bool is_kl = has_prob_cond && strcmp(inputParams->prob_cond, "kl") == 0;
         const bool is_project_lp = has_prob_cond && strcmp(inputParams->prob_cond, "project_lp") == 0;
 
         setGlobalsFromCtx(ctx_forward);
@@ -311,8 +313,8 @@ void runSymmetricEMWeight(EMContext *ctx_forward, const char *p_method, const ch
         setGlobalsFromCtx(ctx_reverse);
         config_reverse.computeQ(ctx_reverse, config_reverse.params, &newLL_reverse);
 
-        if (run_prob_cond_each_iter && (is_lp || is_project_lp))
-            applyJointProbabilityCondition(ctx_forward, ctx_reverse, is_project_lp);
+        if (run_prob_cond_each_iter && (is_lp || is_kl || is_project_lp))
+            applyJointProbabilityCondition(ctx_forward, ctx_reverse, is_kl || is_project_lp);
 
         averageEstimatedVotesAndUpdateQ(ctx_forward, ctx_reverse);
 
@@ -393,10 +395,11 @@ void runSymmetricEMWeight(EMContext *ctx_forward, const char *p_method, const ch
     config_reverse.computeQ(ctx_reverse, config_reverse.params, &newLL_reverse);
 
     const bool run_final_adjustment = shouldRunFinalMStep(*inputParams);
+    const bool final_kl = run_final_adjustment && strcmp(inputParams->prob_cond, "kl") == 0;
     const bool final_project_lp = run_final_adjustment && strcmp(inputParams->prob_cond, "project_lp") == 0;
     const bool final_lp = run_final_adjustment && strcmp(inputParams->prob_cond, "lp") == 0;
 
-    if (final_project_lp)
+    if (final_kl || final_project_lp)
         applyJointProbabilityCondition(ctx_forward, ctx_reverse, true);
 
     averageEstimatedVotesAndUpdateQ(ctx_forward, ctx_reverse);

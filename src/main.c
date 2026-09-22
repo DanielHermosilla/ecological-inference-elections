@@ -21,6 +21,7 @@ SOFTWARE.
 */
 
 #include "main.h"
+#include "KL.h"
 #include "main_symmetric.h"
 #include "globals.h"
 #include "utils_matrix.h"
@@ -775,6 +776,10 @@ EMContext *EMAlgoritm(Matrix *X, Matrix *W, const char *p_method, const char *q_
         {
             if (strcmp(inputParams->prob_cond, "project_lp") == 0)
                 projectQ(ctx, *inputParams);
+            else if (strcmp(inputParams->prob_cond, "kl") == 0)
+                for (int b = 0; b < TOTAL_BALLOTS; b++)
+                    if (KL_project_ctx(ctx, b) != 0)
+                        LPW_ctx(ctx, b);
             else if (strcmp(inputParams->prob_cond, "lp") == 0)
                 for (int b = 0; b < TOTAL_BALLOTS; b++)
                     LPW_ctx(ctx, b);
@@ -851,6 +856,13 @@ results:
     if (strcmp(inputParams->prob_cond, "project_lp") == 0) // Si, prob_cond == project_lp
     {
         projectQ(ctx, *inputParams);
+        getP(ctx); // M-Step
+    }
+    else if (strcmp(inputParams->prob_cond, "kl") == 0)
+    {
+        for (int b = 0; b < TOTAL_BALLOTS; b++)
+            if (KL_project_ctx(ctx, b) != 0)
+                LPW_ctx(ctx, b);
         getP(ctx); // M-Step
     }
     else if (strcmp(inputParams->prob_cond, "lp") == 0)
