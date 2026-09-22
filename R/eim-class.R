@@ -265,7 +265,7 @@ eim <- function(X = NULL, W = NULL, json_path = NULL) {
 #' @param ... Added for compability
 #'
 #' @references
-#' [Thraves, C., Ubilla, P. and Hermosilla, D.: *"Fast Ecological Inference Algorithm for the RxC Case"*](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834). Aditionally, the MVN CDF is computed by the methods introduced in [Genz, A. (2000). Numerical computation of multivariate normal probabilities. *Journal of Computational and Graphical Statistics*](https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities)
+#' [Ubilla Pavez, P., Hermosilla, D. and Thraves, C. (2026): *"An accurate, fast, and scalable ecological inference algorithm for the R×C case"*. Statistics and Computing, 36, Article 195.](https://link.springer.com/article/10.1007/s11222-026-10946-1). Aditionally, the MVN CDF is computed by the methods introduced in [Genz, A. (2000). Numerical computation of multivariate normal probabilities. *Journal of Computational and Graphical Statistics*](https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities)
 #'
 #' @note
 #' This function can be executed using one of three mutually exclusive approaches:

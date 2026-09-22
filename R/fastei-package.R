@@ -1,12 +1,12 @@
 #' fastei: Methods for "An accurate, fast, and scalable ecological inference algorithm for the R\eqn{\times}C case"
 #'
-#' Package that implements the methods of [Thraves, C.,Ubilla, P. and Hermosilla, D. (2024): *"An accurate, fast and scalable ecological inference algorithm for the R×C Case"*.](https://link.springer.com/article/10.1007/s11222-026-10946-1)
+#' Package that implements the methods of [Ubilla Pavez, P., Hermosilla, D. and Thraves, C. (2026): *"An accurate, fast, and scalable ecological inference algorithm for the R×C case"*. Statistics and Computing, 36, Article 195.](https://link.springer.com/article/10.1007/s11222-026-10946-1)
 #'
 #' Includes a method ([run_em]) to solve the R\eqn{\times}C ecological inference problem using the EM algorithm with different approximation methods for the E-step. Covariates are supported but not required. Standard errors of the estimated probabilities can be computed via bootstrapping ([bootstrap]).
 #'
 #' It also provides a function that generates synthetic election data ([simulate_election]) and a function that imports real election data ([chile_election_2021]) from the Chilean first-round presidential election of 2021.
 #'
-#' The setting in which the documentation presents the Ecological Inference problem is an election context where for a set of ballot-boxes we observe (i) the votes obtained by each candidate and (ii) the number of voters of each demographic group (for example, these can be defined by age ranges or sex). See [Thraves, C.,Ubilla, P. and Hermosilla, D. (2024): *"An accurate, fast and scalable ecological inference algorithm for the R×C Case"*.](https://link.springer.com/article/10.1007/s11222-026-10946-1)
+#' The setting in which the documentation presents the Ecological Inference problem is an election context where for a set of ballot-boxes we observe (i) the votes obtained by each candidate and (ii) the number of voters of each demographic group (for example, these can be defined by age ranges or sex). See [Ubilla Pavez, P., Hermosilla, D. and Thraves, C. (2026): *"An accurate, fast, and scalable ecological inference algorithm for the R×C case"*. Statistics and Computing, 36, Article 195.](https://link.springer.com/article/10.1007/s11222-026-10946-1)
 #'
 #' The methods to compute the conditional probabilities of the E-Step included in this package are the following:
 #' - **Markov Chain Monte Carlo** `(mcmc)`: Performs MCMC to sample vote outcomes for each ballot-box consistent with the observed data. This sample is used to estimate the conditional probability of the *E*-Step.
@@ -30,7 +30,7 @@
 #' }
 #'
 #' @references
-#' [Thraves, C., Ubilla, P and Hermosilla D. (2024): *"An accurate, fast and scalable ecological inference algorithm for the R×C Case"*.](https://link.springer.com/article/10.1007/s11222-026-10946-1)
+#' [Ubilla Pavez, P., Hermosilla, D. and Thraves, C. (2026): *"An accurate, fast, and scalable ecological inference algorithm for the R×C case"*. Statistics and Computing, 36, Article 195.](https://link.springer.com/article/10.1007/s11222-026-10946-1)
 #' @aliases NULL
 #' @concept package
 "_PACKAGE"
