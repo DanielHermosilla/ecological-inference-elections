@@ -1,4 +1,4 @@
-# *Methods for "A Fast Ecological Inference Algorithm for the RxC case".*
+# *Methods for "An accurate, fast, and scalable ecological inference algorithm for the RxC case".*
 
 <!-- badges: start -->
 
