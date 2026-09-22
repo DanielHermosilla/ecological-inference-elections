@@ -1,4 +1,4 @@
-#' fastei: Methods for "A Fast Ecological Inference Algorithm for the R\eqn{\times}C case"
+#' fastei: Methods for "An accurate, fast, and scalable ecological inference algorithm for the R\eqn{\times}C case"
 #'
 #' Package that implements the methods of [Ubilla Pavez, P., Hermosilla, D. and Thraves, C. (2026): *"An accurate, fast, and scalable ecological inference algorithm for the R×C case"*. Statistics and Computing, 36, Article 195.](https://link.springer.com/article/10.1007/s11222-026-10946-1)
 #'
