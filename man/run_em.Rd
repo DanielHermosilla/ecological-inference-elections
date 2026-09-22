@@ -240,7 +240,7 @@ run_em(
 
 }
 \references{
-\href{https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4832834}{Thraves, C., Ubilla, P. and Hermosilla, D.: \emph{"Fast Ecological Inference Algorithm for the RxC Case"}}. Aditionally, the MVN CDF is computed by the methods introduced in \href{https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities}{Genz, A. (2000). Numerical computation of multivariate normal probabilities. \emph{Journal of Computational and Graphical Statistics}}
+\href{https://link.springer.com/article/10.1007/s11222-026-10946-1}{Ubilla Pavez, P., Hermosilla, D. and Thraves, C. (2026): \emph{"An accurate, fast, and scalable ecological inference algorithm for the R×C case"}. Statistics and Computing, 36, Article 195.} Aditionally, the MVN CDF is computed by the methods introduced in \href{https://www.researchgate.net/publication/2463953_Numerical_Computation_Of_Multivariate_Normal_Probabilities}{Genz, A. (2000). Numerical computation of multivariate normal probabilities. \emph{Journal of Computational and Graphical Statistics}}
 }
 \seealso{
 The \link{eim} object implementation.
